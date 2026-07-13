@@ -1,0 +1,10 @@
+{
+  "preset": "nocturne",
+  "tokens": {
+    "background": "stars",
+    "font": "mono",
+    "density": "cozy",
+    "glow": 0.85,
+    "motion": 0.7
+  }
+}

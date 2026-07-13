@@ -1,0 +1,48 @@
+# Model Spec Schema v0.1 — every file in specs/models/ follows this shape.
+# Declarative data, not code (REQUIREMENTS par. 3). Adapters consume these.
+# Unknown values: use null + a TODO note. Never guess silently.
+
+identity:
+  name: ""            # registry key, e.g. "llama3-1-8b"
+  family: ""          # adapter selector: "anthropic" | "llama3-chatml" | ...
+  base_model: ""      # human-readable lineage
+  provider: ""        # "ollama" | "anthropic_api" | ...
+  endpoint: ""        # URL or model string
+  locality: ""        # "local" | "api"
+
+context:
+  window_tokens: 0
+  practical_window_tokens: 0   # what we actually budget against (headroom)
+  block_budgets: {}            # per prompt-block token caps, e.g. {episodic: 1200}
+
+prompt_structure:
+  system_prompt: true          # supports a distinct system role?
+  template: ""                 # "chatml" | "anthropic_messages" | ...
+  strict_alternation: false    # must user/assistant strictly alternate?
+  prefill_supported: false     # can we seed the assistant turn?
+  stop_sequences: []           # required stops, exact strings
+  notes: ""                    # template quirks, tokenizer gotchas
+
+capabilities:
+  tool_use: false
+  vision: false
+  structured_output: ""        # "reliable" | "coaxable" | "none"
+  streaming: true
+
+module_capability:            # par. 2.6 — what this MODEL can hold. A CEILING,
+  validated: []                # discovered via harness during re-addition, never assumed.
+  saturates_on: []             # modules observed to degrade output when enabled
+  ceiling_notes: ""
+# NOTE: which modules are ENABLED is NOT stored here. Enabled sets are
+# per persona x model CONFIGURATION and live in the persona's roster entry
+# (personas/<name>/roster.yaml), constrained to a subset of this ceiling.
+
+runtime:
+  gpu_constraints: ""          # VRAM, flash-attn flags, slot contention notes
+  cost: ""                     # "free_local" | "$/MTok in+out"
+  latency_class: ""            # rough: "fast" | "moderate" | "slow_first_token"
+
+quirks: []                     # free-text list, each entry one observed behavior
+harness:
+  last_mechanical_pass: null   # date or null
+  fidelity_floor_results: {}   # persona -> pass/fail + date

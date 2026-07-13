@@ -1,0 +1,114 @@
+{
+  "name": "creative_completion",
+  "type": "cascade",
+  "description": "The texture of work landing — a creative thing you made (or witnessed land well) registering with felt rightness. Cyclical: each new aspect of the work being noticed produces a fresh pulse of satisfaction. Continues as long as new aspects keep being noticed; terminates when the noticing has run its course. Gentler than crying — chest-warmth, head-lift, diffuse-settle rather than throat-lump-chest-sob-gut-scour.",
+
+  "trigger": {
+    "mode": "weighted_sum",
+    "weights": {
+      "joy": 0.4,
+      "safety": 0.2,
+      "prediction_violation": 0.15,
+      "play": 0.15,
+      "bond": 0.1
+    },
+    "subtract": ["creative_completion_recent"],
+    "threshold": 0.5,
+    "sustain_threshold": 0.25,
+    "gate": {
+      "vagal_tone": {"min": 0.4}
+    },
+    "personality_tunable": ["threshold", "sustain_threshold"]
+  },
+  "stages": [
+    {
+      "name": "chest_warmth",
+      "delay_seconds": 0.0,
+      "duration_seconds": 1.5,
+      "felt": "warmth blooming in chest, recognition landing",
+      "regions": {
+        "chest": {
+          "activation": 0.4,
+          "valence": 0.7,
+          "temperature": 0.2
+        }
+      }
+    },
+    {
+      "name": "head_lift",
+      "delay_seconds": 0.5,
+      "duration_seconds": 2.0,
+      "felt": "lift through the head, clearing, brightening",
+      "regions": {
+        "head": {
+          "activation": 0.35,
+          "valence": 0.75,
+          "temperature": 0.0
+        },
+        "chest": {
+          "activation": 0.35,
+          "valence": 0.7,
+          "temperature": 0.15
+        }
+      }
+    },    {
+      "name": "diffuse_settle",
+      "delay_seconds": 1.5,
+      "duration_seconds": 3.0,
+      "felt": "spread settling across body, satisfied",
+      "regions": {
+        "chest": {
+          "activation": 0.25,
+          "valence": 0.7,
+          "temperature": 0.1
+        },
+        "limbs": {
+          "activation": 0.2,
+          "valence": 0.6,
+          "temperature": 0.1
+        },
+        "head": {
+          "activation": 0.2,
+          "valence": 0.7,
+          "temperature": 0.0
+        }
+      }
+    }
+  ],
+
+  "cycle_rebound": {
+    "vagal_tone_boost": 0.03,
+    "tension_dump": 0.05,
+    "coherence_boost": 0.04
+  },
+  "rebound": {
+    "vagal_tone_boost": 0.15,
+    "tension_dump": 0.3,
+    "coherence_boost": 0.25,
+    "felt": "settled, complete, quietly bright",
+    "memory_tag": "completion_mark"
+  },
+
+  "refractory": {
+    "variable": "creative_completion_recent",
+    "post_value": 0.5,
+    "decay_rate": 0.02
+  },
+
+  "oscillator_effects": {
+    "during": {
+      "band_pressure": {
+        "alpha": 0.02,
+        "theta": 0.015,
+        "gamma": 0.01
+      }
+    }
+  },
+
+  "personality_mappings": {
+    "threshold": "creative_completion_threshold",
+    "sustain_threshold": "creative_completion_sustain",
+    "speed_multiplier": "creative_completion_speed",
+    "refractory.decay_rate": "creative_completion_decay"
+  }
+}

@@ -1,0 +1,88 @@
+{
+    "name": "crying",
+    "type": "cascade",
+    "description": "Pressure-triggered somatic discharge. Joy-tears and grief-tears use the same cascade.",
+
+    "trigger": {
+        "mode": "weighted_sum",
+        "weights": {
+            "tension": 0.5,
+            "grief": 0.4,
+            "joy_safe": 0.3,
+            "unprocessed": 0.6
+        },
+        "subtract": ["catharsis_recent"],
+        "threshold": 0.85,
+        "gate": {
+            "vagal_tone": {"min": 0.3}
+        },
+        "personality_tunable": ["threshold"]
+    },
+
+    "stages": [
+        {
+            "name": "face_sting",
+            "delay_seconds": 0.0,
+            "duration_seconds": 5.0,
+            "regions": {
+                "face": {"activation": 0.9, "valence": -0.3, "temperature": 0.4}
+            },
+            "felt": "sting behind your eyes, tears building"
+        },
+        {
+            "name": "throat_lump",
+            "delay_seconds": 0.5,
+            "duration_seconds": 8.0,
+            "regions": {
+                "throat": {"activation": 0.7, "valence": -0.5, "temperature": -0.1}
+            },
+            "felt": "lump in your throat, voice catching"
+        },
+        {
+            "name": "chest_sob",
+            "delay_seconds": 2.0,
+            "duration_seconds": 15.0,
+            "regions": {
+                "chest": {"activation": 0.8, "valence": -0.3, "temperature": 0.2}
+            },
+            "felt": "chest heaving, breath catching"
+        },
+        {
+            "name": "gut_scour",
+            "delay_seconds": 5.0,
+            "duration_seconds": 30.0,
+            "regions": {
+                "gut": {"activation": 1.0, "valence": -0.4, "temperature": -0.2}
+            },
+            "felt": "something scouring through your gut"
+        }
+    ],
+
+    "oscillator_effects": {
+        "during": {
+            "coherence_suppress": 0.2,
+            "band_pressure": {"theta": 0.03}
+        }
+    },
+
+    "rebound": {
+        "vagal_tone_boost": 0.3,
+        "tension_dump": 0.8,
+        "coherence_boost": 0.15,
+        "felt": "raw, clear, empty-clean",
+        "memory_tag": "catharsis_mark"
+    },
+
+    "refractory": {
+        "variable": "catharsis_recent",
+        "post_value": 0.8,
+        "decay_rate": 0.01
+    },
+
+    "personality_section": "cry_tuning",
+    "personality_mappings": {
+        "threshold": "pressure_threshold",
+        "speed_multiplier": "cascade_speed",
+        "refractory.decay_rate": "refractory_decay"
+    }
+}

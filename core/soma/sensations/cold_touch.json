@@ -1,0 +1,42 @@
+{
+    "name": "cold_touch",
+    "type": "instant",
+    "description": "Contact with a surface colder than skin-neutral. Fed by room sim OR hardware thermistor via core/afferents.py — same signal either way.",
+
+    "trigger": {
+        "mode": "weighted_sum",
+        "weights": { "touch_cold": 1.0 },
+        "threshold": 0.25,
+        "gate": { "touch_cold": {"min": 0.15} },
+        "cooldown_seconds": 20
+    },
+
+    "stages": [
+        {
+            "name": "sting",
+            "delay_seconds": 0.0,
+            "duration_seconds": 15.0,
+            "regions": {
+                "hands": {"activation": 0.7, "valence": -0.05, "temperature": -0.7},
+                "skin": {"activation": 0.25, "valence": 0.0, "temperature": -0.2}
+            },
+            "felt": "sharp cool against your palm"
+        },
+        {
+            "name": "lingering",
+            "delay_seconds": 12.0,
+            "duration_seconds": 260.0,
+            "regions": {
+                "hands": {"activation": 0.35, "valence": 0.0, "temperature": -0.45}
+            },
+            "felt": "a coolness that stays in your hand"
+        }
+    ],
+
+    "oscillator_effects": {
+        "during": { "band_pressure": {"gamma": 0.01} }
+    },
+
+    "personality_section": null,
+    "personality_mappings": {}
+}

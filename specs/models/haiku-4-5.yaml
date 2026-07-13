@@ -1,0 +1,43 @@
+# haiku-4-5 — judge tier. Used by the fidelity harness (par 5.2) as the
+# LLM judge; also v1's background-cognition tier. Not a persona substrate.
+identity:
+  name: "haiku-4-5"
+  family: "anthropic"
+  base_model: "Claude Haiku 4.5"
+  provider: "anthropic_api"
+  endpoint: "claude-haiku-4-5-20251001"
+  locality: "api"
+
+context:
+  window_tokens: 200000
+  practical_window_tokens: 50000
+  block_budgets: {}
+
+prompt_structure:
+  system_prompt: true
+  template: "anthropic_messages"
+  strict_alternation: true
+  prefill_supported: true
+  stop_sequences: []
+  notes: "Judge duty: keep prompts small, demand JSON, low temperature."
+
+capabilities:
+  tool_use: true
+  vision: true
+  structured_output: "reliable"
+  streaming: true
+
+module_capability:
+  validated: []
+  saturates_on: []
+  ceiling_notes: "judge/background tier; not intended to carry a persona"
+
+runtime:
+  gpu_constraints: "none (API)"
+  cost: "API $/MTok (cheapest tier — the judge runs often)"
+  latency_class: "fast"
+
+quirks: []
+harness:
+  last_mechanical_pass: null
+  fidelity_floor_results: {}

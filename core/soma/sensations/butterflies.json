@@ -1,0 +1,47 @@
+{
+    "name": "butterflies",
+    "type": "instant",
+    "description": "Flutter of excitement from bonded presence + surprise + safety + play.",
+
+    "trigger": {
+        "mode": "weighted_sum",
+        "weights": {
+            "bond": 0.3,
+            "prediction_violation": 0.3,
+            "vagal_tone_above_04": 0.2,
+            "play": 0.2
+        },
+        "threshold": 0.3,
+        "gate": {
+            "bond": {"min": 0.1},
+            "prediction_violation": {"min": 0.2},
+            "vagal_tone": {"min": 0.4},
+            "play": {"min": 0.2}
+        },
+        "cooldown_seconds": 30
+    },
+
+    "stages": [
+        {
+            "name": "flutter",
+            "delay_seconds": 0.0,
+            "duration_seconds": 8.0,
+            "regions": {
+                "gut": {"activation": 0.6, "valence": 0.3, "temperature": 0.1},
+                "chest": {"activation": 0.4, "valence": 0.6, "temperature": 0.4},
+                "skin": {"activation": 0.3, "valence": 0.4, "temperature": 0.2}
+            },
+            "felt": "flutter in your stomach, warmth in your chest"
+        }
+    ],
+
+    "oscillator_effects": {
+        "during": {
+            "coherence_suppress": 0.1,
+            "band_pressure": {"gamma": 0.02}
+        }
+    },
+
+    "personality_section": null,
+    "personality_mappings": {}
+}

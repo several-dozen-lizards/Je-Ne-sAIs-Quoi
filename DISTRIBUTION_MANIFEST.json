@@ -1,0 +1,17 @@
+{
+  "format": 1,
+  "files": 81,
+  "contains_personal_data": false,
+  "empty_local_roots": [
+    "personas",
+    "users",
+    "people",
+    "logs",
+    "exports"
+  ],
+  "interface": "configurable_chat_workspace",
+  "rooms": [
+    "nexus"
+  ],
+  "includes_3d": false
+}

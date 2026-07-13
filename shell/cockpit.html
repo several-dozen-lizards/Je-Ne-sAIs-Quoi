@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>JNSQ cockpit</title>
+<style>
+  :root { --bg:#07110f; --panel:#0d1b19; --line:#21443d; --ink:#d8f2e9;
+          --dim:#779f94; --accent:#44e0b2; --accent2:#b985ff;
+          --teal:var(--accent); --gold:var(--accent2); --warn:#ff776d;
+          --good:#78e38e; --radius:14px; --space:1;
+          --font-ui:"Segoe UI",system-ui,sans-serif;
+          --theme-glow:.62; --theme-motion:.7;
+          --state-energy:.25; --state-calm:.5; --state-warmth:.2;
+          --state-tension:.1; --state-glow:.28; --state-hue-shift:0deg;
+          --drift-duration:34s; --pulse-duration:8s;
+          --wash-opacity:.06; --orb-opacity:.20; --flow-opacity:.12;
+          --pulse-opacity:.15; --pattern-opacity:.09;
+          --aurora-opacity:.28; --speaker-glow-size:16px; }
+  * { box-sizing:border-box; }
+  html,body { height:100%; }
+  body { margin:0; background:var(--bg); color:var(--ink); overflow:hidden;
+         font:calc(14px * var(--space))/1.45 var(--font-ui);
+         transition:background .8s,color .5s; }
+  #atmosphere { position:fixed; inset:0; z-index:0; pointer-events:none;
+                overflow:hidden; opacity:.92;
+                filter:hue-rotate(var(--state-hue-shift));
+                transition:filter 1.2s,opacity 1.2s; }
+  #atmosphere svg { width:100%; height:100%; display:block; }
+  #atmosphere .wash { fill:var(--accent); opacity:var(--wash-opacity); }
+  #atmosphere .orb { transform-box:fill-box; transform-origin:center;
+      animation:ambient-drift var(--drift-duration) ease-in-out infinite alternate;
+      opacity:var(--orb-opacity); }
+  #atmosphere .orb.two { animation-delay:-11s; animation-direction:alternate-reverse; }
+  #atmosphere .flow { fill:none; stroke:var(--accent2); stroke-width:1.4;
+      stroke-dasharray:8 15; opacity:var(--flow-opacity);
+      animation:flow var(--drift-duration) linear infinite; }
+  #atmosphere .pulse { fill:none; stroke:var(--accent); stroke-width:1;
+      transform-box:fill-box; transform-origin:center;
+      opacity:var(--pulse-opacity);
+      animation:pulse var(--pulse-duration) ease-out infinite; }
+  #atmosphere .pattern { opacity:0; transition:opacity .8s; }
+  body[data-background="grid"] .pattern.grid,
+  body[data-background="scales"] .pattern.scales,
+  body[data-background="stars"] .pattern.stars,
+  body[data-background="paper"] .pattern.paper { opacity:var(--pattern-opacity); }
+  body[data-background="aurora"] .orb { opacity:var(--aurora-opacity); }
+  @keyframes ambient-drift { from{transform:translate(-3%,-2%) scale(.92)}
+                            to{transform:translate(4%,3%) scale(1.12)} }
+  @keyframes flow { to{stroke-dashoffset:-230} }
+  @keyframes pulse { 0%{transform:scale(.55);opacity:.28}
+                     100%{transform:scale(1.28);opacity:0} }
+  @media (prefers-reduced-motion:reduce) {
+    #atmosphere * { animation:none !important; }
+    * { scroll-behavior:auto !important; transition-duration:.01ms !important; }
+  }
+  body[data-reduced-motion="true"] #atmosphere * { animation:none !important; }
+  body[data-high-contrast="true"] { --line:var(--ink); --theme-glow:0; }
+  body[data-high-contrast="true"] .panel,
+  body[data-high-contrast="true"] .bubble { box-shadow:none !important; }
+  header { display:flex; gap:16px; align-items:baseline; padding:10px 16px;
+           border-bottom:1px solid var(--line); background:color-mix(in srgb,var(--panel) 92%,transparent);
+           position:relative;z-index:2;backdrop-filter:blur(16px); }
+  header h1 { font-size:16px; margin:0; color:var(--teal); }
+  header .meta { color:var(--dim); font-size:12px; }
+  main { display:grid; grid-template-columns: 1fr 380px; gap:12px;
+         padding:calc(12px * var(--space)); height:calc(100vh - 46px);
+         position:relative;z-index:1; }
+  .col { display:flex; flex-direction:column; gap:12px; min-height:0; }
+  .panel { background:color-mix(in srgb,var(--panel) 91%,transparent);
+           border:1px solid var(--line); border-radius:var(--radius);
+           padding:calc(10px * var(--space)) calc(12px * var(--space));
+           box-shadow:0 10px 35px color-mix(in srgb,var(--accent) 8%,transparent);
+           backdrop-filter:blur(14px); transition:background .7s,border .7s,box-shadow 1s; }
+  .panel h2 { margin:0 0 8px; font-size:11px; letter-spacing:.12em;
+              text-transform:uppercase; color:var(--dim); }
+  #chat { flex:1; overflow-y:auto; display:flex; flex-direction:column;
+          gap:8px; }
+  .msg { --speaker-color:var(--accent); max-width:86%; display:flex;
+         align-items:flex-start; gap:8px; white-space:pre-wrap; }
+  .msg.user { align-self:flex-end; flex-direction:row-reverse; }
+  .msg.persona { align-self:flex-start; }
+  .msg .avatar { flex:0 0 28px; height:28px; border-radius:50%; display:grid;
+      place-items:center; color:var(--ink); font-size:12px; font-weight:700;
+      background:color-mix(in srgb,var(--speaker-color) 28%,var(--panel));
+      border:1px solid color-mix(in srgb,var(--speaker-color) 75%,var(--line));
+      box-shadow:0 0 var(--speaker-glow-size)
+                 color-mix(in srgb,var(--speaker-color) 38%,transparent); }
+  .msg .bubble { min-width:70px; padding:8px 11px; border-radius:var(--radius);
+      background:color-mix(in srgb,var(--speaker-color) 13%,var(--panel));
+      border:1px solid color-mix(in srgb,var(--speaker-color) 38%,var(--line));
+      box-shadow:0 5px 20px color-mix(in srgb,var(--speaker-color) 10%,transparent); }
+  .msg.user .bubble { border-top-right-radius:3px; }
+  .msg.persona .bubble { border-top-left-radius:3px; }
+  .speaker-name { display:block;color:var(--speaker-color);font-size:10px;
+                  letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px; }
+  .msg.sys { align-self:center; color:var(--dim); font-size:12px;
+             background:none; display:block; max-width:92%; text-align:center; }
+  #composer { display:flex; gap:8px; }
+  #composer input { flex:1; background:#0c1116; color:var(--ink);
+        border:1px solid var(--line); border-radius:6px; padding:9px 11px; }
+  button { background:var(--teal); color:#08211e; border:0; font-weight:600;
+           border-radius:6px; padding:9px 14px; cursor:pointer; }
+  button:disabled { background:#2a3a44; color:var(--dim); cursor:wait; }
+  .bar { display:flex; align-items:center; gap:8px; margin:3px 0; }
+  .bar .label { width:110px; color:var(--dim); font-size:12px;
+                overflow:hidden; text-overflow:ellipsis; }
+  .bar .track { flex:1; height:9px; background:#0c1116; border-radius:5px;
+                overflow:hidden; }
+  .bar .fill { height:100%; background:var(--teal); border-radius:5px;
+               transition:width .4s; }
+  .bar .val { width:38px; text-align:right; font-size:11px;
+              color:var(--dim); }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+  .chip { background:#3a2f17; color:var(--gold); border-radius:10px;
+          padding:2px 9px; font-size:12px; }
+  .felt { color:var(--gold); font-style:italic; font-size:12px;
+          margin-top:6px; }
+  #receipts { max-height:200px; overflow-y:auto; font-size:12px; }
+  .rcpt { border-top:1px dashed var(--line); padding:6px 0; }
+  .rcpt .hd { color:var(--teal); }
+  .rcpt .mem { color:var(--dim); }
+  .quiet { color:var(--dim); font-style:italic; }
+  #moodrow { display:flex; gap:6px; margin-top:6px; }
+  #moodrow input { flex:1; background:#0c1116; color:var(--ink);
+        border:1px solid var(--line); border-radius:6px; padding:5px 8px;
+        font-size:12px; }
+  #moodrow button { padding:5px 10px; font-size:12px; }
+  .organ { display:flex; align-items:center; gap:7px; padding:3px 0;
+           font-size:13px; cursor:pointer; }
+  .organ input { accent-color:var(--teal); cursor:pointer; }
+  .organ .tag { font-size:10px; border-radius:8px; padding:1px 7px;
+                background:#3a2f17; color:var(--gold); }
+  .organ .tag.loop { background:#16303a; color:var(--teal); }
+  .organ .tag.wall { background:#401d25; color:#ff8d9b; }
+  #organnote { font-size:11px; margin-top:6px; }
+  .appearance-grid { display:grid;grid-template-columns:1fr 1fr;gap:7px 9px; }
+  .appearance-grid label { color:var(--dim);font-size:11px;display:flex;
+                           flex-direction:column;gap:3px; }
+  .appearance-grid select,.appearance-grid input[type="range"],
+  .appearance-grid input[type="text"] {
+      width:100%;background:var(--bg);color:var(--ink);border:1px solid var(--line);
+      border-radius:6px;padding:4px; }
+  .appearance-grid input[type="color"] { width:100%;height:28px;padding:1px;
+      background:var(--bg);border:1px solid var(--line);border-radius:6px; }
+  .appearance-checks { display:flex;flex-wrap:wrap;gap:8px 12px;margin-top:8px; }
+  .appearance-checks label { color:var(--dim);font-size:11px; }
+  .appearance-actions { display:flex;gap:6px;margin-top:8px; }
+  .appearance-actions button { padding:5px 9px;font-size:11px; }
+  #themenote,#reactivenote { font-size:10px;color:var(--dim);margin-top:6px; }
+</style>
+</head>
+<body>
+<div id="atmosphere" aria-hidden="true">
+  <svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <radialGradient id="orbA"><stop offset="0" stop-color="var(--accent)" stop-opacity=".7"/><stop offset="1" stop-color="var(--accent)" stop-opacity="0"/></radialGradient>
+      <radialGradient id="orbB"><stop offset="0" stop-color="var(--accent2)" stop-opacity=".6"/><stop offset="1" stop-color="var(--accent2)" stop-opacity="0"/></radialGradient>
+      <pattern id="gridPattern" width="42" height="42" patternUnits="userSpaceOnUse"><path d="M42 0H0V42" fill="none" stroke="var(--accent)" stroke-width=".7"/></pattern>
+      <pattern id="scalePattern" width="54" height="30" patternUnits="userSpaceOnUse"><path d="M0 0 Q13.5 28 27 0 Q40.5 28 54 0" fill="none" stroke="var(--accent)" stroke-width="1"/></pattern>
+      <pattern id="starPattern" width="110" height="90" patternUnits="userSpaceOnUse"><circle cx="13" cy="17" r="1.1" fill="var(--ink)"/><circle cx="76" cy="52" r=".8" fill="var(--accent2)"/><circle cx="101" cy="11" r=".6" fill="var(--accent)"/></pattern>
+      <pattern id="paperPattern" width="80" height="80" patternUnits="userSpaceOnUse"><path d="M0 12H80M0 46H80M17 0V80M63 0V80" stroke="var(--accent2)" stroke-width=".35" opacity=".55"/></pattern>
+    </defs>
+    <rect class="wash" width="1200" height="800"/>
+    <rect class="pattern grid" width="1200" height="800" fill="url(#gridPattern)"/>
+    <rect class="pattern scales" width="1200" height="800" fill="url(#scalePattern)"/>
+    <rect class="pattern stars" width="1200" height="800" fill="url(#starPattern)"/>
+    <rect class="pattern paper" width="1200" height="800" fill="url(#paperPattern)"/>
+    <ellipse class="orb one" cx="210" cy="160" rx="360" ry="280" fill="url(#orbA)"/>
+    <ellipse class="orb two" cx="1010" cy="650" rx="430" ry="320" fill="url(#orbB)"/>
+    <path class="flow" d="M-80 610 C170 390 300 760 560 510 S940 330 1290 530"/>
+    <ellipse class="pulse" cx="600" cy="410" rx="290" ry="190"/>
+  </svg>
+</div>
+<header>
+  <h1>JNSQ cockpit</h1>
+  <span class="meta" id="who">connecting…</span>
+  <span class="meta" id="timing"></span>
+</header>
+<main>
+  <div class="col">
+    <div class="panel" style="flex:1; display:flex; flex-direction:column; min-height:0;">
+      <h2>conversation</h2>
+      <div id="chat"></div>
+      <div id="composer">
+        <input id="say" placeholder="say something…" autocomplete="off">
+        <button id="send">Send</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>receipts</h2>
+      <div id="receipts"><div class="quiet">no turns yet</div></div>
+    </div>
+  </div>
+  <div class="col" style="overflow-y:auto;">
+    <div class="panel">
+      <h2>emotional state</h2>
+      <div id="cocktail"><div class="quiet">quiet</div></div>
+      <div id="moodrow">
+        <input id="mood" placeholder="/mood joy=0.8 play=0.5">
+        <button id="setmood">Set</button>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>rhythm</h2>
+      <div id="bands"></div>
+      <div id="rhythmtext" class="quiet"></div>
+    </div>
+    <div class="panel">
+      <h2>body</h2>
+      <div id="regions"><div class="quiet">settled</div></div>
+      <div id="sensations" class="chips"></div>
+      <div id="bodytext" class="felt"></div>
+    </div>
+    <div class="panel">
+      <h2>last turn signals</h2>
+      <div id="signals"><div class="quiet">—</div></div>
+    </div>
+    <div class="panel">
+      <h2>organs</h2>
+      <div id="organs"><div class="quiet">loading…</div></div>
+      <div id="organnote" class="quiet"></div>
+    </div>
+    <div class="panel" id="appearance">
+      <h2>appearance</h2>
+      <div class="appearance-grid">
+        <label>preset<select id="themePreset"></select></label>
+        <label>background<select id="themeBackground">
+          <option value="scales">scales</option><option value="aurora">aurora</option>
+          <option value="stars">stars</option><option value="grid">grid</option>
+          <option value="paper">paper</option><option value="none">none</option>
+        </select></label>
+        <label>font<select id="themeFont"><option value="system">system</option>
+          <option value="mono">monospace</option><option value="serif">serif</option>
+        </select></label>
+        <label>density<select id="themeDensity"><option value="compact">compact</option>
+          <option value="cozy">cozy</option><option value="roomy">roomy</option>
+        </select></label>
+        <label>background<input type="color" id="themeBg"></label>
+        <label>panels<input type="color" id="themePanel"></label>
+        <label>text<input type="color" id="themeInk"></label>
+        <label>accent<input type="color" id="themeAccent"></label>
+        <label>second accent<input type="color" id="themeAccent2"></label>
+        <label>local user<input type="color" id="themeUser"></label>
+        <label><span id="personaColorLabel">persona</span><input type="color" id="themePersona"></label>
+        <label>local user icon<input type="text" maxlength="16" id="themeUserIcon"></label>
+        <label><span id="personaIconLabel">persona icon</span><input type="text" maxlength="16" id="themePersonaIcon"></label>
+        <label>roundness<input type="range" min="0" max="28" step="1" id="themeRadius"></label>
+        <label>glow<input type="range" min="0" max="1" step=".05" id="themeGlow"></label>
+        <label>motion<input type="range" min="0" max="1" step=".05" id="themeMotion"></label>
+      </div>
+      <div class="appearance-checks">
+        <label><input type="checkbox" id="themeReactive"> state-reactive</label>
+        <label><input type="checkbox" id="themeReduce"> reduce motion</label>
+        <label><input type="checkbox" id="themeContrast"> high contrast</label>
+      </div>
+      <div class="appearance-actions">
+        <select id="themeScope" title="where this visual preference lives">
+          <option value="persona">save for persona</option>
+          <option value="model">save for this model</option>
+          <option value="household">save for household</option>
+        </select>
+        <button id="themeSave">Save</button><button id="themeReset">Reset scope</button>
+      </div>
+      <div id="reactivenote"></div><div id="themenote"></div>
+    </div>
+  </div>
+</main>
+<script>
+const CONFIG = /*CONFIG*/;
+const PRIMARY_USER = CONFIG.primary_user || "User";
+const $ = id => document.getElementById(id);
+const BANDS = ["delta","theta","alpha","beta","gamma"];
+let currentPersona = "persona", currentModel = "", themeDoc = null;
+let currentTheme = null, currentPreview = null, lastState = null;
+let presetDirty = false;
+const themeDirty = new Set();
+const clone = value => JSON.parse(JSON.stringify(value));
+const clamp = value => Math.max(0, Math.min(1, Number(value)||0));
+
+function mergeTokens(base, overlay) {
+  return {...(base||{}), ...(overlay||{}),
+    speaker_colors:{...((base||{}).speaker_colors||{}),
+                    ...((overlay||{}).speaker_colors||{})},
+    speaker_icons:{...((base||{}).speaker_icons||{}),
+                   ...((overlay||{}).speaker_icons||{})}};
+}
+
+function namedValue(obj, name) {
+  const key = Object.keys(obj||{}).find(k => k.toLowerCase() === String(name).toLowerCase());
+  return key ? obj[key] : null;
+}
+
+function personaLabel() {
+  return currentPersona.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase());
+}
+
+function fallbackColor(name) {
+  let hash = 0;
+  for (const ch of String(name)) hash = ((hash<<5)-hash+ch.charCodeAt(0))|0;
+  return `hsl(${Math.abs(hash)%360} 62% 62%)`;
+}
+
+function speakerMeta(name, cls) {
+  const who = name || (cls === "persona" ? personaLabel() : cls === "user" ? PRIMARY_USER : "system");
+  const colors = (currentPreview||currentTheme||{}).speaker_colors || {};
+  const icons = (currentPreview||currentTheme||{}).speaker_icons || {};
+  const color = namedValue(colors, who) || fallbackColor(who);
+  const icon = namedValue(icons, who) || who.trim().slice(0,1).toUpperCase() || "·";
+  return {who,color,icon};
+}
+
+function restyleMessages() {
+  document.querySelectorAll(".msg[data-speaker]").forEach(msg => {
+    const meta = speakerMeta(msg.dataset.speaker, msg.classList.contains("persona")?"persona":"user");
+    msg.style.setProperty("--speaker-color", meta.color);
+    const avatar = msg.querySelector(".avatar");
+    if (avatar) avatar.textContent = meta.icon;
+  });
+}
+
+function applyAccessibility() {
+  const reduce = localStorage.getItem("jnsq.reduceMotion") === "true";
+  const contrast = localStorage.getItem("jnsq.highContrast") === "true";
+  document.body.dataset.reducedMotion = String(reduce);
+  document.body.dataset.highContrast = String(contrast);
+  $("themeReduce").checked = reduce; $("themeContrast").checked = contrast;
+}
+
+function applyTheme(tokens) {
+  if (!tokens) return;
+  currentPreview = mergeTokens(tokens, {});
+  const root = document.documentElement;
+  for (const key of ["bg","panel","line","ink","dim","accent","accent2","warn","good"])
+    root.style.setProperty(`--${key}`, tokens[key]);
+  root.style.setProperty("--teal", tokens.accent);
+  root.style.setProperty("--gold", tokens.accent2);
+  root.style.setProperty("--radius", `${tokens.radius}px`);
+  root.style.setProperty("--theme-glow", tokens.glow);
+  root.style.setProperty("--theme-motion", tokens.motion);
+  root.style.setProperty("--space", tokens.density === "compact" ? ".86" : tokens.density === "roomy" ? "1.12" : "1");
+  root.style.setProperty("--font-ui", tokens.font === "mono"
+    ? 'Consolas,"Cascadia Mono",monospace' : tokens.font === "serif"
+    ? 'Georgia,"Times New Roman",serif' : '"Segoe UI",system-ui,sans-serif');
+  document.body.dataset.background = tokens.background;
+  restyleMessages(); applyAccessibility();
+  if (lastState) applyReactiveState(lastState);
+}
+
+function applyReactiveState(st) {
+  lastState = st;
+  const c = st.cocktail || {}, b = st.bands || {};
+  const values = Object.values(c).map(Number).filter(Number.isFinite);
+  const intensity = values.length
+    ? Math.sqrt(values.reduce((sum,v)=>sum+v*v,0)/values.length) : 0;
+  const warmth = clamp((c.warmth||0)*.45 + (c.tenderness||0)*.35 + (c.joy||0)*.20);
+  const tension = clamp((c.unease||0)*.55 + (c.vulnerability||0)*.30 + (c.fear||0)*.25);
+  const curiosity = clamp(c.curiosity||0);
+  const coherence = clamp(st.coherence == null ? .5 : st.coherence);
+  const energy = clamp((b.beta||0)*.50 + (b.gamma||0)*.75 + curiosity*.35 + (c.clarity||0)*.25);
+  const calm = clamp((b.alpha||0)*.60 + (b.theta||0)*.38 + coherence*.32);
+  const reactive = !currentPreview || currentPreview.reactive !== false;
+  const motionBase = currentPreview ? currentPreview.motion : .5;
+  const glowBase = currentPreview ? currentPreview.glow : .4;
+  const motion = reactive ? clamp(motionBase*(.25 + energy*.85 + (1-coherence)*.18)) : 0;
+  const glow = reactive ? clamp(glowBase*(.28 + intensity*.72) + (b.gamma||0)*.22) : glowBase*.18;
+  const hue = reactive ? Math.round(32*curiosity + 22*warmth - 30*tension + 18*(b.gamma||0)) : 0;
+  const root = document.documentElement;
+  root.style.setProperty("--state-energy", energy.toFixed(3));
+  root.style.setProperty("--state-calm", calm.toFixed(3));
+  root.style.setProperty("--state-warmth", warmth.toFixed(3));
+  root.style.setProperty("--state-tension", tension.toFixed(3));
+  root.style.setProperty("--state-glow", glow.toFixed(3));
+  root.style.setProperty("--state-hue-shift", `${hue}deg`);
+  root.style.setProperty("--drift-duration", `${(58-42*motion).toFixed(1)}s`);
+  root.style.setProperty("--pulse-duration", `${(12-7*energy).toFixed(1)}s`);
+  root.style.setProperty("--wash-opacity", (.025+glow*.10).toFixed(3));
+  root.style.setProperty("--orb-opacity", (.07+glow*.36).toFixed(3));
+  root.style.setProperty("--flow-opacity", (.035+energy*.28).toFixed(3));
+  root.style.setProperty("--pulse-opacity", (.04+calm*.24).toFixed(3));
+  root.style.setProperty("--pattern-opacity", (.045+glow*.14).toFixed(3));
+  root.style.setProperty("--aurora-opacity", (.13+glow*.44).toFixed(3));
+  root.style.setProperty("--speaker-glow-size", `${(10+glow*22).toFixed(1)}px`);
+  if ($("reactivenote")) $("reactivenote").textContent = reactive
+    ? `state vector · energy ≈${Math.round(energy*100)}% · calm ≈${Math.round(calm*100)}% · glow ≈${Math.round(glow*100)}% · hue ${hue>=0?"+":""}${hue}°`
+    : "state reactivity off · preset remains still";
+}
+
+const CONTROL_TOKEN = {
+  themeBackground:"background", themeFont:"font", themeDensity:"density",
+  themeBg:"bg", themePanel:"panel", themeInk:"ink", themeAccent:"accent",
+  themeAccent2:"accent2", themeRadius:"radius", themeGlow:"glow",
+  themeMotion:"motion", themeReactive:"reactive"
+};
+
+function fillAppearance(tokens) {
+  $("themeBackground").value=tokens.background; $("themeFont").value=tokens.font;
+  $("themeDensity").value=tokens.density; $("themeBg").value=tokens.bg;
+  $("themePanel").value=tokens.panel; $("themeInk").value=tokens.ink;
+  $("themeAccent").value=tokens.accent; $("themeAccent2").value=tokens.accent2;
+  $("themeRadius").value=tokens.radius; $("themeGlow").value=tokens.glow;
+  $("themeMotion").value=tokens.motion; $("themeReactive").checked=tokens.reactive!==false;
+  $("themeUser").value=namedValue(tokens.speaker_colors||{},PRIMARY_USER)||"#5ba7d9";
+  $("themePersona").value=namedValue(tokens.speaker_colors||{},personaLabel())
+    || namedValue(tokens.speaker_colors||{},currentPersona) || tokens.accent2;
+  $("themeUserIcon").value=namedValue(tokens.speaker_icons||{},PRIMARY_USER)||PRIMARY_USER.slice(0,1);
+  $("themePersonaIcon").value=namedValue(tokens.speaker_icons||{},personaLabel())
+    || namedValue(tokens.speaker_icons||{},currentPersona) || personaLabel().slice(0,1);
+  $("personaColorLabel").textContent=personaLabel();
+  $("personaIconLabel").textContent=personaLabel()+" icon";
+}
+
+function readControl(id) {
+  const el=$(id), key=CONTROL_TOKEN[id];
+  if (key === "reactive") return el.checked;
+  if (["radius","glow","motion"].includes(key)) return Number(el.value);
+  return el.value;
+}
+
+function previewControl(id) {
+  if (!currentPreview) return;
+  if (id === "themeUser" || id === "themePersona") {
+    currentPreview.speaker_colors = {...(currentPreview.speaker_colors||{})};
+    currentPreview.speaker_colors[id === "themeUser" ? PRIMARY_USER : personaLabel()] = $(id).value;
+    themeDirty.add("speaker_colors");
+  } else if (id === "themeUserIcon" || id === "themePersonaIcon") {
+    currentPreview.speaker_icons = {...(currentPreview.speaker_icons||{})};
+    currentPreview.speaker_icons[id === "themeUserIcon" ? PRIMARY_USER : personaLabel()] = $(id).value;
+    themeDirty.add("speaker_icons");
+  } else {
+    const key=CONTROL_TOKEN[id]; currentPreview[key]=readControl(id); themeDirty.add(key);
+  }
+  applyTheme(currentPreview);
+}
+
+async function fetchTheme(note="") {
+  const r=await (await fetch("/api/theme")).json();
+  if (r.error) { $("themenote").textContent="⚠ "+r.error; return; }
+  themeDoc=r; currentPersona=r.display_name||r.persona||currentPersona;
+  currentModel=r.model||currentModel;
+  currentTheme=clone(r.tokens); currentPreview=clone(r.tokens);
+  $("themePreset").innerHTML=Object.entries(r.presets)
+    .map(([id,label])=>`<option value="${id}">${label}</option>`).join("");
+  $("themePreset").value=r.preset; fillAppearance(currentPreview);
+  presetDirty=false; themeDirty.clear(); applyTheme(currentPreview);
+  $("themenote").textContent=note||`resolved ${r.preset} · household → ${currentPersona} → ${currentModel}`;
+}
+
+async function saveAppearance(reset=false) {
+  const scope=$("themeScope").value;
+  const tokens={};
+  for (const key of themeDirty) {
+    if (key === "speaker_colors") tokens[key]={
+      [PRIMARY_USER]:$("themeUser").value, [personaLabel()]:$("themePersona").value};
+    else if (key === "speaker_icons") tokens[key]={
+      [PRIMARY_USER]:$("themeUserIcon").value, [personaLabel()]:$("themePersonaIcon").value};
+    else tokens[key]=currentPreview[key];
+  }
+  const patch={tokens};
+  if (presetDirty) patch.preset=$("themePreset").value;
+  const res=await fetch("/api/theme",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({scope,patch,reset,replace:presetDirty})});
+  const r=await res.json();
+  if (r.error) { $("themenote").textContent="⚠ "+r.error; return; }
+  if (scope === "household" && window.parent !== window)
+    window.parent.postMessage({type:"jnsq-theme-refresh"},"*");
+  await fetchTheme(reset ? `reset ${scope} layer` : `saved ${scope} layer`);
+}
+
+function bindAppearance() {
+  for (const id of Object.keys(CONTROL_TOKEN))
+    $(id).addEventListener("input",()=>previewControl(id));
+  for (const id of ["themeUser","themePersona","themeUserIcon","themePersonaIcon"])
+    $(id).addEventListener("input",()=>previewControl(id));
+  $("themePreset").addEventListener("change",()=>{
+    const tokens=clone(themeDoc.preset_tokens[$("themePreset").value]);
+    currentPreview=tokens; presetDirty=true; themeDirty.clear();
+    fillAppearance(tokens); applyTheme(tokens);
+  });
+  $("themeReduce").addEventListener("change",()=>{
+    localStorage.setItem("jnsq.reduceMotion",$("themeReduce").checked);applyAccessibility();
+  });
+  $("themeContrast").addEventListener("change",()=>{
+    localStorage.setItem("jnsq.highContrast",$("themeContrast").checked);applyAccessibility();
+  });
+  $("themeSave").onclick=()=>saveAppearance(false);
+  $("themeReset").onclick=()=>saveAppearance(true);
+}
+
+function bars(el, entries, max=1, color=null) {
+  if (!entries.length) { el.innerHTML = '<div class="quiet">quiet</div>'; return; }
+  el.innerHTML = entries.map(([k,v,c]) => `
+    <div class="bar"><div class="label">${k}</div>
+      <div class="track"><div class="fill" style="width:${Math.min(100, v/max*100)}%;
+        ${c||color ? `background:${c||color}` : ""}"></div></div>
+      <div class="val">${v.toFixed(2)}</div></div>`).join("");
+}
+
+function renderState(st) {
+  currentPersona=st.display_name||st.persona||currentPersona;
+  currentModel=st.model||currentModel;
+  $("who").textContent =
+    `${st.persona} on ${st.model} · contract v${st.contract_version} · ${st.memory_count} memories`;
+  bars($("cocktail"),
+       Object.entries(st.cocktail||{}).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k,v]));
+  if (st.bands) {
+    bars($("bands"), BANDS.map(b=>[b, st.bands[b]||0,
+         b==="gamma"?"var(--warn)":b==="alpha"?"var(--good)":null]), 0.6);
+    $("rhythmtext").textContent = st.rhythm||"";
+  }
+  const snap = st.body_snapshot;
+  if (snap) {
+    const regs = Object.entries(snap.regions||{})
+      .sort((a,b)=>b[1].activation-a[1].activation)
+      .map(([r,v])=>[r, v.activation,
+        v.valence>0.25?"var(--good)":v.valence<-0.25?"var(--warn)":null]);
+    bars($("regions"), regs);
+    $("sensations").innerHTML = (snap.active||[])
+      .map(s=>`<span class="chip">${s}</span>`).join("");
+    $("bodytext").textContent = st.body||"";
+  }
+  applyReactiveState(st);
+  syncConversation(st.conversation_window || []);
+}
+
+let conversationSignature = null;
+
+function addMsg(cls, text, speaker="") {
+  const quiet = $("chat").querySelector(".quiet");
+  if (quiet) quiet.remove();
+  const d = document.createElement("div");
+  d.className = "msg " + cls;
+  if (cls === "sys") d.textContent = text;
+  else {
+    const meta=speakerMeta(speaker,cls); d.dataset.speaker=meta.who;
+    d.style.setProperty("--speaker-color",meta.color);
+    const avatar=document.createElement("span"); avatar.className="avatar"; avatar.textContent=meta.icon;
+    const bubble=document.createElement("div"); bubble.className="bubble";
+    const label=document.createElement("span"); label.className="speaker-name"; label.textContent=meta.who;
+    const copy=document.createElement("div"); copy.className="message-text"; copy.textContent=text;
+    bubble.append(label,copy); d.append(avatar,bubble);
+  }
+  $("chat").appendChild(d); $("chat").scrollTop = 1e9;
+  return d;
+}
+
+function syncConversation(turns) {
+  // Memory ids are the continuity boundary. Repaint only when that
+  // boundary changes so page load is idempotent and turns never duplicate.
+  const signature = JSON.stringify((turns || []).map(t => [
+    t.id, t.message, t.reply, t.felt_why
+  ]));
+  if (signature === conversationSignature) return;
+  conversationSignature = signature;
+  $("chat").innerHTML = "";
+  if (!turns.length) {
+    const quiet = document.createElement("div");
+    quiet.className = "quiet";
+    quiet.textContent = "no persisted turns yet";
+    $("chat").appendChild(quiet);
+    return;
+  }
+  turns.forEach(t => {
+    if (t.message) addMsg("user", t.message, t.speaker || PRIMARY_USER);
+    if (t.reply) addMsg("persona", t.reply, personaLabel());
+    if (t.felt_why) addMsg("sys", "felt: " + t.felt_why);
+  });
+}
+
+async function fetchState() {
+  renderState(await (await fetch("/api/state")).json());
+}
+
+async function fetchOrgans(note="") {
+  const r = await (await fetch("/api/organs")).json();
+  const en = new Set(r.enabled);
+  $("organs").innerHTML = r.registry.map(o => `
+    <label class="organ"
+      title="${o.desc}${o.deps.length ? ` — needs: ${o.deps.join(", ")}` : ""}">
+      <input type="checkbox" data-organ="${o.id}"
+        ${en.has(o.id) ? "checked" : ""} ${o.blocked ? "disabled" : ""}>
+      <span>${o.id}</span>
+      ${o.cost === "api" ? '<span class="tag">api</span>' : ""}
+      ${o.loop ? '<span class="tag loop">loop</span>' : ""}
+      ${o.blocked ? '<span class="tag wall">measured wall</span>' : ""}
+    </label>`).join("");
+  $("organnote").textContent = note || `${r.model} · organ preferences ${
+    r.persisted ? "saved per model" : "runtime only (no roster)"}`;
+  document.querySelectorAll("#organs input").forEach(cb =>
+    cb.onchange = pushOrgans);
+}
+
+async function pushOrgans() {
+  const enabled = [...document.querySelectorAll("#organs input:checked")]
+    .map(cb => cb.dataset.organ);
+  document.querySelectorAll("#organs input").forEach(cb => cb.disabled = true);
+  const res = await fetch("/api/organs", {method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({enabled})});
+  const r = await res.json();
+  const note = r.error ? "⚠ " + r.error
+    : ((r.warnings || []).join(" · ")
+       || `saved for ${r.model} · restored on next start`);
+  await fetchOrgans(note); fetchState();
+}
+</script>
+<script>
+async function sendTurn() {
+  const text = $("say").value.trim();
+  if (!text) return;
+  $("say").value = ""; $("send").disabled = true;
+  addMsg("user", text, PRIMARY_USER);
+  const wait = addMsg("sys", "thinking…");
+  const t0 = Date.now();
+  const tick = setInterval(() =>
+    wait.textContent = `thinking… ${((Date.now()-t0)/1000).toFixed(0)}s`, 1000);
+  try {
+    const res = await fetch("/api/turn", {method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({message:text})});
+    const r = await res.json();
+    clearInterval(tick); wait.remove();
+    if (r.error) { addMsg("sys", "⚠ " + r.error); return; }
+    const persisted = (r.state.conversation_window || []).some(t =>
+      t.message === text && t.reply === r.reply);
+    renderState(r.state);
+    // A bare model with memory_emotion disabled has no persisted window;
+    // its live response still belongs in this browser session.
+    if (!persisted) {
+      addMsg("persona", r.reply, personaLabel());
+      if (r.felt && r.felt.why) addMsg("sys", "felt: " + r.felt.why);
+    }
+    $("timing").textContent = `last turn ${r.timing_ms}ms · ${r.receipts.band}-bent recall`;
+    const sig = r.receipts.signals;
+    if (sig) bars($("signals"), Object.entries(sig).map(([k,v])=>[k,v]));
+    const rc = document.createElement("div");
+    rc.className = "rcpt";
+    rc.innerHTML = `<div class="hd">${r.receipts.band} · n=${r.receipts.recall_n}
+      · temp ${r.receipts.temperature} · ${r.timing_ms}ms</div>` +
+      r.receipts.recalled.map(m =>
+        `<div class="mem">↳ ${m.score.toFixed(2)} — ${m.content}</div>`).join("") +
+      (r.receipts.budget||[]).map(b=>`<div class="mem">⚖ ${b}</div>`).join("");
+    const box = $("receipts");
+    if (box.firstChild && box.firstChild.className==="quiet") box.innerHTML="";
+    box.prepend(rc);
+  } catch (e) {
+    clearInterval(tick); wait.textContent = "⚠ " + e;
+  } finally {
+    $("send").disabled = false; $("say").focus();
+  }
+}
+
+async function setMood() {
+  const cocktail = {};
+  $("mood").value.replace(/\/mood\s*/,"").split(/\s+/).forEach(t => {
+    const [k,v] = t.split("="); if (k && !isNaN(parseFloat(v)))
+      cocktail[k.trim()] = parseFloat(v);
+  });
+  await fetch("/api/mood", {method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({cocktail})});
+  $("mood").value = ""; fetchState();
+}
+
+$("send").onclick = sendTurn;
+$("say").addEventListener("keydown", e => { if (e.key==="Enter") sendTurn(); });
+$("setmood").onclick = setMood;
+fetchState();
+fetchOrgans();
+bindAppearance();
+fetchTheme();
+// Event-driven refresh: user actions repaint directly; returning to the
+// cockpit catches background changes. No arbitrary state polling loop.
+window.addEventListener("focus", () => {
+  if (!$("send").disabled) fetchState().catch(()=>{});
+});
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && !$("send").disabled)
+    fetchState().catch(()=>{});
+});
+window.addEventListener("message", event => {
+  if (event.data && event.data.type === "jnsq-theme-refresh") fetchTheme();
+});
+</script>
+</body>
+</html>

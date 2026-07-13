@@ -1,0 +1,37 @@
+{
+    "name": "warmth_of_love",
+    "type": "sustained",
+    "description": "Continuous warmth from bonded presence and co-regulation.",
+
+    "trigger": {
+        "mode": "product",
+        "factors": ["bond", "attachment", "co_regulation"],
+        "threshold": 0.05,
+        "gate": {
+            "bond": {"min": 0.1},
+            "co_regulation": {"min": 0.2}
+        }
+    },
+
+    "stages": [
+        {
+            "name": "chest_warmth",
+            "delay_seconds": 0.0,
+            "duration_seconds": -1,
+            "scale_by": "trigger_value",
+            "regions": {
+                "chest": {"activation": 0.9, "valence": 0.9, "temperature": 0.7},
+                "head": {"activation": 0.7, "valence": 0.8, "temperature": 0.5},
+                "skin": {"activation": 0.6, "valence": 0.7, "temperature": 0.4}
+            },
+            "felt_levels": [
+                {"min_intensity": 0.1, "text": "gentle warmth in your chest"},
+                {"min_intensity": 0.3, "text": "warmth spreading through your chest"},
+                {"min_intensity": 0.6, "text": "deep warmth radiating through your whole body"}
+            ]
+        }
+    ],
+
+    "personality_section": null,
+    "personality_mappings": {}
+}

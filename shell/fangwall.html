@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Je Ne sAIs Quoi</title>
+<style>
+:root{color-scheme:dark;--bg:#07110f;--panel:#0b1916;--panel2:#10231f;
+  --line:#21483f;--ink:#d9fff4;--dim:#85b9aa;--mint:#3ef0bd;
+  --gold:#f6c85f;--danger:#ff786e;--radius:14px}
+*{box-sizing:border-box}html,body{height:100%;margin:0}
+body{background:radial-gradient(circle at 15% -10%,#173b33 0,transparent 38%),
+  var(--bg);color:var(--ink);font-family:Inter,"Segoe UI",system-ui,sans-serif}
+button,input,select,textarea{font:inherit}button{cursor:pointer}
+header{height:74px;display:flex;align-items:center;gap:18px;padding:0 24px;
+  border-bottom:1px solid var(--line);background:rgba(7,17,15,.88);
+  backdrop-filter:blur(14px)}
+.brand{font-family:Consolas,"Cascadia Mono",monospace;font-size:1.28rem;
+  letter-spacing:.04em;color:var(--mint);white-space:nowrap}
+.brand strong{color:var(--gold)}.tagline{color:var(--dim);font-size:.88rem}
+#status{margin-left:auto;color:var(--dim);font-size:.82rem}
+.app{height:calc(100% - 74px);display:grid;grid-template-columns:280px 1fr;min-width:0}
+aside{border-right:1px solid var(--line);padding:18px;overflow:auto;background:#081410}
+.section-title{display:flex;align-items:center;justify-content:space-between;
+  margin:0 0 10px;font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;color:var(--dim)}
+.tiny-actions{display:flex;gap:5px}.tiny-actions button,.ghost{border:1px solid var(--line);
+  background:transparent;color:var(--dim);border-radius:7px;padding:4px 7px;font-size:.74rem}
+.tiny-actions button:hover,.ghost:hover{color:var(--ink);border-color:var(--mint)}
+#personaList{display:grid;gap:8px}.persona-row{border:1px solid var(--line);
+  border-radius:10px;background:var(--panel);padding:9px}.persona-main{display:flex;gap:9px;align-items:center}
+.persona-main input{accent-color:var(--mint)}.persona-name{min-width:0;flex:1;font-weight:650;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dot{width:8px;height:8px;border-radius:50%;
+  background:#52665f;box-shadow:0 0 0 3px #52665f22}.dot.live{background:var(--mint);
+  box-shadow:0 0 9px var(--mint)}.persona-meta{margin:5px 0 0 25px;color:var(--dim);
+  font:11px Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.persona-actions{display:flex;gap:5px;margin:8px 0 0 25px}.persona-actions button{border:1px solid var(--line);
+  background:var(--panel2);color:var(--dim);border-radius:7px;padding:4px 7px;font-size:.72rem}
+.persona-actions button:hover{color:var(--ink)}.persona-actions .stop:hover{color:var(--danger)}
+details{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}summary{cursor:pointer;
+  color:var(--mint);font-weight:650}form{display:grid;gap:9px;margin-top:12px}label{display:grid;gap:4px;
+  color:var(--dim);font-size:.76rem}input,select,textarea{width:100%;background:#06100d;color:var(--ink);
+  border:1px solid var(--line);border-radius:8px;padding:8px}textarea{resize:vertical}
+.primary{border:1px solid #28745f;background:#123a30;color:var(--mint);border-radius:8px;padding:8px 10px}
+.primary:hover{border-color:var(--mint)}.primary:disabled,button:disabled{opacity:.45;cursor:wait}
+.note{color:var(--dim);font-size:.75rem;line-height:1.45;margin-top:10px}
+main{min-width:0;overflow:auto;padding:14px}.workspace{min-height:100%;display:grid;gap:14px;
+  grid-template-columns:repeat(var(--columns,1),minmax(340px,1fr));align-items:stretch}
+.empty{height:100%;min-height:320px;display:grid;place-items:center;text-align:center;color:var(--dim);
+  border:1px dashed var(--line);border-radius:var(--radius);padding:30px}.empty b{display:block;color:var(--ink);
+  font-size:1.15rem;margin-bottom:8px}.chat-panel{min-height:520px;border:1px solid var(--line);
+  border-radius:var(--radius);overflow:hidden;background:var(--panel);display:grid;grid-template-rows:40px 1fr}
+.panel-head{display:flex;align-items:center;gap:8px;padding:0 12px;background:var(--panel2);
+  border-bottom:1px solid var(--line);font-size:.82rem}.panel-head .model{margin-left:auto;color:var(--dim);
+  font:11px Consolas,monospace}.panel-head button{border:0;background:transparent;color:var(--dim)}
+.panel-head button:hover{color:var(--danger)}iframe{width:100%;height:100%;border:0;background:#07110f}
+.offline{display:grid;place-items:center;text-align:center;color:var(--dim);padding:30px}.offline button{margin-top:12px}
+dialog{width:min(760px,calc(100% - 30px));border:1px solid var(--line);border-radius:14px;
+  background:var(--panel);color:var(--ink);padding:0;box-shadow:0 28px 90px #000b}
+dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:center;padding:15px 18px;
+  border-bottom:1px solid var(--line)}.modal-head h2{font-size:1rem;margin:0}.modal-head button{margin-left:auto}
+.modal-body{padding:18px}.modal-body textarea{min-height:300px;line-height:1.45}.modal-actions{display:flex;
+  justify-content:flex-end;gap:8px;margin-top:12px}.error{color:var(--danger);font-size:.78rem;min-height:1em}
+@media(max-width:760px){header{height:auto;min-height:70px;flex-wrap:wrap;padding:12px 16px;gap:5px 12px}
+  .tagline{width:100%}#status{position:absolute;right:14px;top:14px}.app{height:auto;min-height:calc(100% - 86px);
+  grid-template-columns:1fr}aside{border-right:0;border-bottom:1px solid var(--line);max-height:42vh}
+  main{min-height:58vh}.workspace{grid-template-columns:1fr!important}.chat-panel{min-height:620px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">Je Ne <strong>sAI</strong>s Quoi</div>
+  <div class="tagline">a local home for persistent AI personas</div>
+  <div id="status">connecting…</div>
+</header>
+<div class="app">
+  <aside>
+    <div class="section-title"><span>Visible chats</span><span class="tiny-actions">
+      <button type="button" id="showAll">all</button><button type="button" id="showNone">none</button>
+    </span></div>
+    <div id="personaList"></div>
+    <details id="createDetails">
+      <summary>Create a persona</summary>
+      <form id="createForm">
+        <label>Name<input id="newName" required placeholder="Ember Fox"></label>
+        <label>Model<select id="newModel"></select></label>
+        <label>Interior systems<select id="newOrgans">
+          <option value="local">local living set (no API key)</option>
+          <option value="bare">bare chat</option>
+          <option value="default">with API feeling judge</option>
+        </select></label>
+        <button class="primary" id="createBtn">Create, then write their voice</button>
+        <div class="error" id="createError"></div>
+      </form>
+      <p class="note">Personas live only on this computer. Creating one makes a private local history; it does not upload them anywhere.</p>
+    </details>
+  </aside>
+  <main><div id="workspace" class="workspace"></div></main>
+</div>
+
+<dialog id="voiceDialog">
+  <div class="modal-head"><h2 id="voiceTitle">Persona voice</h2>
+    <button class="ghost" type="button" id="voiceClose">close</button></div>
+  <div class="modal-body">
+    <label>Who are they?<textarea id="voiceIdentity"></textarea></label>
+    <div class="error" id="voiceError"></div>
+    <div class="modal-actions"><button class="primary" id="voiceSave">Save voice</button></div>
+  </div>
+</dialog>
+
+<script>
+const CFG = /*CONFIG*/;
+const $ = id => document.getElementById(id);
+const state = {personas:{}, models:[], selected:new Set(), voicePid:null};
+try { for (const id of JSON.parse(localStorage.getItem("jnsq.public.visible")||"[]")) state.selected.add(id); }
+catch (_) {}
+const esc = value => String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+
+async function request(url, options={}){
+  const res=await fetch(url,options); let body={};
+  try{body=await res.json()}catch(_){body={error:await res.text()}}
+  if(!res.ok||body.error)throw new Error(body.error||`${res.status} ${res.statusText}`);
+  return body;
+}
+function persist(){localStorage.setItem("jnsq.public.visible",JSON.stringify([...state.selected]));}
+function personas(){return Object.entries(state.personas).filter(([,p])=>p.kind==="model_persona");}
+
+async function refresh(){
+  try{
+    const [ps,ms]=await Promise.all([request("/api/personas"),request("/api/models")]);
+    state.personas=ps;state.models=ms.models||[];
+    if(!localStorage.getItem("jnsq.public.visible")) for(const [id,p] of personas()) if(p.alive)state.selected.add(id);
+    renderModels();renderPersonaList();syncWorkspace();
+    const live=personas().filter(([,p])=>p.alive).length;
+    $("status").textContent=`${live} awake · ${personas().length} local`;
+  }catch(e){$("status").textContent=`unreachable · ${e.message}`;}
+}
+function renderModels(){
+  const sel=$("newModel"), prior=sel.value;
+  sel.innerHTML=state.models.filter(m=>m.name&&m.name!=="haiku-4-5")
+    .map(m=>`<option value="${esc(m.name)}">${esc(m.name)} · ${esc(m.locality||m.provider)}</option>`).join("");
+  if([...sel.options].some(o=>o.value===prior))sel.value=prior;
+  else if([...sel.options].some(o=>o.value==="llama3-1-8b"))sel.value="llama3-1-8b";
+}
+function renderPersonaList(){
+  const rows=personas();
+  $("personaList").innerHTML=rows.length?rows.map(([id,p])=>`<div class="persona-row">
+    <div class="persona-main"><input type="checkbox" data-visible="${esc(id)}" ${state.selected.has(id)?"checked":""}>
+      <span class="dot ${p.alive?"live":""}"></span><span class="persona-name">${esc(p.display_name||id)}</span></div>
+    <div class="persona-meta">${esc(p.model||"no model")} · ${p.alive?"awake":"stopped"}</div>
+    <div class="persona-actions"><button data-voice="${esc(id)}">edit voice</button>
+      ${p.alive?`<button class="stop" data-stop="${esc(id)}">stop</button>`:`<button data-start="${esc(id)}">start</button>`}</div>
+  </div>`).join(""):`<p class="note">No personas yet. Make the first one below.</p>`;
+  document.querySelectorAll("[data-visible]").forEach(el=>el.onchange=()=>{
+    el.checked?state.selected.add(el.dataset.visible):state.selected.delete(el.dataset.visible);persist();syncWorkspace();});
+  document.querySelectorAll("[data-start]").forEach(el=>el.onclick=()=>startPersona(el.dataset.start,el));
+  document.querySelectorAll("[data-stop]").forEach(el=>el.onclick=()=>stopPersona(el.dataset.stop,el));
+  document.querySelectorAll("[data-voice]").forEach(el=>el.onclick=()=>openVoice(el.dataset.voice));
+}
+function syncWorkspace(){
+  const wanted=[...state.selected].filter(id=>state.personas[id]);
+  if(!wanted.length){$("workspace").innerHTML=`<div class="empty"><div><b>Choose what you want to see.</b>
+    Check one or more persona chats on the left. Each remains its own mind and its own conversation.</div></div>`;
+    $("workspace").style.setProperty("--columns",1);return;}
+  const empty=$("workspace").querySelector(".empty");if(empty)empty.remove();
+  for(const panel of [...$("workspace").querySelectorAll("[data-panel]")])if(!wanted.includes(panel.dataset.panel))panel.remove();
+  for(const id of wanted){
+    const p=state.personas[id];let panel=$("workspace").querySelector(`[data-panel="${CSS.escape(id)}"]`);
+    const signature=`${p.alive}:${p.port}:${p.model}`;
+    if(panel&&panel.dataset.signature===signature)continue;
+    if(panel)panel.remove();panel=document.createElement("section");panel.className="chat-panel";
+    panel.dataset.panel=id;panel.dataset.signature=signature;
+    panel.innerHTML=`<div class="panel-head"><span class="dot ${p.alive?"live":""}"></span>
+      <b>${esc(p.display_name||id)}</b><span class="model">${esc(p.model||"")}</span>
+      <button title="hide this chat" data-hide="${esc(id)}">×</button></div>`+
+      (p.alive&&p.port?`<iframe title="Chat with ${esc(p.display_name||id)}" src="http://127.0.0.1:${Number(p.port)}/"></iframe>`:
+      `<div class="offline"><div>${esc(p.display_name||id)} is stopped.<br><button class="primary" data-start-panel="${esc(id)}">Start persona</button></div></div>`);
+    $("workspace").appendChild(panel);
+  }
+  $("workspace").style.setProperty("--columns",wanted.length===1?1:2);
+  document.querySelectorAll("[data-hide]").forEach(el=>el.onclick=()=>{state.selected.delete(el.dataset.hide);persist();renderPersonaList();syncWorkspace();});
+  document.querySelectorAll("[data-start-panel]").forEach(el=>el.onclick=()=>startPersona(el.dataset.startPanel,el));
+}
+async function startPersona(id,button){
+  button.disabled=true;button.textContent="starting…";
+  try{await request(`/api/personas/${encodeURIComponent(id)}/start`,{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
+    state.selected.add(id);persist();await refresh();}
+  catch(e){button.disabled=false;button.textContent="start";alert(e.message);}
+}
+async function stopPersona(id,button){button.disabled=true;try{await request(`/api/personas/${encodeURIComponent(id)}/stop`,{method:"POST"});await refresh();}
+  catch(e){button.disabled=false;alert(e.message);}}
+
+$("showAll").onclick=()=>{for(const [id] of personas())state.selected.add(id);persist();renderPersonaList();syncWorkspace();};
+$("showNone").onclick=()=>{state.selected.clear();persist();renderPersonaList();syncWorkspace();};
+$("createForm").onsubmit=async e=>{
+  e.preventDefault();const btn=$("createBtn");btn.disabled=true;$("createError").textContent="";
+  try{const made=await request("/api/personas/create",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({name:$("newName").value,model:$("newModel").value,organs:$("newOrgans").value})});
+    $("newName").value="";await refresh();await openVoice(made.persona);}
+  catch(err){$("createError").textContent=err.message;}finally{btn.disabled=false;}
+};
+async function openVoice(id){
+  state.voicePid=id;$("voiceError").textContent="";$("voiceTitle").textContent=`Voice · ${state.personas[id]?.display_name||id}`;
+  try{const v=await request(`/api/personas/${encodeURIComponent(id)}/voice`);$("voiceIdentity").value=v.identity||"";$("voiceDialog").showModal();}
+  catch(e){alert(e.message);}
+}
+$("voiceClose").onclick=()=>$("voiceDialog").close();
+$("voiceSave").onclick=async()=>{const btn=$("voiceSave");btn.disabled=true;$("voiceError").textContent="";
+  try{await request(`/api/personas/${encodeURIComponent(state.voicePid)}/voice`,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({identity:$("voiceIdentity").value})});$("voiceDialog").close();}
+  catch(e){$("voiceError").textContent=e.message;}finally{btn.disabled=false;}};
+window.addEventListener("focus",()=>refresh());
+refresh();
+</script>
+</body>
+</html>

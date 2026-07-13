@@ -1,0 +1,26 @@
+# JNSQ v2 repo hygiene — clean history from commit zero
+__pycache__/
+*.pyc
+.env
+*.env
+.jnsq_local.json
+users/
+# Never commit any persona interior data
+personas/*/body/
+personas/*/memory/
+personas/*/history/
+*.bak*
+
+# ── privacy sweep 2026-07-05 (audit finding 9): the sovereignty law
+# covers ALL interior data, not just body/memory/history ──
+personas/*/who_i_am/
+personas/*/my_life/
+personas/*/perception.json
+personas/*/social.json
+personas/*/tropism.json
+people/
+exports/
+logs/
+jnsq_running.json
+room/room_world.json*
+scratch/

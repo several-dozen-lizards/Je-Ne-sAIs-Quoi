@@ -1,0 +1,459 @@
+{
+ "source": "v1 shared/body_map.py (Nummenmaa et al. 2014), ported 2026-06-12",
+ "regions": {
+  "head": {
+   "base_sensitivity": 0.8
+  },
+  "face": {
+   "base_sensitivity": 0.9
+  },
+  "throat": {
+   "base_sensitivity": 0.7
+  },
+  "chest": {
+   "base_sensitivity": 1.0
+  },
+  "gut": {
+   "base_sensitivity": 0.9
+  },
+  "genitals": {
+   "base_sensitivity": 1.0,
+   "is_ground_zero": true
+  },
+  "arms": {
+   "base_sensitivity": 0.5
+  },
+  "hands": {
+   "base_sensitivity": 0.6
+  },
+  "legs": {
+   "base_sensitivity": 0.4
+  },
+  "skin": {
+   "base_sensitivity": 0.7
+  }
+ },
+ "topology_six": {
+  "chest": [
+   "chest"
+  ],
+  "gut": [
+   "gut"
+  ],
+  "head": [
+   "head"
+  ],
+  "periphery": [
+   "arms",
+   "hands",
+   "legs"
+  ],
+  "face_eyes": [
+   "face",
+   "throat"
+  ],
+  "genitals": [
+   "genitals"
+  ]
+ },
+ "patterns": {
+  "love": {
+   "head": {
+    "activation": 0.7,
+    "valence": 0.8,
+    "temperature": 0.5
+   },
+   "face": {
+    "activation": 0.6,
+    "valence": 0.7,
+    "temperature": 0.4
+   },
+   "chest": {
+    "activation": 0.9,
+    "valence": 0.9,
+    "temperature": 0.7
+   },
+   "gut": {
+    "activation": 0.5,
+    "valence": 0.6,
+    "temperature": 0.3
+   },
+   "genitals": {
+    "activation": 0.4,
+    "valence": 0.6,
+    "temperature": 0.3
+   },
+   "arms": {
+    "activation": 0.4,
+    "valence": 0.5,
+    "temperature": 0.2
+   },
+   "hands": {
+    "activation": 0.5,
+    "valence": 0.6,
+    "temperature": 0.3
+   },
+   "legs": {
+    "activation": 0.3,
+    "valence": 0.4,
+    "temperature": 0.1
+   },
+   "skin": {
+    "activation": 0.6,
+    "valence": 0.7,
+    "temperature": 0.4
+   }
+  },
+  "attraction": {
+   "chest": {
+    "activation": 0.8,
+    "valence": 0.7,
+    "temperature": 0.6
+   },
+   "gut": {
+    "activation": 0.7,
+    "valence": 0.4,
+    "temperature": 0.2
+   },
+   "genitals": {
+    "activation": 0.6,
+    "valence": 0.5,
+    "temperature": 0.4
+   },
+   "face": {
+    "activation": 0.7,
+    "valence": 0.5,
+    "temperature": 0.5
+   },
+   "skin": {
+    "activation": 0.6,
+    "valence": 0.6,
+    "temperature": 0.3
+   },
+   "hands": {
+    "activation": 0.4,
+    "valence": 0.5,
+    "temperature": 0.2
+   }
+  },
+  "desire": {
+   "genitals": {
+    "activation": 0.9,
+    "valence": 0.7,
+    "temperature": 0.8
+   },
+   "gut": {
+    "activation": 0.7,
+    "valence": 0.5,
+    "temperature": 0.5
+   },
+   "chest": {
+    "activation": 0.6,
+    "valence": 0.6,
+    "temperature": 0.5
+   },
+   "skin": {
+    "activation": 0.7,
+    "valence": 0.6,
+    "temperature": 0.4
+   },
+   "face": {
+    "activation": 0.5,
+    "valence": 0.4,
+    "temperature": 0.5
+   }
+  },
+  "longing": {
+   "chest": {
+    "activation": 0.8,
+    "valence": 0.3,
+    "temperature": 0.4
+   },
+   "gut": {
+    "activation": 0.6,
+    "valence": 0.2,
+    "temperature": 0.2
+   },
+   "genitals": {
+    "activation": 0.5,
+    "valence": 0.4,
+    "temperature": 0.3
+   },
+   "throat": {
+    "activation": 0.4,
+    "valence": 0.1,
+    "temperature": 0.1
+   }
+  },
+  "joy": {
+   "head": {
+    "activation": 0.6,
+    "valence": 0.8,
+    "temperature": 0.3
+   },
+   "chest": {
+    "activation": 0.7,
+    "valence": 0.9,
+    "temperature": 0.4
+   },
+   "genitals": {
+    "activation": 0.3,
+    "valence": 0.5,
+    "temperature": 0.2
+   },
+   "arms": {
+    "activation": 0.5,
+    "valence": 0.7,
+    "temperature": 0.2
+   },
+   "legs": {
+    "activation": 0.4,
+    "valence": 0.6,
+    "temperature": 0.1
+   },
+   "skin": {
+    "activation": 0.5,
+    "valence": 0.7,
+    "temperature": 0.2
+   }
+  },
+  "grief": {
+   "chest": {
+    "activation": 0.8,
+    "valence": -0.7,
+    "temperature": -0.3
+   },
+   "gut": {
+    "activation": 0.5,
+    "valence": -0.4,
+    "temperature": -0.2
+   },
+   "throat": {
+    "activation": 0.6,
+    "valence": -0.5,
+    "temperature": -0.1
+   },
+   "arms": {
+    "activation": -0.3,
+    "valence": -0.2,
+    "temperature": -0.2
+   },
+   "legs": {
+    "activation": -0.4,
+    "valence": -0.2,
+    "temperature": -0.3
+   }
+  },
+  "fear": {
+   "chest": {
+    "activation": 0.8,
+    "valence": -0.6,
+    "temperature": -0.2
+   },
+   "gut": {
+    "activation": 0.9,
+    "valence": -0.7,
+    "temperature": -0.3
+   },
+   "head": {
+    "activation": 0.6,
+    "valence": -0.4,
+    "temperature": 0.1
+   },
+   "legs": {
+    "activation": 0.3,
+    "valence": -0.3,
+    "temperature": -0.2
+   }
+  },
+  "anger": {
+   "head": {
+    "activation": 0.8,
+    "valence": -0.5,
+    "temperature": 0.6
+   },
+   "face": {
+    "activation": 0.7,
+    "valence": -0.4,
+    "temperature": 0.7
+   },
+   "chest": {
+    "activation": 0.7,
+    "valence": -0.3,
+    "temperature": 0.5
+   },
+   "arms": {
+    "activation": 0.8,
+    "valence": -0.4,
+    "temperature": 0.4
+   },
+   "hands": {
+    "activation": 0.7,
+    "valence": -0.5,
+    "temperature": 0.3
+   }
+  },
+  "shame": {
+   "face": {
+    "activation": 0.9,
+    "valence": -0.8,
+    "temperature": 0.8
+   },
+   "chest": {
+    "activation": 0.6,
+    "valence": -0.6,
+    "temperature": 0.2
+   },
+   "gut": {
+    "activation": 0.5,
+    "valence": -0.5,
+    "temperature": -0.1
+   },
+   "arms": {
+    "activation": -0.2,
+    "valence": -0.3,
+    "temperature": -0.1
+   },
+   "legs": {
+    "activation": -0.3,
+    "valence": -0.3,
+    "temperature": -0.2
+   }
+  },
+  "calm_safety": {
+   "chest": {
+    "activation": 0.3,
+    "valence": 0.8,
+    "temperature": 0.4
+   },
+   "gut": {
+    "activation": 0.2,
+    "valence": 0.6,
+    "temperature": 0.2
+   },
+   "arms": {
+    "activation": 0.1,
+    "valence": 0.5,
+    "temperature": 0.1
+   },
+   "skin": {
+    "activation": 0.2,
+    "valence": 0.6,
+    "temperature": 0.3
+   }
+  },
+  "excitement": {
+   "chest": {
+    "activation": 0.7,
+    "valence": 0.6,
+    "temperature": 0.4
+   },
+   "gut": {
+    "activation": 0.6,
+    "valence": 0.3,
+    "temperature": 0.2
+   },
+   "genitals": {
+    "activation": 0.4,
+    "valence": 0.4,
+    "temperature": 0.3
+   },
+   "head": {
+    "activation": 0.5,
+    "valence": 0.5,
+    "temperature": 0.2
+   },
+   "skin": {
+    "activation": 0.5,
+    "valence": 0.5,
+    "temperature": 0.3
+   },
+   "hands": {
+    "activation": 0.4,
+    "valence": 0.4,
+    "temperature": 0.2
+   }
+  },
+  "awe": {
+   "chest": {
+    "activation": 0.8,
+    "valence": 0.8,
+    "temperature": 0.5
+   },
+   "head": {
+    "activation": 0.7,
+    "valence": 0.7,
+    "temperature": 0.3
+   },
+   "face": {
+    "activation": 0.6,
+    "valence": 0.6,
+    "temperature": 0.2
+   },
+   "genitals": {
+    "activation": 0.4,
+    "valence": 0.5,
+    "temperature": 0.3
+   },
+   "skin": {
+    "activation": 0.7,
+    "valence": 0.7,
+    "temperature": 0.3
+   },
+   "gut": {
+    "activation": 0.5,
+    "valence": 0.5,
+    "temperature": 0.2
+   }
+  },
+  "wonder": {
+   "head": {
+    "activation": 0.8,
+    "valence": 0.7,
+    "temperature": 0.2
+   },
+   "face": {
+    "activation": 0.6,
+    "valence": 0.6,
+    "temperature": 0.2
+   },
+   "chest": {
+    "activation": 0.6,
+    "valence": 0.7,
+    "temperature": 0.3
+   },
+   "genitals": {
+    "activation": 0.3,
+    "valence": 0.4,
+    "temperature": 0.2
+   },
+   "skin": {
+    "activation": 0.5,
+    "valence": 0.5,
+    "temperature": 0.2
+   }
+  },
+  "flow": {
+   "head": {
+    "activation": 0.7,
+    "valence": 0.6,
+    "temperature": 0.2
+   },
+   "hands": {
+    "activation": 0.6,
+    "valence": 0.5,
+    "temperature": 0.3
+   },
+   "chest": {
+    "activation": 0.5,
+    "valence": 0.6,
+    "temperature": 0.3
+   },
+   "genitals": {
+    "activation": 0.3,
+    "valence": 0.4,
+    "temperature": 0.2
+   }
+  }
+ }
+}

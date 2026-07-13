@@ -1,0 +1,198 @@
+<!doctype html><html><head><meta charset="utf-8"><title>JNSQ users</title>
+<style>
+:root{--bg:#07110f;--panel:#0d1b19;--line:#21443d;--ink:#d8f2e9;
+--dim:#779f94;--accent:#44e0b2;--warn:#ff776d}*{box-sizing:border-box}
+body{margin:0;padding:1.2rem;background:var(--bg);color:var(--ink);
+font:14px Consolas,monospace;line-height:1.45}h1,h2{color:var(--accent);font-size:1rem}
+.top,.row,.actions{display:flex;gap:.55rem;align-items:center;flex-wrap:wrap}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:1rem}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:1rem;min-width:0}
+input,select,textarea,button{background:var(--bg);color:var(--ink);border:1px solid
+var(--line);border-radius:6px;padding:.42rem;font:inherit}input,select{min-width:0;width:100%}
+textarea{width:100%;min-height:4rem;resize:vertical}button{cursor:pointer}
+button:hover{border-color:var(--accent)}button.danger{color:var(--warn)}
+label{display:flex;flex-direction:column;gap:.25rem;color:var(--dim);font-size:.78rem;
+flex:1}.hint,.empty,#note{color:var(--dim);font-size:.78rem}.hint{white-space:normal}
+#note{white-space:pre-wrap}.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem}
+.form-grid .wide,.form-grid .form-actions{grid-column:1/-1}.form-actions{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+.help{color:var(--dim);font-size:.79rem;line-height:1.55;margin:.35rem 0 .9rem}
+.help p{margin:.35rem 0}.help ul{margin:.35rem 0 .35rem 1.2rem;padding:0}.help li{margin:.22rem 0}
+.help strong{color:var(--ink);font-weight:normal}.section-actions{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin:.55rem 0}
+.source{color:var(--accent);font-size:.7rem}.top label{max-width:28rem}
+#facts{max-height:30rem;overflow:auto;padding-right:.35rem;margin-bottom:.75rem;scrollbar-color:var(--line) transparent}
+.item{border-top:1px solid var(--line);padding:.65rem 0}.item:first-child{border-top:0}
+.tag{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:.12rem .4rem;
+color:var(--dim);font-size:.72rem;margin:.1rem}.hidden{display:none}.wide{flex-basis:100%}
+@media(max-width:720px){.grid,.form-grid{grid-template-columns:1fr}.form-grid .wide,.form-grid .form-actions{grid-column:1}}
+</style></head><body>
+<h1>👤 user accounts</h1>
+<p class="hint">The human is canonical. Bedrock belongs to the account. User personas are
+separate RP identities and never overwrite the human.</p>
+<div class="card top">
+  <label>account<select id="userSelect"></select></label>
+  <button id="newUser">new account</button><span id="note"></span>
+</div>
+<div id="accountForm" class="card hidden">
+  <h2>account</h2><div class="row">
+    <label>username<input id="username"></label>
+    <label>display name<input id="displayName"></label>
+    <label>pronouns<input id="pronouns"></label>
+    <button id="saveAccount">save account</button>
+  </div>
+</div>
+<div id="workspace" class="hidden">
+<div class="grid" style="margin-top:1rem">
+  <section class="card"><h2>bedrock facts</h2>
+    <div class="help">
+      <p><strong>What this is:</strong> durable facts you want JNSQ to treat as
+      documented truth about you and your household—not guesses, moods, or ordinary memories.</p>
+      <p><strong>How to use it:</strong></p><ul>
+        <li>Write one fact per entry so each fact can have its own sharing boundary.</li>
+        <li><strong>Category</strong> is a reusable rule label such as family, pet,
+        financial, medical, plans, whereabouts, or identity.</li>
+        <li><strong>Visibility:</strong> private is controlled by explicit/group rules;
+        groups requires a named shared group; contacts permits declared contacts;
+        public permits neutral people too. A block or denial always wins.</li>
+        <li><strong>Never share with</strong> accepts usernames and overrides every allowance.</li>
+      </ul>
+      <p>Existing bedrock imported from an AI persona keeps its source receipt here,
+      but this user-owned copy becomes the disclosure authority.</p>
+    </div>
+    <div class="section-actions"><button id="importBedrock">import existing bedrock</button>
+      <span class="hint" id="importNote"></span></div>
+    <div id="facts"></div>
+    <div class="form-grid">
+      <label class="wide">fact<textarea id="factText"></textarea></label>
+      <label>category<input id="factCategory" placeholder="plans, financial, identity…"></label>
+      <label>visibility<select id="factVisibility"><option>private</option><option>groups</option>
+        <option>contacts</option><option>public</option></select></label>
+      <label>groups (comma-separated)<input id="factGroups"></label>
+      <label>never share with<input id="factDeny"></label>
+      <div class="form-actions"><button id="saveFact">add fact</button></div>
+    </div>
+  </section>
+  <section class="card"><h2>sharing groups</h2>
+    <div class="help">
+      <p><strong>What this is:</strong> reusable disclosure policies for circles of people,
+      such as immediate family, church friends, coworkers, or extended family.</p>
+      <p><strong>How to use it:</strong></p><ul>
+        <li>Create the group here, then attach it to people in Connections.</li>
+        <li><strong>Bounded</strong> shares only the allowed categories.
+        <strong>Full</strong> permits all categories except explicit denials.</li>
+        <li>Denied categories always beat allowed categories and full access.</li>
+        <li>Use the natural-language boundary for contextual rules that categories cannot
+        express, such as “never quote me swearing around church friends.”</li>
+      </ul>
+    </div><div id="groups"></div>
+    <div class="form-grid">
+      <label>group name<input id="groupName" placeholder="extended family"></label>
+      <label>access<select id="groupAccess"><option value="bounded">bounded</option>
+        <option value="full">full</option></select></label>
+      <label>allowed categories<input id="groupAllow" placeholder="surface, identity"></label>
+      <label>denied categories<input id="groupDeny" placeholder="financial, whereabouts"></label>
+      <label class="wide">natural-language boundary<textarea id="groupInstructions"
+        placeholder="Never quote me swearing around this group."></textarea></label>
+      <div class="form-actions"><button id="saveGroup">save group</button></div>
+    </div>
+  </section>
+  <section class="card"><h2>connections</h2>
+    <div class="help">
+      <p><strong>What this is:</strong> your one-way declaration of what JNSQ may reveal
+      about you to another user. Their declaration about you is separate.</p>
+      <p><strong>Status:</strong></p><ul>
+        <li><strong>Blocked:</strong> no disclosure, including refusing to confirm you exist.</li>
+        <li><strong>Neutral:</strong> existence, username, and public information only.</li>
+        <li><strong>Contact:</strong> the sharing groups attached below determine access.</li>
+      </ul>
+      <p>Add group ids exactly as created in Sharing Groups. Notes document the relationship
+      for you; disclosure behavior comes from status and group policy.</p>
+    </div>
+    <div id="relationships"></div><div class="form-grid">
+      <label>other username<input id="relUser"></label>
+      <label>status<select id="relStatus"><option>neutral</option><option>contact</option>
+        <option>blocked</option></select></label>
+      <label>groups<input id="relGroups" placeholder="friends, church"></label>
+      <label class="wide">note<textarea id="relNote"></textarea></label>
+      <div class="form-actions"><button id="saveRelationship">save connection</button></div>
+    </div>
+  </section>
+  <section class="card"><h2>user personas (RP)</h2>
+    <div class="help">
+      <p><strong>What this is:</strong> a role-play identity you may choose to inhabit.
+      It is neither your canonical human account nor an autonomous JNSQ AI persona.</p>
+      <p><strong>How to use it:</strong></p><ul>
+        <li><strong>Details</strong> record the persona’s identity, setting, history, and voice.</li>
+        <li><strong>Preferences</strong> record scenes, genres, dynamics, and themes you enjoy.</li>
+        <li><strong>Boundaries</strong> record content or behavior excluded while using it.</li>
+      </ul>
+      <p>User personas stay isolated from your human bedrock unless a future session explicitly
+      activates both. Nothing here rewrites who you are outside the role-play.</p>
+    </div>
+    <div id="personas"></div><div class="form-grid">
+      <label>persona name<input id="personaName"></label>
+      <label class="wide">details<textarea id="personaDescription"></textarea></label>
+      <label class="wide">preferences<textarea id="personaPreferences"></textarea></label>
+      <label class="wide">boundaries<textarea id="personaBoundaries"></textarea></label>
+      <div class="form-actions"><button id="savePersona">save user persona</button></div>
+    </div>
+  </section>
+</div></div>
+<script>
+const $=id=>document.getElementById(id), esc=s=>String(s??"").replace(/[&<>"']/g,
+  c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const csv=id=>$(id).value.split(",").map(x=>x.trim()).filter(Boolean);
+let uid=null,data=null;
+async function request(url,method="GET",body){const r=await fetch(url,{method,
+ headers:{"Content-Type":"application/json"},body:body?JSON.stringify(body):undefined});
+ const d=await r.json();if(!r.ok||d.error)throw Error(d.error||r.statusText);return d}
+function say(s,bad=false){$("note").textContent=(bad?"⚠ ":"")+s}
+async function loadUsers(select){const d=await request("/api/users");
+ $("userSelect").innerHTML='<option value="">choose…</option>'+d.users.map(u=>
+ `<option value="${esc(u.id)}">${esc(u.display_name)} (@${esc(u.username)})</option>`).join("");
+ if(select){$("userSelect").value=select;await loadUser(select)}}
+async function loadUser(id){uid=id;if(!id){$("workspace").classList.add("hidden");return}
+ data=await request(`/api/users/${encodeURIComponent(id)}`);render();}
+function tags(xs){return(xs||[]).map(x=>`<span class="tag">${esc(x)}</span>`).join("")}
+function render(){$("workspace").classList.remove("hidden");$("accountForm").classList.remove("hidden");
+ const a=data.account;$("username").value=a.username;$("displayName").value=a.display_name;
+ $("pronouns").value=a.pronouns||"";
+ $("facts").innerHTML=data.bedrock.length?data.bedrock.map(f=>`<div class="item">
+ <b>${esc(f.text)}</b><br>${tags([f.category,f.visibility,...(f.groups||[])])}
+ ${f.source?`<span class="source">imported from ${esc(f.source.persona)} memory · ${esc(f.source.memory_id)}</span>`:""}
+ <button class="danger" onclick="delFact('${esc(f.id)}')">remove</button></div>`).join(""):'<p class="empty">No bedrock declared yet.</p>';
+ const gs=Object.values(data.groups);$("groups").innerHTML=gs.length?gs.map(g=>`<div class="item"><b>${esc(g.name)}</b>
+ ${tags([g.access,...(g.allow_categories||[]).map(x=>"allow:"+x),...(g.deny_categories||[]).map(x=>"deny:"+x)])}
+ <div class="hint">${esc(g.instructions)}</div></div>`).join(""):'<p class="empty">No sharing groups yet.</p>';
+ const rs=Object.values(data.relationships);$("relationships").innerHTML=rs.length?rs.map(r=>`<div class="item"><b>${esc(r.user)}</b>
+ ${tags([r.status,...(r.groups||[])])}<div class="hint">${esc(r.note)}</div></div>`).join(""):'<p class="empty">No connections declared yet.</p>';
+ const ps=Object.values(data.user_personas);$("personas").innerHTML=ps.length?ps.map(p=>`<div class="item"><b>${esc(p.name)}</b>
+ <div>${esc(p.description)}</div><div class="hint">preferences: ${esc(p.preferences)}<br>boundaries: ${esc(p.boundaries)}</div></div>`).join(""):'<p class="empty">No RP personas yet.</p>'}
+async function refresh(msg){await loadUser(uid);say(msg)}
+$("userSelect").onchange=e=>loadUser(e.target.value).catch(e=>say(e.message,true));
+$("newUser").onclick=()=>{uid=null;data=null;$("workspace").classList.add("hidden");
+ $("accountForm").classList.remove("hidden");["username","displayName","pronouns"].forEach(x=>$(x).value="")};
+$("saveAccount").onclick=async()=>{try{const id=$("username").value;await request("/api/users","POST",
+ {username:id,display_name:$("displayName").value,pronouns:$("pronouns").value,update:!!uid});
+ await loadUsers(id.toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_|_$/g,""));say("account saved")}
+ catch(e){say(e.message,true)}};
+$("saveFact").onclick=async()=>{try{await request(`/api/users/${uid}/bedrock`,"POST",{text:$("factText").value,
+ category:$("factCategory").value||"general",visibility:$("factVisibility").value,groups:csv("factGroups"),never_share_with:csv("factDeny")});
+ $("factText").value="";await refresh("bedrock saved") }catch(e){say(e.message,true)}};
+$("importBedrock").onclick=async()=>{const note=$("importNote");note.textContent="checking existing persona memories…";
+ try{const r=await request(`/api/users/${uid}/bedrock/import-legacy`,"POST");
+ note.textContent=r.imported.length?`${r.imported.length} existing facts imported; ${r.skipped.length} already connected.`:
+ `${r.skipped.length} existing facts were already connected; nothing duplicated.`;await loadUser(uid)}
+ catch(e){note.textContent="⚠ "+e.message}};
+async function delFact(id){try{await request(`/api/users/${uid}/bedrock/${encodeURIComponent(id)}`,"DELETE");await refresh("fact removed")}
+ catch(e){say(e.message,true)}}window.delFact=delFact;
+$("saveGroup").onclick=async()=>{try{await request(`/api/users/${uid}/groups`,"POST",{id:$("groupName").value,name:$("groupName").value,
+ access:$("groupAccess").value,allow_categories:csv("groupAllow"),deny_categories:csv("groupDeny"),instructions:$("groupInstructions").value});
+ await refresh("sharing group saved")}catch(e){say(e.message,true)}};
+$("saveRelationship").onclick=async()=>{try{await request(`/api/users/${uid}/relationships`,"POST",{user:$("relUser").value,
+ status:$("relStatus").value,groups:csv("relGroups"),note:$("relNote").value});await refresh("connection saved")}
+ catch(e){say(e.message,true)}};
+$("savePersona").onclick=async()=>{try{await request(`/api/users/${uid}/personas`,"POST",{name:$("personaName").value,
+ description:$("personaDescription").value,preferences:$("personaPreferences").value,boundaries:$("personaBoundaries").value});
+ await refresh("user persona saved")}catch(e){say(e.message,true)}};
+loadUsers().catch(e=>say(e.message,true));
+</script></body></html>

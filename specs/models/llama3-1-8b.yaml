@@ -1,0 +1,33 @@
+identity:
+  name: "llama3-1-8b"
+  family: "llama3"
+  base_model: "Meta Llama 3.1 8B"
+  provider: "ollama"
+  endpoint: "llama3.1:8b"
+  locality: "local"
+context:
+  window_tokens: 8192
+  practical_window_tokens: 7000
+  block_budgets: {}
+prompt_structure:
+  system_prompt: true
+  template: "ollama"
+  strict_alternation: false
+  prefill_supported: false
+  stop_sequences: []
+capabilities:
+  tool_use: false
+  vision: false
+  structured_output: "coaxable"
+  streaming: true
+module_capability:
+  validated: []
+  saturates_on: []
+  ceiling_notes: "starter model; this installation has not measured its ceiling yet"
+runtime:
+  cost: "free_local"
+  latency_class: "hardware-dependent"
+quirks: []
+harness:
+  last_mechanical_pass: null
+  fidelity_floor_results: {}

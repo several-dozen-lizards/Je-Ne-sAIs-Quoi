@@ -1,0 +1,46 @@
+# gpt-5-2 — user-added OpenAI-compatible model, scaffolded by the
+# factory 2026-07-12. One wire shape, many servers: LM Studio, llama.cpp,
+# vLLM, OpenRouter, Together, Groq. KEY LAW: api_key_env below NAMES
+# an environment variable — the value NEVER goes in this file. Local
+# servers typically need no key at all (unset env -> no auth header).
+# NOTHING here is verified — run the harness MECHANICAL TIER before
+# trusting anything (llama3-1-8b's template-risk lesson applies doubly to
+# servers that silently apply their own chat template).
+identity:
+  name: "gpt-5-2"
+  family: "openai_chat"
+  base_model: "gpt-5.2 (user-added)"
+  provider: "openai_compat"
+  endpoint: "gpt-5.2"
+  base_url: "https://api.openai.com/v1"
+  api_key_env: "OPENAI_API_KEY"
+  locality: "api"
+context:
+  window_tokens: 8192
+  practical_window_tokens: 6963
+  block_budgets: {}
+prompt_structure:
+  system_prompt: true
+  template: "openai_messages"
+  strict_alternation: false
+  prefill_supported: false
+  stop_sequences: []
+capabilities:
+  tool_use: false
+  vision: false
+  structured_output: "unknown"
+  streaming: true
+module_capability:
+  validated: []
+  saturates_on: []
+  ceiling_notes: "unknown — user-added; mapping this ceiling IS the experiment"
+runtime:
+  gpu_constraints: "unknown (server-side)"
+  cost: "depends on server (free local / $ hosted)"
+  latency_class: "unknown"
+quirks:
+  - "user-added via the factory; nothing verified — mechanical tier first"
+  - "server may apply its own chat template — watch for template drift"
+harness:
+  last_mechanical_pass: null
+  fidelity_floor_results: {}

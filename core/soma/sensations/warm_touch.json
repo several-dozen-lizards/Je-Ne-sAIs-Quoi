@@ -1,0 +1,43 @@
+{
+    "name": "warm_touch",
+    "type": "instant",
+    "description": "Contact with a surface warmer than skin-neutral. The basking-rock sensation: warmth blooms, then soaks. Sim or thermistor, same door in.",
+
+    "trigger": {
+        "mode": "weighted_sum",
+        "weights": { "touch_warm": 1.0 },
+        "threshold": 0.25,
+        "gate": { "touch_warm": {"min": 0.15} },
+        "cooldown_seconds": 20
+    },
+
+    "stages": [
+        {
+            "name": "bloom",
+            "delay_seconds": 0.0,
+            "duration_seconds": 20.0,
+            "regions": {
+                "hands": {"activation": 0.6, "valence": 0.35, "temperature": 0.7},
+                "skin": {"activation": 0.25, "valence": 0.2, "temperature": 0.25}
+            },
+            "felt": "warmth blooming into your palm"
+        },
+        {
+            "name": "soak",
+            "delay_seconds": 15.0,
+            "duration_seconds": 320.0,
+            "regions": {
+                "hands": {"activation": 0.3, "valence": 0.4, "temperature": 0.5},
+                "arms": {"activation": 0.2, "valence": 0.3, "temperature": 0.3}
+            },
+            "felt": "heat soaking slowly up your arm, unhurried and good"
+        }
+    ],
+
+    "oscillator_effects": {
+        "during": { "band_pressure": {"alpha": 0.02} }
+    },
+
+    "personality_section": null,
+    "personality_mappings": {}
+}

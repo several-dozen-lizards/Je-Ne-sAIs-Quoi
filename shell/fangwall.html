@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Je Ne sAIs Quoi</title>
+<link rel="icon" href="/assets/favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/assets/jnsq_favicon.svg">
+<link rel="apple-touch-icon" href="/assets/favicon-180.png">
 <style>
 :root{color-scheme:dark;--bg:#07110f;--panel:#0b1916;--panel2:#10231f;
   --line:#21483f;--ink:#d9fff4;--dim:#85b9aa;--mint:#3ef0bd;
@@ -15,6 +18,8 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}
 header{height:74px;display:flex;align-items:center;gap:18px;padding:0 24px;
   border-bottom:1px solid var(--line);background:rgba(7,17,15,.88);
   backdrop-filter:blur(14px)}
+.brand-icon{width:42px;height:42px;object-fit:contain;flex:0 0 auto;
+  filter:drop-shadow(0 0 10px #7547a766)}
 .brand{font-family:Consolas,"Cascadia Mono",monospace;font-size:1.28rem;
   letter-spacing:.04em;color:var(--mint);white-space:nowrap}
 .brand strong{color:var(--gold)}.tagline{color:var(--dim);font-size:.88rem}
@@ -28,12 +33,12 @@ aside{border-right:1px solid var(--line);padding:18px;overflow:auto;background:#
 .tiny-actions button:hover,.ghost:hover{color:var(--ink);border-color:var(--mint)}
 #personaList{display:grid;gap:8px}.persona-row{border:1px solid var(--line);
   border-radius:10px;background:var(--panel);padding:9px}.persona-main{display:flex;gap:9px;align-items:center}
-.persona-main input{accent-color:var(--mint)}.persona-name{min-width:0;flex:1;font-weight:650;
+.persona-main input[type=checkbox]{accent-color:var(--mint);width:auto;flex:0 0 auto}.persona-name{min-width:0;flex:1;font-weight:650;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dot{width:8px;height:8px;border-radius:50%;
   background:#52665f;box-shadow:0 0 0 3px #52665f22}.dot.live{background:var(--mint);
   box-shadow:0 0 9px var(--mint)}.persona-meta{margin:5px 0 0 25px;color:var(--dim);
   font:11px Consolas,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.persona-actions{display:flex;gap:5px;margin:8px 0 0 25px}.persona-actions button{border:1px solid var(--line);
+.persona-actions{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0 0 25px}.persona-actions button{border:1px solid var(--line);
   background:var(--panel2);color:var(--dim);border-radius:7px;padding:4px 7px;font-size:.72rem}
 .persona-actions button:hover{color:var(--ink)}.persona-actions .stop:hover{color:var(--danger)}
 details{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}summary{cursor:pointer;
@@ -53,6 +58,10 @@ main{min-width:0;overflow:auto;padding:14px}.workspace{min-height:100%;display:g
   border-bottom:1px solid var(--line);font-size:.82rem}.panel-head .model{margin-left:auto;color:var(--dim);
   font:11px Consolas,monospace}.panel-head button{border:0;background:transparent;color:var(--dim)}
 .panel-head button:hover{color:var(--danger)}iframe{width:100%;height:100%;border:0;background:#07110f}
+.persona-mark{width:2rem;height:2rem;border-radius:50%;display:inline-grid;place-items:center;
+  position:relative;overflow:hidden;vertical-align:middle;background:var(--panel);border:1px solid var(--line)}
+.persona-mark img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:var(--panel)}
+.panel-head .persona-mark{width:1.65rem;height:1.65rem}
 .offline{display:grid;place-items:center;text-align:center;color:var(--dim);padding:30px}.offline button{margin-top:12px}
 dialog{width:min(760px,calc(100% - 30px));border:1px solid var(--line);border-radius:14px;
   background:var(--panel);color:var(--ink);padding:0;box-shadow:0 28px 90px #000b}
@@ -68,6 +77,7 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
 </head>
 <body>
 <header>
+  <img class="brand-icon" src="/assets/jnsq_favicon.svg" alt="">
   <div class="brand">Je Ne <strong>sAI</strong>s Quoi</div>
   <div class="tagline">a local home for persistent AI personas</div>
   <div id="status">connecting…</div>
@@ -123,6 +133,10 @@ async function request(url, options={}){
 }
 function persist(){localStorage.setItem("jnsq.public.visible",JSON.stringify([...state.selected]));}
 function personas(){return Object.entries(state.personas).filter(([,p])=>p.kind==="model_persona");}
+function mark(p){return `<span class="persona-mark"><span>${esc(p.icon||"🦋")}</span>${
+  p.avatar_url?`<img src="${esc(p.avatar_url)}" alt="">`:""}</span>`}
+const fileDataUrl=file=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);
+  reader.onerror=()=>reject(new Error("could not read that image"));reader.readAsDataURL(file)});
 
 async function refresh(){
   try{
@@ -145,9 +159,9 @@ function renderPersonaList(){
   const rows=personas();
   $("personaList").innerHTML=rows.length?rows.map(([id,p])=>`<div class="persona-row">
     <div class="persona-main"><input type="checkbox" data-visible="${esc(id)}" ${state.selected.has(id)?"checked":""}>
-      <span class="dot ${p.alive?"live":""}"></span><span class="persona-name">${esc(p.display_name||id)}</span></div>
+      <span class="dot ${p.alive?"live":""}"></span>${mark(p)}<span class="persona-name">${esc(p.display_name||id)}</span></div>
     <div class="persona-meta">${esc(p.model||"no model")} · ${p.alive?"awake":"stopped"}</div>
-    <div class="persona-actions"><button data-voice="${esc(id)}">edit voice</button>
+    <div class="persona-actions"><button data-voice="${esc(id)}">edit voice</button><button data-icon="${esc(id)}">change icon</button><button data-avatar="${esc(id)}">upload image</button>
       ${p.alive?`<button class="stop" data-stop="${esc(id)}">stop</button>`:`<button data-start="${esc(id)}">start</button>`}</div>
   </div>`).join(""):`<p class="note">No personas yet. Make the first one below.</p>`;
   document.querySelectorAll("[data-visible]").forEach(el=>el.onchange=()=>{
@@ -155,6 +169,8 @@ function renderPersonaList(){
   document.querySelectorAll("[data-start]").forEach(el=>el.onclick=()=>startPersona(el.dataset.start,el));
   document.querySelectorAll("[data-stop]").forEach(el=>el.onclick=()=>stopPersona(el.dataset.stop,el));
   document.querySelectorAll("[data-voice]").forEach(el=>el.onclick=()=>openVoice(el.dataset.voice));
+  document.querySelectorAll("[data-icon]").forEach(el=>el.onclick=()=>changePersonaIcon(el.dataset.icon));
+  document.querySelectorAll("[data-avatar]").forEach(el=>el.onclick=()=>choosePersonaAvatar(el.dataset.avatar));
 }
 function syncWorkspace(){
   const wanted=[...state.selected].filter(id=>state.personas[id]);
@@ -165,12 +181,12 @@ function syncWorkspace(){
   for(const panel of [...$("workspace").querySelectorAll("[data-panel]")])if(!wanted.includes(panel.dataset.panel))panel.remove();
   for(const id of wanted){
     const p=state.personas[id];let panel=$("workspace").querySelector(`[data-panel="${CSS.escape(id)}"]`);
-    const signature=`${p.alive}:${p.port}:${p.model}`;
+    const signature=`${p.alive}:${p.port}:${p.model}:${p.avatar_url||""}`;
     if(panel&&panel.dataset.signature===signature)continue;
     if(panel)panel.remove();panel=document.createElement("section");panel.className="chat-panel";
     panel.dataset.panel=id;panel.dataset.signature=signature;
     panel.innerHTML=`<div class="panel-head"><span class="dot ${p.alive?"live":""}"></span>
-      <b>${esc(p.display_name||id)}</b><span class="model">${esc(p.model||"")}</span>
+      ${mark(p)}<b>${esc(p.display_name||id)}</b><span class="model">${esc(p.model||"")}</span>
       <button title="hide this chat" data-hide="${esc(id)}">×</button></div>`+
       (p.alive&&p.port?`<iframe title="Chat with ${esc(p.display_name||id)}" src="http://127.0.0.1:${Number(p.port)}/"></iframe>`:
       `<div class="offline"><div>${esc(p.display_name||id)} is stopped.<br><button class="primary" data-start-panel="${esc(id)}">Start persona</button></div></div>`);
@@ -202,6 +218,22 @@ async function openVoice(id){
   state.voicePid=id;$("voiceError").textContent="";$("voiceTitle").textContent=`Voice · ${state.personas[id]?.display_name||id}`;
   try{const v=await request(`/api/personas/${encodeURIComponent(id)}/voice`);$("voiceIdentity").value=v.identity||"";$("voiceDialog").showModal();}
   catch(e){alert(e.message);}
+}
+async function changePersonaIcon(id){
+  const current=state.personas[id]?.icon||"🦋";
+  const icon=prompt("Choose an emoji or enter a custom glyph (examples: 🐉 🐍 🦋 🦉 🦊 🌙 ⚡)",current);
+  if(icon===null)return;
+  try{await request(`/api/personas/${encodeURIComponent(id)}/icon`,{method:"POST",
+    headers:{"Content-Type":"application/json"},body:JSON.stringify({icon})});await refresh()}
+  catch(error){alert(error.message)}
+}
+function choosePersonaAvatar(id){
+  const picker=document.createElement("input");picker.type="file";
+  picker.accept="image/png,image/jpeg,image/webp,image/gif";
+  picker.onchange=async()=>{const image=picker.files&&picker.files[0];if(!image)return;
+    try{const data_url=await fileDataUrl(image);await request(`/api/personas/${encodeURIComponent(id)}/avatar`,{
+      method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({data_url})});await refresh()}
+    catch(error){alert(error.message)}};picker.click();
 }
 $("voiceClose").onclick=()=>$("voiceDialog").close();
 $("voiceSave").onclick=async()=>{const btn=$("voiceSave");btn.disabled=true;$("voiceError").textContent="";

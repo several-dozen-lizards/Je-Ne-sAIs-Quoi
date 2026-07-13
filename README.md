@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/jnsq/jnsq_favicon.svg" width="112" alt="Je Ne sAIs Quoi mask logo">
+</p>
+
 # Je Ne sAIs Quoi
 
 Je Ne sAIs Quoi is a local-first home for persistent AI personas: you define
@@ -45,3 +49,9 @@ deliberately smaller public product. The maintainer rebuilds public releases
 with an allowlist-based export tool that installs the public chat shell, strips
 private model/persona data, and refuses output when its privacy scan finds
 machine-specific state.
+
+---
+
+<p align="center">
+  <img src="assets/jnsq/jnsq-venetian-mask-space.png" alt="A Venetian mask floating in a field of stars above the words Je Ne sAIs Quoi">
+</p>

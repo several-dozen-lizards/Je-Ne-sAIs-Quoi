@@ -1,6 +1,6 @@
 identity:
   name: "llama3-1-8b"
-  family: "llama3"
+  family: "llama3-chatml"
   base_model: "Meta Llama 3.1 8B"
   provider: "ollama"
   endpoint: "llama3.1:8b"

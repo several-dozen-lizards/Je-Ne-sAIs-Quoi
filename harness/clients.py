@@ -1,6 +1,7 @@
 """Minimal model clients. Raw HTTP, no SDKs — the harness stays light.
 API keys are NEVER printed, logged, or stored in this repo."""
 import json
+import math
 import os
 from urllib.parse import urlparse
 import requests
@@ -134,6 +135,49 @@ class AnthropicClient:
                        if b.get("type") == "text")
 
 
+def resolve_temperature(policy: dict, temperature: float):
+    """Map the body's expressive temperature onto one wire contract.
+
+    The oscillator remains the source vector. A model spec may declare how
+    its provider can receive that vector: dynamic (optionally bounded and
+    rounded), fixed, or omitted. No provider/model names live in this law.
+    """
+    policy = policy or {}
+    mode = policy.get("mode", "dynamic")
+    if mode == "omit":
+        return None
+    if mode not in {"dynamic", "fixed"}:
+        raise ValueError(f"unknown temperature policy mode '{mode}'")
+    value = policy.get("value") if mode == "fixed" else temperature
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        raise ValueError("temperature policy produced a non-number")
+    if not math.isfinite(value):
+        raise ValueError("temperature policy produced a non-finite number")
+    if policy.get("min") is not None:
+        value = max(float(policy["min"]), value)
+    if policy.get("max") is not None:
+        value = min(float(policy["max"]), value)
+    if policy.get("precision") is not None:
+        precision = int(policy["precision"])
+        if not 0 <= precision <= 12:
+            raise ValueError("temperature precision must be between 0 and 12")
+        value = round(value, precision)
+    return value
+
+
+def _rejected_parameter(error: dict, name: str) -> bool:
+    """Recognize both OpenAI-style and compatible-provider rejections."""
+    code = str(error.get("code") or "").lower()
+    param = str(error.get("param") or "").lower()
+    message = str(error.get("message") or "").lower()
+    standard_codes = {"unsupported_parameter", "unsupported_value",
+                      "invalid_parameter", "invalid_request_error"}
+    return ((param == name and code in standard_codes)
+            or (name in message and (bool(code) or not param)))
+
+
 class OpenAICompatClient:
     """One adapter, many doors: LM Studio, llama.cpp server, vLLM,
     OpenRouter, Together, Groq — anything speaking the
@@ -166,6 +210,8 @@ class OpenAICompatClient:
                 f"model '{ident.get('name') or self.model}'")
         self.stops = spec.get("prompt_structure", {}) \
                          .get("stop_sequences") or []
+        self.temperature_policy = ((spec.get("sampling") or {})
+                                   .get("temperature") or {})
 
     def chat(self, system: str, user: str, max_tokens: int = 200,
              temperature: float = 0.3) -> str:
@@ -174,13 +220,16 @@ class OpenAICompatClient:
             headers["authorization"] = f"Bearer {self.key}"
         body = {
             "model": self.model,
-            "temperature": temperature,
             "stream": False,
             "messages": [
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
             ],
         }
+        wire_temperature = resolve_temperature(self.temperature_policy,
+                                               temperature)
+        if wire_temperature is not None:
+            body["temperature"] = wire_temperature
         body[self.token_limit_param] = max_tokens
         if self.stops:
             body["stop"] = self.stops
@@ -202,9 +251,13 @@ class OpenAICompatClient:
                 body["max_completion_tokens"] = body.pop("max_tokens")
                 r = requests.post(self.url, headers=headers, json=body,
                                   timeout=360)
-            elif code == "unsupported_parameter" and param in {
-                    "temperature", "stop"} and param in body:
-                body.pop(param)
+            elif ((param in {"temperature", "stop"}
+                   and _rejected_parameter(error, param) and param in body)
+                  or (_rejected_parameter(error, "temperature")
+                      and "temperature" in body)):
+                rejected = (param if param in {"temperature", "stop"}
+                            else "temperature")
+                body.pop(rejected)
                 r = requests.post(self.url, headers=headers, json=body,
                                   timeout=360)
         if r.status_code != 200:

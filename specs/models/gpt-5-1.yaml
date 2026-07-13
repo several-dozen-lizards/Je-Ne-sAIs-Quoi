@@ -25,6 +25,9 @@ prompt_structure:
   strict_alternation: false
   prefill_supported: false
   stop_sequences: []
+sampling:
+  temperature:
+    mode: omit
 capabilities:
   tool_use: false
   vision: false

@@ -2,7 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>JNSQ cockpit</title>
+<link rel="icon" href="/assets/favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/assets/jnsq_favicon.svg">
+<link rel="apple-touch-icon" href="/assets/favicon-180.png">
 <style>
   :root { --bg:#07110f; --panel:#0d1b19; --line:#21443d; --ink:#d8f2e9;
           --dim:#779f94; --accent:#44e0b2; --accent2:#b985ff;
@@ -57,9 +61,11 @@
   body[data-high-contrast="true"] { --line:var(--ink); --theme-glow:0; }
   body[data-high-contrast="true"] .panel,
   body[data-high-contrast="true"] .bubble { box-shadow:none !important; }
-  header { display:flex; gap:16px; align-items:baseline; padding:10px 16px;
+  header { display:flex; gap:12px; align-items:center; padding:8px 16px;
            border-bottom:1px solid var(--line); background:color-mix(in srgb,var(--panel) 92%,transparent);
            position:relative;z-index:2;backdrop-filter:blur(16px); }
+  .brand-mark { width:28px; height:28px; object-fit:contain;
+      filter:drop-shadow(0 0 9px color-mix(in srgb,var(--accent2) 45%,transparent)); }
   header h1 { font-size:16px; margin:0; color:var(--teal); }
   header .meta { color:var(--dim); font-size:12px; }
   main { display:grid; grid-template-columns: 1fr 380px; gap:12px;
@@ -75,6 +81,15 @@
               text-transform:uppercase; color:var(--dim); }
   #chat { flex:1; overflow-y:auto; display:flex; flex-direction:column;
           gap:8px; }
+  #thought-mark { flex:0 0 34px; display:flex; align-items:center;
+      justify-content:center; color:var(--dim); opacity:.42;
+      transition:opacity .2s,color .2s; }
+  #thought-mark img { width:24px; height:24px; object-fit:contain;
+      filter:drop-shadow(0 0 5px color-mix(in srgb,var(--accent2) 35%,transparent));
+      transition:width .2s,height .2s,filter .2s; }
+  #thought-mark.busy { opacity:1; color:var(--accent2); }
+  #thought-mark.busy img { width:32px; height:32px;
+      filter:drop-shadow(0 0 12px color-mix(in srgb,var(--accent2) 75%,transparent)); }
   .msg { --speaker-color:var(--accent); max-width:86%; display:flex;
          align-items:flex-start; gap:8px; white-space:pre-wrap; }
   .msg.user { align-self:flex-end; flex-direction:row-reverse; }
@@ -85,6 +100,8 @@
       border:1px solid color-mix(in srgb,var(--speaker-color) 75%,var(--line));
       box-shadow:0 0 var(--speaker-glow-size)
                  color-mix(in srgb,var(--speaker-color) 38%,transparent); }
+  .msg .avatar img { width:100%;height:100%;border-radius:inherit;
+                     object-fit:cover;display:block; }
   .msg .bubble { min-width:70px; padding:8px 11px; border-radius:var(--radius);
       background:color-mix(in srgb,var(--speaker-color) 13%,var(--panel));
       border:1px solid color-mix(in srgb,var(--speaker-color) 38%,var(--line));
@@ -133,6 +150,15 @@
   .organ .tag.loop { background:#16303a; color:var(--teal); }
   .organ .tag.wall { background:#401d25; color:#ff8d9b; }
   #organnote { font-size:11px; margin-top:6px; }
+  .organ-help { color:var(--dim);font-size:11px;line-height:1.45;
+                margin:0 0 8px; }
+  .organ-save { display:flex;align-items:end;gap:7px;margin-top:9px; }
+  .organ-save label { color:var(--dim);font-size:11px;display:flex;
+                      flex:1;flex-direction:column;gap:3px; }
+  .organ-save select { width:100%;background:var(--bg);color:var(--ink);
+                       border:1px solid var(--line);border-radius:6px;
+                       padding:5px 7px; }
+  .organ-save button { padding:5px 10px;font-size:12px;white-space:nowrap; }
   .appearance-grid { display:grid;grid-template-columns:1fr 1fr;gap:7px 9px; }
   .appearance-grid label { color:var(--dim);font-size:11px;display:flex;
                            flex-direction:column;gap:3px; }
@@ -172,6 +198,7 @@
   </svg>
 </div>
 <header>
+  <img class="brand-mark" src="/assets/jnsq_favicon.svg" alt="">
   <h1>JNSQ cockpit</h1>
   <span class="meta" id="who">connecting…</span>
   <span class="meta" id="timing"></span>
@@ -181,6 +208,9 @@
     <div class="panel" style="flex:1; display:flex; flex-direction:column; min-height:0;">
       <h2>conversation</h2>
       <div id="chat"></div>
+      <div id="thought-mark" role="status" aria-live="polite" aria-label="ready">
+        <img id="thought-icon" src="/assets/favicon-48.png" alt="">
+      </div>
       <div id="composer">
         <input id="say" placeholder="say something…" autocomplete="off">
         <button id="send">Send</button>
@@ -217,7 +247,19 @@
     </div>
     <div class="panel">
       <h2>organs</h2>
+      <p class="organ-help">Choose which systems belong in this body.
+        Save for the persona to make this the default across models, or save
+        for this model when its body needs a different configuration.</p>
       <div id="organs"><div class="quiet">loading…</div></div>
+      <div class="organ-save">
+        <label>save this selection for
+          <select id="organScope">
+            <option value="persona">this persona (default)</option>
+            <option value="model">this model (override)</option>
+          </select>
+        </label>
+        <button id="saveOrgans" type="button">save organs</button>
+      </div>
       <div id="organnote" class="quiet"></div>
     </div>
     <div class="panel" id="appearance">
@@ -306,7 +348,16 @@ function speakerMeta(name, cls) {
   const icons = (currentPreview||currentTheme||{}).speaker_icons || {};
   const color = namedValue(colors, who) || fallbackColor(who);
   const icon = namedValue(icons, who) || who.trim().slice(0,1).toUpperCase() || "·";
-  return {who,color,icon};
+  const avatar = cls === "persona" ? CONFIG.persona_avatar : "";
+  return {who,color,icon,avatar};
+}
+
+function paintAvatar(element, meta) {
+  element.replaceChildren();
+  if (!meta.avatar) { element.textContent=meta.icon; return; }
+  const image=document.createElement("img");image.src=meta.avatar;
+  image.alt="";image.onerror=()=>{element.replaceChildren();element.textContent=meta.icon};
+  element.appendChild(image);
 }
 
 function restyleMessages() {
@@ -314,7 +365,7 @@ function restyleMessages() {
     const meta = speakerMeta(msg.dataset.speaker, msg.classList.contains("persona")?"persona":"user");
     msg.style.setProperty("--speaker-color", meta.color);
     const avatar = msg.querySelector(".avatar");
-    if (avatar) avatar.textContent = meta.icon;
+    if (avatar) paintAvatar(avatar,meta);
   });
 }
 
@@ -524,6 +575,11 @@ function renderState(st) {
 
 let conversationSignature = null;
 
+function scrollConversationToBottom() {
+  const chat=$("chat");
+  requestAnimationFrame(()=>{chat.scrollTop=chat.scrollHeight});
+}
+
 function addMsg(cls, text, speaker="") {
   const quiet = $("chat").querySelector(".quiet");
   if (quiet) quiet.remove();
@@ -533,13 +589,13 @@ function addMsg(cls, text, speaker="") {
   else {
     const meta=speakerMeta(speaker,cls); d.dataset.speaker=meta.who;
     d.style.setProperty("--speaker-color",meta.color);
-    const avatar=document.createElement("span"); avatar.className="avatar"; avatar.textContent=meta.icon;
+    const avatar=document.createElement("span"); avatar.className="avatar"; paintAvatar(avatar,meta);
     const bubble=document.createElement("div"); bubble.className="bubble";
     const label=document.createElement("span"); label.className="speaker-name"; label.textContent=meta.who;
     const copy=document.createElement("div"); copy.className="message-text"; copy.textContent=text;
     bubble.append(label,copy); d.append(avatar,bubble);
   }
-  $("chat").appendChild(d); $("chat").scrollTop = 1e9;
+  $("chat").appendChild(d); scrollConversationToBottom();
   return d;
 }
 
@@ -564,13 +620,16 @@ function syncConversation(turns) {
     if (t.reply) addMsg("persona", t.reply, personaLabel());
     if (t.felt_why) addMsg("sys", "felt: " + t.felt_why);
   });
+  scrollConversationToBottom();
 }
 
 async function fetchState() {
   renderState(await (await fetch("/api/state")).json());
 }
 
-async function fetchOrgans(note="") {
+let organsDirty = false;
+
+async function fetchOrgans(note="", keepScope="") {
   const r = await (await fetch("/api/organs")).json();
   const en = new Set(r.enabled);
   $("organs").innerHTML = r.registry.map(o => `
@@ -583,42 +642,70 @@ async function fetchOrgans(note="") {
       ${o.loop ? '<span class="tag loop">loop</span>' : ""}
       ${o.blocked ? '<span class="tag wall">measured wall</span>' : ""}
     </label>`).join("");
-  $("organnote").textContent = note || `${r.model} · organ preferences ${
-    r.persisted ? "saved per model" : "runtime only (no roster)"}`;
-  document.querySelectorAll("#organs input").forEach(cb =>
-    cb.onchange = pushOrgans);
+  $("organScope").value = keepScope || (r.scope === "runtime" ? "persona" : r.scope);
+  $("saveOrgans").disabled = !r.can_persist;
+  $("organnote").textContent = note || (r.scope === "model"
+    ? `${r.model} has its own saved organ override`
+    : r.scope === "persona"
+    ? `saved as the persona default · models without overrides inherit it`
+    : `runtime only · this persona has no roster to save into`);
+  document.querySelectorAll("#organs input").forEach(cb => {
+    cb.onchange = () => {
+      organsDirty = true;
+      $("organnote").textContent = "selection changed · choose a scope and save";
+    };
+  });
+  organsDirty = false;
 }
 
 async function pushOrgans() {
   const enabled = [...document.querySelectorAll("#organs input:checked")]
     .map(cb => cb.dataset.organ);
+  const scope = $("organScope").value;
   document.querySelectorAll("#organs input").forEach(cb => cb.disabled = true);
+  $("saveOrgans").disabled = true;
   const res = await fetch("/api/organs", {method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({enabled})});
+    body: JSON.stringify({enabled, scope})});
   const r = await res.json();
-  const note = r.error ? "⚠ " + r.error
-    : ((r.warnings || []).join(" · ")
-       || `saved for ${r.model} · restored on next start`);
-  await fetchOrgans(note); fetchState();
+  let note;
+  if (r.error) note = "⚠ " + r.error;
+  else {
+    note = r.scope === "persona"
+      ? `saved for ${r.persona} · models without overrides inherit it`
+      : `saved as ${r.model}'s model override`;
+    if ((r.warnings || []).length)
+      note += ` · validation note: ${r.warnings.join(" · ")}`;
+  }
+  await fetchOrgans(note, scope); fetchState();
 }
 </script>
 <script>
+let thoughtSerial = 0;
+
+function setThinking(active) {
+  const mark = $("thought-mark");
+  const icon = $("thought-icon");
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    || document.body.dataset.reducedMotion === "true";
+  mark.classList.toggle("busy", active);
+  mark.setAttribute("aria-label", active ? "response is loading" : "ready");
+  icon.src = active && !reduced
+    ? `/assets/jnsq_icon_animated_128.apng?turn=${++thoughtSerial}`
+    : "/assets/favicon-48.png";
+}
+
 async function sendTurn() {
   const text = $("say").value.trim();
-  if (!text) return;
+  if (!text || $("send").disabled) return;
   $("say").value = ""; $("send").disabled = true;
   addMsg("user", text, PRIMARY_USER);
-  const wait = addMsg("sys", "thinking…");
-  const t0 = Date.now();
-  const tick = setInterval(() =>
-    wait.textContent = `thinking… ${((Date.now()-t0)/1000).toFixed(0)}s`, 1000);
+  setThinking(true);
   try {
     const res = await fetch("/api/turn", {method:"POST",
       headers:{"Content-Type":"application/json"},
       body: JSON.stringify({message:text})});
     const r = await res.json();
-    clearInterval(tick); wait.remove();
     if (r.error) { addMsg("sys", "⚠ " + r.error); return; }
     const persisted = (r.state.conversation_window || []).some(t =>
       t.message === text && t.reply === r.reply);
@@ -643,8 +730,10 @@ async function sendTurn() {
     if (box.firstChild && box.firstChild.className==="quiet") box.innerHTML="";
     box.prepend(rc);
   } catch (e) {
-    clearInterval(tick); wait.textContent = "⚠ " + e;
+    addMsg("sys", "⚠ " + e);
   } finally {
+    setThinking(false);
+    scrollConversationToBottom();
     $("send").disabled = false; $("say").focus();
   }
 }
@@ -664,6 +753,7 @@ async function setMood() {
 $("send").onclick = sendTurn;
 $("say").addEventListener("keydown", e => { if (e.key==="Enter") sendTurn(); });
 $("setmood").onclick = setMood;
+$("saveOrgans").onclick = pushOrgans;
 fetchState();
 fetchOrgans();
 bindAppearance();

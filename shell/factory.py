@@ -98,20 +98,22 @@ ORGAN_CONFIG_TEMPLATE = (
 )
 
 ROSTER_TEMPLATE = """\
-# {name}'s model roster — per-model configuration (par 2.2c, 2.6)
-# enabled_organs is LIVE: the cockpit reads it at boot and saves panel
-# changes back into this model's own entry. Vocabulary + dependency law:
-# core/organs.py.
+# {name}'s model roster — persona defaults + model overrides (par 2.2c, 2.6)
+# enabled_organs is LIVE: models inherit this persona default unless their
+# own entry declares an override. The cockpit can save either scope.
+# Vocabulary + dependency law: core/organs.py.
 persona: {name}
 display_name: "{display}"
+icon: "🦋"
+avatar: ""
 kind: model_persona
 max_tokens: 600
+enabled_organs: [{organs}]
 room:
   id: nexus
   tropism_interval: 60
 entries:
   - model: {model}
-    enabled_organs: [{organs}]
     prompt_version: null
     notes: "scaffolded by the factory {date}; identity is a skeleton
       awaiting a voice"
@@ -398,6 +400,7 @@ prompt_structure:
   strict_alternation: true
   prefill_supported: true
   stop_sequences: []
+@TEMPERATURE_POLICY@
 capabilities:
   tool_use: true
   vision: true
@@ -469,6 +472,32 @@ harness:
 """
 
 
+def _temperature_policy_block(base_url: str, endpoint: str) -> str:
+    """Write known wire constraints into the spec as an inspectable receipt.
+
+    Unknown compatible providers keep the dynamic vector and can still teach
+    the runtime through its one-retry rejection fallback.
+    """
+    from urllib.parse import urlparse
+
+    host = (urlparse(base_url).hostname or "").lower()
+    model = (endpoint or "").lower()
+    if host == "api.z.ai":
+        return ("sampling:\n"
+                "  temperature:\n"
+                "    mode: dynamic\n"
+                "    min: 0.0\n"
+                "    max: 1.0\n"
+                "    precision: 2")
+    if host == "api.openai.com" and model.startswith("gpt-5"):
+        return ("sampling:\n"
+                "  temperature:\n"
+                "    mode: omit")
+    return ("sampling:\n"
+            "  temperature:\n"
+            "    mode: dynamic")
+
+
 def scaffold_model_spec(name: str, family: str, endpoint: str,
                         window_tokens: int = None,
                         base_url: str = None,
@@ -514,11 +543,14 @@ def scaffold_model_spec(name: str, family: str, endpoint: str,
                               f"receipts; the factory does not clobber.")
     tpl = {"ollama": OLLAMA_SPEC, "anthropic": ANTHROPIC_SPEC,
            "openai_compat": OPENAI_COMPAT_SPEC}[family]
+    temperature_policy = (_temperature_policy_block(base_url, endpoint)
+                          if family == "openai_compat" else "")
     text = (tpl.replace("@NAME@", name)
                .replace("@ENDPOINT@", endpoint)
                .replace("@BASEURL@", base_url)
                .replace("@KEYENV@", keyenv)
                .replace("@LOCALITY@", locality)
+               .replace("@TEMPERATURE_POLICY@", temperature_policy)
                .replace("@DATE@", time.strftime("%Y-%m-%d"))
                .replace("@WINDOW@", str(window))
                .replace("@PRACTICAL@", str(int(window * 0.85))))

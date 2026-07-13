@@ -16,16 +16,19 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from shell import env_store  # loads .env into os.environ (idempotent; no-op
 env_store.load_env()         # when router-launched, since inherited vars win)
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from shell.contract import TurnEngine, CONTRACT_VERSION
 from shell.ui_themes import resolve_theme, save_theme
+from shell.persona_media import load_persona_avatar
 from core.organs import (legacy_set, validate as validate_organs,
                          OrganConfigError, REGISTRY)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
+ASSET_DIR = os.path.join(REPO, "assets", "jnsq")
 
 
 def load_roster_entry(persona: str, model: str):
@@ -46,18 +49,16 @@ def load_roster_entry(persona: str, model: str):
     return None, roster
 
 
-def _replace_model_organs(text: str, model: str, enabled) -> str:
-    """Replace one model entry's enabled_organs while preserving every
-    other roster byte, including comments and hand wrapping."""
+def _canonical_organs(enabled):
+    validate_organs(enabled)
+    chosen = set(enabled or [])
+    return [oid for oid in REGISTRY if oid in chosen]
+
+
+def _model_entry_bounds(lines, model: str):
+    """Return (start, end, indent) for one roster model entry."""
     import re
     import yaml
-
-    validate_organs(enabled)
-    newline = "\r\n" if "\r\n" in text else "\n"
-    lines = text.splitlines(keepends=True)
-    wanted = [oid for oid in REGISTRY if oid in set(enabled or [])]
-    start = end = None
-    entry_indent = None
 
     for i, line in enumerate(lines):
         if not re.match(r"^\s*-\s+model\s*:", line):
@@ -69,7 +70,6 @@ def _replace_model_organs(text: str, model: str, enabled) -> str:
             continue
         if found_model != model:
             continue
-        start = i
         entry_indent = len(line) - len(line.lstrip(" "))
         end = len(lines)
         for j in range(i + 1, len(lines)):
@@ -81,26 +81,48 @@ def _replace_model_organs(text: str, model: str, enabled) -> str:
                                               lines[j].lstrip()))):
                 end = j
                 break
-        break
+        return i, end, entry_indent
+    raise ValueError(f"model '{model}' has no roster entry")
 
-    if start is None:
-        raise ValueError(f"model '{model}' has no roster entry")
 
-    key_start = key_end = None
-    key_indent = entry_indent + 2
-    for i in range(start + 1, end):
-        if re.match(r"^\s*enabled_organs\s*:", lines[i]):
-            key_start = i
-            key_indent = len(lines[i]) - len(lines[i].lstrip(" "))
-            key_end = i + 1
-            while key_end < end:
-                stripped = lines[key_end].strip()
-                indent = len(lines[key_end]) \
-                    - len(lines[key_end].lstrip(" "))
-                if not stripped or indent <= key_indent:
-                    break
-                key_end += 1
-            break
+def _field_bounds(lines, start: int, end: int, key: str,
+                  required_indent=None):
+    """Locate a YAML field and its indented continuation lines."""
+    import re
+
+    pattern = re.compile(rf"^\s*{re.escape(key)}\s*:")
+    for i in range(start, end):
+        indent = len(lines[i]) - len(lines[i].lstrip(" "))
+        if required_indent is not None and indent != required_indent:
+            continue
+        if not pattern.match(lines[i]):
+            continue
+        field_end = i + 1
+        while field_end < end:
+            stripped = lines[field_end].strip()
+            next_indent = (len(lines[field_end])
+                           - len(lines[field_end].lstrip(" ")))
+            if not stripped or next_indent <= indent:
+                break
+            field_end += 1
+        return i, field_end, indent
+    return None, None, required_indent
+
+
+def _replace_model_organs(text: str, model: str, enabled) -> str:
+    """Replace one model entry's enabled_organs while preserving every
+    other roster byte, including comments and hand wrapping."""
+    import re
+    import yaml
+
+    newline = "\r\n" if "\r\n" in text else "\n"
+    lines = text.splitlines(keepends=True)
+    wanted = _canonical_organs(enabled)
+    start, end, entry_indent = _model_entry_bounds(lines, model)
+    key_start, key_end, key_indent = _field_bounds(
+        lines, start + 1, end, "enabled_organs")
+    if key_indent is None:
+        key_indent = entry_indent + 2
 
     rendered = (" " * key_indent + "enabled_organs: ["
                 + ", ".join(wanted) + "]" + newline)
@@ -117,19 +139,68 @@ def _replace_model_organs(text: str, model: str, enabled) -> str:
     return candidate
 
 
-def save_model_organs(persona: str, model: str, enabled,
-                      repo: str = REPO) -> bool:
-    """Atomically persist one persona+model organ preference.
+def _replace_persona_organs(text: str, model: str, enabled) -> str:
+    """Save a persona default and make this model inherit it.
 
-    Rosterless fixtures remain runtime-only. Existing rosters fail closed:
-    a missing model or invalid edit leaves the original untouched.
+    Other models keep their explicit overrides. Comments and hand wrapping
+    outside the two edited fields remain byte-for-byte intact.
     """
+    import re
+    import yaml
+
+    wanted = _canonical_organs(enabled)
+    newline = "\r\n" if "\r\n" in text else "\n"
+    lines = text.splitlines(keepends=True)
+
+    # A persona save means the current model must flow through the persona
+    # default, while every other model override remains exactly as declared.
+    start, end, _indent = _model_entry_bounds(lines, model)
+    key_start, key_end, _ = _field_bounds(
+        lines, start + 1, end, "enabled_organs")
+    if key_start is not None:
+        del lines[key_start:key_end]
+
+    top_start, top_end, _ = _field_bounds(
+        lines, 0, len(lines), "enabled_organs", required_indent=0)
+    rendered = "enabled_organs: [" + ", ".join(wanted) + "]" + newline
+    if top_start is not None:
+        lines[top_start:top_end] = [rendered]
+    else:
+        entries_at = next((i for i, line in enumerate(lines)
+                           if re.match(r"^entries\s*:", line)), None)
+        if entries_at is None:
+            raise ValueError("roster has no entries block")
+        lines[entries_at:entries_at] = [rendered]
+
+    candidate = "".join(lines)
+    parsed = yaml.safe_load(candidate) or {}
+    matches = [e for e in parsed.get("entries") or []
+               if e.get("model") == model]
+    if (parsed.get("enabled_organs") != wanted or len(matches) != 1
+            or matches[0].get("enabled_organs") is not None):
+        raise ValueError("persona organ edit failed validation")
+    return candidate
+
+
+def roster_organ_preference(entry, roster):
+    """Resolve the declared cascade without inventing a preference."""
+    if entry is not None and entry.get("enabled_organs") is not None:
+        return list(entry["enabled_organs"]), "model"
+    if roster is not None and roster.get("enabled_organs") is not None:
+        return list(roster["enabled_organs"]), "persona"
+    return None, "runtime"
+
+
+def _save_roster_organs(persona: str, model: str, enabled, scope: str,
+                        repo: str = REPO) -> bool:
     path = os.path.join(repo, "personas", persona, "roster.yaml")
     if not os.path.exists(path):
         return False
     with open(path, encoding="utf-8", newline="") as f:
         original = f.read()
-    candidate = _replace_model_organs(original, model, enabled)
+    editor = (_replace_persona_organs if scope == "persona"
+              else _replace_model_organs)
+    candidate = editor(original, model, enabled)
     with open(path + ".prev", "w", encoding="utf-8", newline="") as f:
         f.write(original)
     tmp = path + ".tmp_organs"
@@ -137,6 +208,22 @@ def save_model_organs(persona: str, model: str, enabled,
         f.write(candidate)
     os.replace(tmp, path)
     return True
+
+
+def save_model_organs(persona: str, model: str, enabled,
+                      repo: str = REPO) -> bool:
+    """Atomically persist one persona+model organ preference.
+
+    Rosterless fixtures remain runtime-only. Existing rosters fail closed:
+    a missing model or invalid edit leaves the original untouched.
+    """
+    return _save_roster_organs(persona, model, enabled, "model", repo)
+
+
+def save_persona_organs(persona: str, model: str, enabled,
+                        repo: str = REPO) -> bool:
+    """Persist a persona default; current model inherits that default."""
+    return _save_roster_organs(persona, model, enabled, "persona", repo)
 
 
 def heartbeat_loop(engine, turn_lock, interval_s: float, stop):
@@ -330,6 +417,7 @@ class MoodRequest(BaseModel):
 
 class OrganRequest(BaseModel):
     enabled: list
+    scope: str = "model"
 
 
 class ThemeRequest(BaseModel):
@@ -554,6 +642,9 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
               turn_lock=None, speaker: str = None) -> FastAPI:
     from shell.local_identity import load_local_identity
     app = FastAPI(title="JNSQ cockpit", version=CONTRACT_VERSION)
+    if os.path.isdir(ASSET_DIR):
+        app.mount("/assets", StaticFiles(directory=ASSET_DIR),
+                  name="jnsq-assets")
     app.state.engine = engine
     app.state.turn_lock = turn_lock or threading.Lock()
     app.state.max_tokens = max_tokens
@@ -564,7 +655,19 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
         import json
         with open(os.path.join(HERE, "cockpit.html"), encoding="utf-8") as f:
             return f.read().replace("/*CONFIG*/", json.dumps({
-                "primary_user": app.state.speaker}))
+                "primary_user": app.state.speaker,
+                "persona_avatar": "/api/avatar"}))
+
+    @app.get("/api/avatar")
+    def avatar():
+        media = load_persona_avatar(app.state.engine.pdir)
+        if not media:
+            return JSONResponse(status_code=404,
+                                content={"error": "persona has no avatar"})
+        return FileResponse(
+            media["path"], media_type=media["mime"],
+            headers={"X-Content-Type-Options": "nosniff",
+                     "Cache-Control": "no-cache"})
 
     @app.get("/api/state")
     def state():
@@ -600,8 +703,17 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
         capability = (app.state.engine.spec.get("module_capability") or {})
         validated = set(capability.get("validated") or [])
         walls = set(capability.get("saturates_on") or [])
-        entry, _roster = load_roster_entry(app.state.engine.persona,
-                                           app.state.engine.model)
+        entry, roster = load_roster_entry(app.state.engine.persona,
+                                          app.state.engine.model)
+        model_enabled = (list(entry["enabled_organs"])
+                         if entry is not None
+                         and entry.get("enabled_organs") is not None
+                         else None)
+        persona_enabled = (list(roster["enabled_organs"])
+                           if roster is not None
+                           and roster.get("enabled_organs") is not None
+                           else None)
+        _declared, scope = roster_organ_preference(entry, roster)
         return {"registry": [{"id": o.organ_id, "deps": list(o.deps),
                               "desc": o.desc, "cost": o.cost,
                               "loop": o.loop,
@@ -609,11 +721,19 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
                               "blocked": o.organ_id in walls}
                              for o in REGISTRY.values()],
                 "enabled": sorted(app.state.engine.enabled),
+                "persona": app.state.engine.persona,
                 "model": app.state.engine.model,
-                "persisted": entry is not None}
+                "scope": scope,
+                "persona_enabled": persona_enabled,
+                "model_enabled": model_enabled,
+                "persisted": scope != "runtime",
+                "can_persist": entry is not None}
 
     @app.post("/api/organs")
     def set_organs(req: OrganRequest):
+        if req.scope not in {"persona", "model"}:
+            return JSONResponse(status_code=400, content={
+                "error": "organ scope must be 'persona' or 'model'"})
         # organs must never swap while a turn is mid-flight
         if not app.state.turn_lock.acquire(blocking=False):
             return JSONResponse(status_code=409, content={
@@ -622,9 +742,11 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
             before = sorted(app.state.engine.enabled)
             result = app.state.engine.set_organs(req.enabled)
             try:
-                persisted = save_model_organs(
-                    app.state.engine.persona, app.state.engine.model,
-                    result["enabled_organs"])
+                saver = (save_persona_organs if req.scope == "persona"
+                         else save_model_organs)
+                persisted = saver(app.state.engine.persona,
+                                  app.state.engine.model,
+                                  result["enabled_organs"])
             except Exception as e:
                 # Roster truth and the running body must never diverge.
                 app.state.engine.set_organs(before)
@@ -632,6 +754,8 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
                     "error": f"organ preference was not saved ({e}); "
                              "live selection restored"})
             result.update({"persisted": persisted,
+                           "scope": req.scope if persisted else "runtime",
+                           "persona": app.state.engine.persona,
                            "model": app.state.engine.model})
             return result
         except OrganConfigError as e:
@@ -714,8 +838,9 @@ def main():
     # dev override; no roster (fixtures like vex) = the legacy set ──
     entry, roster = load_roster_entry(args.persona, args.model)
     room_cfg = (roster or {}).get("room") or {}
-    if entry is not None and entry.get("enabled_organs") is not None:
-        enabled = set(entry["enabled_organs"])
+    declared_organs, _organ_scope = roster_organ_preference(entry, roster)
+    if declared_organs is not None:
+        enabled = set(declared_organs)
     else:
         enabled = legacy_set(use_osc=not args.no_osc,
                              use_soma=not args.no_soma,

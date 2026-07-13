@@ -32,7 +32,8 @@ import urllib.request
 
 import yaml
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -44,6 +45,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 PERSONAS_DIR = os.path.join(ROOT, "personas")
+ASSET_DIR = os.path.join(ROOT, "assets", "jnsq")
 
 # after the sys.path shim: importing env_store loads the gitignored .env
 # into os.environ, so persona subprocesses launched below inherit any
@@ -51,6 +53,8 @@ PERSONAS_DIR = os.path.join(ROOT, "personas")
 from shell import env_store  # noqa: E402
 from shell.ui_themes import resolve_theme, save_theme  # noqa: E402
 from shell.local_identity import load_local_identity  # noqa: E402
+from shell.persona_media import (load_persona_avatar, save_persona_avatar,
+                                 write_roster_scalar)  # noqa: E402
 
 
 class TurnRequest(BaseModel):
@@ -67,6 +71,14 @@ class CreateRequest(BaseModel):
     display_name: str = None   # pretty name (defaults to name as typed)
     model: str = "llama3-1-8b"
     organs: str = "local"     # local needs no remote judge/API key
+
+
+class PersonaIconRequest(BaseModel):
+    icon: str
+
+
+class PersonaAvatarRequest(BaseModel):
+    data_url: str
 
 
 class ModelCreateRequest(BaseModel):
@@ -188,8 +200,11 @@ def discover_personas() -> dict:
         with open(roster_path, encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
         kind = data.get("kind", "model_persona")  # pre-kind rosters default here
+        avatar = load_persona_avatar(persona_dir)
         entry = {"id": pid, "kind": kind, "dir": persona_dir,
-                 "display_name": data.get("display_name") or pid}
+                 "display_name": data.get("display_name") or pid,
+                 "icon": data.get("icon") or "",
+                 "avatar": avatar}
         if kind == "model_persona":
             entries = data.get("entries") or []
             # current_model: the persisted vessel choice (top-level
@@ -254,6 +269,21 @@ def set_current_model(persona_dir: str, model: str) -> bool:
     return True
 
 
+def set_persona_icon(persona_dir: str, icon: str) -> str:
+    """Persist one persona's display glyph in its roster entity record.
+
+    This is presentation metadata, not a theme token: it follows the persona
+    anywhere the household renders their name. The text edit preserves every
+    unrelated roster byte, validates before replace, and keeps ``.prev``.
+    """
+    value = (icon or "").strip()
+    if not value:
+        raise ValueError("persona icon cannot be empty")
+    if len(value) > 16:
+        raise ValueError("persona icon must be 16 characters or fewer")
+    return write_roster_scalar(persona_dir, "icon", value)
+
+
 class PersonaProcess:
     def __init__(self, pid: str, model: str, identity_file,
                  room_cfg: dict = None, room_url: str = None,
@@ -314,6 +344,9 @@ class PersonaProcess:
 
 def build_app(room_url: str = None) -> FastAPI:
     app = FastAPI(title="JNSQ shell/router")
+    if os.path.isdir(ASSET_DIR):
+        app.mount("/assets", StaticFiles(directory=ASSET_DIR),
+                  name="jnsq-assets")
     app.state.registry = discover_personas()
     app.state.processes = {}
     app.state.room_url = room_url
@@ -524,6 +557,10 @@ def build_app(room_url: str = None) -> FastAPI:
             out[pid] = {
                 "kind": entry["kind"],
                 "display_name": entry.get("display_name") or pid,
+                "icon": entry.get("icon") or "",
+                "avatar_url": (f"/api/personas/{pid}/avatar?v="
+                               f"{entry['avatar']['version']}"
+                               if entry.get("avatar") else ""),
                 "model": (proc.model if proc and proc.alive()
                           else entry.get("model")),
                 "models": entry.get("models") or [],
@@ -532,6 +569,51 @@ def build_app(room_url: str = None) -> FastAPI:
                 "alive": proc.alive() if proc else False,
             }
         return out
+
+    @app.post("/api/personas/{pid}/icon")
+    def persona_icon(pid: str, req: PersonaIconRequest):
+        app.state.registry = discover_personas()
+        entry = app.state.registry.get(pid)
+        if not entry:
+            return JSONResponse(status_code=404,
+                                content={"error": f"no persona '{pid}'"})
+        try:
+            icon = set_persona_icon(entry["dir"], req.icon)
+        except (OSError, ValueError) as e:
+            return JSONResponse(status_code=400, content={"error": str(e)})
+        app.state.registry = discover_personas()
+        return {"ok": True, "persona": pid, "icon": icon}
+
+    @app.get("/api/personas/{pid}/avatar")
+    def persona_avatar_file(pid: str):
+        app.state.registry = discover_personas()
+        entry = app.state.registry.get(pid)
+        avatar = entry.get("avatar") if entry else None
+        if not avatar:
+            return JSONResponse(status_code=404,
+                                content={"error": "persona has no avatar"})
+        return FileResponse(
+            avatar["path"], media_type=avatar["mime"],
+            headers={"X-Content-Type-Options": "nosniff",
+                     "Cache-Control": "no-cache"})
+
+    @app.post("/api/personas/{pid}/avatar")
+    def persona_avatar_save(pid: str, req: PersonaAvatarRequest):
+        app.state.registry = discover_personas()
+        entry = app.state.registry.get(pid)
+        if not entry:
+            return JSONResponse(status_code=404,
+                                content={"error": f"no persona '{pid}'"})
+        try:
+            save_persona_avatar(entry["dir"], req.data_url)
+        except (OSError, ValueError) as error:
+            return JSONResponse(status_code=400,
+                                content={"error": str(error)})
+        app.state.registry = discover_personas()
+        avatar = app.state.registry[pid]["avatar"]
+        return {"ok": True, "persona": pid,
+                "avatar_url": (f"/api/personas/{pid}/avatar?v="
+                               f"{avatar['version']}")}
 
     @app.post("/api/personas/{pid}/start")
     def persona_start(pid: str, req: StartRequest = None):

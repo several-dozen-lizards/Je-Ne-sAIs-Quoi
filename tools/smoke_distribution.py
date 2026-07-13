@@ -20,7 +20,38 @@ def main():
     shell = (ROOT / "shell" / "fangwall.html").read_text(encoding="utf-8")
     assert "Je Ne <strong>sAI</strong>s Quoi" in shell
     assert "data-visible" in shell
+    assert "data-icon" in shell and "changePersonaIcon" in shell
+    assert "data-avatar" in shell and "choosePersonaAvatar" in shell
     assert "Yurt" not in shell and ">World<" not in shell
+    assert "/assets/jnsq_favicon.svg" in shell
+    cockpit = (ROOT / "shell" / "cockpit.html").read_text(encoding="utf-8")
+    assert "jnsq_icon_animated_128.apng" in cockpit
+    assert "setThinking(true)" in cockpit and "setThinking(false)" in cockpit
+    assert "setInterval" not in cockpit
+    assert "thought-label" not in cockpit
+    assert "scrollConversationToBottom()" in cockpit
+    assert "requestAnimationFrame" in cockpit
+    assert "CONFIG.persona_avatar" in cockpit
+    assert 'id="organScope"' in cockpit
+    assert 'id="saveOrgans"' in cockpit
+    assert 'JSON.stringify({enabled, scope})' in cockpit
+    for name in ("favicon.ico", "jnsq_favicon.svg",
+                 "jnsq_icon_animated_128.apng", "favicon-180.png"):
+        assert (ROOT / "assets" / "jnsq" / name).is_file(), name
+    assert (ROOT / "assets" / "jnsq" /
+            "jnsq-venetian-mask-space.png").is_file()
+    import yaml
+    glm_spec = yaml.safe_load((ROOT / "specs" / "models" /
+                               "glm-5.yaml").read_text(encoding="utf-8"))
+    glm_temperature = glm_spec["sampling"]["temperature"]
+    assert glm_temperature["max"] == 1.0
+    assert glm_temperature["precision"] == 2
+    gpt_spec = yaml.safe_load((ROOT / "specs" / "models" /
+                               "gpt-5-6.yaml").read_text(encoding="utf-8"))
+    assert gpt_spec["sampling"]["temperature"]["mode"] == "omit"
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "jnsq_favicon.svg" in readme
+    assert "jnsq-venetian-mask-space.png" in readme
     assert not list(ROOT.rglob("test_*.py")), "public build contains dev tests"
     assert not (ROOT / "core" / "bench.py").exists()
     assert not (ROOT / "core" / "first_turn.py").exists()
@@ -64,9 +95,12 @@ def main():
         assert made["model"] == "llama3-1-8b"
         roster_path = home / "personas" / "ember_fox" / "roster.yaml"
         assert roster_path.is_file()
-        import yaml
         roster = yaml.safe_load(roster_path.read_text(encoding="utf-8"))
+        assert roster["icon"] == "🦋"
+        assert roster["avatar"] == ""
         assert roster["room"]["id"] == "nexus"
+        assert roster["enabled_organs"]
+        assert "enabled_organs" not in roster["entries"][0]
     print("JNSQ starter smoke test: PASS")
 
 

@@ -67,8 +67,12 @@ separate RP identities and never overwrite the human.</p>
       <label>visibility<select id="factVisibility"><option>private</option><option>groups</option>
         <option>contacts</option><option>public</option></select></label>
       <label>groups (comma-separated)<input id="factGroups"></label>
+      <label>share with specific users<input id="factShare"
+        placeholder="username, username"></label>
       <label>never share with<input id="factDeny"></label>
-      <div class="form-actions"><button id="saveFact">add fact</button></div>
+      <div class="form-actions"><button id="saveFact">add fact</button>
+        <button id="cancelFact" type="button" class="hidden">cancel edit</button>
+        <span id="factEditNote" class="hint"></span></div>
     </div>
   </section>
   <section class="card"><h2>sharing groups</h2>
@@ -141,7 +145,7 @@ separate RP identities and never overwrite the human.</p>
 const $=id=>document.getElementById(id), esc=s=>String(s??"").replace(/[&<>"']/g,
   c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const csv=id=>$(id).value.split(",").map(x=>x.trim()).filter(Boolean);
-let uid=null,data=null;
+let uid=null,data=null,editingFactId=null;
 async function request(url,method="GET",body){const r=await fetch(url,{method,
  headers:{"Content-Type":"application/json"},body:body?JSON.stringify(body):undefined});
  const d=await r.json();if(!r.ok||d.error)throw Error(d.error||r.statusText);return d}
@@ -157,9 +161,12 @@ function render(){$("workspace").classList.remove("hidden");$("accountForm").cla
  const a=data.account;$("username").value=a.username;$("displayName").value=a.display_name;
  $("pronouns").value=a.pronouns||"";
  $("facts").innerHTML=data.bedrock.length?data.bedrock.map(f=>`<div class="item">
- <b>${esc(f.text)}</b><br>${tags([f.category,f.visibility,...(f.groups||[])])}
+ <b>${esc(f.text)}</b><br>${tags([f.category,f.visibility,...(f.groups||[]),
+   ...(f.share_with||[]).map(x=>"share:"+x),
+   ...(f.never_share_with||[]).map(x=>"never:"+x)])}
  ${f.source?`<span class="source">imported from ${esc(f.source.persona)} memory · ${esc(f.source.memory_id)}</span>`:""}
- <button class="danger" onclick="delFact('${esc(f.id)}')">remove</button></div>`).join(""):'<p class="empty">No bedrock declared yet.</p>';
+ <div class="actions"><button onclick="editFact('${esc(f.id)}')">edit</button>
+ <button class="danger" onclick="delFact('${esc(f.id)}')">remove</button></div></div>`).join(""):'<p class="empty">No bedrock declared yet.</p>';
  const gs=Object.values(data.groups);$("groups").innerHTML=gs.length?gs.map(g=>`<div class="item"><b>${esc(g.name)}</b>
  ${tags([g.access,...(g.allow_categories||[]).map(x=>"allow:"+x),...(g.deny_categories||[]).map(x=>"deny:"+x)])}
  <div class="hint">${esc(g.instructions)}</div></div>`).join(""):'<p class="empty">No sharing groups yet.</p>';
@@ -168,22 +175,38 @@ function render(){$("workspace").classList.remove("hidden");$("accountForm").cla
  const ps=Object.values(data.user_personas);$("personas").innerHTML=ps.length?ps.map(p=>`<div class="item"><b>${esc(p.name)}</b>
  <div>${esc(p.description)}</div><div class="hint">preferences: ${esc(p.preferences)}<br>boundaries: ${esc(p.boundaries)}</div></div>`).join(""):'<p class="empty">No RP personas yet.</p>'}
 async function refresh(msg){await loadUser(uid);say(msg)}
-$("userSelect").onchange=e=>loadUser(e.target.value).catch(e=>say(e.message,true));
-$("newUser").onclick=()=>{uid=null;data=null;$("workspace").classList.add("hidden");
+function clearFactEditor(){editingFactId=null;
+ ["factText","factCategory","factGroups","factShare","factDeny"].forEach(id=>$(id).value="");
+ $("factVisibility").value="private";$("saveFact").textContent="add fact";
+ $("cancelFact").classList.add("hidden");$("factEditNote").textContent=""}
+function editFact(id){const fact=(data.bedrock||[]).find(f=>f.id===id);if(!fact)return;
+ editingFactId=id;$("factText").value=fact.text||"";$("factCategory").value=fact.category||"general";
+ $("factVisibility").value=fact.visibility||"private";$("factGroups").value=(fact.groups||[]).join(", ");
+ $("factShare").value=(fact.share_with||[]).join(", ");$("factDeny").value=(fact.never_share_with||[]).join(", ");
+ $("saveFact").textContent="save changes";$("cancelFact").classList.remove("hidden");
+ $("factEditNote").textContent=`editing ${id}`;$("factText").focus();
+ $("factText").scrollIntoView({behavior:"smooth",block:"center"})}
+window.editFact=editFact;$("cancelFact").onclick=clearFactEditor;
+$("userSelect").onchange=e=>{clearFactEditor();loadUser(e.target.value).catch(e=>say(e.message,true))};
+$("newUser").onclick=()=>{clearFactEditor();uid=null;data=null;$("workspace").classList.add("hidden");
  $("accountForm").classList.remove("hidden");["username","displayName","pronouns"].forEach(x=>$(x).value="")};
 $("saveAccount").onclick=async()=>{try{const id=$("username").value;await request("/api/users","POST",
  {username:id,display_name:$("displayName").value,pronouns:$("pronouns").value,update:!!uid});
  await loadUsers(id.toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_|_$/g,""));say("account saved")}
  catch(e){say(e.message,true)}};
-$("saveFact").onclick=async()=>{try{await request(`/api/users/${uid}/bedrock`,"POST",{text:$("factText").value,
- category:$("factCategory").value||"general",visibility:$("factVisibility").value,groups:csv("factGroups"),never_share_with:csv("factDeny")});
- $("factText").value="";await refresh("bedrock saved") }catch(e){say(e.message,true)}};
+$("saveFact").onclick=async()=>{try{const wasEditing=!!editingFactId;
+ await request(`/api/users/${uid}/bedrock`,"POST",{id:editingFactId||"",text:$("factText").value,
+ category:$("factCategory").value||"general",visibility:$("factVisibility").value,
+ groups:csv("factGroups"),share_with:csv("factShare"),never_share_with:csv("factDeny")});
+ clearFactEditor();await refresh(wasEditing?"bedrock changes saved":"bedrock fact added")
+ }catch(e){say(e.message,true)}};
 $("importBedrock").onclick=async()=>{const note=$("importNote");note.textContent="checking existing persona memories…";
  try{const r=await request(`/api/users/${uid}/bedrock/import-legacy`,"POST");
  note.textContent=r.imported.length?`${r.imported.length} existing facts imported; ${r.skipped.length} already connected.`:
  `${r.skipped.length} existing facts were already connected; nothing duplicated.`;await loadUser(uid)}
  catch(e){note.textContent="⚠ "+e.message}};
-async function delFact(id){try{await request(`/api/users/${uid}/bedrock/${encodeURIComponent(id)}`,"DELETE");await refresh("fact removed")}
+async function delFact(id){try{await request(`/api/users/${uid}/bedrock/${encodeURIComponent(id)}`,"DELETE");
+ if(editingFactId===id)clearFactEditor();await refresh("fact removed")}
  catch(e){say(e.message,true)}}window.delFact=delFact;
 $("saveGroup").onclick=async()=>{try{await request(`/api/users/${uid}/groups`,"POST",{id:$("groupName").value,name:$("groupName").value,
  access:$("groupAccess").value,allow_categories:csv("groupAllow"),deny_categories:csv("groupDeny"),instructions:$("groupInstructions").value});

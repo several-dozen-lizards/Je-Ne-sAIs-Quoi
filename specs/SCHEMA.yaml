@@ -23,6 +23,14 @@ prompt_structure:
   stop_sequences: []           # required stops, exact strings
   notes: ""                    # template quirks, tokenizer gotchas
 
+sampling:
+  temperature:                  # how the body's expressive vector reaches the wire
+    mode: "dynamic"             # "dynamic" | "fixed" | "omit"
+    min: null                   # optional provider floor
+    max: null                   # optional provider ceiling
+    precision: null             # optional decimal-place limit
+    value: null                 # required only when mode is "fixed"
+
 capabilities:
   tool_use: false
   vision: false

@@ -173,6 +173,12 @@ def put_bedrock_fact(repo: str, uid: str, *, text: str, category: str,
         rec["source"] = dict(source)
     for i, old in enumerate(facts):
         if old.get("id") == fid:
+            # Provenance is an immutable receipt. Editing the user-owned
+            # text or disclosure boundary must not sever where an imported
+            # fact came from merely because the browser never sends that
+            # internal source object back over the wire.
+            if "source" not in rec and old.get("source"):
+                rec["source"] = dict(old["source"])
             facts[i] = rec
             break
     else:

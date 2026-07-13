@@ -1,4 +1,4 @@
-# gpt-5-5 — user-added OpenAI-compatible model, scaffolded by the
+# glm-5 — user-added OpenAI-compatible model, scaffolded by the
 # factory 2026-07-13. One wire shape, many servers: LM Studio, llama.cpp,
 # vLLM, OpenRouter, Together, Groq. KEY LAW: api_key_env below NAMES
 # an environment variable — the value NEVER goes in this file. Local
@@ -7,17 +7,17 @@
 # trusting anything (llama3-1-8b's template-risk lesson applies doubly to
 # servers that silently apply their own chat template).
 identity:
-  name: "gpt-5-5"
+  name: "glm-5"
   family: "openai_chat"
-  base_model: "gpt-5.5 (user-added)"
+  base_model: "glm-5 (user-added)"
   provider: "openai_compat"
-  endpoint: "gpt-5.5"
-  base_url: "https://api.openai.com/v1"
-  api_key_env: "OPENAI_API_KEY"
+  endpoint: "glm-5"
+  base_url: "https://api.z.ai/api/paas/v4"
+  api_key_env: "ZAI_API_KEY"
   locality: "api"
 context:
-  window_tokens: 8192
-  practical_window_tokens: 6963
+  window_tokens: 200000
+  practical_window_tokens: 170000
   block_budgets: {}
 prompt_structure:
   system_prompt: true
@@ -27,7 +27,10 @@ prompt_structure:
   stop_sequences: []
 sampling:
   temperature:
-    mode: omit
+    mode: dynamic
+    min: 0.0
+    max: 1.0
+    precision: 2
 capabilities:
   tool_use: false
   vision: false

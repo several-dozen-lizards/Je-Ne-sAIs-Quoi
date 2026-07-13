@@ -25,6 +25,12 @@ prompt_structure:
   strict_alternation: false
   prefill_supported: false
   stop_sequences: []
+sampling:
+  temperature:
+    mode: dynamic
+    min: 0.0
+    max: 1.0
+    precision: 2
 capabilities:
   tool_use: false
   vision: false

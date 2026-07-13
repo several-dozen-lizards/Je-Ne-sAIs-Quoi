@@ -33,14 +33,37 @@ owner or their personas.
        ollama pull llama3.1:8b
 
 4. Double-click `START_NEXUS.bat` if you did not start it from setup.
-5. Create a persona, write their voice, start them, and check their box to add
-   their chat to the workspace. Check several boxes to view chats side by side.
+5. Open **Personas**, create a persona, write their voice, and start them. The
+   pane picker can show any combination of persona chats and the lightweight
+   Nexus world view side by side.
 
 Use `STOP_NEXUS.bat` for a clean shutdown.
 
 Setup never asks for an API key and never uploads personal information. Remote
 provider keys can be added later from JNSQ's local settings page and are saved
 only in the gitignored `.env` file on that computer.
+
+## Updating an existing installation
+
+Starting with version 0.2.0, double-click `UPDATE_JNSQ.bat` to check GitHub.
+The updater compares the installed version and verifies SHA-256 fingerprints
+for the public engine. When a patch is available it copies only managed files
+whose contents changed, retires only files previously declared engine-owned,
+and runs dependency installation only when `requirements.txt` changed or the
+local `.venv` is missing.
+
+Stop JNSQ before applying an update. Local accounts, bedrock facts, personas,
+memories, histories, API keys, logs, exports, room state, and `.venv` are not
+managed release files and are never replaced by the patcher. The **Settings →
+Updates** page shows the installed version and can perform a read-only GitHub
+check.
+
+The public header has two stable doors:
+
+- **Personas** is the configurable pane workspace. Check persona conversations,
+  the Nexus world, or future panel types to decide what is visible.
+- **Settings** contains account/privacy and bedrock facts, household appearance,
+  persona faces and icons, API keys, model and organ prompts, and updates.
 
 ## What stays local
 

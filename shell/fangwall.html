@@ -23,8 +23,13 @@ header{height:74px;display:flex;align-items:center;gap:18px;padding:0 24px;
 .brand{font-family:Consolas,"Cascadia Mono",monospace;font-size:1.28rem;
   letter-spacing:.04em;color:var(--mint);white-space:nowrap}
 .brand strong{color:var(--gold)}.tagline{color:var(--dim);font-size:.88rem}
+.top-nav{display:flex;gap:7px}.top-nav button{border:1px solid var(--line);background:var(--panel);
+  color:var(--dim);border-radius:9px;padding:7px 11px}.top-nav button:hover,.top-nav button.on{
+  color:var(--mint);border-color:var(--mint);background:var(--panel2)}
 #status{margin-left:auto;color:var(--dim);font-size:.82rem}
-.app{height:calc(100% - 74px);display:grid;grid-template-columns:280px 1fr;min-width:0}
+.top-page{display:none;height:calc(100% - 74px)}.top-page.on{display:block}
+.app{height:100%;display:grid;grid-template-columns:280px 1fr;min-width:0}
+#page-settings iframe{width:100%;height:100%;border:0;background:var(--bg)}
 aside{border-right:1px solid var(--line);padding:18px;overflow:auto;background:#081410}
 .section-title{display:flex;align-items:center;justify-content:space-between;
   margin:0 0 10px;font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;color:var(--dim)}
@@ -69,8 +74,8 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
   border-bottom:1px solid var(--line)}.modal-head h2{font-size:1rem;margin:0}.modal-head button{margin-left:auto}
 .modal-body{padding:18px}.modal-body textarea{min-height:300px;line-height:1.45}.modal-actions{display:flex;
   justify-content:flex-end;gap:8px;margin-top:12px}.error{color:var(--danger);font-size:.78rem;min-height:1em}
-@media(max-width:760px){header{height:auto;min-height:70px;flex-wrap:wrap;padding:12px 16px;gap:5px 12px}
-  .tagline{width:100%}#status{position:absolute;right:14px;top:14px}.app{height:auto;min-height:calc(100% - 86px);
+@media(max-width:760px){header{height:auto;min-height:104px;flex-wrap:wrap;padding:12px 16px;gap:7px 12px}
+  .tagline{width:100%}.top-page{height:calc(100% - 104px)}#status{position:absolute;right:14px;top:14px}.app{height:auto;min-height:100%;
   grid-template-columns:1fr}aside{border-right:0;border-bottom:1px solid var(--line);max-height:42vh}
   main{min-height:58vh}.workspace{grid-template-columns:1fr!important}.chat-panel{min-height:620px}}
 </style>
@@ -80,11 +85,13 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
   <img class="brand-icon" src="/assets/jnsq_favicon.svg" alt="">
   <div class="brand">Je Ne <strong>sAI</strong>s Quoi</div>
   <div class="tagline">a local home for persistent AI personas</div>
+  <nav class="top-nav"><button type="button" data-top-page="personas">🦋 Personas</button>
+    <button type="button" data-top-page="settings">⚙ Settings</button></nav>
   <div id="status">connecting…</div>
 </header>
-<div class="app">
+<section class="top-page on" id="page-personas"><div class="app">
   <aside>
-    <div class="section-title"><span>Visible chats</span><span class="tiny-actions">
+    <div class="section-title"><span>Visible panels</span><span class="tiny-actions">
       <button type="button" id="showAll">all</button><button type="button" id="showNone">none</button>
     </span></div>
     <div id="personaList"></div>
@@ -105,7 +112,8 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
     </details>
   </aside>
   <main><div id="workspace" class="workspace"></div></main>
-</div>
+</div></section>
+<section class="top-page" id="page-settings"><iframe src="/settings" title="JNSQ settings"></iframe></section>
 
 <dialog id="voiceDialog">
   <div class="modal-head"><h2 id="voiceTitle">Persona voice</h2>
@@ -124,6 +132,14 @@ const state = {personas:{}, models:[], selected:new Set(), voicePid:null};
 try { for (const id of JSON.parse(localStorage.getItem("jnsq.public.visible")||"[]")) state.selected.add(id); }
 catch (_) {}
 const esc = value => String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+
+function showTopPage(page){
+  document.querySelectorAll("[data-top-page]").forEach(button=>button.classList.toggle("on",button.dataset.topPage===page));
+  document.querySelectorAll(".top-page").forEach(section=>section.classList.toggle("on",section.id===`page-${page}`));
+  localStorage.setItem("jnsq.public.page",page);
+}
+document.querySelectorAll("[data-top-page]").forEach(button=>button.onclick=()=>showTopPage(button.dataset.topPage));
+showTopPage(localStorage.getItem("jnsq.public.page")==="settings"?"settings":"personas");
 
 async function request(url, options={}){
   const res=await fetch(url,options); let body={};
@@ -157,13 +173,18 @@ function renderModels(){
 }
 function renderPersonaList(){
   const rows=personas();
-  $("personaList").innerHTML=rows.length?rows.map(([id,p])=>`<div class="persona-row">
+  const world=CFG.room_url?`<div class="persona-row"><div class="persona-main">
+    <input type="checkbox" data-visible="world" ${state.selected.has("world")?"checked":""}>
+    <span class="dot live"></span><span class="persona-mark">🌍</span><span class="persona-name">Nexus world</span></div>
+    <div class="persona-meta">shared local context · lightweight view</div></div>`:"";
+  const personaRows=rows.length?rows.map(([id,p])=>`<div class="persona-row">
     <div class="persona-main"><input type="checkbox" data-visible="${esc(id)}" ${state.selected.has(id)?"checked":""}>
       <span class="dot ${p.alive?"live":""}"></span>${mark(p)}<span class="persona-name">${esc(p.display_name||id)}</span></div>
     <div class="persona-meta">${esc(p.model||"no model")} · ${p.alive?"awake":"stopped"}</div>
     <div class="persona-actions"><button data-voice="${esc(id)}">edit voice</button><button data-icon="${esc(id)}">change icon</button><button data-avatar="${esc(id)}">upload image</button>
       ${p.alive?`<button class="stop" data-stop="${esc(id)}">stop</button>`:`<button data-start="${esc(id)}">start</button>`}</div>
   </div>`).join(""):`<p class="note">No personas yet. Make the first one below.</p>`;
+  $("personaList").innerHTML=world+personaRows;
   document.querySelectorAll("[data-visible]").forEach(el=>el.onchange=()=>{
     el.checked?state.selected.add(el.dataset.visible):state.selected.delete(el.dataset.visible);persist();syncWorkspace();});
   document.querySelectorAll("[data-start]").forEach(el=>el.onclick=()=>startPersona(el.dataset.start,el));
@@ -173,13 +194,25 @@ function renderPersonaList(){
   document.querySelectorAll("[data-avatar]").forEach(el=>el.onclick=()=>choosePersonaAvatar(el.dataset.avatar));
 }
 function syncWorkspace(){
-  const wanted=[...state.selected].filter(id=>state.personas[id]);
+  const wanted=[...state.selected].filter(id=>state.personas[id]||(id==="world"&&CFG.room_url));
   if(!wanted.length){$("workspace").innerHTML=`<div class="empty"><div><b>Choose what you want to see.</b>
-    Check one or more persona chats on the left. Each remains its own mind and its own conversation.</div></div>`;
+    Check persona chats, the Nexus world, or any future panel type on the left.</div></div>`;
     $("workspace").style.setProperty("--columns",1);return;}
   const empty=$("workspace").querySelector(".empty");if(empty)empty.remove();
   for(const panel of [...$("workspace").querySelectorAll("[data-panel]")])if(!wanted.includes(panel.dataset.panel))panel.remove();
   for(const id of wanted){
+    if(id==="world"){
+      let panel=$("workspace").querySelector('[data-panel="world"]');
+      const signature=`world:${CFG.room_url}`;
+      if(panel&&panel.dataset.signature===signature)continue;
+      if(panel)panel.remove();panel=document.createElement("section");panel.className="chat-panel";
+      panel.dataset.panel="world";panel.dataset.signature=signature;
+      panel.innerHTML=`<div class="panel-head"><span class="dot live"></span><span class="persona-mark">🌍</span>
+        <b>Nexus world</b><span class="model">shared local context</span>
+        <button title="hide this panel" data-hide="world">×</button></div>
+        <iframe title="Nexus world" src="${esc(CFG.room_url)}"></iframe>`;
+      $("workspace").appendChild(panel);continue;
+    }
     const p=state.personas[id];let panel=$("workspace").querySelector(`[data-panel="${CSS.escape(id)}"]`);
     const signature=`${p.alive}:${p.port}:${p.model}:${p.avatar_url||""}`;
     if(panel&&panel.dataset.signature===signature)continue;
@@ -205,7 +238,7 @@ async function startPersona(id,button){
 async function stopPersona(id,button){button.disabled=true;try{await request(`/api/personas/${encodeURIComponent(id)}/stop`,{method:"POST"});await refresh();}
   catch(e){button.disabled=false;alert(e.message);}}
 
-$("showAll").onclick=()=>{for(const [id] of personas())state.selected.add(id);persist();renderPersonaList();syncWorkspace();};
+$("showAll").onclick=()=>{for(const [id] of personas())state.selected.add(id);if(CFG.room_url)state.selected.add("world");persist();renderPersonaList();syncWorkspace();};
 $("showNone").onclick=()=>{state.selected.clear();persist();renderPersonaList();syncWorkspace();};
 $("createForm").onsubmit=async e=>{
   e.preventDefault();const btn=$("createBtn");btn.disabled=true;$("createError").textContent="";
@@ -241,7 +274,14 @@ $("voiceSave").onclick=async()=>{const btn=$("voiceSave");btn.disabled=true;$("v
       body:JSON.stringify({identity:$("voiceIdentity").value})});$("voiceDialog").close();}
   catch(e){$("voiceError").textContent=e.message;}finally{btn.disabled=false;}};
 window.addEventListener("focus",()=>refresh());
-refresh();
+function applyHouseTheme(tokens){if(!tokens)return;const root=document.documentElement;
+  const map={bg:"bg",panel:"panel",line:"line",ink:"ink",dim:"dim",accent:"mint",accent2:"gold",warn:"danger"};
+  for(const [source,target] of Object.entries(map))if(tokens[source])root.style.setProperty(`--${target}`,tokens[source]);
+  if(tokens.radius!==undefined)root.style.setProperty("--radius",`${tokens.radius}px`)}
+async function loadHouseTheme(){try{const theme=await request("/api/ui/theme");applyHouseTheme(theme.tokens);
+  document.querySelectorAll("iframe").forEach(frame=>frame.contentWindow?.postMessage({type:"jnsq-theme-refresh"},"*"))}catch(_){}}
+window.addEventListener("message",event=>{if(event.data?.type==="jnsq-theme-refresh")loadHouseTheme()});
+refresh();loadHouseTheme();
 </script>
 </body>
 </html>

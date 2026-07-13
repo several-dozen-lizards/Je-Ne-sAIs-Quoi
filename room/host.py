@@ -213,6 +213,10 @@ class ObjectUpdateReq(BaseModel):
 
 def build_app() -> FastAPI:
     app = FastAPI(title="JNSQ room host", version=CONTRACT_VERSION)
+    jnsq_assets = os.path.join(REPO, "assets", "jnsq")
+    if os.path.isdir(jnsq_assets):
+        app.mount("/assets", StaticFiles(directory=jnsq_assets),
+                  name="jnsq-assets")
     world = build_world()
     app.state.rooms = world["rooms"]
     app.state.adjacency = world["adjacency"]
@@ -267,6 +271,11 @@ def build_app() -> FastAPI:
         if p.startswith("/3d") or p.startswith("/models") \
                 or p.startswith("/avatars") or p == "/tuning":
             return await call_next(request)
+        # Long-poll listeners wait on Room._event_condition. They must not
+        # hold the global world lock or they would prevent the mutation that
+        # advances the very sequence they are waiting for.
+        if p.endswith("/events/wait"):
+            return await call_next(request)
         async with WORLD_LOCK:
             resp = await call_next(request)
             if request.method in ("POST", "DELETE"):
@@ -307,6 +316,21 @@ def build_app() -> FastAPI:
             return JSONResponse(status_code=404,
                                 content={"error": f"no room '{rid}'"})
         return {"events": room.events_since(since)}
+
+    @app.get("/api/rooms/{rid}/events/wait")
+    def room_events_wait(rid: str, since: int = 0,
+                         timeout: float = 25.0):
+        """Long-poll until this room's event sequence advances.
+
+        Renderers wait on an actual state threshold rather than waking on a
+        blind browser timer. The bounded timeout merely renews the connection.
+        """
+        room = app.state.rooms.get(rid)
+        if not room:
+            return JSONResponse(status_code=404,
+                                content={"error": f"no room '{rid}'"})
+        events = room.wait_for_events(since, timeout)
+        return {"events": events, "last_seq": room._seq}
 
     @app.get("/api/personas")
     def personas():

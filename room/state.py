@@ -16,6 +16,7 @@ Three property layers per object (design session 2026-07-01):
                leaves readable pages in shared space."""
 import time
 from collections import deque
+from threading import Condition
 
 REACH_M = 1.2          # arm's length: capability + contact gate
 WALL_MARGIN_M = 0.3    # radial clamp: bodies stay off the lattice
@@ -78,18 +79,35 @@ class Room:
         self.members = {}                       # name -> [x, y] position
         self.events = deque(maxlen=500)         # the event bus, v0
         self._seq = 0
+        self._event_condition = Condition()
 
     # ── event bus ────────────────────────────────────────────────
     def emit(self, member: str, kind: str, data: dict = None):
-        self._seq += 1
-        self.events.append({"seq": self._seq,
-                            "ts": time.strftime("%H:%M:%S"),
-                            "t": time.time(),
-                            "member": member, "kind": kind,
-                            "data": data or {}})
+        with self._event_condition:
+            self._seq += 1
+            self.events.append({"seq": self._seq,
+                                "ts": time.strftime("%H:%M:%S"),
+                                "t": time.time(),
+                                "member": member, "kind": kind,
+                                "data": data or {}})
+            self._event_condition.notify_all()
 
     def events_since(self, since: int) -> list:
-        return [e for e in self.events if e["seq"] > since]
+        with self._event_condition:
+            return [e for e in self.events if e["seq"] > since]
+
+    def wait_for_events(self, since: int, timeout: float = 25.0) -> list:
+        """Block until the event vector advances beyond ``since``.
+
+        The timeout only renews the HTTP transport; it does not cause a room
+        tick or scheduled behavior. State wakes listeners by threshold: a new
+        sequence value exists.
+        """
+        with self._event_condition:
+            self._event_condition.wait_for(lambda: self._seq > since,
+                                           timeout=max(1.0, min(30.0,
+                                                                timeout)))
+            return [e for e in self.events if e["seq"] > since]
 
     # ── membership (one body, one room — enforced by the host) ──
     def join(self, member: str, at=None):

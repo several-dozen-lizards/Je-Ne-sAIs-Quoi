@@ -1,7 +1,9 @@
 """Offline smoke test for a clean JNSQ starter tree."""
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import json
+import hashlib
 import os
 from pathlib import Path
 import sys
@@ -25,6 +27,11 @@ def main():
     assert "data-icon" in shell and "changePersonaIcon" in shell
     assert "data-avatar" in shell and "choosePersonaAvatar" in shell
     assert "Yurt" not in shell and ">World<" not in shell
+    assert 'data-top-page="personas"' in shell
+    assert 'data-top-page="settings"' in shell
+    assert 'id="page-settings"' in shell and 'src="/settings"' in shell
+    assert 'data-visible="world"' in shell
+    assert "Nexus world" in shell
     assert "/assets/jnsq_favicon.svg" in shell
     cockpit = (ROOT / "shell" / "cockpit.html").read_text(encoding="utf-8")
     assert "jnsq_icon_animated_128.apng" in cockpit
@@ -62,6 +69,19 @@ def main():
     assert "pip\", \"install\", \"--requirement" in setup
     assert "Existing local owner found" in setup
     assert "Start Je Ne sAIs Quoi now?" in setup
+    updater = (ROOT / "UPDATE_JNSQ.ps1").read_text(encoding="utf-8")
+    update_launcher = (ROOT / "UPDATE_JNSQ.bat").read_text(encoding="utf-8")
+    assert "UPDATE_JNSQ.ps1" in update_launcher
+    assert "managed_files" in updater and "Get-FileHash" in updater
+    assert "requirementsChanged" in updater
+    assert "local-life data" in updater
+    assert (ROOT / "VERSION").read_text(encoding="utf-8").strip()
+    settings = (ROOT / "shell" / "settings.html").read_text(encoding="utf-8")
+    for page in ("account", "appearance", "keys", "prompts", "updates"):
+        assert f'data-page="{page}"' in settings
+    assert 'src="/users"' in settings
+    assert "/api/ui/theme" in settings and "/api/env" in settings
+    assert "organ_prompts" in settings and "/api/version/check" in settings
     assert not list(ROOT.rglob("test_*.py")), "public build contains dev tests"
     assert not (ROOT / "core" / "bench.py").exists()
     assert not (ROOT / "core" / "first_turn.py").exists()
@@ -70,11 +90,29 @@ def main():
     from room.host import build_app as build_room_app
     room_app = build_room_app()
     assert set(room_app.state.rooms) == {"nexus"}
+    room_routes = {route.path for route in room_app.routes}
+    assert "/api/rooms/{rid}/events/wait" in room_routes
+    viewer = (ROOT / "room" / "viewer.html").read_text(encoding="utf-8")
+    assert "events/wait" in viewer
+    assert "No personas are present yet" in viewer
+    assert "no room viewer" not in viewer
+    host_source = (ROOT / "room" / "host.py").read_text(encoding="utf-8")
+    assert 'p.endswith("/events/wait")' in host_source
+
+    from room.state import Room
+    threshold_room = Room("threshold", "threshold room", 4.0)
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        waiting = pool.submit(threshold_room.wait_for_events, 0, 2.0)
+        threshold_room.emit("smoke", "arrive", {})
+        advanced = waiting.result(timeout=3)
+    assert advanced and advanced[0]["seq"] == 1
 
     from shell.router import build_app as build_router_app
     router_app = build_router_app()
     assert router_app.state.registry == {}
     assert router_app.state.local_identity["display_name"] == "User"
+    routes = {route.path for route in router_app.routes}
+    assert {"/settings", "/api/version", "/api/version/check"} <= routes
 
     # A brand-new public home has no personas. Its live router therefore
     # returns {}, which is healthy and must still complete boot/write the
@@ -97,7 +135,7 @@ def main():
         opened.assert_called_once_with("http://127.0.0.1:43102/")
 
     text_suffixes = {".py", ".html", ".yaml", ".yml", ".json", ".md",
-                     ".txt", ".bat"}
+                     ".txt", ".bat", ".ps1"}
     private_markers = ("D:" + "/Wrappers", "D:" + "\\Wrappers",
                        "K" + "ay", "Re" + "ed", "Eury" + "ale",
                        "Testy " + "McPrototype",
@@ -108,6 +146,19 @@ def main():
             for marker in private_markers:
                 assert marker.lower() not in text.lower(), \
                     f"private marker {marker!r} remains in {path}"
+
+    manifest = json.loads((ROOT / "DISTRIBUTION_MANIFEST.json").read_text(
+        encoding="utf-8"))
+    assert manifest["format"] == 2
+    assert manifest["version"] == (ROOT / "VERSION").read_text(
+        encoding="utf-8").strip()
+    assert manifest["managed_files"]
+    local_roots = {"personas", "users", "people", "logs", "exports"}
+    for relative, expected in manifest["managed_files"].items():
+        assert relative.split("/", 1)[0] not in local_roots
+        path = ROOT / relative
+        assert path.is_file(), f"managed file is missing: {relative}"
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == expected
 
     from room.layout import build_persona_den
     den = build_persona_den("ember_fox", "Ember Fox")

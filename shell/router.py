@@ -46,6 +46,11 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 PERSONAS_DIR = os.path.join(ROOT, "personas")
 ASSET_DIR = os.path.join(ROOT, "assets", "jnsq")
+MANIFEST_PATH = os.path.join(ROOT, "DISTRIBUTION_MANIFEST.json")
+VERSION_PATH = os.path.join(ROOT, "VERSION")
+PUBLIC_MANIFEST_URL = (
+    "https://raw.githubusercontent.com/several-dozen-lizards/"
+    "Je-Ne-sAIs-Quoi/main/DISTRIBUTION_MANIFEST.json")
 
 # after the sys.path shim: importing env_store loads the gitignored .env
 # into os.environ, so persona subprocesses launched below inherit any
@@ -406,6 +411,64 @@ def build_app(room_url: str = None) -> FastAPI:
                   encoding="utf-8") as f:
             page = f.read()
         return page.replace("/*CONFIG*/", _json.dumps(cfg))
+
+    @app.get("/settings", response_class=HTMLResponse)
+    def settings_page():
+        """Shared settings surface used by the public workspace.
+
+        The page fetches mutable values from same-origin APIs; the injected
+        object contains identity labels and room availability only, never a
+        key value or persona interior.
+        """
+        import json as _json
+        cfg = {"room_url": room_url or "",
+               "local_identity": app.state.local_identity}
+        with open(os.path.join(ROOT, "shell", "settings.html"),
+                  encoding="utf-8") as f:
+            page = f.read()
+        return page.replace("/*CONFIG*/", _json.dumps(cfg))
+
+    def installed_version() -> str:
+        try:
+            if os.path.exists(MANIFEST_PATH):
+                with open(MANIFEST_PATH, encoding="utf-8") as f:
+                    value = json.load(f).get("version")
+                if value:
+                    return str(value)
+            with open(VERSION_PATH, encoding="utf-8") as f:
+                return f.read().strip() or "development"
+        except (OSError, ValueError, TypeError):
+            return "development"
+
+    @app.get("/api/version")
+    def version_info():
+        return {"version": installed_version(),
+                "updater": os.path.exists(os.path.join(ROOT,
+                                                        "UPDATE_JNSQ.bat"))}
+
+    @app.get("/api/version/check")
+    def version_check():
+        """User-invoked remote check; applying remains an offline act.
+
+        JNSQ must be stopped before engine files change, so this endpoint
+        reports availability only. UPDATE_JNSQ.bat owns the validated patch.
+        """
+        request = urllib.request.Request(
+            PUBLIC_MANIFEST_URL,
+            headers={"User-Agent": "JNSQ-Version-Check",
+                     "Cache-Control": "no-cache"})
+        try:
+            with urllib.request.urlopen(request, timeout=8) as response:
+                remote = json.loads(response.read().decode("utf-8"))
+            latest = str(remote.get("version") or "")
+            if not latest:
+                raise ValueError("GitHub manifest has no version")
+            current = installed_version()
+            return {"version": current, "latest": latest,
+                    "update_available": current != latest}
+        except Exception as error:
+            return JSONResponse(status_code=502,
+                                content={"error": f"update check failed: {error}"})
 
     @app.get("/users", response_class=HTMLResponse)
     def users_page():

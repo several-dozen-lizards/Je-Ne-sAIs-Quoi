@@ -1,9 +1,73 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8">
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Je Ne sAIs Quoi · room service</title>
-<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#07110f;
-color:#d9fff4;font:16px system-ui}.card{max-width:560px;padding:32px;border:1px solid #21483f;
-border-radius:14px;background:#0b1916}h1{color:#3ef0bd}p{color:#85b9aa;line-height:1.55}</style></head>
-<body><div class="card"><h1>The Nexus is running.</h1><p>This public build keeps one shared room
-service for conversation context. It has no room viewer, individual dens, Yurt tab, or 3D area.
-Return to <a href="http://127.0.0.1:8700/" style="color:#f6c85f">Je Ne sAIs Quoi</a> to chat.</p></div></body></html>
+<title>Je Ne sAIs Quoi · Nexus</title>
+<style>
+:root{color-scheme:dark;--bg:#07110f;--panel:#0b1916;--panel2:#10231f;
+  --line:#21483f;--ink:#d9fff4;--dim:#85b9aa;--mint:#3ef0bd;--gold:#f6c85f}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:radial-gradient(circle at 50% -20%,#173b33,transparent 44%),var(--bg);
+  color:var(--ink);font:15px "Segoe UI",system-ui,sans-serif}.shell{max-width:1050px;margin:auto;padding:30px}
+header{display:flex;align-items:center;gap:14px;margin-bottom:22px}header img{width:42px;height:42px}
+h1{font-size:1.35rem;color:var(--mint);margin:0}.subtitle{color:var(--dim);margin-top:4px}
+.grid{display:grid;grid-template-columns:minmax(240px,.8fr) minmax(320px,1.4fr);gap:16px}
+.card{border:1px solid var(--line);border-radius:15px;background:color-mix(in srgb,var(--panel) 92%,transparent);padding:18px}
+h2{font-size:.8rem;text-transform:uppercase;letter-spacing:.12em;color:var(--dim);margin:0 0 13px}
+.members{display:grid;gap:8px}.member{display:flex;align-items:center;gap:9px;border:1px solid var(--line);
+  border-radius:10px;background:var(--panel2);padding:9px}.pulse{width:9px;height:9px;border-radius:50%;background:var(--mint);
+  box-shadow:0 0 10px var(--mint)}.empty{color:var(--dim);line-height:1.5}.objects{display:flex;gap:7px;flex-wrap:wrap;margin-top:15px}
+.object{border:1px solid var(--line);border-radius:999px;padding:5px 9px;color:var(--dim);font-size:.78rem}
+.events{display:grid;gap:8px;max-height:520px;overflow:auto}.event{border-left:2px solid var(--line);padding:4px 0 4px 11px}
+.event.say{border-color:var(--gold)}.event.arrive,.event.depart{border-color:var(--mint)}.event-head{display:flex;gap:8px;
+  font-size:.75rem;color:var(--dim)}.event-head b{color:var(--ink)}.event-text{margin-top:3px;line-height:1.45;white-space:pre-wrap}
+.sequence{margin-left:auto;color:var(--dim);font:12px Consolas,monospace}.error{color:#ff786e}
+@media(max-width:700px){.shell{padding:18px}.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body><div class="shell">
+  <header><img src="/assets/jnsq_favicon.svg" alt=""><div><h1>The Nexus</h1>
+    <div class="subtitle">One shared local context room. Read-only from this pane.</div></div>
+    <span class="sequence" id="sequence">sequence 0</span></header>
+  <div class="grid">
+    <section class="card"><h2>Present now</h2><div class="members" id="members"></div>
+      <h2 style="margin-top:20px">Shared objects</h2><div class="objects" id="objects"></div></section>
+    <section class="card"><h2>Recent room activity</h2><div class="events" id="events"></div></section>
+  </div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const esc=value=>String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+let since=0,closed=false;
+function eventText(event){const data=event.data||{};
+  if(event.kind==="say")return data.text||data.message||"spoke";
+  if(event.kind==="arrive")return "entered the Nexus";
+  if(event.kind==="depart")return "left the Nexus";
+  if(event.kind==="move")return data.object?`moved near ${data.object}`:"moved through the room";
+  if(event.kind==="act")return data.text||data.action||"acted in the room";
+  const keys=Object.keys(data);return keys.length?keys.map(key=>`${key}: ${typeof data[key]==="object"?JSON.stringify(data[key]):data[key]}`).join(" · "):event.kind}
+function renderEvents(events,replace=false){const box=$("events");if(replace)box.textContent="";
+  if(events.length&&box.querySelector(".empty"))box.textContent="";
+  for(const event of events){since=Math.max(since,Number(event.seq)||0);const row=document.createElement("div");row.className=`event ${event.kind||""}`;
+    row.innerHTML=`<div class="event-head"><span>${esc(event.ts||"")}</span><b>${esc(event.member||"room")}</b><span>${esc(event.kind||"")}</span></div>
+      <div class="event-text">${esc(eventText(event))}</div>`;box.append(row)}
+  while(box.children.length>80)box.firstElementChild.remove();if(events.length)box.scrollTop=box.scrollHeight;
+  if(!box.children.length)box.innerHTML='<div class="empty">No shared activity yet. Events appear when a persona enters or acts in the Nexus.</div>';
+  $("sequence").textContent=`sequence ${since}`}
+async function refreshState(){const response=await fetch("/api/rooms/nexus");const room=await response.json();
+  if(!response.ok||room.error)throw new Error(room.error||response.statusText);since=Math.max(since,Number(room.last_seq)||0);
+  const members=Object.keys(room.members||{});$("members").innerHTML=members.length?members.map(name=>`<div class="member"><span class="pulse"></span><b>${esc(name)}</b></div>`).join(""):
+    '<div class="empty">No personas are present yet. When a persona joins the shared room, they will appear here.</div>';
+  $("objects").innerHTML=Object.values(room.objects||{}).map(object=>`<span class="object" title="${esc(object.description||"")}">${esc(object.name||object.id)}</span>`).join("");
+  $("sequence").textContent=`sequence ${since}`}
+async function initial(){try{const roomResponse=await fetch("/api/rooms/nexus"),room=await roomResponse.json();
+    if(!roomResponse.ok||room.error)throw new Error(room.error||roomResponse.statusText);const start=Math.max(0,(Number(room.last_seq)||0)-40);
+    const eventResponse=await fetch(`/api/rooms/nexus/events?since=${start}`),history=await eventResponse.json();
+    renderEvents(history.events||[],true);await refreshState();watch()}catch(error){$("events").innerHTML=`<div class="error">${esc(error.message)}</div>`}}
+async function watch(){while(!closed){try{const response=await fetch(`/api/rooms/nexus/events/wait?since=${since}&timeout=25`);
+      const data=await response.json();if(!response.ok||data.error)throw new Error(data.error||response.statusText);
+      if(data.events?.length){renderEvents(data.events);await refreshState()}}
+    catch(error){$("sequence").textContent=`reconnecting · ${error.message}`;await new Promise(resolve=>setTimeout(resolve,1200))}}}
+window.addEventListener("pagehide",()=>{closed=true});initial();
+</script>
+</body></html>

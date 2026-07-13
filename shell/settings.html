@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JNSQ settings</title>
+<style>
+:root{color-scheme:dark;--bg:#07110f;--panel:#0d1b19;--line:#21443d;
+  --ink:#d8f2e9;--dim:#779f94;--accent:#44e0b2;--accent2:#b985ff;
+  --warn:#ff776d;--good:#78e38e;--radius:14px;--font-ui:"Segoe UI",system-ui,sans-serif}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);
+  font-family:var(--font-ui)}button,input,select,textarea{font:inherit}button{cursor:pointer}
+.shell{max-width:1120px;margin:auto;padding:24px}.heading{display:flex;align-items:center;gap:12px}
+.heading img{width:38px;height:38px}.heading h1{font-size:1.1rem;color:var(--accent);margin:0}
+.note{color:var(--dim);font-size:.79rem;line-height:1.5}.tabs{display:flex;gap:7px;flex-wrap:wrap;
+  margin:18px 0;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--dim);border-radius:var(--radius);
+  padding:7px 10px}.btn:hover,.btn.on{color:var(--ink);border-color:var(--accent)}
+.btn.on,.btn.go{background:color-mix(in srgb,var(--accent) 16%,var(--panel));color:var(--accent)}
+.page{display:none}.page.on{display:block}.card{border:1px solid var(--line);border-radius:var(--radius);
+  background:color-mix(in srgb,var(--panel) 90%,transparent);padding:16px;margin:12px 0}
+h2,h3{color:var(--accent);font-size:.96rem;margin:.2rem 0 .5rem}.grid{display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px 16px;margin-top:13px}
+label{display:flex;flex-direction:column;gap:5px;color:var(--dim);font-size:.78rem}
+input,select,textarea{width:100%;min-width:0;background:var(--bg);color:var(--ink);
+  border:1px solid var(--line);border-radius:calc(var(--radius) * .65);padding:7px}
+input[type=color]{height:35px;padding:2px}input[type=range]{accent-color:var(--accent)}
+.checks,.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px}
+.checks label{display:block}.checks input{width:auto}.speaker-grid{display:grid;grid-template-columns:
+  repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:10px}.speaker{display:grid;
+  grid-template-columns:1fr 48px 62px;gap:7px;align-items:center;color:var(--dim);font-size:.78rem}
+.faces{display:grid;gap:10px;margin-top:12px}.face{display:grid;grid-template-columns:38px minmax(90px,1fr)
+  minmax(95px,140px) minmax(80px,120px) auto;gap:8px;align-items:center}
+.mark{width:32px;height:32px;border-radius:50%;display:inline-grid;place-items:center;position:relative;
+  overflow:hidden;background:var(--bg);border:1px solid var(--line)}.mark img{position:absolute;inset:0;
+  width:100%;height:100%;object-fit:cover}.face input[type=file]{grid-column:2/4}.face .status{grid-column:2/-1}
+table{width:100%;border-collapse:collapse;margin-top:12px;font-size:.8rem}th,td{padding:9px;
+  border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{color:var(--dim)}
+.key-action{display:flex;gap:7px}.key-action input{min-width:150px}.dot{display:inline-block;width:8px;
+  height:8px;border-radius:50%;background:var(--dim)}.dot.up{background:var(--good);box-shadow:0 0 8px var(--good)}
+.prompt{min-height:270px;font-family:Consolas,monospace}.organ{border:1px solid var(--line);
+  border-radius:var(--radius);padding:10px;margin:9px 0}.organ-head{display:flex;justify-content:space-between;gap:10px}
+.organ textarea{height:82px;margin:8px 0;font-family:Consolas,monospace}.account-frame{width:100%;height:760px;
+  border:1px solid var(--line);border-radius:var(--radius);background:var(--bg)}
+.version{font:1.5rem Consolas,monospace;color:var(--accent2);margin:.4rem 0}.error{color:var(--warn)}
+@media(max-width:720px){.shell{padding:15px}.face{grid-template-columns:38px 1fr}.face>*{grid-column:auto}
+  .face input[type=file],.face .status{grid-column:1/-1}table{display:block;overflow:auto}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="heading"><img src="/assets/jnsq_favicon.svg" alt=""><div>
+    <h1>Settings</h1><div class="note">The shared controls for this local JNSQ home.</div>
+  </div></div>
+  <nav class="tabs">
+    <button class="btn tab" data-page="account">👤 Account &amp; privacy</button>
+    <button class="btn tab" data-page="appearance">✨ Appearance</button>
+    <button class="btn tab" data-page="keys">🔑 API keys</button>
+    <button class="btn tab" data-page="prompts">🔧 System prompts</button>
+    <button class="btn tab" data-page="updates">⚡ Updates</button>
+  </nav>
+
+  <section class="page" id="page-account">
+    <h2>Account, bedrock facts, and sharing boundaries</h2>
+    <p class="note">Manage the human account that owns this installation: bedrock facts, sharing groups,
+      connections, and role-play user personas. These records stay on this computer.</p>
+    <iframe class="account-frame" src="/users" title="Account and privacy settings"></iframe>
+  </section>
+
+  <section class="page" id="page-appearance">
+    <h2>Household appearance</h2>
+    <p class="note">This is the visual foundation inherited by the workspace and every persona cockpit.
+      Changes preview immediately; Save writes the household layer.</p>
+    <div class="card">
+      <div class="grid">
+        <label>Preset<select id="housePreset"></select></label>
+        <label>Background<select id="houseBackground"><option>scales</option><option>aurora</option>
+          <option>stars</option><option>grid</option><option>paper</option><option>none</option></select></label>
+        <label>Font<select id="houseFont"><option value="system">system</option><option value="mono">monospace</option>
+          <option value="serif">serif</option></select></label>
+        <label>Density<select id="houseDensity"><option>compact</option><option>cozy</option><option>roomy</option></select></label>
+        <label>Background color<input type="color" id="houseBg"></label>
+        <label>Panels<input type="color" id="housePanel"></label>
+        <label>Text<input type="color" id="houseInk"></label>
+        <label>Accent<input type="color" id="houseAccent"></label>
+        <label>Second accent<input type="color" id="houseAccent2"></label>
+        <label>Roundness<input type="range" min="0" max="28" step="1" id="houseRadius"></label>
+        <label>Glow<input type="range" min="0" max="1" step=".05" id="houseGlow"></label>
+        <label>Motion<input type="range" min="0" max="1" step=".05" id="houseMotion"></label>
+      </div>
+      <div class="checks"><label><input type="checkbox" id="houseReactive"> state-reactive cockpits</label></div>
+      <h3 style="margin-top:18px">Speaker palette</h3>
+      <p class="note">Color and glyph follow a speaker wherever this household theme applies.</p>
+      <div class="speaker-grid" id="settingsSpeakers"></div>
+      <div class="actions"><button class="btn go" id="houseThemeSave">Save household appearance</button>
+        <button class="btn" id="houseThemeReset">Reset household layer</button>
+        <span class="note" id="houseThemeNote"></span></div>
+    </div>
+    <div class="card"><h3>Persona faces &amp; name icons</h3>
+      <p class="note">The image and fallback emoji belong to the persona and stay in their local folder.</p>
+      <div class="faces" id="settingsPersonaIcons"></div></div>
+  </section>
+
+  <section class="page" id="page-keys">
+    <h2>API keys</h2><p class="note">Values are written to the gitignored <b>.env</b> and pushed into the
+      router. Only presence is ever displayed back. Restart a persona after adding its key.</p>
+    <div class="card"><table><thead><tr><th>Environment variable</th><th>Status</th><th>Used by</th><th>Set / update</th></tr></thead>
+      <tbody id="keyrows"></tbody></table><div class="note" id="keynote"></div></div>
+  </section>
+
+  <section class="page" id="page-prompts">
+    <h2>System prompts</h2><p class="note">Operational framing belongs to the model vessel; persona identity
+      belongs to that persona's voice. Changes apply at the model's next Start.</p>
+    <div class="card"><label>Model<select id="spmodel"></select></label><span class="note" id="spsource"></span>
+      <textarea class="prompt" id="sptext" spellcheck="false"></textarea>
+      <div class="actions"><button class="btn go" id="spgo">Save model prompt</button><span class="note" id="spnote"></span></div>
+      <h3 style="margin-top:20px">Organ instructions</h3>
+      <p class="note">A fragment is included only when that organ is enabled. Blank reverts to the inherited baseline.</p>
+      <div id="organfrags"></div></div>
+  </section>
+
+  <section class="page" id="page-updates">
+    <h2>Updates</h2><div class="card"><div class="note">Installed public version</div>
+      <div class="version" id="currentVersion">checking…</div>
+      <p class="note">Checking is read-only. To install an available patch, stop JNSQ and double-click
+        <b>UPDATE_JNSQ.bat</b> in the JNSQ folder. The updater fingerprints engine files and leaves
+        local accounts, personas, memories, histories, keys, and the existing environment outside its reach.</p>
+      <div class="actions"><button class="btn go" id="checkUpdate">Check GitHub</button>
+        <span class="note" id="updateNote"></span></div></div>
+  </section>
+</div>
+
+<script>
+const CFG=/*CONFIG*/;
+const $=id=>document.getElementById(id);
+const esc=value=>String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+async function request(url,options={}){const response=await fetch(url,options);let body={};
+  try{body=await response.json()}catch(_){body={error:await response.text()}}
+  if(!response.ok||body.error)throw new Error(body.error||`${response.status} ${response.statusText}`);return body}
+const clone=value=>JSON.parse(JSON.stringify(value));
+let personas={},themeDoc=null,preview=null,presetDirty=false;
+const dirty=new Set(),iconNotices={};
+const CONTROLS={houseBackground:"background",houseFont:"font",houseDensity:"density",houseBg:"bg",
+  housePanel:"panel",houseInk:"ink",houseAccent:"accent",houseAccent2:"accent2",houseRadius:"radius",
+  houseGlow:"glow",houseMotion:"motion",houseReactive:"reactive"};
+function named(obj,name){const key=Object.keys(obj||{}).find(k=>k.toLowerCase()===String(name).toLowerCase());return key?obj[key]:null}
+function applyTheme(tokens){if(!tokens)return;const root=document.documentElement;
+  for(const key of ["bg","panel","line","ink","dim","accent","accent2","warn","good"])
+    root.style.setProperty(`--${key}`,tokens[key]);root.style.setProperty("--radius",`${tokens.radius}px`);
+  root.style.setProperty("--font-ui",tokens.font==="serif"?"Georgia,serif":tokens.font==="mono"?"Consolas,monospace":'"Segoe UI",system-ui,sans-serif')}
+function controlValue(id){const key=CONTROLS[id],el=$(id);if(key==="reactive")return el.checked;
+  return ["radius","glow","motion"].includes(key)?Number(el.value):el.value}
+function fillAppearance(tokens){if(!tokens)return;for(const [id,key] of Object.entries(CONTROLS)){
+  const el=$(id);if(key==="reactive")el.checked=tokens[key]!==false;else el.value=tokens[key]}
+  renderSpeakers(tokens);renderPersonaFaces()}
+function renderSpeakers(tokens){const names=new Set([CFG.local_identity?.display_name||"User",
+  ...Object.keys(tokens.speaker_colors||{}),...Object.values(personas).map(p=>p.display_name).filter(Boolean)]);
+  $("settingsSpeakers").replaceChildren(...[...names].map(name=>{const row=document.createElement("label");row.className="speaker";
+    const label=document.createElement("span");label.textContent=name;const color=document.createElement("input");color.type="color";
+    color.value=named(tokens.speaker_colors,name)||tokens.accent;color.dataset.name=name;color.dataset.kind="speaker_colors";
+    const icon=document.createElement("input");icon.value=named(tokens.speaker_icons,name)||name.slice(0,1);icon.maxLength=16;
+    icon.dataset.name=name;icon.dataset.kind="speaker_icons";for(const input of [color,icon])input.oninput=previewSpeaker;
+    row.append(label,color,icon);return row}))}
+function previewSpeaker(event){const input=event.currentTarget;preview[input.dataset.kind]={...(preview[input.dataset.kind]||{}),
+  [input.dataset.name]:input.value};dirty.add(input.dataset.kind);applyTheme(preview)}
+const mark=(id,p)=>`<span class="mark"><span>${esc(p.icon||"🦋")}</span>${p.avatar_url?`<img src="${esc(p.avatar_url)}" alt="">`:""}</span>`;
+const fileDataUrl=file=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);
+  reader.onerror=()=>reject(new Error("could not read that image"));reader.readAsDataURL(file)});
+const ICONS=["🐉","🐍","🦋","🦉","🦊","🐺","🐈","🐦","🐙","🕷️","🌙","⭐","🔥","⚡","🪶","🗡️","💚"];
+function renderPersonaFaces(){const box=$("settingsPersonaIcons");box.textContent="";
+  for(const [id,p] of Object.entries(personas).filter(([,v])=>v.kind==="model_persona").sort()){
+    const row=document.createElement("div");row.className="face";const face=document.createElement("span");face.innerHTML=mark(id,p);
+    const label=document.createElement("strong");label.textContent=p.display_name||id;const choices=document.createElement("select");
+    for(const glyph of ICONS){const option=document.createElement("option");option.value=glyph;option.textContent=glyph;choices.append(option)}
+    const other=document.createElement("option");other.value="__custom__";other.textContent="custom…";choices.append(other);
+    const custom=document.createElement("input");custom.maxLength=16;custom.value=p.icon||"🦋";
+    choices.value=ICONS.includes(custom.value)?custom.value:"__custom__";choices.onchange=()=>{if(choices.value!=="__custom__")custom.value=choices.value};
+    const save=document.createElement("button");save.className="btn go";save.textContent="Save icon";
+    const file=document.createElement("input");file.type="file";file.accept="image/png,image/jpeg,image/webp,image/gif";
+    const upload=document.createElement("button");upload.className="btn";upload.textContent="Upload image";
+    const status=document.createElement("span");status.className="note status";status.textContent=iconNotices[id]||"";
+    save.onclick=async()=>{if(!custom.value.trim()){status.textContent="Choose or type an icon.";return}save.disabled=true;
+      try{const result=await request(`/api/personas/${encodeURIComponent(id)}/icon`,{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({icon:custom.value.trim()})});p.icon=result.icon;iconNotices[id]=`Saved ${result.icon}`;renderPersonaFaces()}
+      catch(error){status.textContent=error.message}finally{save.disabled=false}};
+    upload.onclick=async()=>{const image=file.files&&file.files[0];if(!image){status.textContent="Choose an image first.";return}
+      upload.disabled=true;try{const data_url=await fileDataUrl(image);const result=await request(`/api/personas/${encodeURIComponent(id)}/avatar`,
+        {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({data_url})});p.avatar_url=result.avatar_url;
+        iconNotices[id]="Avatar saved locally";renderPersonaFaces()}catch(error){status.textContent=error.message}finally{upload.disabled=false}};
+    row.append(face,label,choices,custom,save,file,upload,status);box.append(row)}
+  if(!box.children.length)box.innerHTML='<span class="note">No model personas yet.</span>'}
+async function loadTheme(){try{themeDoc=await request("/api/ui/theme");preview=clone(themeDoc.tokens);applyTheme(preview);
+  $("housePreset").innerHTML=Object.entries(themeDoc.presets).map(([id,label])=>`<option value="${esc(id)}">${esc(label)}</option>`).join("");
+  $("housePreset").value=themeDoc.preset;fillAppearance(preview);presetDirty=false;dirty.clear()}catch(error){$("houseThemeNote").textContent=error.message}}
+for(const [id,key] of Object.entries(CONTROLS))$(id).oninput=()=>{if(!preview)return;preview[key]=controlValue(id);dirty.add(key);applyTheme(preview)};
+$("housePreset").onchange=event=>{if(!themeDoc)return;preview=clone(themeDoc.preset_tokens[event.target.value]);presetDirty=true;dirty.clear();
+  fillAppearance(preview);applyTheme(preview);$("houseThemeNote").textContent="Previewing preset — save to keep it."};
+async function saveTheme(reset=false){const button=$(reset?"houseThemeReset":"houseThemeSave");button.disabled=true;
+  try{const tokens={};for(const key of dirty)tokens[key]=preview[key];const patch={};if(dirty.size)patch.tokens=tokens;
+    if(presetDirty)patch.preset=$("housePreset").value;themeDoc=await request("/api/ui/theme",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({patch,reset,replace:presetDirty})});preview=clone(themeDoc.tokens);fillAppearance(preview);applyTheme(preview);
+    presetDirty=false;dirty.clear();$("houseThemeNote").textContent=reset?"Household layer reset.":"Household appearance saved.";
+    parent.postMessage({type:"jnsq-theme-refresh"},"*")}catch(error){$("houseThemeNote").textContent=error.message}finally{button.disabled=false}}
+$("houseThemeSave").onclick=()=>saveTheme(false);$("houseThemeReset").onclick=()=>saveTheme(true);
+async function loadKeys(){try{const data=await request("/api/env");const body=$("keyrows");if(!data.keys?.length){
+    body.innerHTML='<tr><td colspan="4" class="note">No API-key models are installed yet.</td></tr>';return}
+  body.innerHTML=data.keys.map(key=>`<tr><td>${esc(key.env)}</td><td><span class="dot ${key.set?"up":""}"></span> ${key.set?"set":key.optional?"optional":"NOT SET"}</td>
+    <td>${esc((key.used_by||[]).join(", "))}</td><td><div class="key-action"><input type="password" data-key="${esc(key.env)}" placeholder="${key.set?"replace…":"paste key…"}">
+    <button class="btn go" data-save-key="${esc(key.env)}">Save</button></div></td></tr>`).join("");
+  body.querySelectorAll("[data-save-key]").forEach(button=>button.onclick=()=>saveKey(button.dataset.saveKey))}
+  catch(error){$("keynote").textContent=error.message}}
+async function saveKey(name){const input=document.querySelector(`[data-key="${CSS.escape(name)}"]`);if(!input.value){$("keynote").textContent="Paste a value first.";return}
+  try{const result=await request("/api/env",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,value:input.value})});
+    input.value="";$("keynote").textContent=`${result.env} saved; its value will not be displayed back.`;loadKeys()}catch(error){$("keynote").textContent=error.message}}
+async function loadPrompts(){try{const data=await request("/api/models"),select=$("spmodel"),previous=select.value;
+  select.innerHTML=(data.models||[]).map(model=>`<option value="${esc(model.name)}">${model.locality==="local"?"💻":"☁️"} ${esc(model.name)}</option>`).join("");
+  if([...select.options].some(o=>o.value===previous))select.value=previous;select.onchange=()=>selectModel(select.value);
+  if(select.value)selectModel(select.value)}catch(error){$("spnote").textContent=error.message}}
+async function selectModel(model){$("spnote").textContent="";try{const data=await request(`/api/models/${encodeURIComponent(model)}/system_prompt`);
+  if(data.own!==null&&data.own!==undefined){$("sptext").value=data.own;$("spsource").textContent="Editing this model's own prompt."}
+  else{$("sptext").value="";$("spsource").textContent=data.resolved?`Inherits from ${data.source}; saving creates an override.`:"No prompt yet."}
+  loadOrgans(model)}catch(error){$("spsource").textContent=error.message}}
+async function savePrompt(){const model=$("spmodel").value;if(!model){$("spnote").textContent="Pick a model first.";return}
+  try{const result=await request(`/api/models/${encodeURIComponent(model)}/system_prompt`,{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({text:$("sptext").value})});$("spnote").textContent=result.reverted?"Reverted to inherited baseline.":"Saved; applies at next Start.";selectModel(model)}
+  catch(error){$("spnote").textContent=error.message}}
+async function loadOrgans(model){const box=$("organfrags");box.innerHTML='<span class="note">Loading…</span>';
+  try{const data=await request(`/api/models/${encodeURIComponent(model)}/organ_prompts`);box.innerHTML=(data.organs||[]).map(organ=>`<div class="organ">
+    <div class="organ-head"><span><b>${esc(organ.organ)}</b> <span class="note">— ${esc(organ.desc)}</span></span><span class="note">${organ.own!=null?"own":organ.source&&organ.source!=="none"?`inherits ${esc(organ.source)}`:""}</span></div>
+    <textarea data-organ="${esc(organ.organ)}" spellcheck="false" placeholder="blank = inherited">${esc(organ.own||"")}</textarea>
+    <button class="btn go" data-save-organ="${esc(organ.organ)}">Save ${esc(organ.organ)}</button></div>`).join("");
+    box.querySelectorAll("[data-save-organ]").forEach(button=>button.onclick=()=>saveOrgan(model,button.dataset.saveOrgan))}
+  catch(error){box.textContent=error.message}}
+async function saveOrgan(model,organ){const text=document.querySelector(`[data-organ="${CSS.escape(organ)}"]`).value;
+  try{const result=await request(`/api/models/${encodeURIComponent(model)}/organs/${encodeURIComponent(organ)}/system_prompt`,
+    {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text})});$("spnote").textContent=result.reverted?`${organ} reverted.`:`${organ} saved for ${model}.`;loadOrgans(model)}
+  catch(error){$("spnote").textContent=error.message}}
+$("spgo").onclick=savePrompt;
+async function loadVersion(){try{const data=await request("/api/version");$("currentVersion").textContent=data.version;
+  if(!data.updater)$("updateNote").textContent="This build predates the updater."}catch(error){$("currentVersion").textContent="unknown"}}
+$("checkUpdate").onclick=async()=>{const button=$("checkUpdate");button.disabled=true;$("updateNote").textContent="Checking…";
+  try{const data=await request("/api/version/check");$("updateNote").textContent=data.update_available?`Version ${data.latest} is available. Stop JNSQ, then run UPDATE_JNSQ.bat.`:`Version ${data.version} is current.`}
+  catch(error){$("updateNote").textContent=error.message}finally{button.disabled=false}};
+function showPage(page){document.querySelectorAll(".tab").forEach(tab=>tab.classList.toggle("on",tab.dataset.page===page));
+  document.querySelectorAll(".page").forEach(section=>section.classList.toggle("on",section.id===`page-${page}`));
+  if(page==="keys")loadKeys();if(page==="prompts")loadPrompts();if(page==="updates")loadVersion()}
+document.querySelectorAll(".tab").forEach(tab=>tab.onclick=()=>showPage(tab.dataset.page));
+async function init(){try{personas=await request("/api/personas")}catch(_){}await loadTheme();loadVersion();showPage("account")}
+init();
+</script>
+</body>
+</html>

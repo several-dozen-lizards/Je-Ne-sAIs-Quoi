@@ -108,8 +108,11 @@ def boot():
                          "--room-url", f"http://127.0.0.1:{room_port}"],
                         "router.log")
     tenants = _wait(f"http://127.0.0.1:{router_port}/api/personas", 60,
-                    "router + tenants")
-    if not tenants:
+                    "router")
+    # An empty mapping is the healthy first-run state: the router is alive,
+    # but this new home has not created its first persona yet. Only None means
+    # the liveness request never succeeded.
+    if tenants is None:
         print("Router failed — see logs\\router.log")
         return
 
@@ -120,6 +123,8 @@ def boot():
 
     print("\n  THE HOUSEHOLD IS UP\n  " + "=" * 40)
     print(f"  Je Ne sAIs Quoi (status): http://127.0.0.1:{router_port}/")
+    if not tenants:
+        print("  No personas yet — create the first one from the workspace.")
     for pid_, info in tenants.items():
         mark = "alive" if info.get("alive") else "DOWN"
         print(f"  {pid_:>6}: http://127.0.0.1:{info['port']}/   "

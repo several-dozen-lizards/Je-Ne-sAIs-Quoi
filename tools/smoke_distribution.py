@@ -1,10 +1,12 @@
 """Offline smoke test for a clean JNSQ starter tree."""
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 import sys
 import tempfile
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 os.chdir(ROOT)
@@ -73,6 +75,26 @@ def main():
     router_app = build_router_app()
     assert router_app.state.registry == {}
     assert router_app.state.local_identity["display_name"] == "User"
+
+    # A brand-new public home has no personas. Its live router therefore
+    # returns {}, which is healthy and must still complete boot/write the
+    # runfile instead of being mistaken for a liveness failure.
+    from shell import boot as household_boot
+    with tempfile.TemporaryDirectory() as tmp:
+        runfile = Path(tmp) / "jnsq_running.json"
+        with mock.patch.object(household_boot, "RUNFILE", str(runfile)), \
+                mock.patch.object(household_boot, "_free_port",
+                                  side_effect=(43101, 43102)), \
+                mock.patch.object(household_boot, "_spawn",
+                                  side_effect=(50101, 50102)), \
+                mock.patch.object(household_boot, "_wait",
+                                  side_effect=({"rooms": ["nexus"]}, {})), \
+                mock.patch.object(household_boot.webbrowser, "open") as opened:
+            household_boot.boot()
+        assert runfile.is_file(), "empty healthy router did not finish boot"
+        run = json.loads(runfile.read_text(encoding="utf-8"))
+        assert run["router_port"] == 43102
+        opened.assert_called_once_with("http://127.0.0.1:43102/")
 
     text_suffixes = {".py", ".html", ".yaml", ".yml", ".json", ".md",
                      ".txt", ".bat"}

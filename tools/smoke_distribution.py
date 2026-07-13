@@ -52,6 +52,14 @@ def main():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "jnsq_favicon.svg" in readme
     assert "jnsq-venetian-mask-space.png" in readme
+    installer = (ROOT / "INSTALL_JNSQ.bat").read_text(encoding="utf-8")
+    setup = (ROOT / "SETUP_JNSQ.ps1").read_text(encoding="utf-8")
+    assert "SETUP_JNSQ.ps1" in installer
+    assert "Python.Python.3.12" in setup
+    assert 'Join-Path $Root ".venv"' in setup
+    assert "pip\", \"install\", \"--requirement" in setup
+    assert "Existing local owner found" in setup
+    assert "Start Je Ne sAIs Quoi now?" in setup
     assert not list(ROOT.rglob("test_*.py")), "public build contains dev tests"
     assert not (ROOT / "core" / "bench.py").exists()
     assert not (ROOT / "core" / "first_turn.py").exists()

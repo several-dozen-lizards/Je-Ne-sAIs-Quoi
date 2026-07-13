@@ -16,20 +16,31 @@ assets.
 
 ## Windows setup
 
-1. Install Python 3.10 or newer from <https://www.python.org/downloads/windows/>.
-2. Download the repository and extract it somewhere you own.
-3. Double-click `INSTALL_JNSQ.bat`. It creates an isolated `.venv`, installs
-   the Python packages, and asks who owns this installation.
-4. For a completely local model, install Ollama from
+1. Download the repository and extract it somewhere you own. Do not run it
+   from inside the ZIP.
+2. Double-click `INSTALL_JNSQ.bat`.
+
+The setup checks for Python 3.10 or newer and, when possible, offers to install
+Python 3.12 through Windows Package Manager. It then creates an isolated
+`.venv`, installs and verifies JNSQ's dependencies, asks who owns this local
+installation, and offers to start JNSQ. If setup is interrupted, double-click
+it again: it repairs and reuses the environment without replacing an existing
+owner or their personas.
+
+3. For a completely local model, install Ollama from
    <https://ollama.com/download/windows/> and run:
 
        ollama pull llama3.1:8b
 
-5. Double-click `START_NEXUS.bat`.
-6. Create a persona, write their voice, start them, and check their box to add
+4. Double-click `START_NEXUS.bat` if you did not start it from setup.
+5. Create a persona, write their voice, start them, and check their box to add
    their chat to the workspace. Check several boxes to view chats side by side.
 
 Use `STOP_NEXUS.bat` for a clean shutdown.
+
+Setup never asks for an API key and never uploads personal information. Remote
+provider keys can be added later from JNSQ's local settings page and are saved
+only in the gitignored `.env` file on that computer.
 
 ## What stays local
 

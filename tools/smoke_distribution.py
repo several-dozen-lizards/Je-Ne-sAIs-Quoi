@@ -169,6 +169,14 @@ def main():
         path = ROOT / relative
         assert path.is_file(), f"managed file is missing: {relative}"
         assert hashlib.sha256(path.read_bytes()).hexdigest() == expected
+        if path.suffix.lower() in {".py", ".html", ".js", ".css", ".json",
+                                    ".yaml", ".yml", ".md", ".txt", ".bat",
+                                    ".ps1"} or path.name in {
+                                        ".gitignore", ".gitattributes", "VERSION"}:
+            assert b"\r\n" not in path.read_bytes(), \
+                f"public text is not canonical LF: {relative}"
+    assert (ROOT / ".gitattributes").read_text(encoding="utf-8") == \
+        "* text=auto eol=lf\n"
 
     from room.layout import build_persona_den
     den = build_persona_den("ember_fox", "Ember Fox")

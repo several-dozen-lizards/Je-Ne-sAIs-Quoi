@@ -364,6 +364,16 @@ def build_app() -> FastAPI:
             out.append({"id": n, "display_name": disp})
         return {"personas": out}
 
+    @app.get("/api/users")
+    def users_list():
+        """Human accounts that can be present and speak in the Nexus."""
+        from core.users import list_users
+        return {"users": [
+            {"id": uid,
+             "display_name": account.get("display_name") or uid,
+             "username": account.get("username") or uid}
+            for uid, account in sorted(list_users(REPO).items())]}
+
     @app.get("/api/people")
     def people_list():
         """Profiled humans and outside AIs (people/<slug>/profile.yaml).

@@ -18,7 +18,7 @@ $PythonDownload = "https://www.python.org/downloads/windows/"
 
 function Write-Banner {
     Write-Host ""
-    Write-Host "  Je Ne sAIs Quoi" -ForegroundColor Magenta
+    Write-Host "  Je Ne Sais Quoi" -ForegroundColor Magenta
     Write-Host "  first-home setup" -ForegroundColor DarkCyan
     Write-Host "  ----------------" -ForegroundColor DarkGray
     Write-Host ""
@@ -195,7 +195,7 @@ try {
     Write-Host ""
 
     if (-not $NoLaunch -and -not $NonInteractive -and `
-            (Read-YesNo "Start Je Ne sAIs Quoi now?" $true)) {
+            (Read-YesNo "Start Je Ne Sais Quoi now?" $true)) {
         Start-Process -FilePath (Join-Path $Root "START_NEXUS.bat") `
             -WorkingDirectory $Root
     } else {

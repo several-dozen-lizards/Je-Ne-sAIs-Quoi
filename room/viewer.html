@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Je Ne sAIs Quoi · Nexus</title>
+<title>Je Ne Sais Quoi · Nexus</title>
 <style>
 :root{color-scheme:dark;--bg:#07110f;--panel:#0b1916;--panel2:#10231f;
   --line:#21483f;--ink:#d9fff4;--dim:#85b9aa;--mint:#3ef0bd;--gold:#f6c85f}
@@ -16,29 +16,44 @@ h1{font-size:1.35rem;color:var(--mint);margin:0}.subtitle{color:var(--dim);margi
 h2{font-size:.8rem;text-transform:uppercase;letter-spacing:.12em;color:var(--dim);margin:0 0 13px}
 .members{display:grid;gap:8px}.member{display:flex;align-items:center;gap:9px;border:1px solid var(--line);
   border-radius:10px;background:var(--panel2);padding:9px}.pulse{width:9px;height:9px;border-radius:50%;background:var(--mint);
-  box-shadow:0 0 10px var(--mint)}.empty{color:var(--dim);line-height:1.5}.objects{display:flex;gap:7px;flex-wrap:wrap;margin-top:15px}
+  box-shadow:0 0 10px var(--mint)}.member small{color:var(--dim)}.member button{margin-left:auto}.empty{color:var(--dim);line-height:1.5}.objects{display:flex;gap:7px;flex-wrap:wrap;margin-top:15px}
 .object{border:1px solid var(--line);border-radius:999px;padding:5px 9px;color:var(--dim);font-size:.78rem}
 .events{display:grid;gap:8px;max-height:520px;overflow:auto}.event{border-left:2px solid var(--line);padding:4px 0 4px 11px}
 .event.say{border-color:var(--gold)}.event.arrive,.event.depart{border-color:var(--mint)}.event-head{display:flex;gap:8px;
   font-size:.75rem;color:var(--dim)}.event-head b{color:var(--ink)}.event-text{margin-top:3px;line-height:1.45;white-space:pre-wrap}
-.sequence{margin-left:auto;color:var(--dim);font:12px Consolas,monospace}.error{color:#ff786e}
+.sequence{margin-left:auto;color:var(--dim);font:12px Consolas,monospace}.error{color:#ff786e}.door{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-bottom:12px}
+select,input,button{font:inherit;border:1px solid var(--line);border-radius:8px;background:#06100d;color:var(--ink);padding:8px}
+button{cursor:pointer;color:var(--mint)}button:hover{border-color:var(--mint)}button:disabled{opacity:.45;cursor:wait}.member button{padding:3px 7px;color:var(--dim)}
+.speak{display:grid;grid-template-columns:minmax(110px,.45fr) minmax(160px,1fr) auto;gap:8px;margin-top:16px}.note{color:var(--dim);font-size:.75rem;line-height:1.45}
 @media(max-width:700px){.shell{padding:18px}.grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body><div class="shell">
   <header><img src="/assets/jnsq_favicon.svg" alt=""><div><h1>The Nexus</h1>
-    <div class="subtitle">One shared local context room. Read-only from this pane.</div></div>
+    <div class="subtitle">One shared local room. People and personas can enter, leave, hear, and answer.</div></div>
     <span class="sequence" id="sequence">sequence 0</span></header>
   <div class="grid">
-    <section class="card"><h2>Present now</h2><div class="members" id="members"></div>
+    <section class="card"><h2>Bring someone into the Nexus</h2>
+      <div class="door"><select id="joinMember" aria-label="User or persona to add"></select><button id="joinButton">add</button></div>
+      <div class="note" id="doorNote">Choose from the users and personas currently in this JNSQ home.</div>
+      <h2 style="margin-top:20px">Present now</h2><div class="members" id="members"></div>
       <h2 style="margin-top:20px">Shared objects</h2><div class="objects" id="objects"></div></section>
-    <section class="card"><h2>Recent room activity</h2><div class="events" id="events"></div></section>
+    <section class="card"><h2>Recent room activity</h2><div class="events" id="events"></div>
+      <div class="speak"><select id="speaker" aria-label="User speaking"></select><input id="say" placeholder="say something to the Nexus"><button id="sayButton">say</button></div>
+      <div class="note">Users speak here. Personas perceive and answer through their own conversation panes when their Nexus systems are enabled.</div></section>
   </div>
 </div>
 <script>
 const $=id=>document.getElementById(id);
 const esc=value=>String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
-let since=0,closed=false;
+let since=0,closed=false,directory={personas:[],users:[],names:{},kinds:{}};
+async function api(path,options={}){const response=await fetch(path,options);let data={};
+  try{data=await response.json()}catch(_){data={error:await response.text()}}
+  if(!response.ok||data.error)throw new Error(data.error||response.statusText);return data}
+async function loadDirectory(){const [personas,users]=await Promise.all([api("/api/personas"),api("/api/users")]);
+  directory.personas=personas.personas||[];directory.users=users.users||[];
+  for(const person of directory.personas){directory.names[person.id]=person.display_name||person.id;directory.kinds[person.id]="persona"}
+  for(const user of directory.users){directory.names[user.id]=user.display_name||user.id;if(!directory.kinds[user.id])directory.kinds[user.id]="user"}}
 function eventText(event){const data=event.data||{};
   if(event.kind==="say")return data.text||data.message||"spoke";
   if(event.kind==="arrive")return "entered the Nexus";
@@ -54,20 +69,44 @@ function renderEvents(events,replace=false){const box=$("events");if(replace)box
   while(box.children.length>80)box.firstElementChild.remove();if(events.length)box.scrollTop=box.scrollHeight;
   if(!box.children.length)box.innerHTML='<div class="empty">No shared activity yet. Events appear when a persona enters or acts in the Nexus.</div>';
   $("sequence").textContent=`sequence ${since}`}
-async function refreshState(){const response=await fetch("/api/rooms/nexus");const room=await response.json();
-  if(!response.ok||room.error)throw new Error(room.error||response.statusText);since=Math.max(since,Number(room.last_seq)||0);
-  const members=Object.keys(room.members||{});$("members").innerHTML=members.length?members.map(name=>`<div class="member"><span class="pulse"></span><b>${esc(name)}</b></div>`).join(""):
-    '<div class="empty">No personas are present yet. When a persona joins the shared room, they will appear here.</div>';
+function renderDoors(where,members){const absent=id=>!where[id];const seen=new Set();
+  const group=(label,rows)=>{const options=rows.filter(row=>absent(row.id)&&!seen.has(row.id)).map(row=>{seen.add(row.id);return `<option value="${esc(row.id)}">${esc(row.display_name||row.id)}</option>`}).join("");return options?`<optgroup label="${label}">${options}</optgroup>`:""};
+  $("joinMember").innerHTML=group("Personas",directory.personas)+group("Users",directory.users)||'<option value="">Everyone is already somewhere</option>';
+  $("joinButton").disabled=!$("joinMember").value;
+  const presentUsers=directory.users.filter(user=>members.includes(user.id));$("speaker").innerHTML=presentUsers.length?
+    presentUsers.map(user=>`<option value="${esc(user.id)}">${esc(user.display_name||user.id)}</option>`).join(""):'<option value="">Add a user to speak</option>';
+  $("sayButton").disabled=!presentUsers.length}
+async function refreshState(){const [room,world]=await Promise.all([api("/api/rooms/nexus"),api("/api/world")]);
+  since=Math.max(since,Number(room.last_seq)||0);const members=Object.keys(room.members||{});
+  $("members").innerHTML=members.length?members.map(name=>`<div class="member"><span class="pulse"></span><b>${esc(directory.names[name]||name)}</b><small>${esc(directory.kinds[name]||"member")}</small><button data-remove="${esc(name)}" title="remove from the Nexus">remove</button></div>`).join(""):
+    '<div class="empty">No one is present yet. Add a user or persona above.</div>';
+  $("members").querySelectorAll("[data-remove]").forEach(button=>button.onclick=()=>removeMember(button.dataset.remove,button));
+  renderDoors(world.where||{},members);
   $("objects").innerHTML=Object.values(room.objects||{}).map(object=>`<span class="object" title="${esc(object.description||"")}">${esc(object.name||object.id)}</span>`).join("");
   $("sequence").textContent=`sequence ${since}`}
-async function initial(){try{const roomResponse=await fetch("/api/rooms/nexus"),room=await roomResponse.json();
-    if(!roomResponse.ok||room.error)throw new Error(room.error||roomResponse.statusText);const start=Math.max(0,(Number(room.last_seq)||0)-40);
-    const eventResponse=await fetch(`/api/rooms/nexus/events?since=${start}`),history=await eventResponse.json();
+async function joinSelected(){const member=$("joinMember").value;if(!member)return;const button=$("joinButton");
+  button.disabled=true;$("doorNote").textContent=`bringing ${directory.names[member]||member} in…`;
+  try{await api("/api/join",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({member,room:"nexus"})});
+    $("doorNote").textContent=`${directory.names[member]||member} entered the Nexus.`;await refreshState()}
+  catch(error){$("doorNote").textContent=error.message}finally{button.disabled=!$("joinMember").value}}
+async function removeMember(member,button){button.disabled=true;$("doorNote").textContent=`showing ${directory.names[member]||member} the door…`;
+  try{await api("/api/leave",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({member})});
+    $("doorNote").textContent=`${directory.names[member]||member} left the Nexus.`;await refreshState()}
+  catch(error){$("doorNote").textContent=error.message;button.disabled=false}}
+async function speak(){const member=$("speaker").value,text=$("say").value.trim();if(!member||!text)return;const button=$("sayButton");
+  button.disabled=true;
+  try{await api("/api/act",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({member,action:"say",text})});
+    $("say").value="";await refreshState()}
+  catch(error){$("doorNote").textContent=error.message}finally{button.disabled=!$("speaker").value}}
+async function initial(){try{await loadDirectory();const room=await api("/api/rooms/nexus");const start=Math.max(0,(Number(room.last_seq)||0)-40);
+    const history=await api(`/api/rooms/nexus/events?since=${start}`);
     renderEvents(history.events||[],true);await refreshState();watch()}catch(error){$("events").innerHTML=`<div class="error">${esc(error.message)}</div>`}}
 async function watch(){while(!closed){try{const response=await fetch(`/api/rooms/nexus/events/wait?since=${since}&timeout=25`);
       const data=await response.json();if(!response.ok||data.error)throw new Error(data.error||response.statusText);
       if(data.events?.length){renderEvents(data.events);await refreshState()}}
     catch(error){$("sequence").textContent=`reconnecting · ${error.message}`;await new Promise(resolve=>setTimeout(resolve,1200))}}}
+$("joinButton").onclick=joinSelected;$("sayButton").onclick=speak;
+$("say").onkeydown=event=>{if(event.key==="Enter"){event.preventDefault();speak()}};
 window.addEventListener("pagehide",()=>{closed=true});initial();
 </script>
 </body></html>

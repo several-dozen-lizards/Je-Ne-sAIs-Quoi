@@ -41,6 +41,8 @@ PRESETS = {
                 "rhythm_affect", "recall_bias", "my_life", "heartbeat"],
     "full": sorted(REGISTRY),
 }
+PRESETS["nexus"] = PRESETS["local"] + [
+    "room_sense", "room_actions", "afferents", "tropism", "social"]
 
 # identity skeleton — descended from the April 2026 Template build's
 # system_prompt.md (the wheel we didn't reinvent), adapted to v2's

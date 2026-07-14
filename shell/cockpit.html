@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>JNSQ cockpit</title>
+<title>Conversation · Je Ne Sais Quoi</title>
 <link rel="icon" href="/assets/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/assets/jnsq_favicon.svg">
 <link rel="apple-touch-icon" href="/assets/favicon-180.png">
@@ -64,9 +64,6 @@
   header { display:flex; gap:12px; align-items:center; padding:8px 16px;
            border-bottom:1px solid var(--line); background:color-mix(in srgb,var(--panel) 92%,transparent);
            position:relative;z-index:2;backdrop-filter:blur(16px); }
-  .brand-mark { width:28px; height:28px; object-fit:contain;
-      filter:drop-shadow(0 0 9px color-mix(in srgb,var(--accent2) 45%,transparent)); }
-  header h1 { font-size:16px; margin:0; color:var(--teal); }
   header .meta { color:var(--dim); font-size:12px; }
   main { --inspector-width:380px; display:grid;
          grid-template-columns:minmax(320px,1fr) 9px minmax(280px,var(--inspector-width)); gap:7px;
@@ -230,8 +227,6 @@
   </svg>
 </div>
 <header>
-  <img class="brand-mark" src="/assets/jnsq_favicon.svg" alt="">
-  <h1>JNSQ cockpit</h1>
   <span class="meta" id="who">connecting…</span>
   <span class="meta" id="timing"></span>
   <span class="header-spacer"></span>

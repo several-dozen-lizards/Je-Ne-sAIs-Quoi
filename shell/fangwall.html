@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Je Ne sAIs Quoi</title>
+<title>Je Ne Sais Quoi</title>
 <link rel="icon" href="/assets/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/assets/jnsq_favicon.svg">
 <link rel="apple-touch-icon" href="/assets/favicon-180.png">
@@ -23,15 +23,15 @@ header{height:74px;display:flex;align-items:center;gap:18px;padding:0 24px;
   filter:drop-shadow(0 0 10px #7547a766)}
 .brand{font-family:Consolas,"Cascadia Mono",monospace;font-size:1.28rem;
   letter-spacing:.04em;color:var(--mint);white-space:nowrap}
-.brand strong{color:var(--gold)}.tagline{color:var(--dim);font-size:.88rem}
+.brand .ai{color:var(--gold)}.tagline{color:var(--dim);font-size:.88rem}
 .top-nav{display:flex;gap:7px}.top-nav button{border:1px solid var(--line);background:var(--panel);
   color:var(--dim);border-radius:9px;padding:7px 11px}.top-nav button:hover,.top-nav button.on{
   color:var(--mint);border-color:var(--mint);background:var(--panel2)}
 #status{margin-left:auto;color:var(--dim);font-size:.82rem}
 .top-page{display:none;height:calc(100% - 74px)}.top-page.on{display:block}
-.app{height:100%;display:block;min-width:0;position:relative}
+.app{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr);min-width:0;position:relative}
 #page-settings iframe{width:100%;height:100%;border:0;background:var(--bg)}
-.persona-home{height:100%;overflow:auto;padding:clamp(18px,4vw,44px);max-width:1120px;margin:auto}
+.persona-home{height:100%;width:100%;overflow:auto;padding:clamp(18px,4vw,44px);max-width:1120px;margin:auto}
 .home-heading{margin:0 0 8px;color:var(--mint);font-size:clamp(1.3rem,3vw,2rem)}
 .home-copy{margin:0 0 24px;color:var(--dim)}
 .home-tools{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
@@ -60,18 +60,20 @@ details{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}summar
 .primary{border:1px solid #28745f;background:#123a30;color:var(--mint);border-radius:8px;padding:8px 10px}
 .primary:hover{border-color:var(--mint)}.primary:disabled,button:disabled{opacity:.45;cursor:wait}
 .note{color:var(--dim);font-size:.75rem;line-height:1.45;margin-top:10px}
-.panel-screen{display:none;height:100%;grid-template-rows:auto 1fr;position:relative;z-index:1}.panel-screen.on{display:grid}
+.panel-screen{display:none;height:100%;min-height:0;position:relative;z-index:1}.panel-screen.on{display:block}
 .panel-tabs{display:flex;align-items:center;gap:6px;overflow-x:auto;padding:7px 12px;background:#081410;
   border-bottom:1px solid var(--line);scrollbar-width:thin}.panel-tab{display:flex;align-items:center;gap:6px;white-space:nowrap;
   border:1px solid transparent;background:transparent;color:var(--dim);border-radius:8px;padding:5px 8px;cursor:pointer}
 .panel-tab:hover{color:var(--ink)}.panel-tab.on{color:var(--mint);border-color:var(--line);background:var(--panel)}
 .panel-tab .close-tab{color:var(--dim);font-size:1rem;line-height:1}.panel-tab .close-tab:hover{color:var(--danger)}
-main{min-width:0;overflow:hidden;padding:10px}.workspace{height:100%;position:relative}
+main{min-width:0;overflow:hidden;padding:10px;height:100%}.workspace{height:100%;display:flex;align-items:stretch;overflow-x:auto;overflow-y:hidden}
 .empty{height:100%;min-height:320px;display:grid;place-items:center;text-align:center;color:var(--dim);
   border:1px dashed var(--line);border-radius:var(--radius);padding:30px}.empty b{display:block;color:var(--ink);
-  font-size:1.15rem;margin-bottom:8px}.chat-panel{position:absolute;inset:0;display:none;min-height:420px;border:1px solid var(--line);
+  font-size:1.15rem;margin-bottom:8px}.chat-panel{position:relative;flex:1 1 520px;min-width:min(360px,82vw);height:100%;min-height:420px;border:1px solid var(--line);
   border-radius:var(--radius);overflow:hidden;background:var(--panel);display:grid;grid-template-rows:40px 1fr}
-.chat-panel:not(.on){display:none}.chat-panel.on{display:grid}
+.panel-resizer{flex:0 0 10px;cursor:col-resize;touch-action:none;position:relative}.panel-resizer::after{content:"";
+  position:absolute;left:4px;top:36%;bottom:36%;width:2px;background:var(--line);border-radius:2px}
+.panel-resizer:hover::after,.panel-resizer.dragging::after{top:20%;bottom:20%;background:var(--mint)}
 .panel-head{display:flex;align-items:center;gap:8px;padding:0 12px;background:var(--panel2);
   border-bottom:1px solid var(--line);font-size:.82rem}.panel-head .model{margin-left:auto;color:var(--dim);
   font:11px Consolas,monospace}.panel-head button{border:0;background:transparent;color:var(--dim)}
@@ -95,17 +97,18 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
 <body>
 <header>
   <button class="brand-home" id="homeButton" type="button" title="persona home" aria-label="Persona home"><img class="brand-icon" src="/assets/jnsq_favicon.svg" alt=""></button>
-  <div class="brand">Je Ne <strong>sAI</strong>s Quoi</div>
+  <div class="brand">Je Ne S<span class="ai">ai</span>s Quoi</div>
   <div class="tagline">a local home for persistent AI personas</div>
   <nav class="top-nav"><button type="button" data-top-page="personas">🏠 Household</button>
     <button type="button" data-top-page="settings">⚙ Settings</button></nav>
   <div id="status">connecting…</div>
 </header>
 <section class="top-page on" id="page-personas"><div class="app">
+  <nav class="panel-tabs" id="panelTabs" aria-label="Household panes"></nav>
   <section class="persona-home" id="personaHome">
     <h1 class="home-heading">The household</h1>
-    <p class="home-copy">Choose who to visit, change the model carrying them, or tend the household. Open conversations wait in compact tabs above the workspace.</p>
-    <div class="home-tools"><div class="section-title">Personas in this home</div><button class="ghost" type="button" id="openWorld" hidden>open Nexus world</button></div>
+    <p class="home-copy">Everyone in the household is already waiting in the bar above. Open any combination as side-by-side panes, change the models carrying them, or tend the household here.</p>
+    <div class="home-tools"><div class="section-title">Personas in this home</div><button class="ghost" type="button" id="openWorld" hidden>open Nexus</button></div>
     <div id="personaList"></div>
     <details id="createDetails">
       <summary>Create a persona</summary>
@@ -113,7 +116,7 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
         <label>Name<input id="newName" required placeholder="Ember Fox"></label>
         <label>Model<select id="newModel"></select></label>
         <label>Interior systems<select id="newOrgans">
-          <option value="local">local living set (no API key)</option>
+          <option value="nexus">local living set + Nexus presence (no API key)</option>
           <option value="bare">bare chat</option>
           <option value="default">with API feeling judge</option>
         </select></label>
@@ -124,7 +127,6 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
     </details>
   </section>
   <section class="panel-screen" id="panelScreen">
-    <nav class="panel-tabs" id="panelTabs" aria-label="Open panels"></nav>
     <main><div id="workspace" class="workspace"></div></main>
   </section>
 </div></section>
@@ -154,9 +156,12 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
 <script>
 const CFG = /*CONFIG*/;
 const $ = id => document.getElementById(id);
-const state = {personas:{}, models:[], selected:new Set(), active:null, voicePid:null, rosterPid:null};
-try { for (const id of JSON.parse(localStorage.getItem("jnsq.public.visible")||"[]")) state.selected.add(id); }
+const storedVisible=localStorage.getItem("jnsq.public.visible");
+const state = {personas:{}, models:[], selected:new Set(), active:null, voicePid:null, rosterPid:null,
+  initialized:false,widths:{}};
+try { for (const id of JSON.parse(storedVisible||"[]")) state.selected.add(id); }
 catch (_) {}
+try { state.widths=JSON.parse(localStorage.getItem("jnsq.public.widths")||"{}"); } catch (_) {}
 state.active=localStorage.getItem("jnsq.public.active")||null;
 const esc = value => String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
 
@@ -193,6 +198,9 @@ async function refresh(){
   try{
     const [ps,ms]=await Promise.all([request("/api/personas"),request("/api/models")]);
     state.personas=ps;state.models=ms.models||[];
+    if(!state.initialized&&storedVisible===null){for(const [id] of personas())state.selected.add(id);
+      if(CFG.room_url)state.selected.add("world");}
+    state.initialized=true;
     for(const id of [...state.selected])if(!state.personas[id]&&id!=="world")state.selected.delete(id);
     if(!state.active||!state.selected.has(state.active))state.active=[...state.selected][0]||null;
     $("openWorld").hidden=!CFG.room_url;
@@ -240,9 +248,9 @@ function syncWorkspace(){
       if(panel)panel.remove();panel=document.createElement("section");panel.className="chat-panel";
       panel.dataset.panel="world";panel.dataset.signature=signature;
       panel.innerHTML=`<div class="panel-head"><span class="dot live"></span><span class="persona-mark">🌍</span>
-        <b>Nexus world</b><span class="model">shared local context</span>
+        <b>The Nexus</b><span class="model">shared local context</span>
         <button title="hide this panel" data-hide="world">×</button></div>
-        <iframe title="Nexus world" src="${esc(CFG.room_url)}"></iframe>`;
+        <iframe title="The Nexus" src="${esc(CFG.room_url)}"></iframe>`;
       $("workspace").appendChild(panel);continue;
     }
     const p=state.personas[id];let panel=$("workspace").querySelector(`[data-panel="${CSS.escape(id)}"]`);
@@ -257,7 +265,13 @@ function syncWorkspace(){
       `<div class="offline"><div>${esc(p.display_name||id)} is stopped.<br><button class="primary" data-start-panel="${esc(id)}">Start persona</button></div></div>`);
     $("workspace").appendChild(panel);
   }
-  $("workspace").querySelectorAll("[data-panel]").forEach(panel=>panel.classList.toggle("on",panel.dataset.panel===state.active));
+  $("workspace").querySelectorAll(".panel-resizer").forEach(handle=>handle.remove());
+  wanted.forEach((id,index)=>{const panel=$("workspace").querySelector(`[data-panel="${CSS.escape(id)}"]`);
+    if(!panel)return;const saved=Number(state.widths[id]);panel.style.flex=saved>=260?`0 0 ${saved}px`:"1 1 520px";
+    $("workspace").appendChild(panel);if(index<wanted.length-1){const handle=document.createElement("div");
+      handle.className="panel-resizer";handle.setAttribute("role","separator");
+      handle.setAttribute("aria-orientation","vertical");$("workspace").appendChild(handle);}});
+  wirePanelResizers();
   renderPanelTabs();persist();
   document.querySelectorAll("[data-hide]").forEach(el=>el.onclick=()=>closePanel(el.dataset.hide));
   document.querySelectorAll("[data-start-panel]").forEach(el=>el.onclick=()=>startPersona(el.dataset.startPanel,el));
@@ -267,10 +281,10 @@ function closePanel(id){
   syncWorkspace();if(!state.active)showHome();
 }
 function renderPanelTabs(){
-  const ids=[...state.selected].filter(id=>state.personas[id]||(id==="world"&&CFG.room_url));
+  const ids=[...personas().map(([id])=>id),...(CFG.room_url?["world"]:[])];
   $("panelTabs").innerHTML=`<button class="panel-tab" type="button" data-home-tab>⌂ household</button>`+ids.map(id=>{
-    const p=state.personas[id],label=id==="world"?"🌍 Nexus world":`${mark(p)} ${esc(p.display_name||id)}`;
-    return `<button class="panel-tab ${id===state.active?"on":""}" type="button" data-tab="${esc(id)}">${label}<span class="close-tab" data-close-tab="${esc(id)}" title="close">×</span></button>`;
+    const p=state.personas[id],label=id==="world"?"🌍 The Nexus":`${mark(p)} ${esc(p.display_name||id)}`;
+    const open=state.selected.has(id);return `<button class="panel-tab ${open?"on":""}" type="button" data-tab="${esc(id)}" aria-pressed="${open}">${label}${open?`<span class="close-tab" data-close-tab="${esc(id)}" title="hide pane">×</span>`:""}</button>`;
   }).join("");
   $("panelTabs").querySelector("[data-home-tab]").onclick=showHome;
   $("panelTabs").querySelectorAll("[data-tab]").forEach(tab=>tab.onclick=event=>{
@@ -278,6 +292,15 @@ function renderPanelTabs(){
     openPanel(tab.dataset.tab);
   });
 }
+function wirePanelResizers(){document.querySelectorAll(".panel-resizer").forEach(handle=>handle.onpointerdown=event=>{
+  event.preventDefault();const left=handle.previousElementSibling,right=handle.nextElementSibling;if(!left||!right)return;
+  handle.classList.add("dragging");handle.setPointerCapture(event.pointerId);const startX=event.clientX;
+  const leftStart=left.getBoundingClientRect().width,rightStart=right.getBoundingClientRect().width;
+  handle.onpointermove=move=>{const delta=move.clientX-startX,newLeft=Math.max(260,leftStart+delta),newRight=Math.max(260,rightStart-delta);
+    left.style.flex=`0 0 ${newLeft}px`;right.style.flex=`0 0 ${newRight}px`;};
+  handle.onpointerup=()=>{handle.classList.remove("dragging");handle.onpointermove=null;handle.onpointerup=null;
+    for(const panel of $("workspace").querySelectorAll("[data-panel]"))state.widths[panel.dataset.panel]=Math.round(panel.getBoundingClientRect().width);
+    localStorage.setItem("jnsq.public.widths",JSON.stringify(state.widths));};});}
 async function startPersona(id,button){
   button.disabled=true;button.textContent="starting…";
   try{await request(`/api/personas/${encodeURIComponent(id)}/start`,{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});

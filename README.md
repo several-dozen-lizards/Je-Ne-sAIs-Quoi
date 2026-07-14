@@ -1,10 +1,10 @@
 <p align="center">
-  <img src="assets/jnsq/jnsq_favicon.svg" width="112" alt="Je Ne sAIs Quoi mask logo">
+  <img src="assets/jnsq/jnsq_favicon.svg" width="112" alt="Je Ne Sais Quoi mask logo">
 </p>
 
-# Je Ne sAIs Quoi
+# Je Ne Sais Quoi
 
-Je Ne sAIs Quoi is a local-first home for persistent AI personas: you define
+Je Ne Sais Quoi is a local-first home for persistent AI personas: you define
 who they are, choose the model that carries them, and talk with one or several
 of them in a configurable chat workspace. Persona identity, memory, body state,
 and conversation history live on your own computer.
@@ -76,8 +76,11 @@ check.
 
 The public header has two stable doors:
 
-- **Personas** is the configurable pane workspace. Check persona conversations,
-  the Nexus world, or future panel types to decide what is visible.
+- **Household** keeps every persona and the Nexus in the top bar. Open any one
+  to reveal the current set side by side, then drag the dividers to give each
+  conversation the width it needs.
+- **The Nexus** is a shared local room. Add and remove current users or personas
+  from its dropdown, and let a present user speak into the room.
 - **Settings** contains account/privacy and bedrock facts, household appearance,
   persona faces and icons, API keys, per-persona visual routing, model and organ
   prompts, and updates.
@@ -104,5 +107,5 @@ machine-specific state.
 ---
 
 <p align="center">
-  <img src="assets/jnsq/jnsq-venetian-mask-space.png" alt="A Venetian mask floating in a field of stars above the words Je Ne sAIs Quoi">
+  <img src="assets/jnsq/jnsq-venetian-mask-space.png" alt="A Venetian mask floating in a field of stars above the words Je Ne Sais Quoi">
 </p>

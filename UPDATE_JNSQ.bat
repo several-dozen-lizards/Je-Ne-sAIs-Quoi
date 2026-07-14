@@ -1,11 +1,11 @@
 @echo off
 setlocal EnableExtensions
-title Je Ne sAIs Quoi - update
+title Je Ne Sais Quoi - update
 cd /d "%~dp0"
 
 where powershell.exe >nul 2>nul
 if errorlevel 1 (
-  echo Je Ne sAIs Quoi needs Windows PowerShell to check for updates.
+  echo Je Ne Sais Quoi needs Windows PowerShell to check for updates.
   echo.
   pause
   exit /b 1

@@ -122,7 +122,7 @@ def boot():
                    "booted": time.strftime("%Y-%m-%dT%H:%M:%S")}, f, indent=1)
 
     print("\n  THE HOUSEHOLD IS UP\n  " + "=" * 40)
-    print(f"  Je Ne sAIs Quoi (status): http://127.0.0.1:{router_port}/")
+    print(f"  Je Ne Sais Quoi (status): http://127.0.0.1:{router_port}/")
     if not tenants:
         print("  No personas yet — create the first one from the workspace.")
     for pid_, info in tenants.items():

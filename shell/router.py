@@ -404,7 +404,7 @@ def build_app(room_url: str = None) -> FastAPI:
 
     @app.get("/", response_class=HTMLResponse)
     def index():
-        """The Je Ne sAIs Quoi: one door, every window. Tabs for each cockpit,
+        """The Je Ne Sais Quoi: one door, every window. Tabs for each cockpit,
         the world viewer, and side-by-side — all iframes kept mounted
         so switching never reloads a conversation."""
         import json as _json
@@ -1103,7 +1103,7 @@ def build_app(room_url: str = None) -> FastAPI:
 
     @app.get("/api/personas/{pid}/organs")
     def persona_organs(pid: str):
-        """Proxy to the tenant's organs endpoint — the Je Ne sAIs Quoi's JS is
+        """Proxy to the tenant's organs endpoint — the Je Ne Sais Quoi's JS is
         same-origin with the ROUTER, not the tenants, so world-membership
         toggles ride through here."""
         return _proxy(pid, "/api/organs")

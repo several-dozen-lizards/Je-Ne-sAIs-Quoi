@@ -22,9 +22,12 @@ def main():
         assert not files, f"{name} is not empty: {files}"
     assert not (ROOT / "godot-room").exists(), "public build contains 3D assets"
     shell = (ROOT / "shell" / "fangwall.html").read_text(encoding="utf-8")
-    assert "Je Ne <strong>sAI</strong>s Quoi" in shell
+    assert 'Je Ne S<span class="ai">ai</span>s Quoi' in shell
     assert 'id="personaHome"' in shell and 'id="panelTabs"' in shell
     assert "openPanel" in shell and "renderPanelTabs" in shell
+    assert "personas().map" in shell and "jnsq.public.visible" in shell
+    assert 'className="panel-resizer"' in shell
+    assert "jnsq.public.widths" in shell and "wirePanelResizers" in shell
     assert "data-icon" in shell and "changePersonaIcon" in shell
     assert "data-avatar" not in shell and "choosePersonaAvatar" not in shell
     assert 'class="home-heading">The household' in shell
@@ -35,9 +38,11 @@ def main():
     assert 'data-top-page="settings"' in shell
     assert 'id="page-settings"' in shell and 'src="/settings"' in shell
     assert 'id="openWorld"' in shell
-    assert "Nexus world" in shell
+    assert "The Nexus" in shell
     assert "/assets/jnsq_favicon.svg" in shell
     cockpit = (ROOT / "shell" / "cockpit.html").read_text(encoding="utf-8")
+    assert "JNSQ cockpit" not in cockpit and 'class="brand-mark"' not in cockpit
+    assert "Conversation · Je Ne Sais Quoi" in cockpit
     assert "jnsq_icon_animated_128.apng" in cockpit
     assert "setThinking(true)" in cockpit and "setThinking(false)" in cockpit
     assert "setInterval" not in cockpit
@@ -74,7 +79,7 @@ def main():
     assert 'Join-Path $Root ".venv"' in setup
     assert "pip\", \"install\", \"--requirement" in setup
     assert "Existing local owner found" in setup
-    assert "Start Je Ne sAIs Quoi now?" in setup
+    assert "Start Je Ne Sais Quoi now?" in setup
     updater = (ROOT / "UPDATE_JNSQ.ps1").read_text(encoding="utf-8")
     update_launcher = (ROOT / "UPDATE_JNSQ.bat").read_text(encoding="utf-8")
     assert "UPDATE_JNSQ.ps1" in update_launcher
@@ -102,12 +107,32 @@ def main():
     assert set(room_app.state.rooms) == {"nexus"}
     room_routes = {route.path for route in room_app.routes}
     assert "/api/rooms/{rid}/events/wait" in room_routes
+    assert {"/api/users", "/api/join", "/api/leave", "/api/act"} <= room_routes
     viewer = (ROOT / "room" / "viewer.html").read_text(encoding="utf-8")
     assert "events/wait" in viewer
-    assert "No personas are present yet" in viewer
+    assert 'id="joinMember"' in viewer and 'id="speaker"' in viewer
+    assert all(path in viewer for path in
+               ("/api/users", "/api/join", "/api/leave", "/api/act"))
+    assert "No one is present yet" in viewer
     assert "no room viewer" not in viewer
     host_source = (ROOT / "room" / "host.py").read_text(encoding="utf-8")
     assert 'p.endswith("/events/wait")' in host_source
+
+    def room_endpoint(path, method):
+        return next(route.endpoint for route in room_app.routes
+                    if route.path == path and method in route.methods)
+
+    from room.host import JoinReq, LeaveReq, ActionReq
+    assert room_endpoint("/api/users", "GET")() == {"users": []}
+    joined = room_endpoint("/api/join", "POST")(
+        JoinReq(member="smoke_user", room="nexus"))
+    assert joined["ok"] and "smoke_user" in joined["room"]["members"]
+    spoken = room_endpoint("/api/act", "POST")(
+        ActionReq(member="smoke_user", action="say", text="hello"))
+    assert spoken["ok"]
+    left = room_endpoint("/api/leave", "POST")(
+        LeaveReq(member="smoke_user"))
+    assert left["ok"] and "smoke_user" not in room_app.state.where
 
     from room.state import Room
     threshold_room = Room("threshold", "threshold room", 4.0)
@@ -190,7 +215,8 @@ def main():
         home = Path(tmp)
         configure("smoke_user", "Smoke User", str(home))
         assert load_local_identity(str(home))["display_name"] == "Smoke User"
-        made = scaffold("Ember Fox", root=str(home / "personas"))
+        made = scaffold("Ember Fox", organs="nexus",
+                        root=str(home / "personas"))
         assert made["model"] == "llama3-1-8b"
         roster_path = home / "personas" / "ember_fox" / "roster.yaml"
         assert roster_path.is_file()
@@ -198,6 +224,8 @@ def main():
         assert roster["icon"] == "🦋"
         assert roster["avatar"] == ""
         assert roster["room"]["id"] == "nexus"
+        assert {"room_sense", "room_actions", "afferents", "tropism",
+                "social"} <= set(roster["enabled_organs"])
         assert roster["perception"]["vision_model"] is None
         assert roster["enabled_organs"]
         assert "enabled_organs" not in roster["entries"][0]

@@ -1,11 +1,11 @@
 @echo off
 setlocal EnableExtensions
-title Je Ne sAIs Quoi - setup
+title Je Ne Sais Quoi - setup
 cd /d "%~dp0"
 
 where powershell.exe >nul 2>nul
 if errorlevel 1 (
-  echo Je Ne sAIs Quoi needs Windows PowerShell to run its setup.
+  echo Je Ne Sais Quoi needs Windows PowerShell to run its setup.
   echo PowerShell was not found on this computer.
   echo.
   pause

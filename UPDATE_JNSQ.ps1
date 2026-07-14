@@ -78,7 +78,7 @@ function Write-FailureReceipt([string]$Message) {
 }
 
 Write-Host ""
-Write-Host "  Je Ne sAIs Quoi updater" -ForegroundColor Magenta
+Write-Host "  Je Ne Sais Quoi updater" -ForegroundColor Magenta
 Write-Host "  -----------------------" -ForegroundColor DarkGray
 
 try {

@@ -1,4 +1,4 @@
-"""Persisted UI themes for the Je Ne sAIs Quoi and persona cockpits.
+"""Persisted UI themes for the Je Ne Sais Quoi and persona cockpits.
 
 Inheritance is explicit and one-way:
   built-in preset -> household -> persona -> model

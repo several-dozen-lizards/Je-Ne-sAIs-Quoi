@@ -77,7 +77,7 @@ def load_people(repo: str) -> dict:
         prof.setdefault("kind", "human")
         out[n.lower()] = prof
     # Account records and embodied people are two views of the same human,
-    # not rival registries.  A user created at the Je Ne sAIs Quoi therefore appears
+    # not rival registries.  A user created at the Je Ne Sais Quoi therefore appears
     # at the room door immediately; an older people/ profile may still add
     # presence texture and notes, but cannot demote an account from `user`.
     try:

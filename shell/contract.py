@@ -31,7 +31,7 @@ from core.rhythm_affect import rhythm_affect_nudge
 from core.perception import (load_bias, score_objects, score_events,
                              render_room_block, overheard_says)
 from core.room_client import RoomClient
-from core.room_actions import parse_actions, strip_actions
+from core.room_actions import parse_actions, visible_reply
 from core.afferents import afferent_signals, merge_max, TOUCH_SIGNALS
 from core.organs import validate as organs_validate, legacy_set
 from harness.spec_loader import load_spec
@@ -648,7 +648,8 @@ class TurnEngine:
         felt_touch = {}
         if self.room and "room_actions" in self.enabled:
             skin_c = float(self.room_bias.get("skin_neutral_c", 33.0))
-            for a in parse_actions(reply):
+            successful_says = []
+            for action_index, a in enumerate(parse_actions(reply)):
                 fn = {"move_to": lambda a: self.room.move(a["target"]),
                       "contact": lambda a: self.room.contact(a["target"]),
                       "read": lambda a: self.room.read(a["target"]),
@@ -661,6 +662,9 @@ class TurnEngine:
                       }.get(a["verb"])
                 r = fn(a) if fn else {"error": f"unknown act '{a['verb']}'"}
                 acted.append({"act": a, "result": r})
+                if (a["verb"] == "say" and isinstance(r, dict)
+                        and r.get("ok")):
+                    successful_says.append(action_index)
                 # a chosen move outranks reflex: the worm defers to it
                 if (a["verb"] in ("move_to", "travel")
                         and isinstance(r, dict) and r.get("ok")):
@@ -673,7 +677,7 @@ class TurnEngine:
                     merge_max(felt_touch,
                               afferent_signals(r["afferent"], skin_c))
             if acted:
-                reply = strip_actions(reply)
+                reply = visible_reply(reply, successful_says)
         if felt_touch and self.soma:
             self.soma.set_signals(felt_touch)
 

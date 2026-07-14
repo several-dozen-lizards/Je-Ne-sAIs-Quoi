@@ -1,6 +1,6 @@
 {
   "format": 2,
-  "version": "0.5.3",
+  "version": "0.5.4",
   "files": 106,
   "contains_personal_data": false,
   "empty_local_roots": [
@@ -54,7 +54,7 @@
     "core/place_intentions.py": "914229ea32bef71b058bc5b74272e1874040ffdb67cbf53a4e2066636870a679",
     "core/recall_bias.py": "3f57c45cde020225d4bf086ee22b1aca1bd7d21899a47e12aec2fcc26d56695f",
     "core/rhythm_affect.py": "b140eb7996eb1b8f3f9e5439b34fd66b8ca7232eb0d0b58c1e6737cab01f5725",
-    "core/room_actions.py": "f12694cf81c9c534c776b297d54f65ec0c297e9dfad221316d51741f17e2acbf",
+    "core/room_actions.py": "70bcd1e465df42bb383a8ca074a1842db829106545a26ae473253968f7a06051",
     "core/room_client.py": "496fcafb69d2000575e520de9e67b8a58fbfef0dfbe517947e03dd0be50e4237",
     "core/social_pressure.py": "533b6e92011e336de8c229961d6e1c9a35461ab12ab23cf5811c3a058553f4b5",
     "core/soma/__init__.py": "54773f1dfecb803071ede0e619bec7b7653db2cc50778895c087962c6473ef26",
@@ -82,7 +82,7 @@
     "shell/boot.py": "45a07ea63077a7441aa440cb08df7b0564a9fb5276648337eb918a079233c970",
     "shell/cockpit.html": "20bd1ccd44216fe7d377923be9729d89b778ab61fb11123d2fd00be13dbe38f5",
     "shell/cockpit.py": "792ae84ecb9753dbb8538f19ddb27309c0e9ebc9762bfd963e264d06a2a10c60",
-    "shell/contract.py": "3c23ce381fec531f9801b50be4a409ce14c40aa255f3aeedf1ce826aa7748784",
+    "shell/contract.py": "402340f3ef0730992056d9f2df5b0f2ce7f9fff47ea162578b4b277e9e7e603d",
     "shell/env_store.py": "72ef7d967ca7e885302934204d87179e1b4dfffebe3930dc787c24178c099669",
     "shell/factory.py": "7d7fc5f0ae20ea2439a2f7179117b3f551a979e3c13dcff7f06db6a721d480b9",
     "shell/fangwall.html": "c5d4d4915dd53beb561a1c0ddeefa820f95ead9ccdc696fb7119c41ef0dec9c7",
@@ -115,6 +115,6 @@
     "tools/smoke_distribution.py": "8a44100c6ab8edbc48f82f9015eda6b9d0e30b98dbb57cca0e6d216e1b795c7a",
     "UPDATE_JNSQ.bat": "21c0ba7c15a43eb06bc6a317ee8cf5b6910c36a53bde7ec615ea6a673ef10bdc",
     "UPDATE_JNSQ.ps1": "edd5d955cd5bcaae403a3c186d5b015727f8b823fec8b9182101621e6ea1dfb9",
-    "VERSION": "27ecff1fcdaf65ab46c1bb99c1072d6d134a0e8dd97dd95cfa88696b9ed453b2"
+    "VERSION": "a7711142bc1fc55c16b9147a1503a4f2c4717be5c1e4437772a047f52ef81db2"
   }
 }

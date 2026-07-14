@@ -43,3 +43,30 @@ def strip_actions(reply: str) -> str:
     """Remove act tags; collapse the whitespace they leave behind."""
     s = ACT_RE.sub("", reply or "")
     return re.sub(r"[ \t]*\n{3,}", "\n\n", s).strip()
+
+
+def visible_reply(reply: str, spoken_indexes=()) -> str:
+    """Render what the local speaker actually made audible.
+
+    Non-speech actions remain muscle and disappear from the returned prose.
+    A successful ``say`` action remains visible as the same words the room
+    received.  ``spoken_indexes`` is supplied by the executor, so a refused
+    or failed room action is never presented as speech that happened.
+    """
+    spoken = set(spoken_indexes or ())
+    index = -1
+
+    def replace(match):
+        nonlocal index
+        index += 1
+        if index not in spoken:
+            return ""
+        parsed = parse_actions(match.group(0))
+        if not parsed or parsed[0]["verb"] != "say":
+            return ""
+        action = parsed[0]
+        return (action["target"] + (
+            " " + action["text"] if action["text"] else "")).strip()
+
+    rendered = ACT_RE.sub(replace, reply or "")
+    return re.sub(r"[ \t]*\n{3,}", "\n\n", rendered).strip()

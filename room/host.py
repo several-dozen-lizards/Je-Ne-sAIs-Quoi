@@ -367,12 +367,12 @@ def build_app() -> FastAPI:
     @app.get("/api/users")
     def users_list():
         """Human accounts that can be present and speak in the Nexus."""
-        from core.users import list_users
+        from shell.local_identity import local_user_directory
         return {"users": [
             {"id": uid,
              "display_name": account.get("display_name") or uid,
              "username": account.get("username") or uid}
-            for uid, account in sorted(list_users(REPO).items())]}
+            for uid, account in sorted(local_user_directory(REPO).items())]}
 
     @app.get("/api/people")
     def people_list():

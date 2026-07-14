@@ -42,7 +42,11 @@ def main():
     assert 'data-top-page="personas"' in shell
     assert 'data-top-page="settings"' in shell
     assert 'id="page-settings"' in shell and 'src="/settings"' in shell
-    assert 'id="openWorld"' in shell
+    assert 'id="openWorld"' not in shell
+    assert 'id="installModel"' in shell and 'id="modelDialog"' in shell
+    assert 'id="interiorHelp"' in shell and "one additional model call per turn" in shell
+    assert "/api/models/create" in shell and "/api/models/discover" in shell
+    assert "Ollama · local" in shell and "LM Studio · local" in shell
     assert "The Nexus" in shell
     assert 'data-top-page="nexus"' in shell
     assert shell.index("Household") < shell.index(">🌐 Nexus<") < shell.index("Settings")
@@ -132,7 +136,8 @@ def main():
                     if route.path == path and method in route.methods)
 
     from room.host import JoinReq, LeaveReq, ActionReq
-    assert room_endpoint("/api/users", "GET")() == {"users": []}
+    room_users = room_endpoint("/api/users", "GET")()["users"]
+    assert room_users and room_users[0]["id"] == "user"
     joined = room_endpoint("/api/join", "POST")(
         JoinReq(member="smoke_user", room="nexus"))
     assert joined["ok"] and "smoke_user" in joined["room"]["members"]

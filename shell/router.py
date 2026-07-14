@@ -487,8 +487,8 @@ def build_app(room_url: str = None) -> FastAPI:
 
     @app.get("/api/users")
     def users_list():
-        from core.users import list_users
-        return {"users": list(list_users(ROOT).values())}
+        from shell.local_identity import local_user_directory
+        return {"users": list(local_user_directory(ROOT).values())}
 
     @app.post("/api/users")
     def users_upsert(req: UserRequest):

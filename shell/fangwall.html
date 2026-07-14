@@ -35,6 +35,7 @@ header{height:74px;display:flex;align-items:center;gap:18px;padding:0 24px;
 .home-heading{margin:0 0 8px;color:var(--mint);font-size:clamp(1.3rem,3vw,2rem)}
 .home-copy{margin:0 0 24px;color:var(--dim)}
 .home-tools{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.home-tools .section-title{margin:0}
 .section-title{display:flex;align-items:center;justify-content:space-between;
   margin:0 0 10px;font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;color:var(--dim)}
 .tiny-actions{display:flex;gap:5px}.tiny-actions button,.ghost{border:1px solid var(--line);
@@ -60,6 +61,13 @@ details{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}summar
 .primary{border:1px solid #28745f;background:#123a30;color:var(--mint);border-radius:8px;padding:8px 10px}
 .primary:hover{border-color:var(--mint)}.primary:disabled,button:disabled{opacity:.45;cursor:wait}
 .note{color:var(--dim);font-size:.75rem;line-height:1.45;margin-top:10px}
+.label-row{display:flex;align-items:center;justify-content:space-between;gap:8px}.label-row .ghost{padding:2px 6px}
+.inline-help{margin:0;border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:#081410}
+.inline-help summary{font-size:.75rem}.help-grid{display:grid;gap:8px;margin-top:9px;color:var(--dim);
+  font-size:.75rem;line-height:1.45}.help-grid b{color:var(--ink)}.cost{color:var(--gold)}
+.model-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.model-form .wide{grid-column:1/-1}
+.model-note{white-space:pre-line}.or-row{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
+  gap:8px;align-items:end}.or-row>span{color:var(--dim);padding-bottom:9px;text-align:center}
 .panel-screen{display:none;height:100%;min-height:0;position:relative;z-index:1}.panel-screen.on{display:block}
 .panel-tabs{display:flex;align-items:center;gap:6px;overflow-x:auto;padding:7px 12px;background:#081410;
   border-bottom:1px solid var(--line);scrollbar-width:thin}.panel-tab{display:flex;align-items:center;gap:6px;white-space:nowrap;
@@ -91,7 +99,8 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
   justify-content:flex-end;gap:8px;margin-top:12px}.error{color:var(--danger);font-size:.78rem;min-height:1em}
 @media(max-width:760px){header{height:auto;min-height:104px;flex-wrap:wrap;padding:12px 16px;gap:7px 12px}
   .tagline{width:100%}.top-page{height:calc(100% - 104px)}#status{position:absolute;right:14px;top:14px}
-  .persona-home{padding:18px}.chat-panel{min-height:0}.panel-head .model{display:none}}
+  .persona-home{padding:18px}.chat-panel{min-height:0}.panel-head .model{display:none}
+  .model-form{grid-template-columns:1fr}.model-form .wide{grid-column:auto}.or-row{grid-template-columns:1fr}.or-row>span{padding:0}}
 </style>
 </head>
 <body>
@@ -109,18 +118,27 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
   <section class="persona-home" id="personaHome">
     <h1 class="home-heading">The household</h1>
     <p class="home-copy">Everyone in the household is already waiting in the bar above. Open any combination as side-by-side panes, change the models carrying them, or tend the household here.</p>
-    <div class="home-tools"><div class="section-title">Personas in this home</div><button class="ghost" type="button" id="openWorld" hidden>open Nexus</button></div>
+    <div class="home-tools"><div class="section-title">Personas in this home</div><button class="ghost" type="button" id="installModel">+ install a model</button></div>
     <div id="personaList"></div>
     <details id="createDetails">
       <summary>Create a persona</summary>
       <form id="createForm">
         <label>Name<input id="newName" required placeholder="Ember Fox"></label>
         <label>Model<select id="newModel"></select></label>
-        <label>Interior systems<select id="newOrgans">
-          <option value="nexus">local living set + Nexus presence (no API key)</option>
-          <option value="bare">bare chat</option>
-          <option value="default">with API feeling judge</option>
+        <label><span class="label-row"><span>Interior systems</span></span><select id="newOrgans">
+          <option value="nexus">living set + Nexus presence · no extra API call</option>
+          <option value="bare">bare chat · model call only</option>
+          <option value="default">living set + API feeling judge · extra call</option>
         </select></label>
+        <details class="inline-help" id="interiorHelp">
+          <summary>What is this?</summary>
+          <div class="help-grid">
+            <div><b>Living set + Nexus</b> gives the persona local memory, body, rhythm, recall, social, and shared-room systems. <span class="cost">Cost: no additional interior-system API calls.</span></div>
+            <div><b>Bare chat</b> gives you the model conversation without the local interior continuity or Nexus senses. <span class="cost">Cost: only the active model call.</span></div>
+            <div><b>Living set + feeling judge</b> adds an API model that reads each completed turn and describes its emotional effect for the persona's ongoing state. <span class="cost">Cost: one additional model call per turn; provider charges may apply.</span></div>
+            <div>Whichever interior you choose, the persona's main model has its own cost. Local models normally have no provider charge; hosted API models use that provider's pricing.</div>
+          </div>
+        </details>
         <button class="primary" id="createBtn">Create, then write their voice</button>
         <div class="error" id="createError"></div>
       </form>
@@ -150,7 +168,39 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
     <label>Installed model<select id="rosterModel"></select></label>
     <p class="note">This adds the model to the persona's roster. Their current model will not change until you choose it on the household screen.</p>
     <div class="error" id="rosterError"></div>
-    <div class="modal-actions"><button class="primary" id="rosterSave">Add to roster</button></div>
+    <div class="modal-actions"><button class="ghost" type="button" id="rosterRegister">Register a new model…</button><button class="primary" id="rosterSave">Add to roster</button></div>
+  </div>
+</dialog>
+
+<dialog id="modelDialog">
+  <div class="modal-head"><h2 id="modelTitle">Install a model</h2>
+    <button class="ghost" type="button" id="modelClose">close</button></div>
+  <div class="modal-body">
+    <p class="note" id="modelContext">Register a model once; it becomes available to every persona in this household.</p>
+    <div class="model-form">
+      <label>JNSQ model name<input id="mname" placeholder="qwen3-8b"></label>
+      <label>Connection type<select id="mfamily">
+        <option value="ollama">Ollama · local</option>
+        <option value="anthropic">Anthropic API</option>
+        <option value="openai_compat">OpenAI-compatible · hosted or local</option>
+      </select></label>
+      <label id="mpresetWrap" hidden>Provider<select id="mpreset">
+        <option value="openai">OpenAI</option><option value="gemini">Google Gemini</option>
+        <option value="openrouter">OpenRouter</option><option value="together">Together AI</option>
+        <option value="groq">Groq</option><option value="mistral">Mistral</option>
+        <option value="deepseek">DeepSeek</option><option value="zai">Z.AI · GLM</option>
+        <option value="xai">xAI · Grok</option><option value="lmstudio">LM Studio · local</option>
+        <option value="custom">Custom / self-hosted</option>
+      </select></label>
+      <label id="mbaseWrap" hidden>Base URL<input id="mbase" placeholder="http://localhost:1234/v1"></label>
+      <div class="or-row wide"><label>Known model<select id="mknown"><option value="">choose…</option></select></label>
+        <span>or</span><label>Other model ID<input id="mendpoint" placeholder="model ID or local tag"></label></div>
+      <label id="mkeyenvWrap" hidden>Credential slot name<input id="mkeyenv" placeholder="OPENAI_API_KEY"></label>
+      <label>Context window · tokens<input id="mwindow" type="number" min="256" step="1" placeholder="8192"></label>
+      <div class="wide"><button class="ghost" type="button" id="mdiscover">Load available models</button></div>
+    </div>
+    <p class="note model-note" id="modelNote"></p><div class="error" id="modelError"></div>
+    <div class="modal-actions"><button class="primary" type="button" id="modelSave">Install model</button></div>
   </div>
 </dialog>
 
@@ -158,7 +208,7 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
 const CFG = /*CONFIG*/;
 const $ = id => document.getElementById(id);
 const storedVisible=localStorage.getItem("jnsq.public.visible");
-const state = {personas:{}, models:[], selected:new Set(), active:null, voicePid:null, rosterPid:null,
+const state = {personas:{}, models:[], modelInfo:{}, selected:new Set(), active:null, voicePid:null, rosterPid:null, modelTarget:null,
   initialized:false,widths:{}};
 try { for (const id of JSON.parse(storedVisible||"[]")) state.selected.add(id); }
 catch (_) {}
@@ -203,13 +253,12 @@ function mark(p){return `<span class="persona-mark"><span>${esc(p.icon||"🦋")}
 async function refresh(){
   try{
     const [ps,ms]=await Promise.all([request("/api/personas"),request("/api/models")]);
-    state.personas=ps;state.models=ms.models||[];
+    state.personas=ps;state.models=ms.models||[];state.modelInfo=ms;
     if(!state.initialized&&storedVisible===null){for(const [id] of personas())state.selected.add(id);
       if(CFG.room_url)state.selected.add("world");}
     state.initialized=true;
     for(const id of [...state.selected])if(!state.personas[id]&&id!=="world")state.selected.delete(id);
     if(!state.active||!state.selected.has(state.active))state.active=[...state.selected][0]||null;
-    $("openWorld").hidden=!CFG.room_url;
     renderModels();renderPersonaList();syncWorkspace();
     const live=personas().filter(([,p])=>p.alive).length;
     $("status").textContent=`${live} awake · ${personas().length} local`;
@@ -222,6 +271,67 @@ function renderModels(){
   if([...sel.options].some(o=>o.value===prior))sel.value=prior;
   else if([...sel.options].some(o=>o.value==="llama3-1-8b"))sel.value="llama3-1-8b";
 }
+
+const MODEL_PRESETS={
+  openai:{base:"https://api.openai.com/v1",key:"OPENAI_API_KEY",hint:"model id, e.g. gpt-4.1-mini"},
+  gemini:{base:"https://generativelanguage.googleapis.com/v1beta/openai",key:"GEMINI_API_KEY",hint:"model id, e.g. gemini-2.5-flash"},
+  openrouter:{base:"https://openrouter.ai/api/v1",key:"OPENROUTER_API_KEY",hint:"provider/model slug"},
+  together:{base:"https://api.together.xyz/v1",key:"TOGETHER_API_KEY",hint:"Together model id"},
+  groq:{base:"https://api.groq.com/openai/v1",key:"GROQ_API_KEY",hint:"Groq model id"},
+  mistral:{base:"https://api.mistral.ai/v1",key:"MISTRAL_API_KEY",hint:"model id, e.g. mistral-small-latest"},
+  deepseek:{base:"https://api.deepseek.com/v1",key:"DEEPSEEK_API_KEY",hint:"model id, e.g. deepseek-chat"},
+  zai:{base:"https://api.z.ai/api/paas/v4",key:"ZAI_API_KEY",hint:"model id, e.g. glm-5.1",window:200000},
+  xai:{base:"https://api.x.ai/v1",key:"XAI_API_KEY",hint:"model id, e.g. grok-3"},
+  lmstudio:{base:"http://localhost:1234/v1",key:"OPENAI_API_KEY",hint:"model id currently loaded in LM Studio"},
+  custom:{base:"",key:"OPENAI_API_KEY",hint:"model id served by your endpoint"}
+};
+const KNOWN_MODEL_IDS={
+  anthropic:["claude-sonnet-4-6","claude-sonnet-4-5-20250929","claude-haiku-4-5-20251001"],ollama:[],
+  openai:["gpt-5.6","gpt-5.5","gpt-5.4","gpt-5.4-mini","gpt-5.2","gpt-5.1","gpt-5","gpt-5-mini","gpt-4.1","gpt-4.1-mini"],
+  gemini:["gemini-3.5-flash","gemini-3.1-pro-preview","gemini-2.5-pro","gemini-2.5-flash"],
+  openrouter:[],together:["meta-llama/Llama-3.3-70B-Instruct-Turbo"],
+  groq:["llama-3.3-70b-versatile","llama-3.1-8b-instant"],mistral:["mistral-large-latest","mistral-small-latest"],
+  deepseek:["deepseek-chat","deepseek-reasoner"],zai:["glm-5.1","glm-5","glm-5-turbo","glm-4.7","glm-4.7-flash","glm-4.6v-flash"],
+  xai:["grok-4.5","grok-3"],lmstudio:[],custom:[]
+};
+const normalizedBase=value=>(value||"").replace(/\/+$/,"");
+function suggestedModelName(endpoint){return endpoint.trim().toLowerCase().replace(/^models\//,"")
+  .replace(/[^a-z0-9_-]+/g,"-").replace(/^-+|-+$/g,"").slice(0,80)}
+function fillKnownModels(extra=[]){
+  const family=$("mfamily").value,preset=$("mpreset").value,base=normalizedBase($("mbase").value);
+  const seeded=KNOWN_MODEL_IDS[family==="openai_compat"?preset:family]||[];
+  const installed=state.models.filter(model=>family==="ollama"?model.provider==="ollama":
+    family==="anthropic"?model.family==="anthropic":model.family==="openai_chat"&&(!base||normalizedBase(model.base_url)===base))
+    .map(model=>model.endpoint).filter(Boolean);
+  const ids=[...new Set([...seeded,...installed,...extra].filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  const prior=$("mknown").value;$("mknown").innerHTML=`<option value="">${ids.length?`choose from ${ids.length}…`:"none loaded · type one"}</option>`+
+    ids.map(id=>`<option value="${esc(id)}">${esc(id)}</option>`).join("");
+  if(ids.includes(prior))$("mknown").value=prior;
+}
+function modelCredentialStory(){
+  const family=$("mfamily").value,base=$("mbase").value,key=$("mkeyenv").value.trim()||"OPENAI_API_KEY";
+  if(family==="ollama")return "Local Ollama model: no API key or provider charge. Pull the tag in Ollama first.";
+  if(family==="anthropic")return state.modelInfo.anthropic_key_set?"ANTHROPIC_API_KEY is set.":
+    "Anthropic needs ANTHROPIC_API_KEY. Put the secret in Settings → API keys; secrets never go in model specs.";
+  const local=/\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)[:\/]/.test(base);
+  return local?`Local server. ${key} is only a credential slot name and is usually unused.`:
+    `${key} is a credential slot name, not the secret. Put its value in Settings → API keys.`;
+}
+function applyModelPreset(){const preset=MODEL_PRESETS[$("mpreset").value];if(!preset)return;
+  $("mbase").value=preset.base;$("mkeyenv").value=preset.key;$("mkeyenv").readOnly=$("mpreset").value!=="custom";
+  $("mendpoint").placeholder=preset.hint;$("mwindow").value=preset.window||"";fillKnownModels();$("modelNote").textContent=modelCredentialStory();}
+function configureModelFamily(){const family=$("mfamily").value,isCompat=family==="openai_compat";
+  $("mpresetWrap").hidden=!isCompat;$("mbaseWrap").hidden=!isCompat;$("mkeyenvWrap").hidden=!isCompat;
+  if(family==="ollama"){$("mendpoint").placeholder="Ollama tag, e.g. hermes3:8b";$("mwindow").placeholder="8192";}
+  else if(family==="anthropic"){$("mendpoint").placeholder="API model id, e.g. claude-sonnet-4-6";$("mwindow").placeholder="200000";}
+  else applyModelPreset();
+  fillKnownModels();$("modelNote").textContent=modelCredentialStory();
+}
+function openModelDialog(personaId=null){state.modelTarget=personaId;$("modelError").textContent="";
+  $("modelTitle").textContent=personaId?`Register a model · ${state.personas[personaId]?.display_name||personaId}`:"Install a model";
+  $("modelContext").textContent=personaId?"Register it once, then JNSQ will add it to this persona's roster.":
+    "Register it once; it becomes available to every persona in this household, including personas you create later.";
+  $("modelSave").textContent=personaId?"Install + add to roster":"Install model";configureModelFamily();$("modelDialog").showModal();}
 function renderPersonaList(){
   const rows=personas();
   const personaRows=rows.length?rows.map(([id,p])=>{const modelOptions=(p.models||[]).map(model=>
@@ -332,13 +442,40 @@ function openRoster(id){
   $("rosterSave").disabled=!available.length;$("rosterDialog").showModal();
 }
 $("rosterClose").onclick=()=>$("rosterDialog").close();
+$("rosterRegister").onclick=()=>{const pid=state.rosterPid;$("rosterDialog").close();openModelDialog(pid)};
 $("rosterSave").onclick=async()=>{const button=$("rosterSave"),model=$("rosterModel").value;if(!model||!state.rosterPid)return;
   button.disabled=true;$("rosterError").textContent="";
   try{await request(`/api/personas/${encodeURIComponent(state.rosterPid)}/roster`,{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({model})});$("rosterDialog").close();await refresh();}
   catch(e){$("rosterError").textContent=e.message;}finally{button.disabled=false;}};
 
-$("openWorld").onclick=openNexus;
+$("installModel").onclick=()=>openModelDialog();
+$("modelClose").onclick=()=>$("modelDialog").close();
+$("mfamily").onchange=configureModelFamily;$("mpreset").onchange=applyModelPreset;
+$("mkeyenv").oninput=()=>{$("modelNote").textContent=/^[A-Z][A-Z0-9_]*$/.test($("mkeyenv").value.trim())?
+  modelCredentialStory():"This field takes a credential slot NAME such as OPENAI_API_KEY, not the secret itself."};
+$("mknown").onchange=()=>{if(!$("mknown").value)return;$("mendpoint").value="";
+  if(!$("mname").value.trim())$("mname").value=suggestedModelName($("mknown").value)};
+$("mendpoint").oninput=()=>{if($("mendpoint").value)$("mknown").value="";
+  if(!$("mname").value.trim())$("mname").value=suggestedModelName($("mendpoint").value)};
+$("mdiscover").onclick=async()=>{const button=$("mdiscover"),family=$("mfamily").value,body={family};
+  if(family==="openai_compat"){body.base_url=$("mbase").value.trim();body.api_key_env=$("mkeyenv").value.trim()}
+  button.disabled=true;button.textContent="Loading…";$("modelError").textContent="";
+  try{const result=await request("/api/models/discover",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    fillKnownModels(result.models||[]);$("modelNote").textContent=(result.models||[]).length?
+      `Loaded ${result.models.length} model IDs from this connection.`:"The connection returned no model IDs. You can still enter one manually.";}
+  catch(error){$("modelError").textContent=`${error.message} You can still enter a model ID manually.`}
+  finally{button.disabled=false;button.textContent="Load available models"}};
+$("modelSave").onclick=async()=>{const button=$("modelSave"),endpoint=$("mendpoint").value.trim()||$("mknown").value;
+  const body={name:$("mname").value.trim(),family:$("mfamily").value,endpoint};
+  const windowTokens=$("mwindow").value.trim();if(windowTokens)body.window_tokens=Number(windowTokens);
+  if(body.family==="openai_compat"){body.base_url=$("mbase").value.trim();const key=$("mkeyenv").value.trim();if(key)body.api_key_env=key}
+  button.disabled=true;$("modelError").textContent="";
+  try{const made=await request("/api/models/create",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    if(state.modelTarget)await request(`/api/personas/${encodeURIComponent(state.modelTarget)}/roster`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:made.model})});
+    $("modelDialog").close();await refresh();if([...$("newModel").options].some(option=>option.value===made.model))$("newModel").value=made.model;
+    state.modelTarget=null;}
+  catch(error){$("modelError").textContent=error.message}finally{button.disabled=false}};
 $("createForm").onsubmit=async e=>{
   e.preventDefault();const btn=$("createBtn");btn.disabled=true;$("createError").textContent="";
   try{const made=await request("/api/personas/create",{method:"POST",headers:{"Content-Type":"application/json"},

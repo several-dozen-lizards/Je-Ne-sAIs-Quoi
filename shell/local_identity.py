@@ -49,3 +49,24 @@ def save_local_identity(repo: str, user_id: str, display_name: str) -> dict:
         if os.path.exists(tmp):
             os.unlink(tmp)
     return {**value, "configured": True}
+
+
+def local_user_directory(repo: str) -> dict:
+    """Return human accounts with this installation's owner guaranteed.
+
+    Early public installs could have ``.jnsq_local.json`` without a matching
+    ``users/<id>/account.yaml``.  The local identity is still real enough to
+    enter and speak in the Nexus; account setup can enrich it later.
+    """
+    from core.users import list_users
+    users = list_users(repo)
+    identity = load_local_identity(repo)
+    uid = identity["user_id"]
+    if uid not in users:
+        users[uid] = {
+            "id": uid,
+            "username": uid,
+            "display_name": identity["display_name"],
+            "local_identity": True,
+        }
+    return users

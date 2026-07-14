@@ -33,9 +33,10 @@ owner or their personas.
        ollama pull llama3.1:8b
 
 4. Double-click `START_NEXUS.bat` if you did not start it from setup.
-5. Open **Personas**, create a persona, write their voice, and start them. The
-   mask always returns to persona selection; open conversations wait in compact
-   tabs across the top of the workspace.
+5. Open **Household**, create a persona, write their voice, and start them. The
+   household screen can add models to each persona's roster and switch the
+   model carrying them. The mask always returns home; open conversations wait
+   in compact tabs across the top of the workspace.
 
 In a conversation, drop images directly onto the message field or use the
 paperclip. Vision-capable personas receive the image itself; text-only models

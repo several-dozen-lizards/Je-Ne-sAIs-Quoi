@@ -26,7 +26,10 @@ def main():
     assert 'id="personaHome"' in shell and 'id="panelTabs"' in shell
     assert "openPanel" in shell and "renderPanelTabs" in shell
     assert "data-icon" in shell and "changePersonaIcon" in shell
-    assert "data-avatar" in shell and "choosePersonaAvatar" in shell
+    assert "data-avatar" not in shell and "choosePersonaAvatar" not in shell
+    assert 'class="home-heading">The household' in shell
+    assert "data-switch" in shell and "switchPersona" in shell
+    assert "data-add-model" in shell and "openRoster" in shell
     assert "Yurt" not in shell and ">World<" not in shell
     assert 'data-top-page="personas"' in shell
     assert 'data-top-page="settings"' in shell

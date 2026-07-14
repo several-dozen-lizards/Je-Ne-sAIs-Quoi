@@ -1,7 +1,7 @@
 {
   "format": 2,
-  "version": "0.3.0",
-  "files": 103,
+  "version": "0.3.1",
+  "files": 104,
   "contains_personal_data": false,
   "empty_local_roots": [
     "personas",
@@ -69,7 +69,7 @@
     "harness/clients.py": "08b3b4c9d012c0b589a5f3068543173a614a9a1411d7eb2f3652308eac65504e",
     "harness/spec_loader.py": "7591def268c38c439594378a824460cd6685d1e41befaa821aa5016fe17c318d",
     "INSTALL_JNSQ.bat": "6e5ec84d2b1846dfe40a31f9db058be9c4c3dbb673d6a529cbddad240a26bac7",
-    "README.md": "b20084f9e1f738a86bee580e4fba837ddbc5985e618bb01eb1c7b59d846cc123",
+    "README.md": "bd163133f0a94f2436582d2de3480c52a6d72add7c6b3c5082e1af4ea4906781",
     "requirements.txt": "7896bae8d478c4ab4a1945497fa4a8504cf7cafe6fc7a60e4ac6497050798dda",
     "room/__init__.py": "c322b3e75f4640eeb8977857a02363f93a506b61b809b8c773795863009bfe4f",
     "room/host.py": "15d033c2fad8d5cec1a4789af88a641b6bf2a35662903eb2ddbb4f7fdcedad25",
@@ -84,7 +84,7 @@
     "shell/contract.py": "d7122ad30ea88805f8aebdc6c2e893f18f90bc158ff0bfa77777b6fa35dcde45",
     "shell/env_store.py": "2ec98c681ad986ac250ae15950534eec6128403902d4779af634ab6f06940613",
     "shell/factory.py": "c654dccd8ea526ea5bb9bf77020140a2154eb3b8f107674510629a27885b46ee",
-    "shell/fangwall.html": "0d9160ad8165b102abf79001dc7be160cd7b5085425f8bb9bdc748213f992e8b",
+    "shell/fangwall.html": "ffac6b78ad3577b116703f4978bdf39f604259099e688f8c63023ab24fc3b474",
     "shell/first_run.py": "0e9adac26d1ccdf445c9134977bd42291e9ceb9b534828b615c636c6f531f88c",
     "shell/image_input.py": "5f8f7b84aa5b0e3b4f834003b6f2832dc90707e56b351ecff1e66f273e8d3559",
     "shell/local_identity.py": "0df67b02ed9fdbbb3e9020adc4f31938932f1a41b50af5a152f4de1048375e61",
@@ -96,6 +96,7 @@
     "shell/ui/household_theme.json": "6a3a84033ddcc2aca0ae4461240b5c723c6653e295e323dce139786b1a0a7783",
     "shell/ui_themes.py": "741b6991cfec4b3a586dfc115c96a315df79004a8012ddc648eec5976a2affe1",
     "shell/users.html": "07f838571b6880ef5fd2316c4be9dbd4a919bf00275526ac4f92f1500a7babc7",
+    "specs/models/glm-4-6v-flashx.yaml": "25be7655eac2b12dfb7b99609c69fc0b3feaab4df924082a904ff5cb18ec264d",
     "specs/models/glm-5-1.yaml": "709707c222997b65950106de2050b95bb2b2c8b216434b46200908136e67f957",
     "specs/models/glm-5.yaml": "ab0d63a3c317e0e1b938d4484c89e84e2e8a2b6131ffaa7ab48c38e6ec054329",
     "specs/models/gpt-5-1.yaml": "bd3f298ddde7946ba2f77437dd049568ddead8f267ad28b31c01fc0f91550079",
@@ -109,9 +110,9 @@
     "specs/system_prompts/organs/_default/room_actions.txt": "9c33eeee7fadb3bcab0aa20ff4257fd6af74a7bc2e2a3cee192745ee8b3a06fe",
     "START_NEXUS.bat": "cb411ae3243a65e5a87bae496761113b4fc79ae509d33016fd706aa299f6ff2b",
     "STOP_NEXUS.bat": "7002c22a9e708a002d4bf6b590fbc5e2200a5c3119dee7f19bd269279466b7ee",
-    "tools/smoke_distribution.py": "0d3ceea5ea3bf1c2b12a1d964cc24d1dfee6ef1628d592b24b71341618b0c276",
+    "tools/smoke_distribution.py": "3e1aa9e3b0a6e5e9d13371abddc9a37b5949633e8109bc00444df36fec549300",
     "UPDATE_JNSQ.bat": "86d6ef61cf515050dc315dbf09a57572e031b5050e995b433771f7b933af0c51",
     "UPDATE_JNSQ.ps1": "e32cc9da2c45361c78f8a7e1ad07d08a8d6bbf1904476f30bfe5cac3606e3351",
-    "VERSION": "d915cc95d6ca8f47ae297713ed46d4e5c5d99ddd29fc3c61e263bdf305f2b5b0"
+    "VERSION": "79e3f22ca37c7fdf4c29ae3648d6b008c3cb6547260a453409275470919dc674"
   }
 }

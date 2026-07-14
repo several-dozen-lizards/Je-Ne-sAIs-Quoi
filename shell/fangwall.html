@@ -50,6 +50,9 @@ header{height:74px;display:flex;align-items:center;gap:18px;padding:0 24px;
 .persona-actions{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0 0 25px}.persona-actions button{border:1px solid var(--line);
   background:var(--panel2);color:var(--dim);border-radius:7px;padding:4px 7px;font-size:.72rem}
 .persona-actions button:hover{color:var(--ink)}.persona-actions .stop:hover{color:var(--danger)}
+.model-control{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:5px;margin:10px 0 0 25px}
+.model-control select{min-width:0;padding:5px 7px}.model-control button{border:1px solid var(--line);
+  background:var(--panel2);color:var(--dim);border-radius:7px;padding:4px 7px;font-size:.72rem}
 details{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}summary{cursor:pointer;
   color:var(--mint);font-weight:650}form{display:grid;gap:9px;margin-top:12px}label{display:grid;gap:4px;
   color:var(--dim);font-size:.76rem}input,select,textarea{width:100%;background:#06100d;color:var(--ink);
@@ -94,14 +97,14 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
   <button class="brand-home" id="homeButton" type="button" title="persona home" aria-label="Persona home"><img class="brand-icon" src="/assets/jnsq_favicon.svg" alt=""></button>
   <div class="brand">Je Ne <strong>sAI</strong>s Quoi</div>
   <div class="tagline">a local home for persistent AI personas</div>
-  <nav class="top-nav"><button type="button" data-top-page="personas">🦋 Personas</button>
+  <nav class="top-nav"><button type="button" data-top-page="personas">🏠 Household</button>
     <button type="button" data-top-page="settings">⚙ Settings</button></nav>
   <div id="status">connecting…</div>
 </header>
 <section class="top-page on" id="page-personas"><div class="app">
   <section class="persona-home" id="personaHome">
-    <h1 class="home-heading">Who do you want to spend time with?</h1>
-    <p class="home-copy">Choose a persona. Their open conversations will wait in the small tabs above the workspace.</p>
+    <h1 class="home-heading">The household</h1>
+    <p class="home-copy">Choose who to visit, change the model carrying them, or tend the household. Open conversations wait in compact tabs above the workspace.</p>
     <div class="home-tools"><div class="section-title">Personas in this home</div><button class="ghost" type="button" id="openWorld" hidden>open Nexus world</button></div>
     <div id="personaList"></div>
     <details id="createDetails">
@@ -137,10 +140,21 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
   </div>
 </dialog>
 
+<dialog id="rosterDialog">
+  <div class="modal-head"><h2 id="rosterTitle">Add a model</h2>
+    <button class="ghost" type="button" id="rosterClose">close</button></div>
+  <div class="modal-body">
+    <label>Installed model<select id="rosterModel"></select></label>
+    <p class="note">This adds the model to the persona's roster. Their current model will not change until you choose it on the household screen.</p>
+    <div class="error" id="rosterError"></div>
+    <div class="modal-actions"><button class="primary" id="rosterSave">Add to roster</button></div>
+  </div>
+</dialog>
+
 <script>
 const CFG = /*CONFIG*/;
 const $ = id => document.getElementById(id);
-const state = {personas:{}, models:[], selected:new Set(), active:null, voicePid:null};
+const state = {personas:{}, models:[], selected:new Set(), active:null, voicePid:null, rosterPid:null};
 try { for (const id of JSON.parse(localStorage.getItem("jnsq.public.visible")||"[]")) state.selected.add(id); }
 catch (_) {}
 state.active=localStorage.getItem("jnsq.public.active")||null;
@@ -175,9 +189,6 @@ function persist(){localStorage.setItem("jnsq.public.visible",JSON.stringify([..
 function personas(){return Object.entries(state.personas).filter(([,p])=>p.kind==="model_persona");}
 function mark(p){return `<span class="persona-mark"><span>${esc(p.icon||"🦋")}</span>${
   p.avatar_url?`<img src="${esc(p.avatar_url)}" alt="">`:""}</span>`}
-const fileDataUrl=file=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);
-  reader.onerror=()=>reject(new Error("could not read that image"));reader.readAsDataURL(file)});
-
 async function refresh(){
   try{
     const [ps,ms]=await Promise.all([request("/api/personas"),request("/api/models")]);
@@ -199,19 +210,22 @@ function renderModels(){
 }
 function renderPersonaList(){
   const rows=personas();
-  const personaRows=rows.length?rows.map(([id,p])=>`<div class="persona-row">
+  const personaRows=rows.length?rows.map(([id,p])=>{const modelOptions=(p.models||[]).map(model=>
+    `<option value="${esc(model)}" ${model===p.model?"selected":""}>${esc(model)}</option>`).join("");return `<div class="persona-row">
     <div class="persona-main"><span class="dot ${p.alive?"live":""}"></span>${mark(p)}<span class="persona-name">${esc(p.display_name||id)}</span></div>
     <div class="persona-meta">${esc(p.model||"no model")} · ${p.alive?"awake":"stopped"}</div>
-    <div class="persona-actions"><button class="primary" data-open="${esc(id)}">open</button><button data-voice="${esc(id)}">edit voice</button><button data-icon="${esc(id)}">change icon</button><button data-avatar="${esc(id)}">upload image</button>
-      ${p.alive?`<button class="stop" data-stop="${esc(id)}">stop</button>`:`<button data-start="${esc(id)}">start</button>`}</div>
-  </div>`).join(""):`<p class="note">No personas yet. Make the first one below.</p>`;
+    <div class="model-control"><select data-model="${esc(id)}" aria-label="Model for ${esc(p.display_name||id)}">${modelOptions}</select>
+      <button data-switch="${esc(id)}">${p.alive?"switch / restart":"start selected"}</button><button data-add-model="${esc(id)}">+ model</button></div>
+    <div class="persona-actions"><button class="primary" data-open="${esc(id)}">open</button><button data-voice="${esc(id)}">edit voice</button><button data-icon="${esc(id)}">change icon</button>
+      ${p.alive?`<button class="stop" data-stop="${esc(id)}">stop</button>`:""}</div>
+  </div>`}).join(""):`<p class="note">No personas yet. Make the first one below.</p>`;
   $("personaList").innerHTML=personaRows;
   document.querySelectorAll("[data-open]").forEach(el=>el.onclick=()=>openPanel(el.dataset.open));
-  document.querySelectorAll("[data-start]").forEach(el=>el.onclick=()=>startPersona(el.dataset.start,el));
+  document.querySelectorAll("[data-switch]").forEach(el=>el.onclick=()=>switchPersona(el.dataset.switch,el));
+  document.querySelectorAll("[data-add-model]").forEach(el=>el.onclick=()=>openRoster(el.dataset.addModel));
   document.querySelectorAll("[data-stop]").forEach(el=>el.onclick=()=>stopPersona(el.dataset.stop,el));
   document.querySelectorAll("[data-voice]").forEach(el=>el.onclick=()=>openVoice(el.dataset.voice));
   document.querySelectorAll("[data-icon]").forEach(el=>el.onclick=()=>changePersonaIcon(el.dataset.icon));
-  document.querySelectorAll("[data-avatar]").forEach(el=>el.onclick=()=>choosePersonaAvatar(el.dataset.avatar));
 }
 function syncWorkspace(){
   const wanted=[...state.selected].filter(id=>state.personas[id]||(id==="world"&&CFG.room_url));
@@ -254,7 +268,7 @@ function closePanel(id){
 }
 function renderPanelTabs(){
   const ids=[...state.selected].filter(id=>state.personas[id]||(id==="world"&&CFG.room_url));
-  $("panelTabs").innerHTML=`<button class="panel-tab" type="button" data-home-tab>⌂ personas</button>`+ids.map(id=>{
+  $("panelTabs").innerHTML=`<button class="panel-tab" type="button" data-home-tab>⌂ household</button>`+ids.map(id=>{
     const p=state.personas[id],label=id==="world"?"🌍 Nexus world":`${mark(p)} ${esc(p.display_name||id)}`;
     return `<button class="panel-tab ${id===state.active?"on":""}" type="button" data-tab="${esc(id)}">${label}<span class="close-tab" data-close-tab="${esc(id)}" title="close">×</span></button>`;
   }).join("");
@@ -270,8 +284,30 @@ async function startPersona(id,button){
     state.selected.add(id);persist();await refresh();}
   catch(e){button.disabled=false;button.textContent="start";alert(e.message);}
 }
+async function switchPersona(id,button){
+  const model=document.querySelector(`[data-model="${CSS.escape(id)}"]`)?.value;
+  if(!model)return;
+  button.disabled=true;button.textContent="switching…";
+  try{await request(`/api/personas/${encodeURIComponent(id)}/start`,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({model})});await refresh();}
+  catch(e){alert(e.message);}finally{button.disabled=false;}
+}
 async function stopPersona(id,button){button.disabled=true;try{await request(`/api/personas/${encodeURIComponent(id)}/stop`,{method:"POST"});await refresh();}
   catch(e){button.disabled=false;alert(e.message);}}
+
+function openRoster(id){
+  state.rosterPid=id;$("rosterError").textContent="";$("rosterTitle").textContent=`Add a model · ${state.personas[id]?.display_name||id}`;
+  const existing=new Set(state.personas[id]?.models||[]),available=state.models.filter(model=>model.name&&!existing.has(model.name));
+  $("rosterModel").innerHTML=available.length?available.map(model=>`<option value="${esc(model.name)}">${esc(model.name)} · ${esc(model.locality||model.provider||"")}</option>`).join(""):
+    '<option value="">No un-rostered installed models</option>';
+  $("rosterSave").disabled=!available.length;$("rosterDialog").showModal();
+}
+$("rosterClose").onclick=()=>$("rosterDialog").close();
+$("rosterSave").onclick=async()=>{const button=$("rosterSave"),model=$("rosterModel").value;if(!model||!state.rosterPid)return;
+  button.disabled=true;$("rosterError").textContent="";
+  try{await request(`/api/personas/${encodeURIComponent(state.rosterPid)}/roster`,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({model})});$("rosterDialog").close();await refresh();}
+  catch(e){$("rosterError").textContent=e.message;}finally{button.disabled=false;}};
 
 $("openWorld").onclick=()=>openPanel("world");
 $("createForm").onsubmit=async e=>{
@@ -293,14 +329,6 @@ async function changePersonaIcon(id){
   try{await request(`/api/personas/${encodeURIComponent(id)}/icon`,{method:"POST",
     headers:{"Content-Type":"application/json"},body:JSON.stringify({icon})});await refresh()}
   catch(error){alert(error.message)}
-}
-function choosePersonaAvatar(id){
-  const picker=document.createElement("input");picker.type="file";
-  picker.accept="image/png,image/jpeg,image/webp,image/gif";
-  picker.onchange=async()=>{const image=picker.files&&picker.files[0];if(!image)return;
-    try{const data_url=await fileDataUrl(image);await request(`/api/personas/${encodeURIComponent(id)}/avatar`,{
-      method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({data_url})});await refresh()}
-    catch(error){alert(error.message)}};picker.click();
 }
 $("voiceClose").onclick=()=>$("voiceDialog").close();
 $("voiceSave").onclick=async()=>{const btn=$("voiceSave");btn.disabled=true;$("voiceError").textContent="";

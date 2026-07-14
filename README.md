@@ -32,7 +32,10 @@ owner or their personas.
 
        ollama pull llama3.1:8b
 
-4. Double-click `START_NEXUS.bat` if you did not start it from setup.
+4. Double-click `START_NEXUS.bat` if you did not start it from setup. JNSQ
+   opens in its own app window. Closing that window ends the session and
+   automatically performs the same clean shutdown as `STOP_NEXUS.bat`;
+   refreshing it or changing conversation panes does not.
 5. Open **Household**, create a persona, write their voice, and start them. The
    household screen can add models to each persona's roster and switch the
    model carrying them. The mask always returns home; open conversations wait

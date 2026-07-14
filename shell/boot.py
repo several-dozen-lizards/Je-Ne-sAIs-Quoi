@@ -1,4 +1,4 @@
-"""shell/boot.py — one-shot household boot.
+"""shell/boot.py — household boot and browser-session lifecycle.
 Brings up room host + router (which spawns all roster'd personas with
 bodies), on FRESH OS-assigned ports every time (10048 law: never fight
 a lingering socket). Liveness verified via API, never stdout. PIDs and
@@ -6,11 +6,18 @@ ports recorded to jnsq_running.json so re-runs detect the live stack
 instead of spawning a rival household. --stop reads the runfile and
 takes it all down.
 
-Usage:  python shell\\boot.py          (or double-click START_NEXUS.bat)
-        python shell\\boot.py --stop   (or STOP_NEXUS.bat)"""
+START_NEXUS uses --session: a dedicated Chromium app window owns the
+household. The launcher waits on that real process handle; closing the
+window flows directly into stop(). Refreshes and inner pane changes do
+not resemble a session ending and cannot kill the household.
+
+Usage:  python shell\\boot.py --session (or double-click START_NEXUS.bat)
+        python shell\\boot.py           (boot without an owned session)
+        python shell\\boot.py --stop    (or STOP_NEXUS.bat)"""
 import argparse
 import json
 import os
+import shutil
 import socket
 import subprocess
 import sys
@@ -21,6 +28,83 @@ import webbrowser
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RUNFILE = os.path.join(ROOT, "jnsq_running.json")
 LOGDIR = os.path.join(ROOT, "logs")
+SESSION_PROFILE = os.path.join(LOGDIR, "browser-session")
+
+
+def _read_runfile():
+    if not os.path.exists(RUNFILE):
+        return None
+    with open(RUNFILE, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _write_runfile(run: dict):
+    with open(RUNFILE, "w", encoding="utf-8") as f:
+        json.dump(run, f, indent=1)
+
+
+def _pid_alive(pid) -> bool:
+    """Read process state without signalling or modifying the process."""
+    try:
+        pid = int(pid)
+    except (OSError, TypeError, ValueError):
+        return False
+    if os.name != "nt":
+        try:
+            os.kill(pid, 0)
+            return True
+        except OSError:
+            return False
+    import ctypes
+    query_limited_information = 0x1000
+    still_active = 259
+    kernel = ctypes.windll.kernel32
+    handle = kernel.OpenProcess(query_limited_information, False, pid)
+    if not handle:
+        return False
+    try:
+        exit_code = ctypes.c_ulong()
+        return bool(kernel.GetExitCodeProcess(
+            handle, ctypes.byref(exit_code))) and exit_code.value == still_active
+    finally:
+        kernel.CloseHandle(handle)
+
+
+def _session_browser_path():
+    """Find a Chromium browser whose app window can own the session."""
+    candidates = [shutil.which("msedge"), shutil.which("chrome")]
+    roots = [os.environ.get("PROGRAMFILES(X86)"),
+             os.environ.get("PROGRAMFILES"),
+             os.environ.get("LOCALAPPDATA")]
+    suffixes = [
+        os.path.join("Microsoft", "Edge", "Application", "msedge.exe"),
+        os.path.join("Google", "Chrome", "Application", "chrome.exe"),
+        os.path.join("BraveSoftware", "Brave-Browser", "Application",
+                     "brave.exe"),
+    ]
+    candidates.extend(os.path.join(root, suffix)
+                      for root in roots if root
+                      for suffix in suffixes)
+    return next((path for path in candidates
+                 if path and os.path.isfile(path)), None)
+
+
+def _launch_session_browser(url: str):
+    """Open one isolated app window and return its real process handle."""
+    executable = _session_browser_path()
+    if not executable:
+        return None
+    os.makedirs(SESSION_PROFILE, exist_ok=True)
+    return subprocess.Popen([
+        executable,
+        f"--app={url}",
+        f"--user-data-dir={SESSION_PROFILE}",
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--disable-background-mode",
+        "--disable-extensions",
+        "--disable-sync",
+    ], creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
 
 
 def _free_port() -> int:
@@ -65,35 +149,38 @@ def _spawn(args, logname: str) -> int:
 
 
 def stop():
-    run = None
-    if os.path.exists(RUNFILE):
-        with open(RUNFILE, encoding="utf-8") as f:
-            run = json.load(f)
+    run = _read_runfile()
     if not run:
         print("No runfile — nothing recorded as running.")
         return
-    # router first (it owns the persona subprocesses), then the room
-    for name in ("router_pid", "room_pid"):
+    # Close the owned window first; router next (it owns persona
+    # subprocesses), then the room. A browser-watcher racing this manual
+    # stop is harmless because runfile removal is idempotent below.
+    for name in ("session_browser_pid", "router_pid", "room_pid"):
         pid = run.get(name)
         if pid:
             subprocess.call(["taskkill", "/F", "/T", "/PID", str(pid)],
                             stdout=subprocess.DEVNULL,
                             stderr=subprocess.DEVNULL)
             print(f"  stopped {name.split('_')[0]} (pid {pid}, tree)")
-    os.remove(RUNFILE)
+    try:
+        os.remove(RUNFILE)
+    except FileNotFoundError:
+        pass
     print("Household down. Bodies persist in journals; positions reset "
           "on next boot (known v0).")
 
 
-def boot():
+def boot(open_browser: bool = True):
     # already up? Report and open the door instead of double-spawning.
     if os.path.exists(RUNFILE):
-        with open(RUNFILE, encoding="utf-8") as f:
-            run = json.load(f)
-        if _alive(f"http://127.0.0.1:{run['router_port']}/api/personas"):
+        run = _read_runfile()
+        if _alive(f"http://127.0.0.1:{run['router_port']}/api/personas") \
+                is not None:
             print(f"Household is ALREADY UP — router on {run['router_port']}.")
-            webbrowser.open(f"http://127.0.0.1:{run['router_port']}/")
-            return
+            if open_browser:
+                webbrowser.open(f"http://127.0.0.1:{run['router_port']}/")
+            return run
         print("Stale runfile (stack died) — booting fresh.")
 
     room_port, router_port = _free_port(), _free_port()
@@ -103,7 +190,7 @@ def boot():
                       "room_host.log")
     if not _wait(f"http://127.0.0.1:{room_port}/api/world", 25, "room host"):
         print("Room host failed — see logs\\room_host.log")
-        return
+        return None
     router_pid = _spawn(["shell\\router.py", "--port", str(router_port),
                          "--room-url", f"http://127.0.0.1:{room_port}"],
                         "router.log")
@@ -114,12 +201,12 @@ def boot():
     # the liveness request never succeeded.
     if tenants is None:
         print("Router failed — see logs\\router.log")
-        return
+        return None
 
-    with open(RUNFILE, "w", encoding="utf-8") as f:
-        json.dump({"room_pid": room_pid, "room_port": room_port,
-                   "router_pid": router_pid, "router_port": router_port,
-                   "booted": time.strftime("%Y-%m-%dT%H:%M:%S")}, f, indent=1)
+    run = {"room_pid": room_pid, "room_port": room_port,
+           "router_pid": router_pid, "router_port": router_port,
+           "booted": time.strftime("%Y-%m-%dT%H:%M:%S")}
+    _write_runfile(run)
 
     print("\n  THE HOUSEHOLD IS UP\n  " + "=" * 40)
     print(f"  Je Ne Sais Quoi (status): http://127.0.0.1:{router_port}/")
@@ -130,11 +217,58 @@ def boot():
         print(f"  {pid_:>6}: http://127.0.0.1:{info['port']}/   "
               f"[{info['model']}] {mark}")
     print(f"  world:  http://127.0.0.1:{room_port}/api/world")
-    webbrowser.open(f"http://127.0.0.1:{router_port}/")
+    if open_browser:
+        webbrowser.open(f"http://127.0.0.1:{router_port}/")
+    return run
+
+
+def run_session() -> int:
+    """Own the household for exactly the life of its dedicated window."""
+    run = boot(open_browser=False)
+    if not run:
+        return 1
+    owner = run.get("session_browser_pid")
+    if owner and _pid_alive(owner):
+        print("A JNSQ session window already owns this household.")
+        return 0
+
+    url = f"http://127.0.0.1:{run['router_port']}/"
+    browser = _launch_session_browser(url)
+    if browser is None:
+        print("No supported app-window browser was found (Edge, Chrome, "
+              "or Brave).")
+        print("Opening the normal browser. Return here and press Enter "
+              "when the session is over.")
+        webbrowser.open(url)
+        try:
+            input()
+        finally:
+            stop()
+        return 0
+
+    run["session_browser_pid"] = browser.pid
+    _write_runfile(run)
+    print("\n  SESSION WINDOW OWNS THE HOUSEHOLD")
+    print("  Close that window when you are done; JNSQ will stop cleanly.")
+    try:
+        browser.wait()
+    except KeyboardInterrupt:
+        print("\nSession interrupted — stopping the household cleanly.")
+    finally:
+        current = _read_runfile()
+        if current and current.get("session_browser_pid") == browser.pid:
+            stop()
+    return 0
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--stop", action="store_true")
+    ap.add_argument("--session", action="store_true")
     a = ap.parse_args()
-    stop() if a.stop else boot()
+    if a.stop:
+        stop()
+    elif a.session:
+        raise SystemExit(run_session())
+    else:
+        boot()

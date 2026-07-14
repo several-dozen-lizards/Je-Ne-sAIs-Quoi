@@ -21,6 +21,11 @@ def main():
                  if p.is_file() and p.name != ".gitkeep"]
         assert not files, f"{name} is not empty: {files}"
     assert not (ROOT / "godot-room").exists(), "public build contains 3D assets"
+    start = (ROOT / "START_NEXUS.bat").read_text(encoding="utf-8")
+    assert "shell\\boot.py --session" in start
+    boot = (ROOT / "shell" / "boot.py").read_text(encoding="utf-8")
+    assert "def run_session()" in boot and "browser.wait()" in boot
+    assert "session_browser_pid" in boot
     shell = (ROOT / "shell" / "fangwall.html").read_text(encoding="utf-8")
     assert 'Je Ne S<span class="ai">ai</span>s Quoi' in shell
     assert 'id="personaHome"' in shell and 'id="panelTabs"' in shell

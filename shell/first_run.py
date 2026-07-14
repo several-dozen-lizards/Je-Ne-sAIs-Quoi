@@ -41,7 +41,8 @@ def main():
     who = result["identity"]["display_name"]
     print(f"\nThis JNSQ home now belongs to {who}.")
     print("Start it with START_NEXUS.bat, then create a persona from the "
-          "chat workspace.")
+          "chat workspace. Closing its JNSQ window stops the household "
+          "cleanly.")
 
 
 if __name__ == "__main__":

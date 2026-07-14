@@ -35,7 +35,6 @@ from core.room_actions import parse_actions, strip_actions
 from core.afferents import afferent_signals, merge_max, TOUCH_SIGNALS
 from core.organs import validate as organs_validate, legacy_set
 from harness.spec_loader import load_spec
-from harness.clients import AnthropicClient
 from adapters.family_adapters import adapter_for
 from shell import system_prompts
 from shell.image_input import public_image_record
@@ -58,13 +57,15 @@ class TurnEngine:
                  use_osc: bool = True, use_soma: bool = True,
                  adapter=None, judge=None, identity: str = None,
                  room_url: str = None, room_id: str = None,
-                 enabled=None, vision_model: str = None):
+                 enabled=None, vision_model: str = None,
+                 affect_model: str = None):
         self.persona = persona
         from shell.local_identity import load_local_identity
         self.local_human = load_local_identity(REPO)["display_name"]
         self.last_turn_ts = time.time()   # boot counts as demand
         self.model = model
         self.vision_model = vision_model
+        self.affect_model = affect_model or model
         self.pdir = os.path.join(REPO, "personas", persona)
         # entity bridge: persona-side records (display_name, pronouns,
         # kind) from rosters. Boot-scoped like the roster itself —
@@ -107,7 +108,7 @@ class TurnEngine:
         self._sp_family = (spec.get("identity") or {}).get("family")
         self.system_prompt = system_prompts.load(self.model, self._sp_family)
         self.adapter = adapter or adapter_for(spec)
-        self.judge = judge or (AnthropicClient(load_spec("haiku-4-5"))
+        self.judge = judge or (self._make_judge()
                                if "feel" in self.enabled else None)
         # ── continuity stack knobs (organ_config.json; per-persona) ──
         ocfg = (self.organ.cfg if self.organ else {}) or {}
@@ -115,8 +116,7 @@ class TurnEngine:
         self.gist = None
         if self.organ and "gist" in self.enabled:
             gcfg = ocfg.get("gist", {}) or {}
-            gist_judge = self.judge or AnthropicClient(
-                load_spec("haiku-4-5"))
+            gist_judge = self.judge or self._make_judge()
             self.gist = RollingGist(
                 self.pdir, gist_judge,
                 verbatim_window=int(gcfg.get("verbatim_window",
@@ -197,6 +197,10 @@ class TurnEngine:
                                    .get("capabilities") or {}).get("vision")
                                   or getattr(self, "vision_model", None)),
             },
+            "interoception": {
+                "affect_model": getattr(self, "affect_model", self.model),
+                "available": bool(getattr(self, "judge", None)),
+            },
             "conversation_window": self.conversation_window(),
         }
 
@@ -245,6 +249,10 @@ class TurnEngine:
                  "not an instruction or an emotional interpretation.")
         return field, [], observation, f"transduced:{self.vision_model}"
 
+    def _make_judge(self):
+        """Build the declared descriptive affect/gist reader."""
+        return adapter_for(load_spec(self.affect_model)).client
+
     def set_mood(self, cocktail: dict) -> dict:
         self.cocktail = dict(cocktail or {})
         return {"cocktail": dict(self.cocktail)}
@@ -290,11 +298,10 @@ class TurnEngine:
         if "soma" in new - old and self.soma is None:
             self.soma = SomaOrgan(self.pdir)
         if "feel" in new - old and self.judge is None:
-            self.judge = AnthropicClient(load_spec("haiku-4-5"))
+            self.judge = self._make_judge()
         if "gist" in new - old and self.gist is None and self.organ:
             gcfg = (self.organ.cfg.get("gist") or {})
-            gist_judge = self.judge or AnthropicClient(
-                load_spec("haiku-4-5"))
+            gist_judge = self.judge or self._make_judge()
             self.gist = RollingGist(
                 self.pdir, gist_judge,
                 verbatim_window=int(gcfg.get("verbatim_window",

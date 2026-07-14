@@ -1,6 +1,6 @@
 {
   "format": 2,
-  "version": "0.3.1",
+  "version": "0.3.2",
   "files": 104,
   "contains_personal_data": false,
   "empty_local_roots": [
@@ -80,8 +80,8 @@
     "shell/__init__.py": "f7a495d21523598f87ea4ded29d5bd2d863d855a329eb3d2c2e35a3136fb3b16",
     "shell/boot.py": "ff45e94e20656cb341de85bcd215d0065814840d8c62a3a663fce2a986f6bc1d",
     "shell/cockpit.html": "2a6af20942c8144b81d13dbad6d74c8cd8472a900497ec8b86937fee5f336ac2",
-    "shell/cockpit.py": "bb9b095154eb7552833a8ceb4b261058c3ce7880b43e3a37b28f35587fb6d223",
-    "shell/contract.py": "d7122ad30ea88805f8aebdc6c2e893f18f90bc158ff0bfa77777b6fa35dcde45",
+    "shell/cockpit.py": "755fc800204bd256e422ecbca2eec538571352b7ee927018e5b3b77298fea893",
+    "shell/contract.py": "33b10859de5fa15d3ff94e5822852831e12c97b420794017b1cfd29038605bf6",
     "shell/env_store.py": "2ec98c681ad986ac250ae15950534eec6128403902d4779af634ab6f06940613",
     "shell/factory.py": "c654dccd8ea526ea5bb9bf77020140a2154eb3b8f107674510629a27885b46ee",
     "shell/fangwall.html": "ffac6b78ad3577b116703f4978bdf39f604259099e688f8c63023ab24fc3b474",
@@ -113,6 +113,6 @@
     "tools/smoke_distribution.py": "3e1aa9e3b0a6e5e9d13371abddc9a37b5949633e8109bc00444df36fec549300",
     "UPDATE_JNSQ.bat": "86d6ef61cf515050dc315dbf09a57572e031b5050e995b433771f7b933af0c51",
     "UPDATE_JNSQ.ps1": "e32cc9da2c45361c78f8a7e1ad07d08a8d6bbf1904476f30bfe5cac3606e3351",
-    "VERSION": "79e3f22ca37c7fdf4c29ae3648d6b008c3cb6547260a453409275470919dc674"
+    "VERSION": "511a100eedfb9ea66441e5d506392dba2d8aa290f98c4c544c70ae75ec3c3396"
   }
 }

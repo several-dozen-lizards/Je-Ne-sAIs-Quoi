@@ -890,7 +890,9 @@ def main():
                         room_url=args.room_url,
                         room_id=args.room or room_cfg.get("id"),
                         vision_model=((roster or {}).get("perception") or {})
-                                     .get("vision_model"))
+                                     .get("vision_model"),
+                        affect_model=((roster or {}).get("interoception") or {})
+                                     .get("affect_model", args.model))
     shared_lock = threading.Lock()
     app = build_app(engine, max_tokens=args.max_tokens,
                     turn_lock=shared_lock, speaker=args.speaker)

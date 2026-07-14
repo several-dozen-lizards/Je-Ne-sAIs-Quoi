@@ -59,12 +59,15 @@ class OllamaClient:
         self.last_meta = {}  # token/duration accounting from the most recent call
 
     def chat(self, system: str, user: str, max_tokens: int = 200,
-             temperature: float = 0.3) -> str:
+             temperature: float = 0.3, images: list = None) -> str:
+        user_message = {"role": "user", "content": user}
+        if images:
+            user_message["images"] = [image["data"] for image in images]
         body = {
             "model": self.model,
             "messages": [
                 {"role": "system", "content": system},
-                {"role": "user", "content": user},
+                user_message,
             ],
             "stream": False,
             "options": {
@@ -114,18 +117,26 @@ class AnthropicClient:
         self.key = resolve_anthropic_key()
 
     def chat(self, system: str, user: str, max_tokens: int = 200,
-             temperature: float = 0.3) -> str:
+             temperature: float = 0.3, images: list = None) -> str:
         headers = {
             "x-api-key": self.key,
             "anthropic-version": ANTHROPIC_VERSION,
             "content-type": "application/json",
         }
+        content = user
+        if images:
+            content = [
+                {"type": "image", "source": {
+                    "type": "base64", "media_type": image["media_type"],
+                    "data": image["data"]}}
+                for image in images
+            ] + [{"type": "text", "text": user}]
         body = {
             "model": self.model,
             "max_tokens": max_tokens,
             "temperature": temperature,
             "system": system,
-            "messages": [{"role": "user", "content": user}],
+            "messages": [{"role": "user", "content": content}],
         }
         r = requests.post(ANTHROPIC_URL, headers=headers, json=body, timeout=120)
         if r.status_code != 200:
@@ -214,16 +225,25 @@ class OpenAICompatClient:
                                    .get("temperature") or {})
 
     def chat(self, system: str, user: str, max_tokens: int = 200,
-             temperature: float = 0.3) -> str:
+             temperature: float = 0.3, images: list = None) -> str:
         headers = {"content-type": "application/json"}
         if self.key:
             headers["authorization"] = f"Bearer {self.key}"
+        content = user
+        if images:
+            content = [{"type": "text", "text": user}] + [
+                {"type": "image_url", "image_url": {
+                    "url": (f"data:{image['media_type']};base64,"
+                            f"{image['data']}"),
+                    "detail": image.get("detail", "auto")}}
+                for image in images
+            ]
         body = {
             "model": self.model,
             "stream": False,
             "messages": [
                 {"role": "system", "content": system},
-                {"role": "user", "content": user},
+                {"role": "user", "content": content},
             ],
         }
         wire_temperature = resolve_temperature(self.temperature_policy,

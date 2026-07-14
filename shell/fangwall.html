@@ -17,8 +17,9 @@ body{background:radial-gradient(circle at 15% -10%,#173b33 0,transparent 38%),
 button,input,select,textarea{font:inherit}button{cursor:pointer}
 header{height:74px;display:flex;align-items:center;gap:18px;padding:0 24px;
   border-bottom:1px solid var(--line);background:rgba(7,17,15,.88);
-  backdrop-filter:blur(14px)}
-.brand-icon{width:42px;height:42px;object-fit:contain;flex:0 0 auto;
+  backdrop-filter:blur(14px);position:relative;z-index:10}
+.brand-home{display:grid;place-items:center;background:none;border:0;padding:0;cursor:pointer;border-radius:10px}
+.brand-home:focus-visible{outline:2px solid var(--mint);outline-offset:3px}.brand-icon{width:42px;height:42px;object-fit:contain;flex:0 0 auto;
   filter:drop-shadow(0 0 10px #7547a766)}
 .brand{font-family:Consolas,"Cascadia Mono",monospace;font-size:1.28rem;
   letter-spacing:.04em;color:var(--mint);white-space:nowrap}
@@ -28,15 +29,18 @@ header{height:74px;display:flex;align-items:center;gap:18px;padding:0 24px;
   color:var(--mint);border-color:var(--mint);background:var(--panel2)}
 #status{margin-left:auto;color:var(--dim);font-size:.82rem}
 .top-page{display:none;height:calc(100% - 74px)}.top-page.on{display:block}
-.app{height:100%;display:grid;grid-template-columns:280px 1fr;min-width:0}
+.app{height:100%;display:block;min-width:0;position:relative}
 #page-settings iframe{width:100%;height:100%;border:0;background:var(--bg)}
-aside{border-right:1px solid var(--line);padding:18px;overflow:auto;background:#081410}
+.persona-home{height:100%;overflow:auto;padding:clamp(18px,4vw,44px);max-width:1120px;margin:auto}
+.home-heading{margin:0 0 8px;color:var(--mint);font-size:clamp(1.3rem,3vw,2rem)}
+.home-copy{margin:0 0 24px;color:var(--dim)}
+.home-tools{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
 .section-title{display:flex;align-items:center;justify-content:space-between;
   margin:0 0 10px;font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;color:var(--dim)}
 .tiny-actions{display:flex;gap:5px}.tiny-actions button,.ghost{border:1px solid var(--line);
   background:transparent;color:var(--dim);border-radius:7px;padding:4px 7px;font-size:.74rem}
 .tiny-actions button:hover,.ghost:hover{color:var(--ink);border-color:var(--mint)}
-#personaList{display:grid;gap:8px}.persona-row{border:1px solid var(--line);
+#personaList{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.persona-row{border:1px solid var(--line);
   border-radius:10px;background:var(--panel);padding:9px}.persona-main{display:flex;gap:9px;align-items:center}
 .persona-main input[type=checkbox]{accent-color:var(--mint);width:auto;flex:0 0 auto}.persona-name{min-width:0;flex:1;font-weight:650;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dot{width:8px;height:8px;border-radius:50%;
@@ -53,12 +57,18 @@ details{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}summar
 .primary{border:1px solid #28745f;background:#123a30;color:var(--mint);border-radius:8px;padding:8px 10px}
 .primary:hover{border-color:var(--mint)}.primary:disabled,button:disabled{opacity:.45;cursor:wait}
 .note{color:var(--dim);font-size:.75rem;line-height:1.45;margin-top:10px}
-main{min-width:0;overflow:auto;padding:14px}.workspace{min-height:100%;display:grid;gap:14px;
-  grid-template-columns:repeat(var(--columns,1),minmax(340px,1fr));align-items:stretch}
+.panel-screen{display:none;height:100%;grid-template-rows:auto 1fr;position:relative;z-index:1}.panel-screen.on{display:grid}
+.panel-tabs{display:flex;align-items:center;gap:6px;overflow-x:auto;padding:7px 12px;background:#081410;
+  border-bottom:1px solid var(--line);scrollbar-width:thin}.panel-tab{display:flex;align-items:center;gap:6px;white-space:nowrap;
+  border:1px solid transparent;background:transparent;color:var(--dim);border-radius:8px;padding:5px 8px;cursor:pointer}
+.panel-tab:hover{color:var(--ink)}.panel-tab.on{color:var(--mint);border-color:var(--line);background:var(--panel)}
+.panel-tab .close-tab{color:var(--dim);font-size:1rem;line-height:1}.panel-tab .close-tab:hover{color:var(--danger)}
+main{min-width:0;overflow:hidden;padding:10px}.workspace{height:100%;position:relative}
 .empty{height:100%;min-height:320px;display:grid;place-items:center;text-align:center;color:var(--dim);
   border:1px dashed var(--line);border-radius:var(--radius);padding:30px}.empty b{display:block;color:var(--ink);
-  font-size:1.15rem;margin-bottom:8px}.chat-panel{min-height:520px;border:1px solid var(--line);
+  font-size:1.15rem;margin-bottom:8px}.chat-panel{position:absolute;inset:0;display:none;min-height:420px;border:1px solid var(--line);
   border-radius:var(--radius);overflow:hidden;background:var(--panel);display:grid;grid-template-rows:40px 1fr}
+.chat-panel:not(.on){display:none}.chat-panel.on{display:grid}
 .panel-head{display:flex;align-items:center;gap:8px;padding:0 12px;background:var(--panel2);
   border-bottom:1px solid var(--line);font-size:.82rem}.panel-head .model{margin-left:auto;color:var(--dim);
   font:11px Consolas,monospace}.panel-head button{border:0;background:transparent;color:var(--dim)}
@@ -75,14 +85,13 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
 .modal-body{padding:18px}.modal-body textarea{min-height:300px;line-height:1.45}.modal-actions{display:flex;
   justify-content:flex-end;gap:8px;margin-top:12px}.error{color:var(--danger);font-size:.78rem;min-height:1em}
 @media(max-width:760px){header{height:auto;min-height:104px;flex-wrap:wrap;padding:12px 16px;gap:7px 12px}
-  .tagline{width:100%}.top-page{height:calc(100% - 104px)}#status{position:absolute;right:14px;top:14px}.app{height:auto;min-height:100%;
-  grid-template-columns:1fr}aside{border-right:0;border-bottom:1px solid var(--line);max-height:42vh}
-  main{min-height:58vh}.workspace{grid-template-columns:1fr!important}.chat-panel{min-height:620px}}
+  .tagline{width:100%}.top-page{height:calc(100% - 104px)}#status{position:absolute;right:14px;top:14px}
+  .persona-home{padding:18px}.chat-panel{min-height:0}.panel-head .model{display:none}}
 </style>
 </head>
 <body>
 <header>
-  <img class="brand-icon" src="/assets/jnsq_favicon.svg" alt="">
+  <button class="brand-home" id="homeButton" type="button" title="persona home" aria-label="Persona home"><img class="brand-icon" src="/assets/jnsq_favicon.svg" alt=""></button>
   <div class="brand">Je Ne <strong>sAI</strong>s Quoi</div>
   <div class="tagline">a local home for persistent AI personas</div>
   <nav class="top-nav"><button type="button" data-top-page="personas">🦋 Personas</button>
@@ -90,10 +99,10 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
   <div id="status">connecting…</div>
 </header>
 <section class="top-page on" id="page-personas"><div class="app">
-  <aside>
-    <div class="section-title"><span>Visible panels</span><span class="tiny-actions">
-      <button type="button" id="showAll">all</button><button type="button" id="showNone">none</button>
-    </span></div>
+  <section class="persona-home" id="personaHome">
+    <h1 class="home-heading">Who do you want to spend time with?</h1>
+    <p class="home-copy">Choose a persona. Their open conversations will wait in the small tabs above the workspace.</p>
+    <div class="home-tools"><div class="section-title">Personas in this home</div><button class="ghost" type="button" id="openWorld" hidden>open Nexus world</button></div>
     <div id="personaList"></div>
     <details id="createDetails">
       <summary>Create a persona</summary>
@@ -110,8 +119,11 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
       </form>
       <p class="note">Personas live only on this computer. Creating one makes a private local history; it does not upload them anywhere.</p>
     </details>
-  </aside>
-  <main><div id="workspace" class="workspace"></div></main>
+  </section>
+  <section class="panel-screen" id="panelScreen">
+    <nav class="panel-tabs" id="panelTabs" aria-label="Open panels"></nav>
+    <main><div id="workspace" class="workspace"></div></main>
+  </section>
 </div></section>
 <section class="top-page" id="page-settings"><iframe src="/settings" title="JNSQ settings"></iframe></section>
 
@@ -128,9 +140,10 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
 <script>
 const CFG = /*CONFIG*/;
 const $ = id => document.getElementById(id);
-const state = {personas:{}, models:[], selected:new Set(), voicePid:null};
+const state = {personas:{}, models:[], selected:new Set(), active:null, voicePid:null};
 try { for (const id of JSON.parse(localStorage.getItem("jnsq.public.visible")||"[]")) state.selected.add(id); }
 catch (_) {}
+state.active=localStorage.getItem("jnsq.public.active")||null;
 const esc = value => String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
 
 function showTopPage(page){
@@ -138,8 +151,18 @@ function showTopPage(page){
   document.querySelectorAll(".top-page").forEach(section=>section.classList.toggle("on",section.id===`page-${page}`));
   localStorage.setItem("jnsq.public.page",page);
 }
-document.querySelectorAll("[data-top-page]").forEach(button=>button.onclick=()=>showTopPage(button.dataset.topPage));
+document.querySelectorAll("[data-top-page]").forEach(button=>button.onclick=()=>{
+  showTopPage(button.dataset.topPage);if(button.dataset.topPage==="personas")showHome();
+});
+function showHome(){showTopPage("personas");$("personaHome").hidden=false;$("panelScreen").classList.remove("on");}
+function openPanel(id){
+  if(!(state.personas[id]||(id==="world"&&CFG.room_url)))return;
+  state.selected.add(id);state.active=id;persist();syncWorkspace();
+  $("personaHome").hidden=true;$("panelScreen").classList.add("on");
+}
+$("homeButton").onclick=showHome;
 showTopPage(localStorage.getItem("jnsq.public.page")==="settings"?"settings":"personas");
+if(localStorage.getItem("jnsq.public.page")!=="settings")showHome();
 
 async function request(url, options={}){
   const res=await fetch(url,options); let body={};
@@ -147,7 +170,8 @@ async function request(url, options={}){
   if(!res.ok||body.error)throw new Error(body.error||`${res.status} ${res.statusText}`);
   return body;
 }
-function persist(){localStorage.setItem("jnsq.public.visible",JSON.stringify([...state.selected]));}
+function persist(){localStorage.setItem("jnsq.public.visible",JSON.stringify([...state.selected]));
+  if(state.active)localStorage.setItem("jnsq.public.active",state.active);else localStorage.removeItem("jnsq.public.active");}
 function personas(){return Object.entries(state.personas).filter(([,p])=>p.kind==="model_persona");}
 function mark(p){return `<span class="persona-mark"><span>${esc(p.icon||"🦋")}</span>${
   p.avatar_url?`<img src="${esc(p.avatar_url)}" alt="">`:""}</span>`}
@@ -158,7 +182,9 @@ async function refresh(){
   try{
     const [ps,ms]=await Promise.all([request("/api/personas"),request("/api/models")]);
     state.personas=ps;state.models=ms.models||[];
-    if(!localStorage.getItem("jnsq.public.visible")) for(const [id,p] of personas()) if(p.alive)state.selected.add(id);
+    for(const id of [...state.selected])if(!state.personas[id]&&id!=="world")state.selected.delete(id);
+    if(!state.active||!state.selected.has(state.active))state.active=[...state.selected][0]||null;
+    $("openWorld").hidden=!CFG.room_url;
     renderModels();renderPersonaList();syncWorkspace();
     const live=personas().filter(([,p])=>p.alive).length;
     $("status").textContent=`${live} awake · ${personas().length} local`;
@@ -173,20 +199,14 @@ function renderModels(){
 }
 function renderPersonaList(){
   const rows=personas();
-  const world=CFG.room_url?`<div class="persona-row"><div class="persona-main">
-    <input type="checkbox" data-visible="world" ${state.selected.has("world")?"checked":""}>
-    <span class="dot live"></span><span class="persona-mark">🌍</span><span class="persona-name">Nexus world</span></div>
-    <div class="persona-meta">shared local context · lightweight view</div></div>`:"";
   const personaRows=rows.length?rows.map(([id,p])=>`<div class="persona-row">
-    <div class="persona-main"><input type="checkbox" data-visible="${esc(id)}" ${state.selected.has(id)?"checked":""}>
-      <span class="dot ${p.alive?"live":""}"></span>${mark(p)}<span class="persona-name">${esc(p.display_name||id)}</span></div>
+    <div class="persona-main"><span class="dot ${p.alive?"live":""}"></span>${mark(p)}<span class="persona-name">${esc(p.display_name||id)}</span></div>
     <div class="persona-meta">${esc(p.model||"no model")} · ${p.alive?"awake":"stopped"}</div>
-    <div class="persona-actions"><button data-voice="${esc(id)}">edit voice</button><button data-icon="${esc(id)}">change icon</button><button data-avatar="${esc(id)}">upload image</button>
+    <div class="persona-actions"><button class="primary" data-open="${esc(id)}">open</button><button data-voice="${esc(id)}">edit voice</button><button data-icon="${esc(id)}">change icon</button><button data-avatar="${esc(id)}">upload image</button>
       ${p.alive?`<button class="stop" data-stop="${esc(id)}">stop</button>`:`<button data-start="${esc(id)}">start</button>`}</div>
   </div>`).join(""):`<p class="note">No personas yet. Make the first one below.</p>`;
-  $("personaList").innerHTML=world+personaRows;
-  document.querySelectorAll("[data-visible]").forEach(el=>el.onchange=()=>{
-    el.checked?state.selected.add(el.dataset.visible):state.selected.delete(el.dataset.visible);persist();syncWorkspace();});
+  $("personaList").innerHTML=personaRows;
+  document.querySelectorAll("[data-open]").forEach(el=>el.onclick=()=>openPanel(el.dataset.open));
   document.querySelectorAll("[data-start]").forEach(el=>el.onclick=()=>startPersona(el.dataset.start,el));
   document.querySelectorAll("[data-stop]").forEach(el=>el.onclick=()=>stopPersona(el.dataset.stop,el));
   document.querySelectorAll("[data-voice]").forEach(el=>el.onclick=()=>openVoice(el.dataset.voice));
@@ -195,10 +215,8 @@ function renderPersonaList(){
 }
 function syncWorkspace(){
   const wanted=[...state.selected].filter(id=>state.personas[id]||(id==="world"&&CFG.room_url));
-  if(!wanted.length){$("workspace").innerHTML=`<div class="empty"><div><b>Choose what you want to see.</b>
-    Check persona chats, the Nexus world, or any future panel type on the left.</div></div>`;
-    $("workspace").style.setProperty("--columns",1);return;}
-  const empty=$("workspace").querySelector(".empty");if(empty)empty.remove();
+  if(!wanted.length){$("workspace").replaceChildren();state.active=null;renderPanelTabs();persist();return;}
+  if(!state.active||!wanted.includes(state.active))state.active=wanted[0];
   for(const panel of [...$("workspace").querySelectorAll("[data-panel]")])if(!wanted.includes(panel.dataset.panel))panel.remove();
   for(const id of wanted){
     if(id==="world"){
@@ -225,9 +243,26 @@ function syncWorkspace(){
       `<div class="offline"><div>${esc(p.display_name||id)} is stopped.<br><button class="primary" data-start-panel="${esc(id)}">Start persona</button></div></div>`);
     $("workspace").appendChild(panel);
   }
-  $("workspace").style.setProperty("--columns",wanted.length===1?1:2);
-  document.querySelectorAll("[data-hide]").forEach(el=>el.onclick=()=>{state.selected.delete(el.dataset.hide);persist();renderPersonaList();syncWorkspace();});
+  $("workspace").querySelectorAll("[data-panel]").forEach(panel=>panel.classList.toggle("on",panel.dataset.panel===state.active));
+  renderPanelTabs();persist();
+  document.querySelectorAll("[data-hide]").forEach(el=>el.onclick=()=>closePanel(el.dataset.hide));
   document.querySelectorAll("[data-start-panel]").forEach(el=>el.onclick=()=>startPersona(el.dataset.startPanel,el));
+}
+function closePanel(id){
+  state.selected.delete(id);if(state.active===id)state.active=[...state.selected][0]||null;
+  syncWorkspace();if(!state.active)showHome();
+}
+function renderPanelTabs(){
+  const ids=[...state.selected].filter(id=>state.personas[id]||(id==="world"&&CFG.room_url));
+  $("panelTabs").innerHTML=`<button class="panel-tab" type="button" data-home-tab>⌂ personas</button>`+ids.map(id=>{
+    const p=state.personas[id],label=id==="world"?"🌍 Nexus world":`${mark(p)} ${esc(p.display_name||id)}`;
+    return `<button class="panel-tab ${id===state.active?"on":""}" type="button" data-tab="${esc(id)}">${label}<span class="close-tab" data-close-tab="${esc(id)}" title="close">×</span></button>`;
+  }).join("");
+  $("panelTabs").querySelector("[data-home-tab]").onclick=showHome;
+  $("panelTabs").querySelectorAll("[data-tab]").forEach(tab=>tab.onclick=event=>{
+    const close=event.target.closest("[data-close-tab]");if(close){event.stopPropagation();closePanel(close.dataset.closeTab);return;}
+    openPanel(tab.dataset.tab);
+  });
 }
 async function startPersona(id,button){
   button.disabled=true;button.textContent="starting…";
@@ -238,8 +273,7 @@ async function startPersona(id,button){
 async function stopPersona(id,button){button.disabled=true;try{await request(`/api/personas/${encodeURIComponent(id)}/stop`,{method:"POST"});await refresh();}
   catch(e){button.disabled=false;alert(e.message);}}
 
-$("showAll").onclick=()=>{for(const [id] of personas())state.selected.add(id);if(CFG.room_url)state.selected.add("world");persist();renderPersonaList();syncWorkspace();};
-$("showNone").onclick=()=>{state.selected.clear();persist();renderPersonaList();syncWorkspace();};
+$("openWorld").onclick=()=>openPanel("world");
 $("createForm").onsubmit=async e=>{
   e.preventDefault();const btn=$("createBtn");btn.disabled=true;$("createError").textContent="";
   try{const made=await request("/api/personas/create",{method:"POST",headers:{"Content-Type":"application/json"},

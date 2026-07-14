@@ -31,8 +31,9 @@ class AnthropicAdapter:
         system = self.render_system(asm)
         # v0: single-turn transport via harness client; multi-turn in v0.2
         user = asm.messages[-1]["content"] if asm.messages else ""
+        images = asm.messages[-1].get("images", []) if asm.messages else []
         return self.client.chat(system, user, max_tokens=max_tokens,
-                                temperature=temperature)
+                                temperature=temperature, images=images)
 
 
 class ChatMLAdapter:
@@ -56,8 +57,9 @@ class ChatMLAdapter:
         asm.enforce_budgets(window)
         system = self.render_system(asm)
         user = asm.messages[-1]["content"] if asm.messages else ""
+        images = asm.messages[-1].get("images", []) if asm.messages else []
         return self.client.chat(system, user, max_tokens=max_tokens,
-                                temperature=temperature)
+                                temperature=temperature, images=images)
 
 
 class OpenAICompatAdapter:
@@ -98,8 +100,9 @@ class OpenAICompatAdapter:
         asm.enforce_budgets(window)
         system = self.render_system(asm)
         user = asm.messages[-1]["content"] if asm.messages else ""
+        images = asm.messages[-1].get("images", []) if asm.messages else []
         return self.client.chat(system, user, max_tokens=max_tokens,
-                                temperature=temperature)
+                                temperature=temperature, images=images)
 
 
 _FAMILIES = {a.family: a for a in (AnthropicAdapter, ChatMLAdapter,

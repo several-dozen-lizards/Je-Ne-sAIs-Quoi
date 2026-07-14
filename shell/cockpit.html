@@ -68,17 +68,31 @@
       filter:drop-shadow(0 0 9px color-mix(in srgb,var(--accent2) 45%,transparent)); }
   header h1 { font-size:16px; margin:0; color:var(--teal); }
   header .meta { color:var(--dim); font-size:12px; }
-  main { display:grid; grid-template-columns: 1fr 380px; gap:12px;
+  main { --inspector-width:380px; display:grid;
+         grid-template-columns:minmax(320px,1fr) 9px minmax(280px,var(--inspector-width)); gap:7px;
          padding:calc(12px * var(--space)); height:calc(100vh - 46px);
          position:relative;z-index:1; }
+  main.inspector-collapsed { grid-template-columns:minmax(320px,1fr) 0 0;gap:0; }
   .col { display:flex; flex-direction:column; gap:12px; min-height:0; }
+  #inspector { overflow-y:auto;min-width:0; }
+  main.inspector-collapsed #inspector,main.inspector-collapsed #column-resizer{display:none}
+  #column-resizer{position:relative;cursor:col-resize;touch-action:none;border-radius:8px}
+  #column-resizer::after{content:"";position:absolute;left:3px;top:35%;bottom:35%;width:3px;
+      border-radius:4px;background:var(--line);transition:background .15s,top .15s,bottom .15s}
+  #column-resizer:hover::after,#column-resizer.dragging::after{top:20%;bottom:20%;background:var(--accent)}
+  .header-spacer{flex:1}.layout-toggle{padding:5px 9px;background:transparent;color:var(--dim);
+      border:1px solid var(--line);font-size:11px}.layout-toggle:hover{color:var(--ink);border-color:var(--accent)}
   .panel { background:color-mix(in srgb,var(--panel) 91%,transparent);
            border:1px solid var(--line); border-radius:var(--radius);
            padding:calc(10px * var(--space)) calc(12px * var(--space));
            box-shadow:0 10px 35px color-mix(in srgb,var(--accent) 8%,transparent);
            backdrop-filter:blur(14px); transition:background .7s,border .7s,box-shadow 1s; }
-  .panel h2 { margin:0 0 8px; font-size:11px; letter-spacing:.12em;
+  .panel h2 { margin:0; font-size:11px; letter-spacing:.12em;
               text-transform:uppercase; color:var(--dim); }
+  .panel-heading{display:flex;align-items:center;gap:8px;margin:0 0 8px}
+  .panel-heading h2{flex:1}.collapse-toggle{padding:2px 7px;background:transparent;color:var(--dim);
+      border:1px solid transparent;font-size:11px}.collapse-toggle:hover{color:var(--ink);border-color:var(--line)}
+  .panel.collapsed>.collapsible-content{display:none}.panel.collapsed>.panel-heading{margin-bottom:0}
   #chat { flex:1; overflow-y:auto; display:flex; flex-direction:column;
           gap:8px; }
   #thought-mark { flex:0 0 34px; display:flex; align-items:center;
@@ -112,9 +126,25 @@
                   letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px; }
   .msg.sys { align-self:center; color:var(--dim); font-size:12px;
              background:none; display:block; max-width:92%; text-align:center; }
-  #composer { display:flex; gap:8px; }
-  #composer input { flex:1; background:#0c1116; color:var(--ink);
-        border:1px solid var(--line); border-radius:6px; padding:9px 11px; }
+  #composer { display:grid; grid-template-columns:auto 1fr auto; gap:8px; }
+  #say { min-width:0; min-height:38px; max-height:160px; resize:none;
+         overflow-y:auto; background:#0c1116; color:var(--ink);
+         font:inherit; line-height:1.4; border:1px solid var(--line);
+         border-radius:6px; padding:9px 11px; transition:border .16s,box-shadow .16s; }
+  #composer.dragging #say { border-color:var(--accent);
+      box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 28%,transparent),
+                 0 0 20px color-mix(in srgb,var(--accent) 22%,transparent); }
+  #image-preview { grid-column:1/-1; display:none; gap:7px; flex-wrap:wrap;
+                   padding:5px 0; }
+  #image-preview.has-images { display:flex; }
+  .image-chip { position:relative; width:72px; height:58px; }
+  .image-chip img,.message-images img { width:100%;height:100%;object-fit:cover;
+      border-radius:8px;border:1px solid var(--line); }
+  .image-chip button { position:absolute;right:-5px;top:-6px;width:20px;height:20px;
+      padding:0;border-radius:50%;background:var(--warn);color:#fff; }
+  .message-images { display:grid;grid-template-columns:repeat(2,minmax(90px,180px));
+                    gap:6px;margin:6px 0 2px; }
+  .message-images img { height:auto;max-height:240px;cursor:zoom-in; }
   button { background:var(--teal); color:#08211e; border:0; font-weight:600;
            border-radius:6px; padding:9px 14px; cursor:pointer; }
   button:disabled { background:#2a3a44; color:var(--dim); cursor:wait; }
@@ -173,6 +203,8 @@
   .appearance-actions { display:flex;gap:6px;margin-top:8px; }
   .appearance-actions button { padding:5px 9px;font-size:11px; }
   #themenote,#reactivenote { font-size:10px;color:var(--dim);margin-top:6px; }
+  @media(max-width:720px){main{grid-template-columns:1fr;overflow:auto;height:calc(100vh - 46px)}
+    #column-resizer{display:none}#inspector{overflow:visible}main.inspector-collapsed #inspector{display:none}}
 </style>
 </head>
 <body>
@@ -202,8 +234,10 @@
   <h1>JNSQ cockpit</h1>
   <span class="meta" id="who">connecting…</span>
   <span class="meta" id="timing"></span>
+  <span class="header-spacer"></span>
+  <button class="layout-toggle" id="bodyToggle" type="button" aria-expanded="true">hide body functions</button>
 </header>
-<main>
+<main id="cockpit-main">
   <div class="col">
     <div class="panel" style="flex:1; display:flex; flex-direction:column; min-height:0;">
       <h2>conversation</h2>
@@ -212,16 +246,21 @@
         <img id="thought-icon" src="/assets/favicon-48.png" alt="">
       </div>
       <div id="composer">
-        <input id="say" placeholder="say something…" autocomplete="off">
+        <div id="image-preview" aria-live="polite"></div>
+        <button id="attach" type="button" title="share image">📎</button>
+        <input id="image-picker" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden>
+        <textarea id="say" rows="1" placeholder="say something…" autocomplete="off"
+          aria-label="Message. Drop images here; Shift plus Enter starts a new paragraph."></textarea>
         <button id="send">Send</button>
       </div>
     </div>
-    <div class="panel">
-      <h2>receipts</h2>
-      <div id="receipts"><div class="quiet">no turns yet</div></div>
+    <div class="panel" id="receipts-panel">
+      <div class="panel-heading"><h2>receipts</h2><button class="collapse-toggle" id="receiptsToggle" type="button" aria-expanded="true">minimize</button></div>
+      <div class="collapsible-content" id="receipts"><div class="quiet">no turns yet</div></div>
     </div>
   </div>
-  <div class="col" style="overflow-y:auto;">
+  <div id="column-resizer" role="separator" aria-orientation="vertical" aria-label="Resize body functions"></div>
+  <div class="col" id="inspector">
     <div class="panel">
       <h2>emotional state</h2>
       <div id="cocktail"><div class="quiet">quiet</div></div>
@@ -580,7 +619,7 @@ function scrollConversationToBottom() {
   requestAnimationFrame(()=>{chat.scrollTop=chat.scrollHeight});
 }
 
-function addMsg(cls, text, speaker="") {
+function addMsg(cls, text, speaker="", images=[]) {
   const quiet = $("chat").querySelector(".quiet");
   if (quiet) quiet.remove();
   const d = document.createElement("div");
@@ -593,7 +632,15 @@ function addMsg(cls, text, speaker="") {
     const bubble=document.createElement("div"); bubble.className="bubble";
     const label=document.createElement("span"); label.className="speaker-name"; label.textContent=meta.who;
     const copy=document.createElement("div"); copy.className="message-text"; copy.textContent=text;
-    bubble.append(label,copy); d.append(avatar,bubble);
+    bubble.append(label);
+    if (images.length) {
+      const gallery=document.createElement("div");gallery.className="message-images";
+      images.forEach(image=>{const img=document.createElement("img");
+        img.src=image.url||image.data_url;img.alt=image.name||"shared image";
+        img.onclick=()=>window.open(img.src,"_blank","noopener");gallery.appendChild(img)});
+      bubble.appendChild(gallery);
+    }
+    bubble.append(copy); d.append(avatar,bubble);
   }
   $("chat").appendChild(d); scrollConversationToBottom();
   return d;
@@ -603,7 +650,7 @@ function syncConversation(turns) {
   // Memory ids are the continuity boundary. Repaint only when that
   // boundary changes so page load is idempotent and turns never duplicate.
   const signature = JSON.stringify((turns || []).map(t => [
-    t.id, t.message, t.reply, t.felt_why
+    t.id, t.message, t.reply, t.felt_why, (t.images||[]).map(i=>i.id)
   ]));
   if (signature === conversationSignature) return;
   conversationSignature = signature;
@@ -616,7 +663,8 @@ function syncConversation(turns) {
     return;
   }
   turns.forEach(t => {
-    if (t.message) addMsg("user", t.message, t.speaker || PRIMARY_USER);
+    if (t.message || (t.images||[]).length)
+      addMsg("user", t.message, t.speaker || PRIMARY_USER, t.images||[]);
     if (t.reply) addMsg("persona", t.reply, personaLabel());
     if (t.felt_why) addMsg("sys", "felt: " + t.felt_why);
   });
@@ -682,6 +730,42 @@ async function pushOrgans() {
 </script>
 <script>
 let thoughtSerial = 0;
+let pendingImages = [];
+
+function fileDataUrl(file) {
+  return new Promise((resolve,reject)=>{const reader=new FileReader();
+    reader.onload=()=>resolve(reader.result);
+    reader.onerror=()=>reject(new Error("could not read that image"));
+    reader.readAsDataURL(file)});
+}
+
+function renderPendingImages() {
+  const box=$("image-preview");box.innerHTML="";
+  box.classList.toggle("has-images",pendingImages.length>0);
+  pendingImages.forEach((image,index)=>{const chip=document.createElement("div");
+    chip.className="image-chip";const img=document.createElement("img");
+    img.src=image.data_url;img.alt=image.name;const remove=document.createElement("button");
+    remove.type="button";remove.textContent="×";remove.title="remove image";
+    remove.onclick=()=>{pendingImages.splice(index,1);renderPendingImages()};
+    chip.append(img,remove);box.appendChild(chip)});
+}
+
+async function chooseImages(files) {
+  const room=Math.max(0,4-pendingImages.length);
+  for (const file of [...files].slice(0,room)) {
+    if (!new Set(["image/png","image/jpeg","image/webp","image/gif"]).has(file.type)) {
+      addMsg("sys","⚠ drop a PNG, JPEG, WebP, or GIF");continue
+    }
+    if (file.size>10*1024*1024) {addMsg("sys","⚠ each image must be 10 MB or smaller");continue}
+    pendingImages.push({name:file.name,data_url:await fileDataUrl(file)});
+  }
+  renderPendingImages();
+}
+
+function resizeComposer() {
+  const say=$("say");say.style.height="auto";
+  say.style.height=Math.min(say.scrollHeight,160)+"px";
+}
 
 function setThinking(active) {
   const mark = $("thought-mark");
@@ -697,16 +781,19 @@ function setThinking(active) {
 
 async function sendTurn() {
   const text = $("say").value.trim();
-  if (!text || $("send").disabled) return;
-  $("say").value = ""; $("send").disabled = true;
-  addMsg("user", text, PRIMARY_USER);
+  if ((!text && !pendingImages.length) || $("send").disabled) return;
+  const sentImages=pendingImages.slice();
+  pendingImages=[];renderPendingImages();
+  $("say").value = ""; resizeComposer(); $("send").disabled = true;
+  addMsg("user", text||"shared image material", PRIMARY_USER, sentImages);
   setThinking(true);
   try {
     const res = await fetch("/api/turn", {method:"POST",
       headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({message:text})});
+      body: JSON.stringify({message:text,images:sentImages})});
     const r = await res.json();
-    if (r.error) { addMsg("sys", "⚠ " + r.error); return; }
+    if (r.error) { pendingImages=sentImages;renderPendingImages();
+      addMsg("sys", "⚠ " + r.error); return; }
     const persisted = (r.state.conversation_window || []).some(t =>
       t.message === text && t.reply === r.reply);
     renderState(r.state);
@@ -730,6 +817,7 @@ async function sendTurn() {
     if (box.firstChild && box.firstChild.className==="quiet") box.innerHTML="";
     box.prepend(rc);
   } catch (e) {
+    pendingImages=sentImages;renderPendingImages();
     addMsg("sys", "⚠ " + e);
   } finally {
     setThinking(false);
@@ -751,9 +839,68 @@ async function setMood() {
 }
 
 $("send").onclick = sendTurn;
-$("say").addEventListener("keydown", e => { if (e.key==="Enter") sendTurn(); });
+$("say").addEventListener("input",resizeComposer);
+$("say").addEventListener("keydown", e => {
+  if (e.key==="Enter" && !e.shiftKey && !e.isComposing) {
+    e.preventDefault();sendTurn();
+  }
+});
+$("say").addEventListener("dragenter",e=>{
+  if ([...(e.dataTransfer?.types||[])].includes("Files")) {
+    e.preventDefault();$("composer").classList.add("dragging");
+  }
+});
+$("say").addEventListener("dragover",e=>{
+  if ([...(e.dataTransfer?.types||[])].includes("Files")) {
+    e.preventDefault();if(e.dataTransfer)e.dataTransfer.dropEffect="copy";
+  }
+});
+$("say").addEventListener("dragleave",()=>$("composer").classList.remove("dragging"));
+$("say").addEventListener("drop",async e=>{
+  e.preventDefault();$("composer").classList.remove("dragging");
+  await chooseImages(e.dataTransfer?.files||[]);$("say").focus();
+});
+$("attach").onclick=()=>$("image-picker").click();
+$("image-picker").onchange=async e=>{await chooseImages(e.target.files||[]);e.target.value=""};
 $("setmood").onclick = setMood;
 $("saveOrgans").onclick = pushOrgans;
+
+function setInspectorOpen(open) {
+  $("cockpit-main").classList.toggle("inspector-collapsed", !open);
+  $("bodyToggle").textContent = open ? "hide body functions" : "show body functions";
+  $("bodyToggle").setAttribute("aria-expanded", String(open));
+  localStorage.setItem("jnsq.cockpit.bodyOpen", String(open));
+}
+function setReceiptsOpen(open) {
+  $("receipts-panel").classList.toggle("collapsed", !open);
+  $("receiptsToggle").textContent = open ? "minimize" : "pull up";
+  $("receiptsToggle").setAttribute("aria-expanded", String(open));
+  localStorage.setItem("jnsq.cockpit.receiptsOpen", String(open));
+}
+const savedInspectorWidth = Number(localStorage.getItem("jnsq.cockpit.bodyWidth"));
+if (Number.isFinite(savedInspectorWidth) && savedInspectorWidth >= 280)
+  $("cockpit-main").style.setProperty("--inspector-width", `${savedInspectorWidth}px`);
+setInspectorOpen(localStorage.getItem("jnsq.cockpit.bodyOpen") !== "false");
+setReceiptsOpen(localStorage.getItem("jnsq.cockpit.receiptsOpen") !== "false");
+$("bodyToggle").onclick = () => setInspectorOpen($("cockpit-main").classList.contains("inspector-collapsed"));
+$("receiptsToggle").onclick = () => setReceiptsOpen($("receipts-panel").classList.contains("collapsed"));
+$("column-resizer").onpointerdown = event => {
+  if (window.matchMedia("(max-width:720px)").matches) return;
+  event.preventDefault();
+  const handle = $("column-resizer"), main = $("cockpit-main");
+  handle.classList.add("dragging"); handle.setPointerCapture(event.pointerId);
+  const move = pointer => {
+    const rect = main.getBoundingClientRect();
+    const width = Math.max(280, Math.min(rect.width - 340, rect.right - pointer.clientX - 12));
+    main.style.setProperty("--inspector-width", `${width}px`);
+  };
+  handle.onpointermove = move;
+  handle.onpointerup = pointer => {
+    move(pointer); handle.releasePointerCapture(pointer.pointerId);
+    handle.classList.remove("dragging"); handle.onpointermove = handle.onpointerup = null;
+    localStorage.setItem("jnsq.cockpit.bodyWidth", String(Math.round($("inspector").getBoundingClientRect().width)));
+  };
+};
 fetchState();
 fetchOrgans();
 bindAppearance();

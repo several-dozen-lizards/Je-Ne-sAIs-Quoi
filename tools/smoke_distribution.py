@@ -23,14 +23,15 @@ def main():
     assert not (ROOT / "godot-room").exists(), "public build contains 3D assets"
     shell = (ROOT / "shell" / "fangwall.html").read_text(encoding="utf-8")
     assert "Je Ne <strong>sAI</strong>s Quoi" in shell
-    assert "data-visible" in shell
+    assert 'id="personaHome"' in shell and 'id="panelTabs"' in shell
+    assert "openPanel" in shell and "renderPanelTabs" in shell
     assert "data-icon" in shell and "changePersonaIcon" in shell
     assert "data-avatar" in shell and "choosePersonaAvatar" in shell
     assert "Yurt" not in shell and ">World<" not in shell
     assert 'data-top-page="personas"' in shell
     assert 'data-top-page="settings"' in shell
     assert 'id="page-settings"' in shell and 'src="/settings"' in shell
-    assert 'data-visible="world"' in shell
+    assert 'id="openWorld"' in shell
     assert "Nexus world" in shell
     assert "/assets/jnsq_favicon.svg" in shell
     cockpit = (ROOT / "shell" / "cockpit.html").read_text(encoding="utf-8")
@@ -41,6 +42,8 @@ def main():
     assert "scrollConversationToBottom()" in cockpit
     assert "requestAnimationFrame" in cockpit
     assert "CONFIG.persona_avatar" in cockpit
+    assert 'id="column-resizer"' in cockpit
+    assert 'id="bodyToggle"' in cockpit and 'id="receiptsToggle"' in cockpit
     assert 'id="organScope"' in cockpit
     assert 'id="saveOrgans"' in cockpit
     assert 'JSON.stringify({enabled, scope})' in cockpit

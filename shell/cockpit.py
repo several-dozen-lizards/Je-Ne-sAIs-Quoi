@@ -18,11 +18,12 @@ env_store.load_env()         # when router-launched, since inherited vars win)
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from shell.contract import TurnEngine, CONTRACT_VERSION
 from shell.ui_themes import resolve_theme, save_theme
 from shell.persona_media import load_persona_avatar
+from shell.image_input import store_images, stored_image_path
 from core.organs import (legacy_set, validate as validate_organs,
                          OrganConfigError, REGISTRY)
 
@@ -405,10 +406,16 @@ def tropism_loop(engine, turn_lock, interval_s: float, stop):
             turn_lock.release()
 
 
+class ImageRequest(BaseModel):
+    name: str = "image"
+    data_url: str
+
+
 class TurnRequest(BaseModel):
     message: str
     speaker: str = None      # omitted means this installation's local human
                             # anonymous crosses (v1 nexus law, kept)
+    images: list[ImageRequest] = Field(default_factory=list)
 
 
 class MoodRequest(BaseModel):
@@ -669,6 +676,18 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
             headers={"X-Content-Type-Options": "nosniff",
                      "Cache-Control": "no-cache"})
 
+    @app.get("/api/images/{image_id}")
+    def turn_image(image_id: str):
+        found = stored_image_path(app.state.engine.pdir, image_id)
+        if not found:
+            return JSONResponse(status_code=404,
+                                content={"error": "image not found"})
+        path, mime = found
+        return FileResponse(
+            path, media_type=mime,
+            headers={"X-Content-Type-Options": "nosniff",
+                     "Cache-Control": "private, max-age=31536000, immutable"})
+
     @app.get("/api/state")
     def state():
         return app.state.engine.get_state()
@@ -766,6 +785,13 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
 
     @app.post("/api/turn")
     def turn(req: TurnRequest):
+        try:
+            images = store_images(
+                app.state.engine.pdir,
+                [(item.model_dump() if hasattr(item, "model_dump")
+                  else item.dict()) for item in req.images])
+        except ValueError as e:
+            return JSONResponse(status_code=400, content={"error": str(e)})
         if not app.state.turn_lock.acquire(blocking=False):
             return JSONResponse(status_code=409, content={
                 "error": "a turn is already in flight (one body, one mouth)"})
@@ -773,7 +799,8 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
             return app.state.engine.take_turn(req.message,
                                               max_tokens=app.state.max_tokens,
                                               speaker=req.speaker or
-                                                      app.state.speaker)
+                                                      app.state.speaker,
+                                              images=images)
         except Exception as e:
             # a lost turn should fail as WORDS, never a plain-text 500
             # the UI can't parse. Traceback still lands in the tenant log.
@@ -861,7 +888,9 @@ def main():
     engine = TurnEngine(args.persona, args.model, enabled=enabled,
                         identity=identity,
                         room_url=args.room_url,
-                        room_id=args.room or room_cfg.get("id"))
+                        room_id=args.room or room_cfg.get("id"),
+                        vision_model=((roster or {}).get("perception") or {})
+                                     .get("vision_model"))
     shared_lock = threading.Lock()
     app = build_app(engine, max_tokens=args.max_tokens,
                     turn_lock=shared_lock, speaker=args.speaker)

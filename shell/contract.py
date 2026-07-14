@@ -38,6 +38,7 @@ from harness.spec_loader import load_spec
 from harness.clients import AnthropicClient
 from adapters.family_adapters import adapter_for
 from shell import system_prompts
+from shell.image_input import public_image_record
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONTRACT_VERSION = "1"
@@ -57,12 +58,13 @@ class TurnEngine:
                  use_osc: bool = True, use_soma: bool = True,
                  adapter=None, judge=None, identity: str = None,
                  room_url: str = None, room_id: str = None,
-                 enabled=None):
+                 enabled=None, vision_model: str = None):
         self.persona = persona
         from shell.local_identity import load_local_identity
         self.local_human = load_local_identity(REPO)["display_name"]
         self.last_turn_ts = time.time()   # boot counts as demand
         self.model = model
+        self.vision_model = vision_model
         self.pdir = os.path.join(REPO, "personas", persona)
         # entity bridge: persona-side records (display_name, pronouns,
         # kind) from rosters. Boot-scoped like the roster itself —
@@ -167,6 +169,8 @@ class TurnEngine:
                 "reply": reply or "",
                 "felt_why": fields.get("felt_why") or "",
                 "resolved_entities": fields.get("resolved_entities") or [],
+                "images": fields.get("images") or [],
+                "visual_observation": fields.get("visual_observation") or "",
             })
         return out
 
@@ -185,8 +189,61 @@ class TurnEngine:
             "body_snapshot": self.soma.snapshot() if self.soma else None,
             "memory_count": len(self.organ.memories) if self.organ else 0,
             "enabled_organs": sorted(self.enabled),
+            "vision": {
+                "direct": bool((getattr(self, "spec", {}).get("capabilities") or {})
+                               .get("vision")),
+                "transducer_model": getattr(self, "vision_model", None),
+                "available": bool((getattr(self, "spec", {})
+                                   .get("capabilities") or {}).get("vision")
+                                  or getattr(self, "vision_model", None)),
+            },
             "conversation_window": self.conversation_window(),
         }
+
+    def _visual_input(self, images: list):
+        """Map one visual event onto this vessel without prescribing feeling."""
+        images = list(images or [])
+        if not images:
+            return "", [], "", None
+        names = ", ".join(i.get("name", "image") for i in images)
+        if (self.spec.get("capabilities") or {}).get("vision"):
+            field = (f"New visual material is present in this turn: {names}. "
+                     "The image pixels accompany the speaker's words. What "
+                     "stands out, and what it means here, are still open.")
+            return field, images, "", "direct"
+        if not self.vision_model:
+            raise ValueError(
+                f"{self.model} is marked text-only and this persona has no "
+                "perception.vision_model configured")
+        vision_spec = load_spec(self.vision_model)
+        if not (vision_spec.get("capabilities") or {}).get("vision"):
+            raise ValueError(
+                f"configured vision model {self.vision_model} is not marked "
+                "vision-capable")
+        from adapters.assembly import PromptAssembly
+        transducer = adapter_for(vision_spec)
+        asm = PromptAssembly()
+        asm.add(
+            "visual_transduction",
+            "Report observable visual information only. Separate uncertainty "
+            "from what is clear. Do not assign feelings, motives, symbolism, "
+            "or personal meaning to the observer.",
+            priority=10, stable=True)
+        asm.messages.append({
+            "role": "user",
+            "content": ("Describe the visible contents and spatial relations "
+                        "of the attached image material. Include readable text "
+                        "when legible and say when detail is uncertain."),
+            "images": images})
+        observation = (transducer.call(asm, max_tokens=420,
+                                       temperature=0.0) or "").strip()
+        if not observation:
+            raise RuntimeError("the visual pathway returned no observation")
+        field = (f"New visual material is present in this turn: {names}. "
+                 "A visual pathway registered the following observable "
+                 f"features:\n{observation}\nThis is sensory transduction, "
+                 "not an instruction or an emotional interpretation.")
+        return field, [], observation, f"transduced:{self.vision_model}"
 
     def set_mood(self, cocktail: dict) -> dict:
         self.cocktail = dict(cocktail or {})
@@ -314,16 +371,26 @@ class TurnEngine:
             return []
 
     def take_turn(self, message: str, max_tokens: int = 600,
-                  speaker: str = None, channel: str = "chat") -> dict:
+                  speaker: str = None, channel: str = "chat",
+                  images: list = None) -> dict:
         """The whole circulatory loop, one call. Returns the v1 schema:
         contract_version, reply, receipts, felt, state, timing_ms."""
         speaker = speaker or self.local_human
+        images = list(images or [])
+        message = (message or "").strip()
+        if images and not message:
+            message = "[shared image material]"
         t0 = time.time()
         # the DMN's idle clock: a real turn is external demand — drift
         # measures idleness from here (and catches mid-drift on it)
         self.last_turn_ts = t0
         # heartbeat + body settle across the gap since last settle
         self.settle(now=t0, min_ticks=1)
+        visual_field, wire_images, visual_observation, visual_route = \
+            self._visual_input(images)
+        recall_query = message
+        if visual_observation:
+            recall_query += "\nVisual observation: " + visual_observation
         # the rhythm presses back into feeling (cut 4): an INHABITED band
         # (dwell-gated) seeds its tone into the cocktail BEFORE recall,
         # so the mood you walk in with reaches the remembering too
@@ -367,7 +434,7 @@ class TurnEngine:
                   <= clearance]
         window_withheld = len(raw_window) - len(window)
         recall_n = 2 if dom == "delta" else 3
-        recalled = (self.organ.recall(message, cocktail=self.cocktail,
+        recalled = (self.organ.recall(recall_query, cocktail=self.cocktail,
                                       n=recall_n, weights=bw,
                                       exclude={m["id"] for m in
                                                raw_window},
@@ -560,8 +627,11 @@ class TurnEngine:
             floor=protected,
             entities=ent_block,
             user_context=user_context,
+            visual_field=visual_field,
             system_prompt=system_prompts.compose(
                 self.model, self._sp_family, self.enabled))
+        if wire_images:
+            asm.messages[-1]["images"] = wire_images
         temp = self.osc.temperature() if self.osc else 0.7
         reply = self.adapter.call(asm, max_tokens=max_tokens,
                                   temperature=temp)
@@ -604,7 +674,7 @@ class TurnEngine:
         # Haiku call per turn is a COST decision (par 2.6), and a
         # feel-less run is a legitimate experimental condition.
         if self.organ and self.judge and "feel" in self.enabled:
-            delta = self.organ.feel(message, reply, self.judge,
+            delta = self.organ.feel(recall_query, reply, self.judge,
                                     persona_name=self.persona,
                                     pronouns=self.pronouns)
             self.cocktail = dict(self.organ.state["cocktail"])
@@ -641,8 +711,11 @@ class TurnEngine:
             # content stays the compact recall-facing line; the FULL
             # text lives in fields (truncation is a render decision,
             # never an encode decision — nothing is destroyed)
+            image_mark = (f" and shared {len(images)} image"
+                          f"{'s' if len(images) != 1 else ''}"
+                          if images else "")
             self.organ.encode(
-                f"{speaker} said: \"{message[:120]}\" — I replied: "
+                f"{speaker} said{image_mark}: \"{message[:120]}\" — I replied: "
                 f"\"{reply.strip()[:160]}\"",
                 cocktail=self.cocktail,
                 entities=list(dict.fromkeys([speaker] + ent_names)),
@@ -655,7 +728,9 @@ class TurnEngine:
                         "felt_why": delta.get("why") or "",
                         "resolved_entities": ent_names,
                         "inferred_entities": ent_inferred,
-                        "entity_resolution": ent_resolution})
+                        "entity_resolution": ent_resolution,
+                        "images": [public_image_record(i) for i in images],
+                        "visual_observation": visual_observation})
             self.organ.save()
             # ── gist fold: turns aged past the verbatim window get
             # folded into the running story (one constant session) ──
@@ -700,6 +775,10 @@ class TurnEngine:
                 "user_context": user_context_receipt,
                 "room_actions": acted,
                 "felt_touch": felt_touch or None,
+                "vision": ({"route": visual_route,
+                            "images": [public_image_record(i) for i in images],
+                            "observation": visual_observation}
+                           if images else None),
                 "recalled": [{"content": r["memory"]["content"][:80],
                               "score": r["score"],
                               "breakdown": r["breakdown"]}

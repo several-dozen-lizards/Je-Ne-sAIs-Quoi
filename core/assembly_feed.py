@@ -50,6 +50,13 @@ def render_just_now(window: list, persona: str) -> str:
             ch = f" (in the room)" if f.get("channel") == "room" else ""
             if f.get("message_full"):
                 lines.append(f'{spk}{ch}: "{f["message_full"]}"')
+            images = f.get("images") or []
+            if images:
+                names = ", ".join(i.get("name", "image") for i in images)
+                lines.append(f"{spk} shared visual material: {names}.")
+            if f.get("visual_observation"):
+                lines.append("What the visual pathway registered then: "
+                             + f["visual_observation"])
             if f.get("reply_full"):
                 lines.append(f'{persona}: "{f["reply_full"]}"')
         else:
@@ -102,9 +109,10 @@ def build_turn_assembly(*, identity: str, cocktail: dict,
                         persona: str = "persona",
                         company: list = None,
                         floor: bool = False,
-                        entities: str = "",
-                        user_context: str = "",
-                        system_prompt: str = "") -> PromptAssembly:
+                         entities: str = "",
+                         user_context: str = "",
+                         visual_field: str = "",
+                         system_prompt: str = "") -> PromptAssembly:
     asm = PromptAssembly()
     if system_prompt:
         # MODEL-scoped operational framing — renders above identity,
@@ -124,6 +132,8 @@ def build_turn_assembly(*, identity: str, cocktail: dict,
         # current company has filtered it, and sits above recalled memory:
         # a user's declaration outranks the model's inference about her.
         asm.add("user_bedrock", user_context, priority=9, budget=500)
+    if visual_field:
+        asm.add("visual_field", visual_field, priority=9, budget=420)
     asm.add("emotional_state", render_emotional_state(cocktail),
             priority=8, budget=120)
     # continuity stack: just-now (perception) > gist (story) sit ABOVE

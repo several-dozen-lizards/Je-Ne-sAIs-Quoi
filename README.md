@@ -34,8 +34,14 @@ owner or their personas.
 
 4. Double-click `START_NEXUS.bat` if you did not start it from setup.
 5. Open **Personas**, create a persona, write their voice, and start them. The
-   pane picker can show any combination of persona chats and the lightweight
-   Nexus world view side by side.
+   mask always returns to persona selection; open conversations wait in compact
+   tabs across the top of the workspace.
+
+In a conversation, drop images directly onto the message field or use the
+paperclip. Vision-capable personas receive the image itself; text-only models
+can use a deliberately configured visual transducer. Press **Shift+Enter** for
+a new paragraph. The body-functions column is resizable and can be hidden, and
+receipts can be minimized and pulled back up whenever you need them.
 
 Use `STOP_NEXUS.bat` for a clean shutdown.
 

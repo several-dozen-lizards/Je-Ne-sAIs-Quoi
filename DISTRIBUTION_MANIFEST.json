@@ -1,6 +1,6 @@
 {
   "format": 2,
-  "version": "0.4.0",
+  "version": "0.4.1",
   "files": 105,
   "contains_personal_data": false,
   "empty_local_roots": [
@@ -29,9 +29,9 @@
     "assets/jnsq/jnsq-venetian-mask-space.png": "194309eba6c6cfb7ccba55ff1afcbbd9466f4e3b5b5de7e8dce6e5805e28a9a5",
     "assets/jnsq/jnsq_favicon.svg": "067fcd5b73c7712ce9a94149e27666cd13883668d464ff2c64a60fa5e88c248e",
     "assets/jnsq/jnsq_favicon_glint.svg": "c03fb336d0702fd4a6f33663e2dccecbb4a453594c8a1f9ecf5a76921b93a06e",
-    "assets/jnsq/jnsq_icon_animated.apng": "b2f3637d636cc400c17676e7f8fea590f7bf114cedaa945fe5f6fcaeb59eb497",
-    "assets/jnsq/jnsq_icon_animated.svg": "3717d9ba9436e70ff5d5624cd56fbe9284b651730e493e6c3622212109aaf0c9",
-    "assets/jnsq/jnsq_icon_animated_128.apng": "a4f7806040fa942e19e37d49e5e3d7c4e5a26652f28ea75622864635736c5553",
+    "assets/jnsq/jnsq_icon_animated.apng": "a0def13495c30bdbd14d5cd20323d599df023c6c9912d724bed28877ec5aafa6",
+    "assets/jnsq/jnsq_icon_animated.svg": "155222437a45aa7f44697f600748edc580e724318f2dc130f1bfff0eb835977b",
+    "assets/jnsq/jnsq_icon_animated_128.apng": "044af7c810744cf18b3190b73f374214fb2f486ada79d2fd8fdcaad17ea55e29",
     "core/afferents.py": "dd0697a44b9d4271b9fad79bd1f941817cdd03bd9dbfb9a20ef86453c9061252",
     "core/assembly_feed.py": "14d5628ddaeb079c07b1f5c53a3e92d30cea8aa3fd8e439b05a24ddc4a201fc9",
     "core/dmn.py": "0a03131eb846998d84698c32578990b18dfdb687f8bbb9f283249ceba56b2619",
@@ -114,6 +114,6 @@
     "tools/smoke_distribution.py": "49656a07e2b1424258fa4d3960a88c1a84679a27368d02eb09c80602c0bee55b",
     "UPDATE_JNSQ.bat": "86d6ef61cf515050dc315dbf09a57572e031b5050e995b433771f7b933af0c51",
     "UPDATE_JNSQ.ps1": "e32cc9da2c45361c78f8a7e1ad07d08a8d6bbf1904476f30bfe5cac3606e3351",
-    "VERSION": "40b8eb4000a913a7791090535f291d3d369874162a89ef3c9e3d4e887a1b9e79"
+    "VERSION": "f62184cee8787f2f6941c82041a5725d4edc9aa293ebe5dbf664406e82ec1fe1"
   }
 }

@@ -1,6 +1,6 @@
 {
   "format": 2,
-  "version": "0.4.1",
+  "version": "0.4.2",
   "files": 105,
   "contains_personal_data": false,
   "empty_local_roots": [
@@ -39,7 +39,7 @@
     "core/memory_emotion/dynamics.py": "5ccc4ac723be62ab6c0c397b40a5e7ecb954fd4a85bd503274ad24695e099ecd",
     "core/memory_emotion/encode.py": "4242c1eb54831cc0f04c9b4d3ce28b8dec48aa35de21b5bcadcbf85a9874f309",
     "core/memory_emotion/entities.py": "9f9c7b58f728aa0e928879b4646292e21a6f2a007d5725a55f648f04486858a9",
-    "core/memory_emotion/gist.py": "5a2e2a919615f1a0842f7fe0cbc6216f915ccf28e10f684889adbe549c87d0f6",
+    "core/memory_emotion/gist.py": "dc376816bda9fe9c3442af1071bd6f8f77d76b31bebb53d2b007394b24d97bdc",
     "core/memory_emotion/layers.py": "24e37dc5cf32024b99472e75793e0bb52a59559482e57fdb217fb307b524e5ad",
     "core/memory_emotion/organ.py": "d23639f9f1fb2087461bcb6d7e7aef78c483d672f3bd82cf2b39a97c026b3641",
     "core/memory_emotion/recall.py": "58b74ce82b58f8ad5a36a27c7eef578935d90a5f14f62c771c7503b55f589ce8",
@@ -90,7 +90,7 @@
     "shell/local_identity.py": "0df67b02ed9fdbbb3e9020adc4f31938932f1a41b50af5a152f4de1048375e61",
     "shell/model_catalog.py": "315e475c26ba1c0e7c36a5c81e13324af0cee7eb98093e0a4fc08f357a62149f",
     "shell/persona_media.py": "597629ab733c8ef01cbc88a3441f124d8900277645224685fae56e0fa14d8100",
-    "shell/router.py": "2525fa9450834908a8a85a6023022caed85576a878f343b8a77ae9fa871c7c3e",
+    "shell/router.py": "7770958d7c0a6a38903cce31ea7b2143207768870cfb4f5b54e9507732d2813d",
     "shell/settings.html": "aade3b830c3a3daa2264e1c3a3ab43345786533e499412772e6e15869ded6fde",
     "shell/system_prompts.py": "b62d3204b4391d3f16021e15639fac5d827e2b099d43631824bf1d06ecccbd51",
     "shell/ui/household_theme.json": "6a3a84033ddcc2aca0ae4461240b5c723c6653e295e323dce139786b1a0a7783",
@@ -114,6 +114,6 @@
     "tools/smoke_distribution.py": "49656a07e2b1424258fa4d3960a88c1a84679a27368d02eb09c80602c0bee55b",
     "UPDATE_JNSQ.bat": "86d6ef61cf515050dc315dbf09a57572e031b5050e995b433771f7b933af0c51",
     "UPDATE_JNSQ.ps1": "e32cc9da2c45361c78f8a7e1ad07d08a8d6bbf1904476f30bfe5cac3606e3351",
-    "VERSION": "f62184cee8787f2f6941c82041a5725d4edc9aa293ebe5dbf664406e82ec1fe1"
+    "VERSION": "e2f7bb608ebc9e24092ffcb796ad0aa83f0015afe23635f017df52273150f00d"
   }
 }

@@ -16,6 +16,7 @@ Cost law: one judge call per fold, folds every `update_every` turns —
 an API-cost organ, opt-in like `feel` (par 2.6)."""
 import json
 import os
+import sys
 import time
 
 _SYSTEM = (
@@ -27,6 +28,14 @@ _SYSTEM = (
     "third person, dense, chronological where it matters, about "
     "{target_words} words. Output ONLY the updated running memory — "
     "no preamble, no headers.")
+
+
+def _log(message: str) -> None:
+    """Write diagnostics without letting a Windows codepage kill the organ."""
+    encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+    safe = str(message).encode(encoding, errors="backslashreplace").decode(
+        encoding)
+    print(safe)
 
 
 def render_turn(mem: dict) -> str:
@@ -53,7 +62,8 @@ class RollingGist:
 
     def __init__(self, persona_dir: str, judge=None, *,
                  verbatim_window: int = 6, update_every: int = 4,
-                 target_words: int = 350, max_tokens: int = 700):
+                 target_words: int = 350, max_tokens: int = 700,
+                 source_char_budget: int = None):
         self.dir = os.path.join(persona_dir, "body", "memory_emotion")
         os.makedirs(self.dir, exist_ok=True)
         self.path = os.path.join(self.dir, "rolling_gist.json")
@@ -62,6 +72,12 @@ class RollingGist:
         self.update_every = int(update_every)
         self.target_words = int(target_words)
         self.max_tokens = int(max_tokens)
+        # Approximate 4 chars/token and an 8:1 source-to-summary fold. The
+        # budget therefore moves with the requested output rather than being
+        # an unrelated page-size constant.
+        self.source_char_budget = int(
+            source_char_budget if source_char_budget is not None
+            else self.max_tokens * 4 * 8)
         self.last_error = None
         st = {}
         if os.path.exists(self.path):
@@ -71,7 +87,7 @@ class RollingGist:
             except Exception as e:
                 # unreadable state must not kill a boot; start empty,
                 # say so loudly
-                print(f"[gist] state unreadable ({e}); starting empty")
+                _log(f"[gist] state unreadable ({e}); starting empty")
         self.gist = st.get("gist", "")
         self.upto = int(st.get("upto", 0))
         self.idle_ids = list(st.get("idle_ids", []))
@@ -89,6 +105,36 @@ class RollingGist:
         eligible = n_turns - self.verbatim_window
         return (eligible - self.upto) >= self.update_every
 
+    def _batch(self, records: list, renderer) -> tuple[str, int]:
+        """Take the next contiguous fold that fits the compression budget.
+
+        The cursor advances only by the returned count. A single oversized
+        record is represented by its beginning and end; the full record stays
+        untouched in memory.
+        """
+        parts = []
+        used = 0
+        marker = "\n...[middle omitted from this gist fold]...\n"
+        for record in records:
+            rendered = renderer(record)
+            separator = 1 if parts else 0
+            remaining = self.source_char_budget - used - separator
+            if remaining <= 0:
+                break
+            if len(rendered) > remaining:
+                if parts:
+                    break
+                room = max(0, remaining - len(marker))
+                head = room // 2
+                tail = room - head
+                rendered = (rendered[:head] + marker
+                            + (rendered[-tail:] if tail else ""))
+            parts.append(rendered)
+            used += separator + len(rendered)
+            if len(rendered) >= remaining:
+                break
+        return "\n".join(parts), len(parts)
+
     def update(self, turn_records: list, force: bool = False) -> bool:
         """Fold newly-aged-out turns into the gist. turn_records is the
         organ's FULL chronological turn sequence (append-only).
@@ -102,8 +148,11 @@ class RollingGist:
             return False
         if self.judge is None:
             return False
-        new_turns = turn_records[self.upto:fold_upto]
-        rendered = "\n".join(render_turn(m) for m in new_turns)
+        eligible = turn_records[self.upto:fold_upto]
+        rendered, consumed = self._batch(eligible, render_turn)
+        if not consumed:
+            return False
+        batch_upto = self.upto + consumed
         try:
             raw = self.judge.chat(
                 _SYSTEM.format(target_words=self.target_words),
@@ -115,16 +164,16 @@ class RollingGist:
             text = (raw or "").strip()
             if not text:
                 self.last_error = "empty gist from judge; kept prior"
-                print(f"[gist] {self.last_error}")
+                _log(f"[gist] {self.last_error}")
                 return False
             self.gist = text
-            self.upto = fold_upto
+            self.upto = batch_upto
             self.last_error = None
             self.save()
             return True
         except Exception as e:
             self.last_error = f"fold failed: {e}"
-            print(f"[gist] {self.last_error}; prior gist stands")
+            _log(f"[gist] {self.last_error}; prior gist stands")
             return False
 
     def update_idle(self, records: list) -> bool:
@@ -139,9 +188,13 @@ class RollingGist:
                    and (m.get("fields") or {}).get("gist_eligible")]
         if not pending or self.judge is None:
             return False
-        rendered = "\n".join(
-            f"Private {m.get('type', 'idle')} experience: {m.get('content', '')}"
-            for m in pending)
+        rendered, consumed = self._batch(
+            pending,
+            lambda m: (f"Private {m.get('type', 'idle')} experience: "
+                       f"{m.get('content', '')}"))
+        if not consumed:
+            return False
+        batch = pending[:consumed]
         try:
             raw = self.judge.chat(
                 _SYSTEM.format(target_words=self.target_words),
@@ -155,11 +208,11 @@ class RollingGist:
                 self.last_error = "empty idle gist from judge; kept prior"
                 return False
             self.gist = text
-            self.idle_ids.extend(m["id"] for m in pending)
+            self.idle_ids.extend(m["id"] for m in batch)
             self.last_error = None
             self.save()
             return True
         except Exception as e:
             self.last_error = f"idle fold failed: {e}"
-            print(f"[gist] {self.last_error}; prior gist stands")
+            _log(f"[gist] {self.last_error}; prior gist stands")
             return False

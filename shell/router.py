@@ -304,7 +304,8 @@ class PersonaProcess:
         self.id = pid
         self.model = model
         self.port = _free_port()
-        cmd = [sys.executable, os.path.join(ROOT, "shell", "cockpit.py"),
+        cmd = [sys.executable, "-X", "utf8",
+               os.path.join(ROOT, "shell", "cockpit.py"),
                "--persona", pid, "--model", model, "--port", str(self.port)]
         if identity_file:
             cmd += ["--identity-file", identity_file]

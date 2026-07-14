@@ -30,7 +30,7 @@ sampling:
     mode: omit
 capabilities:
   tool_use: false
-  vision: false
+  vision: true
   structured_output: "unknown"
   streaming: true
 module_capability:

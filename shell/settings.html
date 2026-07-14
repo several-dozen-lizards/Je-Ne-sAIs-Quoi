@@ -43,8 +43,11 @@ table{width:100%;border-collapse:collapse;margin-top:12px;font-size:.8rem}th,td{
 .organ textarea{height:82px;margin:8px 0;font-family:Consolas,monospace}.account-frame{width:100%;height:760px;
   border:1px solid var(--line);border-radius:var(--radius);background:var(--bg)}
 .version{font:1.5rem Consolas,monospace;color:var(--accent2);margin:.4rem 0}.error{color:var(--warn)}
+.vision-route{display:grid;grid-template-columns:minmax(150px,.7fr) minmax(250px,1.4fr);gap:14px;align-items:start}
+.vision-route .route-controls{display:grid;gap:8px}.vision-route .route-status{font-size:.78rem;line-height:1.55}
+.model-facts{color:var(--dim);font-size:.72rem}.available{color:var(--good)}.unavailable{color:var(--warn)}
 @media(max-width:720px){.shell{padding:15px}.face{grid-template-columns:38px 1fr}.face>*{grid-column:auto}
-  .face input[type=file],.face .status{grid-column:1/-1}table{display:block;overflow:auto}}
+  .face input[type=file],.face .status{grid-column:1/-1}table{display:block;overflow:auto}.vision-route{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -56,6 +59,7 @@ table{width:100%;border-collapse:collapse;margin-top:12px;font-size:.8rem}th,td{
     <button class="btn tab" data-page="account">👤 Account &amp; privacy</button>
     <button class="btn tab" data-page="appearance">✨ Appearance</button>
     <button class="btn tab" data-page="keys">🔑 API keys</button>
+    <button class="btn tab" data-page="vision">👁 Visual input</button>
     <button class="btn tab" data-page="prompts">🔧 System prompts</button>
     <button class="btn tab" data-page="updates">⚡ Updates</button>
   </nav>
@@ -108,6 +112,22 @@ table{width:100%;border-collapse:collapse;margin-top:12px;font-size:.8rem}th,td{
       <tbody id="keyrows"></tbody></table><div class="note" id="keynote"></div></div>
   </section>
 
+  <section class="page" id="page-vision">
+    <h2>Visual input</h2>
+    <p class="note">The active model receives image pixels directly when its spec declares vision support.
+      For a text-only active model, choose the visual vessel that reports observable features to the persona.
+      JNSQ never changes this choice silently.</p>
+    <div class="card"><h3>Price, quality, and change</h3>
+      <p class="note">There is no permanent “best.” Provider prices and model quality move. Each option below
+        shows the metadata installed today; you choose the tradeoff per persona. Testing sends only JNSQ's
+        public mask icon and may incur that provider's normal charge.</p></div>
+    <div class="card"><h3>Current balance</h3>
+      <p><b>GLM-4.6V-FlashX</b> is the present cheap + reliable recommendation.
+        <b>GLM-4.6V-Flash</b> is free, but its shared capacity can refuse work when overloaded.
+        This is guidance, not an automatic choice.</p></div>
+    <div id="visionRoutes"></div>
+  </section>
+
   <section class="page" id="page-prompts">
     <h2>System prompts</h2><p class="note">Operational framing belongs to the model vessel; persona identity
       belongs to that persona's voice. Changes apply at the model's next Start.</p>
@@ -138,8 +158,9 @@ async function request(url,options={}){const response=await fetch(url,options);l
   try{body=await response.json()}catch(_){body={error:await response.text()}}
   if(!response.ok||body.error)throw new Error(body.error||`${response.status} ${response.statusText}`);return body}
 const clone=value=>JSON.parse(JSON.stringify(value));
-let personas={},themeDoc=null,preview=null,presetDirty=false;
+let personas={},models=[],themeDoc=null,preview=null,presetDirty=false,currentPage="account";
 const dirty=new Set(),iconNotices={};
+const visionNotices={};
 const CONTROLS={houseBackground:"background",houseFont:"font",houseDensity:"density",houseBg:"bg",
   housePanel:"panel",houseInk:"ink",houseAccent:"accent",houseAccent2:"accent2",houseRadius:"radius",
   houseGlow:"glow",houseMotion:"motion",houseReactive:"reactive"};
@@ -212,6 +233,42 @@ async function loadKeys(){try{const data=await request("/api/env");const body=$(
 async function saveKey(name){const input=document.querySelector(`[data-key="${CSS.escape(name)}"]`);if(!input.value){$("keynote").textContent="Paste a value first.";return}
   try{const result=await request("/api/env",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,value:input.value})});
     input.value="";$("keynote").textContent=`${result.env} saved; its value will not be displayed back.`;loadKeys()}catch(error){$("keynote").textContent=error.message}}
+function modelByName(name){return models.find(model=>model.name===name)||null}
+function renderVisionRoutes(){const box=$("visionRoutes"),visual=models.filter(model=>model.vision)
+    .sort((a,b)=>Number(b.available)-Number(a.available)||String(a.name).localeCompare(String(b.name)));
+  const entries=Object.entries(personas).filter(([,p])=>p.kind==="model_persona").sort();
+  if(!entries.length){box.innerHTML='<div class="card note">No model personas yet.</div>';return}
+  box.innerHTML=entries.map(([id,p])=>{const active=modelByName(p.model),direct=!!active?.vision,chosen=p.vision_model||"";
+    const options=['<option value="">No fallback — refuse images on text-only vessels</option>',...visual.map(model=>
+      `<option value="${esc(model.name)}" ${model.name===chosen?"selected":""}>${esc(model.name)} · ${esc(model.vendor||model.provider||model.family)} · ${esc(model.cost)}${model.available?"":" · KEY NOT SET"}</option>`)].join("");
+    const path=direct?`Direct pixels → ${esc(p.model)}. The fallback is held for any later text-only vessel.`:
+      chosen?`Pixels → ${esc(chosen)} → observable features → ${esc(p.model)}.`:`${esc(p.model)} is text-only and has no fallback; image turns will be refused clearly.`;
+    const selected=modelByName(chosen),facts=selected?`${selected.available?"available":"key unavailable"} · ${esc(selected.latency)} · ${esc(selected.cost)}`:"No transducer selected.";
+    return `<div class="card vision-route"><div><h3>${esc(p.display_name||id)}</h3><div class="route-status">Active vessel: <b>${esc(p.model||"none")}</b><br>${path}</div></div>
+      <div class="route-controls"><label>Fallback for text-only vessels<select data-vision-select="${esc(id)}">${options}</select></label>
+      <div class="model-facts ${selected?.available?"available":selected?"unavailable":""}" data-vision-facts="${esc(id)}">${facts}</div>
+      <div class="actions"><button class="btn go" data-save-vision="${esc(id)}">Save${p.alive&&!direct?" & restart":""}</button>
+      <button class="btn" data-test-vision="${esc(id)}">Test selected route</button><span class="note" data-vision-note="${esc(id)}">${esc(visionNotices[id]||"")}</span></div></div></div>`}).join("");
+  box.querySelectorAll("[data-vision-select]").forEach(select=>select.onchange=()=>{const model=modelByName(select.value),facts=box.querySelector(`[data-vision-facts="${CSS.escape(select.dataset.visionSelect)}"]`);
+    facts.textContent=model?`${model.available?"available":"key unavailable"} · ${model.latency} · ${model.cost}`:"No transducer selected.";
+    facts.className=`model-facts ${model?.available?"available":model?"unavailable":""}`});
+  box.querySelectorAll("[data-save-vision]").forEach(button=>button.onclick=()=>saveVisionRoute(button.dataset.saveVision,button));
+  box.querySelectorAll("[data-test-vision]").forEach(button=>button.onclick=()=>testVisionRoute(button.dataset.testVision,button));
+}
+async function loadVision(){try{const [personaData,modelData]=await Promise.all([request("/api/personas"),request("/api/models")]);
+  personas=personaData;models=modelData.models||[];renderVisionRoutes()}catch(error){$("visionRoutes").innerHTML=`<div class="card error">${esc(error.message)}</div>`}}
+async function saveVisionRoute(id,button){const select=document.querySelector(`[data-vision-select="${CSS.escape(id)}"]`),model=select.value||null;
+  button.disabled=true;try{const result=await request(`/api/personas/${encodeURIComponent(id)}/vision`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model})});
+    const active=modelByName(personas[id]?.model);if(result.restart_required&&!active?.vision){await request(`/api/personas/${encodeURIComponent(id)}/stop`,{method:"POST"});
+      await request(`/api/personas/${encodeURIComponent(id)}/start`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:personas[id].model})});
+      visionNotices[id]=`Saved ${model||"no fallback"}; restarted on ${personas[id].model}.`}
+    else visionNotices[id]=`Saved ${model||"no fallback"}.`;await loadVision()}catch(error){visionNotices[id]=error.message;renderVisionRoutes()}finally{button.disabled=false}}
+async function testVisionRoute(id,button){const selected=document.querySelector(`[data-vision-select="${CSS.escape(id)}"]`)?.value;
+  const active=modelByName(personas[id]?.model),model=selected||(active?.vision?active.name:null);if(!model){visionNotices[id]="Choose a fallback, or use a direct-vision active model.";renderVisionRoutes();return}
+  button.disabled=true;visionNotices[id]=`Testing ${model} with the public JNSQ icon…`;
+  const note=document.querySelector(`[data-vision-note="${CSS.escape(id)}"]`);if(note)note.textContent=visionNotices[id];
+  try{const result=await request(`/api/models/${encodeURIComponent(model)}/vision/test`,{method:"POST"});visionNotices[id]=`PASS · ${result.observation}`}
+  catch(error){visionNotices[id]=`FAILED · ${error.message}`}finally{renderVisionRoutes()}}
 async function loadPrompts(){try{const data=await request("/api/models"),select=$("spmodel"),previous=select.value;
   select.innerHTML=(data.models||[]).map(model=>`<option value="${esc(model.name)}">${model.locality==="local"?"💻":"☁️"} ${esc(model.name)}</option>`).join("");
   if([...select.options].some(o=>o.value===previous))select.value=previous;select.onchange=()=>selectModel(select.value);
@@ -241,11 +298,11 @@ async function loadVersion(){try{const data=await request("/api/version");$("cur
 $("checkUpdate").onclick=async()=>{const button=$("checkUpdate");button.disabled=true;$("updateNote").textContent="Checking…";
   try{const data=await request("/api/version/check");$("updateNote").textContent=data.update_available?`Version ${data.latest} is available. Stop JNSQ, then run UPDATE_JNSQ.bat.`:`Version ${data.version} is current.`}
   catch(error){$("updateNote").textContent=error.message}finally{button.disabled=false}};
-function showPage(page){document.querySelectorAll(".tab").forEach(tab=>tab.classList.toggle("on",tab.dataset.page===page));
+function showPage(page){currentPage=page;document.querySelectorAll(".tab").forEach(tab=>tab.classList.toggle("on",tab.dataset.page===page));
   document.querySelectorAll(".page").forEach(section=>section.classList.toggle("on",section.id===`page-${page}`));
-  if(page==="keys")loadKeys();if(page==="prompts")loadPrompts();if(page==="updates")loadVersion()}
+  if(page==="keys")loadKeys();if(page==="vision")loadVision();if(page==="prompts")loadPrompts();if(page==="updates")loadVersion()}
 document.querySelectorAll(".tab").forEach(tab=>tab.onclick=()=>showPage(tab.dataset.page));
-async function init(){try{personas=await request("/api/personas")}catch(_){}await loadTheme();loadVersion();showPage("account")}
+async function init(){try{const [personaData,modelData]=await Promise.all([request("/api/personas"),request("/api/models")]);personas=personaData;models=modelData.models||[]}catch(_){}await loadTheme();loadVersion();showPage(currentPage)}
 init();
 </script>
 </body>

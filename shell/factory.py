@@ -108,6 +108,10 @@ icon: "🦋"
 avatar: ""
 kind: model_persona
 max_tokens: 600
+perception:
+  # Used only when the active model cannot receive pixels directly.
+  # null means refuse image turns clearly rather than silently rerouting.
+  vision_model: null
 enabled_organs: [{organs}]
 room:
   id: nexus

@@ -59,12 +59,14 @@ from shell import env_store  # noqa: E402
 from shell.ui_themes import resolve_theme, save_theme  # noqa: E402
 from shell.local_identity import load_local_identity  # noqa: E402
 from shell.persona_media import (load_persona_avatar, save_persona_avatar,
+                                 write_roster_mapping_scalar,
                                  write_roster_scalar)  # noqa: E402
 
 
 class TurnRequest(BaseModel):
     message: str
     speaker: str = None
+    images: list[dict] = Field(default_factory=list)
 
 
 class StartRequest(BaseModel):
@@ -84,6 +86,10 @@ class PersonaIconRequest(BaseModel):
 
 class PersonaAvatarRequest(BaseModel):
     data_url: str
+
+
+class VisionRouteRequest(BaseModel):
+    model: str | None = None  # null disables fallback; direct vision still works
 
 
 class ModelCreateRequest(BaseModel):
@@ -229,6 +235,8 @@ def discover_personas() -> dict:
             entry["identity_file"] = id_file if os.path.exists(id_file) else None
             entry["room"] = data.get("room")  # constitutional: den + worm
             entry["max_tokens"] = data.get("max_tokens")  # reply ceiling
+            entry["vision_model"] = ((data.get("perception") or {})
+                                     .get("vision_model"))
         registry[pid] = entry
     return registry
 
@@ -627,6 +635,7 @@ def build_app(room_url: str = None) -> FastAPI:
                 "model": (proc.model if proc and proc.alive()
                           else entry.get("model")),
                 "models": entry.get("models") or [],
+                "vision_model": entry.get("vision_model"),
                 "has_room": bool(entry.get("room")),
                 "port": proc.port if proc else None,
                 "alive": proc.alive() if proc else False,
@@ -677,6 +686,41 @@ def build_app(room_url: str = None) -> FastAPI:
         return {"ok": True, "persona": pid,
                 "avatar_url": (f"/api/personas/{pid}/avatar?v="
                                f"{avatar['version']}")}
+
+    @app.post("/api/personas/{pid}/vision")
+    def persona_vision_route(pid: str, req: VisionRouteRequest):
+        """Declare the fallback visual vessel for one persona.
+
+        Active models marked vision-capable still receive pixels directly;
+        this route is consulted only when the active vessel is text-only.
+        """
+        app.state.registry = discover_personas()
+        entry = app.state.registry.get(pid)
+        if not entry or entry.get("kind") != "model_persona":
+            return JSONResponse(status_code=404,
+                                content={"error": f"no model persona '{pid}'"})
+        model = (req.model or "").strip() or None
+        if model:
+            try:
+                from harness.spec_loader import load_spec
+                spec = load_spec(model)
+            except Exception as error:
+                return JSONResponse(status_code=400,
+                                    content={"error": str(error)})
+            if not (spec.get("capabilities") or {}).get("vision"):
+                return JSONResponse(status_code=400, content={
+                    "error": f"'{model}' is not declared vision-capable"})
+        try:
+            write_roster_mapping_scalar(entry["dir"], "perception",
+                                        "vision_model", model)
+        except (OSError, ValueError) as error:
+            return JSONResponse(status_code=400,
+                                content={"error": str(error)})
+        was_running = bool(app.state.processes.get(pid)
+                           and app.state.processes[pid].alive())
+        app.state.registry = discover_personas()
+        return {"ok": True, "persona": pid, "vision_model": model,
+                "restart_required": was_running}
 
     @app.post("/api/personas/{pid}/start")
     def persona_start(pid: str, req: StartRequest = None):
@@ -836,14 +880,47 @@ def build_app(room_url: str = None) -> FastAPI:
         models = []
         for spec in load_all():
             ident = spec.get("identity") or {}
+            capabilities = spec.get("capabilities") or {}
+            runtime = spec.get("runtime") or {}
+            base_url = ident.get("base_url") or ""
+            if "api.z.ai" in base_url:
+                vendor = "Z.AI"
+            elif "api.openai.com" in base_url:
+                vendor = "OpenAI"
+            elif ident.get("provider") == "anthropic_api" \
+                    or ident.get("family") == "anthropic":
+                vendor = "Anthropic"
+            elif ident.get("locality") == "local":
+                vendor = "local"
+            else:
+                vendor = ident.get("provider") or ident.get("family")
+            key_env = ident.get("api_key_env")
+            if not key_env and (ident.get("family") == "anthropic"
+                                or ident.get("provider") == "anthropic_api"):
+                key_env = "ANTHROPIC_API_KEY"
+            if key_env == "ANTHROPIC_API_KEY":
+                try:
+                    from harness.clients import resolve_anthropic_key
+                    available = bool(resolve_anthropic_key())
+                except Exception:
+                    available = False
+            else:
+                available = (ident.get("locality") == "local"
+                             or not key_env or bool(os.environ.get(key_env)))
             models.append({
                 "name": ident.get("name"),
                 "family": ident.get("family"),
                 "provider": ident.get("provider"),
+                "vendor": vendor,
                 "locality": ident.get("locality"),
                 "endpoint": ident.get("endpoint"),
-                "base_url": ident.get("base_url"),
+                "base_url": base_url or None,
                 "api_key_env": ident.get("api_key_env"),
+                "vision": bool(capabilities.get("vision")),
+                "cost": runtime.get("cost") or "not documented in this spec",
+                "latency": runtime.get("latency_class") or "unknown",
+                "key_env": key_env,
+                "available": available,
             })
         try:
             from harness.clients import resolve_anthropic_key
@@ -852,6 +929,38 @@ def build_app(room_url: str = None) -> FastAPI:
         except Exception:
             key_set = False
         return {"models": models, "anthropic_key_set": key_set}
+
+    @app.post("/api/models/{model}/vision/test")
+    def model_vision_test(model: str):
+        """Send JNSQ's public icon through one declared visual vessel.
+
+        This endpoint is never automatic: the Settings button is the explicit
+        act that may incur a provider charge. No persona or user image is used.
+        """
+        try:
+            import base64
+            from adapters.family_adapters import adapter_for
+            from harness.spec_loader import load_spec
+            spec = load_spec(model)
+            if not (spec.get("capabilities") or {}).get("vision"):
+                raise ValueError(f"'{model}' is not declared vision-capable")
+            icon_path = os.path.join(ASSET_DIR, "favicon-48.png")
+            with open(icon_path, "rb") as handle:
+                encoded = base64.b64encode(handle.read()).decode("ascii")
+            client = adapter_for(spec).client
+            observation = (client.chat(
+                "Report observable visual features only. Do not infer emotion, intent, or symbolism.",
+                "Describe this public JNSQ test icon in one short sentence.",
+                max_tokens=420, temperature=0.0,
+                images=[{"media_type": "image/png", "data": encoded,
+                         "detail": "low"}]) or "").strip()
+            if not observation:
+                raise RuntimeError("the model returned no observation text")
+            return {"ok": True, "model": model,
+                    "observation": observation[:500]}
+        except Exception as error:
+            return JSONResponse(status_code=400,
+                                content={"error": str(error)})
 
     @app.post("/api/models/create")
     def model_create(req: ModelCreateRequest):
@@ -1021,7 +1130,8 @@ def build_app(room_url: str = None) -> FastAPI:
         try:
             body = json.dumps({"message": req.message,
                                "speaker": req.speaker or app.state.local_identity[
-                                   "display_name"]}).encode()
+                                   "display_name"],
+                               "images": req.images}).encode()
             r2 = urllib.request.Request(f"http://127.0.0.1:{proc.port}/api/turn", data=body,
                                         headers={"Content-Type": "application/json"}, method="POST")
             r3 = urllib.request.urlopen(r2, timeout=90)

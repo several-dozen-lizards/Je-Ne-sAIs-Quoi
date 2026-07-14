@@ -78,6 +78,56 @@ def write_roster_scalar(persona_dir: str, key: str, value: str) -> str:
     return value
 
 
+def write_roster_mapping_scalar(persona_dir: str, section: str, key: str,
+                                value) -> object:
+    """Atomically update one scalar inside a top-level roster mapping.
+
+    The hand-formatted roster remains byte-stable outside the one mapping.
+    ``None`` is a meaningful value: it disables an optional route without
+    inventing a replacement.
+    """
+    for name in (section, key):
+        if not re.fullmatch(r"[a-z_][a-z0-9_]*", name):
+            raise ValueError("invalid roster mapping key")
+    path = os.path.join(persona_dir, "roster.yaml")
+    if not os.path.isfile(path):
+        raise FileNotFoundError("persona roster does not exist")
+    with open(path, encoding="utf-8", newline="") as handle:
+        original = handle.read()
+    newline = "\r\n" if "\r\n" in original else "\n"
+    lines = original.splitlines(keepends=True)
+    section_index = next((i for i, line in enumerate(lines)
+                          if re.match(rf"^{re.escape(section)}:\s*(?:#.*)?(?:\r?\n)?$", line)), None)
+    rendered = f"  {key}: {json.dumps(value, ensure_ascii=False)}{newline}"
+    if section_index is None:
+        insert_at = next((i for i, line in enumerate(lines)
+                          if line.startswith(("enabled_organs:", "room:",
+                                              "entries:"))), len(lines))
+        lines[insert_at:insert_at] = [f"{section}:{newline}", rendered]
+    else:
+        section_end = next((i for i in range(section_index + 1, len(lines))
+                            if lines[i] and not lines[i][0].isspace()
+                            and not lines[i].lstrip().startswith("#")), len(lines))
+        key_index = next((i for i in range(section_index + 1, section_end)
+                          if re.match(rf"^  {re.escape(key)}:", lines[i])), None)
+        if key_index is None:
+            lines.insert(section_index + 1, rendered)
+        else:
+            lines[key_index] = rendered
+    candidate = "".join(lines)
+    parsed = yaml.safe_load(candidate)
+    if not isinstance(parsed, dict) or not isinstance(parsed.get(section), dict) \
+            or parsed[section].get(key) != value:
+        raise ValueError(f"persona {section}.{key} edit failed validation")
+    with open(path + ".prev", "w", encoding="utf-8", newline="") as handle:
+        handle.write(original)
+    temporary = path + f".tmp_{section}_{key}"
+    with open(temporary, "w", encoding="utf-8", newline="") as handle:
+        handle.write(candidate)
+    os.replace(temporary, path)
+    return value
+
+
 def save_persona_avatar(persona_dir: str, data_url: str) -> dict:
     """Validate and atomically store an image under ``<persona>/ui``."""
     match = _DATA_URL.match((data_url or "").strip())

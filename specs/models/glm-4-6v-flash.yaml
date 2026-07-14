@@ -1,12 +1,12 @@
-# GLM-4.6V-FlashX — Z.AI's low-latency multimodal vessel. It is used as a
-# sensory transducer for text-only personas: it reports observable features,
-# then the persona's own active model decides meaning and response.
+# GLM-4.6V-Flash — Z.AI's free multimodal vessel. Capacity can be more
+# variable than FlashX, so it remains a user choice rather than a silent
+# automatic fallback.
 identity:
-  name: "glm-4-6v-flashx"
+  name: "glm-4-6v-flash"
   family: "openai_chat"
-  base_model: "glm-4.6v-flashx"
+  base_model: "glm-4.6v-flash"
   provider: "openai_compat"
-  endpoint: "glm-4.6v-flashx"
+  endpoint: "glm-4.6v-flash"
   base_url: "https://api.z.ai/api/paas/v4"
   api_key_env: "ZAI_API_KEY"
   locality: "api"
@@ -37,10 +37,11 @@ module_capability:
   ceiling_notes: "registered for visual transduction; behavioral ceiling not yet measured"
 runtime:
   gpu_constraints: "server-side"
-  cost: "$0.04/M input + $0.40/M output tokens (Z.AI, checked 2026-07-13)"
-  latency_class: "fast"
+  cost: "free Z.AI visual tier; capacity may be variable"
+  latency_class: "fast when capacity is available"
 quirks:
   - "multimodal input uses OpenAI-compatible image_url content blocks"
+  - "free capacity returned overload during the 2026-07-13 live probe"
 harness:
   last_mechanical_pass: null
   fidelity_floor_results: {}

@@ -83,10 +83,14 @@ def main():
     assert "local-life data" in updater
     assert (ROOT / "VERSION").read_text(encoding="utf-8").strip()
     settings = (ROOT / "shell" / "settings.html").read_text(encoding="utf-8")
-    for page in ("account", "appearance", "keys", "prompts", "updates"):
+    for page in ("account", "appearance", "keys", "vision", "prompts",
+                 "updates"):
         assert f'data-page="{page}"' in settings
     assert 'src="/users"' in settings
     assert "/api/ui/theme" in settings and "/api/env" in settings
+    assert "data-vision-select" in settings and "/vision/test" in settings
+    assert "public JNSQ" in settings and "may incur" in settings
+    assert "cheap + reliable recommendation" in settings
     assert "organ_prompts" in settings and "/api/version/check" in settings
     assert not list(ROOT.rglob("test_*.py")), "public build contains dev tests"
     assert not (ROOT / "core" / "bench.py").exists()
@@ -186,6 +190,7 @@ def main():
         assert roster["icon"] == "🦋"
         assert roster["avatar"] == ""
         assert roster["room"]["id"] == "nexus"
+        assert roster["perception"]["vision_model"] is None
         assert roster["enabled_organs"]
         assert "enabled_organs" not in roster["entries"][0]
     print("JNSQ starter smoke test: PASS")

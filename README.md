@@ -39,10 +39,19 @@ owner or their personas.
    in compact tabs across the top of the workspace.
 
 In a conversation, drop images directly onto the message field or use the
-paperclip. Vision-capable personas receive the image itself; text-only models
-can use a deliberately configured visual transducer. Press **Shift+Enter** for
-a new paragraph. The body-functions column is resizable and can be hidden, and
-receipts can be minimized and pulled back up whenever you need them.
+paperclip. Vision-capable active models receive the pixels themselves. For a
+text-only active model, **Settings â†’ Visual input** lets you choose a separate
+visual transducer for that persona, see its provider/cost/key status, and test
+it explicitly with JNSQ's public icon. JNSQ never silently substitutes a
+provider; choosing no fallback makes an image turn fail clearly. Press
+**Shift+Enter** for a new paragraph. The body-functions column is resizable and
+can be hidden, and receipts can be minimized and pulled back up whenever you
+need them.
+
+As of 2026-07-13, the bundled guidance favors GLM-4.6V-FlashX as the inexpensive,
+more reliable visual transducer. GLM-4.6V-Flash is the free option, with the
+tradeoff that shared capacity may sometimes be unavailable. This recommendation
+is visible guidance, never an automatic or permanent provider choice.
 
 Use `STOP_NEXUS.bat` for a clean shutdown.
 
@@ -70,7 +79,8 @@ The public header has two stable doors:
 - **Personas** is the configurable pane workspace. Check persona conversations,
   the Nexus world, or future panel types to decide what is visible.
 - **Settings** contains account/privacy and bedrock facts, household appearance,
-  persona faces and icons, API keys, model and organ prompts, and updates.
+  persona faces and icons, API keys, per-persona visual routing, model and organ
+  prompts, and updates.
 
 ## What stays local
 

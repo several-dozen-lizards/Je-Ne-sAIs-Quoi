@@ -39,6 +39,9 @@ def main():
     assert 'id="page-settings"' in shell and 'src="/settings"' in shell
     assert 'id="openWorld"' in shell
     assert "The Nexus" in shell
+    assert 'data-top-page="nexus"' in shell
+    assert shell.index("Household") < shell.index(">🌐 Nexus<") < shell.index("Settings")
+    assert "function openNexus()" in shell
     assert "/assets/jnsq_favicon.svg" in shell
     cockpit = (ROOT / "shell" / "cockpit.html").read_text(encoding="utf-8")
     assert "JNSQ cockpit" not in cockpit and 'class="brand-mark"' not in cockpit
@@ -69,6 +72,7 @@ def main():
     gpt_spec = yaml.safe_load((ROOT / "specs" / "models" /
                                "gpt-5-6.yaml").read_text(encoding="utf-8"))
     assert gpt_spec["sampling"]["temperature"]["mode"] == "omit"
+    assert gpt_spec["reasoning"]["effort"] == "low"
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "jnsq_favicon.svg" in readme
     assert "jnsq-venetian-mask-space.png" in readme

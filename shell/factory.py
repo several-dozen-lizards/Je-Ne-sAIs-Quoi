@@ -498,7 +498,9 @@ def _temperature_policy_block(base_url: str, endpoint: str) -> str:
     if host == "api.openai.com" and model.startswith("gpt-5"):
         return ("sampling:\n"
                 "  temperature:\n"
-                "    mode: omit")
+                "    mode: omit\n"
+                "reasoning:\n"
+                "  effort: low")
     return ("sampling:\n"
             "  temperature:\n"
             "    mode: dynamic")

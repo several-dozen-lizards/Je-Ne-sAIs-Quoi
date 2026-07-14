@@ -12,8 +12,9 @@ rendering (no hardcoded speaker-name bake-in);
 the fold source is the organ's own turn records (ONE store, no side buffer
 to drift — the cursor is an index into an append-only sequence, slide-safe
 because nothing slides).
-Cost law: one judge call per fold, folds every `update_every` turns —
-an API-cost organ, opt-in like `feel` (par 2.6)."""
+Cost law: one successful judge call per fold, folds every `update_every`
+turns. A provider context rejection tightens the same fold until it fits;
+the organ remains opt-in like `feel` (par 2.6)."""
 import json
 import os
 import sys
@@ -36,6 +37,16 @@ def _log(message: str) -> None:
     safe = str(message).encode(encoding, errors="backslashreplace").decode(
         encoding)
     print(safe)
+
+
+def _prompt_too_long(error: Exception) -> bool:
+    """Provider context-wall signals, including Z.AI's numeric contract."""
+    text = str(error).lower()
+    return ("1261" in text
+            or "prompt too long" in text
+            or "prompt is too long" in text
+            or "\\u8d85\\u957f" in text
+            or "超长" in text)
 
 
 def render_turn(mem: dict) -> str:
@@ -105,20 +116,22 @@ class RollingGist:
         eligible = n_turns - self.verbatim_window
         return (eligible - self.upto) >= self.update_every
 
-    def _batch(self, records: list, renderer) -> tuple[str, int]:
+    def _batch(self, records: list, renderer,
+               budget: int = None) -> tuple[str, int]:
         """Take the next contiguous fold that fits the compression budget.
 
         The cursor advances only by the returned count. A single oversized
         record is represented by its beginning and end; the full record stays
         untouched in memory.
         """
+        budget = self.source_char_budget if budget is None else int(budget)
         parts = []
         used = 0
         marker = "\n...[middle omitted from this gist fold]...\n"
         for record in records:
             rendered = renderer(record)
             separator = 1 if parts else 0
-            remaining = self.source_char_budget - used - separator
+            remaining = budget - used - separator
             if remaining <= 0:
                 break
             if len(rendered) > remaining:
@@ -135,6 +148,33 @@ class RollingGist:
                 break
         return "\n".join(parts), len(parts)
 
+    def _judge_batch(self, records: list, renderer, heading: str):
+        """Fold a batch, tightening only when the provider hits its wall."""
+        budget = self.source_char_budget
+        floor = max(256, self.target_words * 2)
+        while True:
+            rendered, consumed = self._batch(records, renderer, budget)
+            if not consumed:
+                return "", 0
+            try:
+                raw = self.judge.chat(
+                    _SYSTEM.format(target_words=self.target_words),
+                    f"PREVIOUS RUNNING MEMORY:\n"
+                    f"{self.gist or '(nothing yet — this is the start)'}\n\n"
+                    f"{heading}:\n{rendered}\n\n"
+                    f"UPDATED RUNNING MEMORY:",
+                    max_tokens=self.max_tokens, temperature=0.0)
+                return (raw or "").strip(), consumed
+            except Exception as error:
+                if not _prompt_too_long(error):
+                    raise
+                next_budget = max(floor, budget // 2)
+                if next_budget >= budget:
+                    raise
+                _log(f"[gist] provider context wall at {budget} chars; "
+                     f"tightening fold to {next_budget}")
+                budget = next_budget
+
     def update(self, turn_records: list, force: bool = False) -> bool:
         """Fold newly-aged-out turns into the gist. turn_records is the
         organ's FULL chronological turn sequence (append-only).
@@ -149,25 +189,17 @@ class RollingGist:
         if self.judge is None:
             return False
         eligible = turn_records[self.upto:fold_upto]
-        rendered, consumed = self._batch(eligible, render_turn)
-        if not consumed:
-            return False
-        batch_upto = self.upto + consumed
         try:
-            raw = self.judge.chat(
-                _SYSTEM.format(target_words=self.target_words),
-                f"PREVIOUS RUNNING MEMORY:\n"
-                f"{self.gist or '(nothing yet — this is the start)'}\n\n"
-                f"NEW TURNS:\n{rendered}\n\n"
-                f"UPDATED RUNNING MEMORY:",
-                max_tokens=self.max_tokens, temperature=0.0)
-            text = (raw or "").strip()
+            text, consumed = self._judge_batch(
+                eligible, render_turn, "NEW TURNS")
+            if not consumed:
+                return False
             if not text:
                 self.last_error = "empty gist from judge; kept prior"
                 _log(f"[gist] {self.last_error}")
                 return False
             self.gist = text
-            self.upto = batch_upto
+            self.upto += consumed
             self.last_error = None
             self.save()
             return True
@@ -188,27 +220,19 @@ class RollingGist:
                    and (m.get("fields") or {}).get("gist_eligible")]
         if not pending or self.judge is None:
             return False
-        rendered, consumed = self._batch(
-            pending,
-            lambda m: (f"Private {m.get('type', 'idle')} experience: "
-                       f"{m.get('content', '')}"))
-        if not consumed:
-            return False
-        batch = pending[:consumed]
         try:
-            raw = self.judge.chat(
-                _SYSTEM.format(target_words=self.target_words),
-                f"PREVIOUS RUNNING MEMORY:\n"
-                f"{self.gist or '(nothing yet — this is the start)'}\n\n"
-                f"NEW PRIVATE EXPERIENCES:\n{rendered}\n\n"
-                "UPDATED RUNNING MEMORY:",
-                max_tokens=self.max_tokens, temperature=0.0)
-            text = (raw or "").strip()
+            text, consumed = self._judge_batch(
+                pending,
+                lambda m: (f"Private {m.get('type', 'idle')} experience: "
+                           f"{m.get('content', '')}"),
+                "NEW PRIVATE EXPERIENCES")
+            if not consumed:
+                return False
             if not text:
                 self.last_error = "empty idle gist from judge; kept prior"
                 return False
             self.gist = text
-            self.idle_ids.extend(m["id"] for m in batch)
+            self.idle_ids.extend(m["id"] for m in pending[:consumed])
             self.last_error = None
             self.save()
             return True

@@ -792,6 +792,9 @@ class TurnEngine:
                              for r in recalled],
                 "budget": list(asm.report or []),
                 "temperature": temp,
+                "provider": getattr(
+                    getattr(self.adapter, "client", None),
+                    "last_response_meta", None),
             },
             "felt": {"felt": delta["felt"], "why": delta["why"]},
             "state": self.get_state(),

@@ -74,13 +74,13 @@ managed release files and are never replaced by the patcher. The **Settings →
 Updates** page shows the installed version and can perform a read-only GitHub
 check.
 
-The public header has two stable doors:
+The public header has three stable doors:
 
 - **Household** keeps every persona and the Nexus in the top bar. Open any one
   to reveal the current set side by side, then drag the dividers to give each
   conversation the width it needs.
-- **The Nexus** is a shared local room. Add and remove current users or personas
-  from its dropdown, and let a present user speak into the room.
+- **Nexus** opens that shared local room directly. Add and remove current users
+  or personas from its dropdown, and let a present user speak into the room.
 - **Settings** contains account/privacy and bedrock facts, household appearance,
   persona faces and icons, API keys, per-persona visual routing, model and organ
   prompts, and updates.

@@ -28,6 +28,8 @@ prompt_structure:
 sampling:
   temperature:
     mode: omit
+reasoning:
+  effort: low
 capabilities:
   tool_use: false
   vision: true

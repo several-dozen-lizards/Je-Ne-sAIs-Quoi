@@ -223,6 +223,70 @@ class OpenAICompatClient:
                          .get("stop_sequences") or []
         self.temperature_policy = ((spec.get("sampling") or {})
                                    .get("temperature") or {})
+        self.reasoning_effort = ((spec.get("reasoning") or {})
+                                 .get("effort"))
+        self.last_response_meta = None
+
+    @staticmethod
+    def _visible_content(data: dict) -> str:
+        choices = data.get("choices") or []
+        if not choices:
+            return ""
+        content = (choices[0].get("message") or {}).get("content")
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            return "".join(
+                str(part.get("text") or "") for part in content
+                if isinstance(part, dict)
+                and part.get("type") in {"text", "output_text"})
+        return ""
+
+    @staticmethod
+    def _response_meta(data: dict, attempts: int) -> dict:
+        choices = data.get("choices") or []
+        choice = choices[0] if choices else {}
+        usage = data.get("usage") or {}
+        details = usage.get("completion_tokens_details") or {}
+        return {
+            "attempts": attempts,
+            "finish_reason": choice.get("finish_reason"),
+            "completion_tokens": usage.get("completion_tokens"),
+            "reasoning_tokens": details.get("reasoning_tokens"),
+        }
+
+    @staticmethod
+    def _lower_reasoning_effort(effort):
+        ladder = ["high", "medium", "low", "minimal", "none"]
+        if effort not in ladder:
+            return effort
+        return ladder[min(ladder.index(effort) + 1, len(ladder) - 1)]
+
+    def _post(self, headers: dict, body: dict):
+        """Post once, then shed one explicitly rejected optional control."""
+        r = requests.post(self.url, headers=headers, json=body, timeout=360)
+        if r.status_code != 400:
+            return r
+        try:
+            error = (r.json().get("error") or {})
+        except Exception:
+            error = {}
+        param = error.get("param")
+        code = error.get("code")
+        if code == "unsupported_parameter" and param == "max_tokens" \
+                and "max_tokens" in body:
+            body["max_completion_tokens"] = body.pop("max_tokens")
+        elif ((param in {"temperature", "stop", "reasoning_effort"}
+               and _rejected_parameter(error, param) and param in body)
+              or (_rejected_parameter(error, "temperature")
+                  and "temperature" in body)):
+            rejected = (param if param in {
+                "temperature", "stop", "reasoning_effort"
+            } else "temperature")
+            body.pop(rejected)
+        else:
+            return r
+        return requests.post(self.url, headers=headers, json=body, timeout=360)
 
     def chat(self, system: str, user: str, max_tokens: int = 200,
              temperature: float = 0.3, images: list = None) -> str:
@@ -250,43 +314,54 @@ class OpenAICompatClient:
                                                temperature)
         if wire_temperature is not None:
             body["temperature"] = wire_temperature
+        if self.reasoning_effort:
+            body["reasoning_effort"] = self.reasoning_effort
         body[self.token_limit_param] = max_tokens
         if self.stops:
             body["stop"] = self.stops
         # 360s, same reasoning as Ollama: a local server juggling VRAM
         # can legitimately take minutes; hanging up loses the turn
-        r = requests.post(self.url, headers=headers, json=body, timeout=360)
-        # Compatible APIs differ on a few optional Chat Completions
-        # parameters. Invalid requests consume no generation; adapt once
-        # when the provider explicitly names a safe optional parameter.
-        if r.status_code == 400:
-            try:
-                error = (r.json().get("error") or {})
-            except Exception:
-                error = {}
-            param = error.get("param")
-            code = error.get("code")
-            if code == "unsupported_parameter" and param == "max_tokens" \
-                    and "max_tokens" in body:
-                body["max_completion_tokens"] = body.pop("max_tokens")
-                r = requests.post(self.url, headers=headers, json=body,
-                                  timeout=360)
-            elif ((param in {"temperature", "stop"}
-                   and _rejected_parameter(error, param) and param in body)
-                  or (_rejected_parameter(error, "temperature")
-                      and "temperature" in body)):
-                rejected = (param if param in {"temperature", "stop"}
-                            else "temperature")
-                body.pop(rejected)
-                r = requests.post(self.url, headers=headers, json=body,
-                                  timeout=360)
+        r = self._post(headers, body)
         if r.status_code != 200:
             raise RuntimeError(f"API {r.status_code}: {r.text[:300]}")
         data = r.json()
-        choices = data.get("choices") or []
-        if not choices:
-            return ""
-        return (choices[0].get("message") or {}).get("content", "") or ""
+        reply = self._visible_content(data)
+        self.last_response_meta = self._response_meta(data, 1)
+        if reply.strip():
+            return reply
+
+        # A reasoning model can spend the whole completion allowance on
+        # hidden work and return no visible speech. That is not a valid turn.
+        # Retry once: the new ceiling grows by observed completion usage (at
+        # most one original allowance), while configured reasoning steps down
+        # one rung. The response itself determines the recovery pressure.
+        limit_key = ("max_completion_tokens"
+                     if "max_completion_tokens" in body else "max_tokens")
+        limit = int(body.get(limit_key) or max_tokens)
+        observed = int(self.last_response_meta.get("completion_tokens") or 0)
+        increment = min(limit, observed if observed > 0 else limit)
+        retry_body = dict(body)
+        retry_body[limit_key] = limit + increment
+        if retry_body.get("reasoning_effort"):
+            retry_body["reasoning_effort"] = self._lower_reasoning_effort(
+                retry_body["reasoning_effort"])
+        r = self._post(headers, retry_body)
+        if r.status_code != 200:
+            raise RuntimeError(f"API {r.status_code}: {r.text[:300]}")
+        retry_data = r.json()
+        reply = self._visible_content(retry_data)
+        self.last_response_meta = self._response_meta(retry_data, 2)
+        self.last_response_meta["recovered_empty_reply"] = bool(reply.strip())
+        self.last_response_meta["completion_limit"] = retry_body[limit_key]
+        if reply.strip():
+            return reply
+        meta = self.last_response_meta
+        raise RuntimeError(
+            "API returned no visible reply after adaptive retry "
+            f"(finish_reason={meta.get('finish_reason')!r}, "
+            f"completion_tokens={meta.get('completion_tokens')!r}, "
+            f"reasoning_tokens={meta.get('reasoning_tokens')!r}, "
+            f"completion_limit={meta.get('completion_limit')})")
 
 
 def client_for(spec: dict):

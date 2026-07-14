@@ -100,6 +100,7 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
   <div class="brand">Je Ne S<span class="ai">ai</span>s Quoi</div>
   <div class="tagline">a local home for persistent AI personas</div>
   <nav class="top-nav"><button type="button" data-top-page="personas">🏠 Household</button>
+    <button type="button" data-top-page="nexus">🌐 Nexus</button>
     <button type="button" data-top-page="settings">⚙ Settings</button></nav>
   <div id="status">connecting…</div>
 </header>
@@ -166,12 +167,15 @@ state.active=localStorage.getItem("jnsq.public.active")||null;
 const esc = value => String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
 
 function showTopPage(page){
+  const surface=page==="nexus"?"personas":page;
   document.querySelectorAll("[data-top-page]").forEach(button=>button.classList.toggle("on",button.dataset.topPage===page));
-  document.querySelectorAll(".top-page").forEach(section=>section.classList.toggle("on",section.id===`page-${page}`));
+  document.querySelectorAll(".top-page").forEach(section=>section.classList.toggle("on",section.id===`page-${surface}`));
   localStorage.setItem("jnsq.public.page",page);
 }
 document.querySelectorAll("[data-top-page]").forEach(button=>button.onclick=()=>{
-  showTopPage(button.dataset.topPage);if(button.dataset.topPage==="personas")showHome();
+  if(button.dataset.topPage==="nexus")openNexus();
+  else if(button.dataset.topPage==="personas")showHome();
+  else showTopPage(button.dataset.topPage);
 });
 function showHome(){showTopPage("personas");$("personaHome").hidden=false;$("panelScreen").classList.remove("on");}
 function openPanel(id){
@@ -179,9 +183,11 @@ function openPanel(id){
   state.selected.add(id);state.active=id;persist();syncWorkspace();
   $("personaHome").hidden=true;$("panelScreen").classList.add("on");
 }
+function openNexus(){showTopPage("nexus");openPanel("world");}
 $("homeButton").onclick=showHome;
-showTopPage(localStorage.getItem("jnsq.public.page")==="settings"?"settings":"personas");
-if(localStorage.getItem("jnsq.public.page")!=="settings")showHome();
+const initialPage=["personas","nexus","settings"].includes(localStorage.getItem("jnsq.public.page"))?
+  localStorage.getItem("jnsq.public.page"):"personas";
+if(initialPage==="nexus")openNexus();else if(initialPage==="settings")showTopPage("settings");else showHome();
 
 async function request(url, options={}){
   const res=await fetch(url,options); let body={};
@@ -332,7 +338,7 @@ $("rosterSave").onclick=async()=>{const button=$("rosterSave"),model=$("rosterMo
       body:JSON.stringify({model})});$("rosterDialog").close();await refresh();}
   catch(e){$("rosterError").textContent=e.message;}finally{button.disabled=false;}};
 
-$("openWorld").onclick=()=>openPanel("world");
+$("openWorld").onclick=openNexus;
 $("createForm").onsubmit=async e=>{
   e.preventDefault();const btn=$("createBtn");btn.disabled=true;$("createError").textContent="";
   try{const made=await request("/api/personas/create",{method:"POST",headers:{"Content-Type":"application/json"},

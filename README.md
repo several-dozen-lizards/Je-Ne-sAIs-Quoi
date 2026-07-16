@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/jnsq/jnsq_favicon.svg" width="112" alt="Je Ne Sais Quoi mask logo">
+  <img src="assets/jnsq/jnsq-venetian-mask-space.png" alt="A Venetian mask floating in a field of stars above the words Je Ne Sais Quoi">
 </p>
 
 # Je Ne Sais Quoi
@@ -110,5 +110,5 @@ machine-specific state.
 ---
 
 <p align="center">
-  <img src="assets/jnsq/jnsq-venetian-mask-space.png" alt="A Venetian mask floating in a field of stars above the words Je Ne Sais Quoi">
+  <img src="assets/jnsq/jnsq_favicon.svg" width="112" alt="Je Ne Sais Quoi mask logo">
 </p>

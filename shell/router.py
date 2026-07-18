@@ -437,6 +437,13 @@ def build_app(room_url: str = None) -> FastAPI:
             page = f.read()
         return page.replace("/*CONFIG*/", _json.dumps(cfg))
 
+    @app.get("/about", response_class=HTMLResponse)
+    def about_page():
+        """Public field guide: setup, features, embodiment, and receipts."""
+        with open(os.path.join(ROOT, "shell", "about.html"),
+                  encoding="utf-8") as f:
+            return f.read()
+
     def installed_version() -> str:
         try:
             if os.path.exists(MANIFEST_PATH):

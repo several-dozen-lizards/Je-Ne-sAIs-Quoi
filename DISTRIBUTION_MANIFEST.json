@@ -1,7 +1,7 @@
 {
   "format": 2,
-  "version": "0.5.4",
-  "files": 106,
+  "version": "0.5.5",
+  "files": 107,
   "contains_personal_data": false,
   "empty_local_roots": [
     "personas",
@@ -70,7 +70,7 @@
     "harness/clients.py": "9f94c0d6ed46b36f4c3651d4ad0faf2789b3b8487f3b206febe41ab37d2959a4",
     "harness/spec_loader.py": "5f283b86d5fa5c61b05c2622243b8810b5d1d2cbc31602bf2dde834910dfa9d9",
     "INSTALL_JNSQ.bat": "0cc6e306cd124acb5346f20fbc9cd5023b0db3c89f19c4ba91e7550f55e21ffd",
-    "README.md": "8fb089312fc7a29680c764da236c130c6d46e7adbc79295db59c3d2e732f1a9e",
+    "README.md": "58be56e1e728ffb660049b7d3314f76e4cc0c5b22bc2958b05cf6ced1c0ca8d4",
     "requirements.txt": "95f3958ef83d75ab62d3275f0b03e7ebd63a36a831b9709b18115b22c69f33ba",
     "room/__init__.py": "7095f6cbb0b61f7374669ec93cce972dd6d3c4a45d18cba7f0eb5ba85932f62d",
     "room/host.py": "f5b913a23a10e3224da7addc40e6979eb7227bdab5787d01926f06a4c05354d9",
@@ -79,19 +79,20 @@
     "room/viewer.html": "f07ee4887526e170d438795e3acce6029b26eab1b5d711677c11961dba2c7986",
     "SETUP_JNSQ.ps1": "63edf344db43d92e1b342ce7bb013be20730e687ddecf33b83ee0da2ea8868e2",
     "shell/__init__.py": "51a9a935ce8b9bc0977e2cfcd74db27fe52a47420a9131ac6b8aa8479f172b2a",
+    "shell/about.html": "42d9d576cfae19b7cf0756741362dfe4dadd6a2f85b10911d175fcf5023044ed",
     "shell/boot.py": "45a07ea63077a7441aa440cb08df7b0564a9fb5276648337eb918a079233c970",
     "shell/cockpit.html": "20bd1ccd44216fe7d377923be9729d89b778ab61fb11123d2fd00be13dbe38f5",
     "shell/cockpit.py": "792ae84ecb9753dbb8538f19ddb27309c0e9ebc9762bfd963e264d06a2a10c60",
     "shell/contract.py": "402340f3ef0730992056d9f2df5b0f2ce7f9fff47ea162578b4b277e9e7e603d",
     "shell/env_store.py": "72ef7d967ca7e885302934204d87179e1b4dfffebe3930dc787c24178c099669",
     "shell/factory.py": "7d7fc5f0ae20ea2439a2f7179117b3f551a979e3c13dcff7f06db6a721d480b9",
-    "shell/fangwall.html": "c5d4d4915dd53beb561a1c0ddeefa820f95ead9ccdc696fb7119c41ef0dec9c7",
+    "shell/fangwall.html": "07256c513865010092da94454b3d911e0955cde1d3771adbc67566486b060dbb",
     "shell/first_run.py": "814911687ef93cc76bf42c2aed763a69fcc2f94a7a93406083cb20f7081dd946",
     "shell/image_input.py": "e3ce1d1d8d1fccee3423ba81bfb82010710e1c6fb436b0a522ca4e177a5522d0",
     "shell/local_identity.py": "af950360c978a8a4d6ecfe69ff918d792ef6f8f47e64ff6c09cd2de2d65dd11e",
     "shell/model_catalog.py": "17f4abfa009bee208c589460fe5385c4ff167a3f54c40308f32f507bfb48aebe",
     "shell/persona_media.py": "73055b9a0542ec3a8984d81f6caf3308c83d22c82dd43f853eee94fddeccac73",
-    "shell/router.py": "9742c3ec9549abc1f4bc9102fb74b7a0ccbd248b0f188ad2c41a414374819bb9",
+    "shell/router.py": "d15e3a27d7bd3191bb94c14656817688d669c181afda36020d30ff26bc355d0e",
     "shell/settings.html": "dad64c9603083f5a33e4d9ee6b596d40c2130f21bd649965d8d3a60269de4c56",
     "shell/system_prompts.py": "51d754ce54f09be76dd962931c7ec6ff58fbb467418eec61c2efdfdf55720007",
     "shell/ui/household_theme.json": "2d313af1a3d5ef674f75c6eadb3b209dfe4652fa6d7e522a3813c720464ccf17",
@@ -115,6 +116,6 @@
     "tools/smoke_distribution.py": "8a44100c6ab8edbc48f82f9015eda6b9d0e30b98dbb57cca0e6d216e1b795c7a",
     "UPDATE_JNSQ.bat": "21c0ba7c15a43eb06bc6a317ee8cf5b6910c36a53bde7ec615ea6a673ef10bdc",
     "UPDATE_JNSQ.ps1": "edd5d955cd5bcaae403a3c186d5b015727f8b823fec8b9182101621e6ea1dfb9",
-    "VERSION": "a7711142bc1fc55c16b9147a1503a4f2c4717be5c1e4437772a047f52ef81db2"
+    "VERSION": "ac3bf208eb88be6542e3fc750b511b112cf25bc40e46dca2a50819e43cf59096"
   }
 }

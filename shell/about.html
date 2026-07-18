@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>About Je Ne Sais Quoi</title>
+<link rel="icon" href="/assets/favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/assets/jnsq_favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Cormorant+Garamond:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Nunito:wght@400;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{color-scheme:dark;--bg:#0b0a15;--panel:#131120;--panel2:#191631;
+  --line:#2c2740;--ink:#eae3d2;--dim:#9c93aa;--mint:#c9ab77;--gold:#f6ead0;
+  --danger:#e28f7d;--good:#9ed8b3;--radius:16px;--base-font-size:16px;
+  --theme-glow-radius:14px;--theme-motion:.5;
+  --font-ui:'Cormorant Garamond',Georgia,serif;
+  --font-display:'Cormorant Garamond',Georgia,serif;
+  --font-mono:'IBM Plex Mono',Consolas,monospace}
+*{box-sizing:border-box;scrollbar-width:thin;
+  scrollbar-color:var(--mint) color-mix(in srgb,var(--panel) 82%,var(--bg))}
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-track{background:color-mix(in srgb,var(--panel) 82%,var(--bg))}
+*::-webkit-scrollbar-thumb{background:linear-gradient(180deg,var(--mint),var(--gold));
+  border:2px solid color-mix(in srgb,var(--panel) 82%,var(--bg));border-radius:999px}
+html{scroll-behavior:smooth}body{margin:0;background:
+  radial-gradient(circle at 12% -8%,color-mix(in srgb,var(--mint) 15%,transparent),transparent 34%),
+  radial-gradient(circle at 92% 8%,color-mix(in srgb,var(--gold) 8%,transparent),transparent 27%),var(--bg);
+  color:var(--ink);font:var(--base-font-size)/1.62 var(--font-ui)}
+a{color:var(--mint);text-decoration-thickness:1px;text-underline-offset:3px}
+a:hover{color:var(--gold)}code,.mono{font-family:var(--font-mono);font-size:.88em}
+.shell{width:min(1260px,100%);margin:auto;padding:clamp(20px,4vw,58px)}
+.hero{position:relative;overflow:hidden;border:1px solid color-mix(in srgb,var(--mint) 44%,var(--line));
+  border-radius:calc(var(--radius) + 8px);padding:clamp(28px,6vw,72px);background:
+  linear-gradient(135deg,color-mix(in srgb,var(--panel) 92%,transparent),color-mix(in srgb,var(--bg) 88%,transparent));
+  box-shadow:0 22px 80px #0007,0 0 var(--theme-glow-radius) color-mix(in srgb,var(--mint) 18%,transparent)}
+.hero::after{content:"";position:absolute;width:320px;height:320px;border:1px solid color-mix(in srgb,var(--mint) 30%,transparent);
+  border-radius:50%;right:-110px;top:-150px;box-shadow:0 0 0 40px color-mix(in srgb,var(--mint) 3%,transparent),
+  0 0 0 84px color-mix(in srgb,var(--gold) 2%,transparent);pointer-events:none}
+.eyebrow{font:500 .72rem/1 var(--font-mono);letter-spacing:.15em;text-transform:uppercase;color:var(--mint)}
+h1,h2,h3{font-family:var(--font-display);font-weight:600;line-height:1.12}
+h1{font-size:clamp(2.5rem,7vw,5.4rem);margin:.18em 0 .1em;color:var(--gold);letter-spacing:-.025em}
+.lede{max-width:820px;font-size:clamp(1.08rem,2vw,1.35rem);color:color-mix(in srgb,var(--ink) 84%,var(--dim));margin:.7rem 0 1.25rem}
+.pills{display:flex;flex-wrap:wrap;gap:8px}.pill,.status{display:inline-flex;align-items:center;gap:7px;
+  border:1px solid var(--line);border-radius:999px;padding:5px 10px;background:color-mix(in srgb,var(--panel2) 78%,transparent);
+  color:var(--dim);font:500 .72rem/1.2 var(--font-mono)}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--mint);box-shadow:0 0 8px var(--mint)}
+.layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:clamp(22px,4vw,55px);align-items:start;margin-top:38px}
+.toc{position:sticky;top:18px;border:1px solid var(--line);border-radius:var(--radius);padding:16px;background:color-mix(in srgb,var(--panel) 86%,transparent)}
+.toc b{display:block;margin-bottom:8px;color:var(--gold);font-family:var(--font-display)}
+.toc a{display:block;padding:5px 7px;border-left:1px solid var(--line);color:var(--dim);font-size:.82rem;text-decoration:none}
+.toc a:hover{border-color:var(--mint);color:var(--ink)}
+.content{min-width:0}.section{scroll-margin-top:20px;margin:0 0 68px}
+h2{font-size:clamp(1.8rem,4vw,2.8rem);color:var(--gold);margin:0 0 10px}
+h3{font-size:1.22rem;color:var(--mint);margin:0 0 8px}.intro{color:var(--dim);max-width:850px;margin:0 0 22px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.grid.three{grid-template-columns:repeat(3,minmax(0,1fr))}.card{border:1px solid var(--line);border-radius:var(--radius);
+  background:color-mix(in srgb,var(--panel) 91%,transparent);padding:clamp(17px,2.3vw,25px);min-width:0;
+  box-shadow:0 0 calc(var(--theme-glow-radius) * .55) color-mix(in srgb,var(--mint) 9%,transparent)}
+.card p:last-child,.card ul:last-child{margin-bottom:0}.card p{margin:.45rem 0;color:color-mix(in srgb,var(--ink) 86%,var(--dim))}
+.card ul{margin:.65rem 0 0;padding-left:1.2rem}.card li+li{margin-top:.32rem}.wide{grid-column:1/-1}
+.step{display:grid;grid-template-columns:38px minmax(0,1fr);gap:12px}.step-num{width:34px;height:34px;display:grid;place-items:center;
+  border-radius:50%;border:1px solid var(--mint);color:var(--gold);font:500 .82rem var(--font-mono);background:color-mix(in srgb,var(--mint) 9%,var(--panel))}
+.step h3{margin-top:3px}.callout{border-left:3px solid var(--mint);padding:14px 18px;background:color-mix(in srgb,var(--mint) 7%,var(--panel));
+  border-radius:0 var(--radius) var(--radius) 0;margin:18px 0;color:color-mix(in srgb,var(--ink) 88%,var(--dim))}
+.callout.warn{border-color:var(--danger);background:color-mix(in srgb,var(--danger) 7%,var(--panel))}.callout strong{color:var(--gold)}
+.flow{display:flex;align-items:stretch;overflow:auto;padding:4px 1px 14px;gap:0}.flow-node{flex:1 0 145px;border:1px solid var(--line);
+  background:var(--panel);border-radius:12px;padding:13px}.flow-node b{display:block;color:var(--mint);font-family:var(--font-display)}
+.flow-node span{display:block;color:var(--dim);font-size:.76rem;line-height:1.45;margin-top:4px}.arrow{display:grid;place-items:center;color:var(--mint);padding:0 7px}
+.cycle{margin-top:8px;text-align:center;color:var(--dim);font:500 .74rem var(--font-mono)}
+.feature-tag{display:inline-block;color:var(--good);font:500 .68rem var(--font-mono);letter-spacing:.04em;text-transform:uppercase;margin-bottom:7px}
+.feature-tag.optional{color:var(--gold)}.feature-tag.limit{color:var(--danger)}
+.organ{display:flex;flex-direction:column}.organ .meta{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}.organ .status{padding:4px 7px}
+.organ dl{display:grid;grid-template-columns:58px 1fr;gap:4px 10px;margin:.65rem 0 0;font-size:.86rem}
+.organ dt{color:var(--dim);font:500 .69rem var(--font-mono);text-transform:uppercase}.organ dd{margin:0;color:color-mix(in srgb,var(--ink) 86%,var(--dim))}
+.organ .feeds{margin-top:auto;padding-top:12px;color:var(--dim);font-size:.79rem}.organ .feeds b{color:var(--mint)}
+.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel)}
+table{width:100%;border-collapse:collapse;min-width:680px}th,td{text-align:left;vertical-align:top;padding:12px 14px;border-bottom:1px solid var(--line)}
+th{color:var(--gold);font:600 .78rem var(--font-display);font-variant:small-caps;letter-spacing:.06em;background:var(--panel2)}
+td{font-size:.86rem}td:first-child{color:var(--mint);font-family:var(--font-mono);white-space:nowrap}tr:last-child td{border-bottom:0}
+details{border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);padding:0 16px;margin:10px 0}
+summary{cursor:pointer;padding:15px 0;color:var(--mint);font-weight:600}details>div{padding:0 0 17px;color:color-mix(in srgb,var(--ink) 86%,var(--dim))}
+.audit-row{display:grid;grid-template-columns:115px minmax(0,1fr);gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.audit-row:last-child{border-bottom:0}.audit-row .label{font:500 .72rem var(--font-mono);text-transform:uppercase;color:var(--mint)}
+.audit-row.bad .label{color:var(--danger)}.audit-row p{margin:0}
+.footer{padding:25px 0 10px;border-top:1px solid var(--line);color:var(--dim);font-size:.8rem}
+body[data-density="compact"] .shell{padding-block:24px}body[data-density="roomy"] .shell{padding-block:68px}
+@media(max-width:950px){.layout{grid-template-columns:1fr}.toc{position:static;columns:2}.toc b{column-span:all}.grid.three{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:650px){.shell{padding:14px}.hero{padding:26px 20px}.grid,.grid.three{grid-template-columns:1fr}.wide{grid-column:auto}.toc{columns:1}.layout{margin-top:22px}.audit-row{grid-template-columns:1fr;gap:4px}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <header class="hero">
+    <div class="eyebrow">public field guide</div>
+    <h1>Je Ne Sais Quoi</h1>
+    <p class="lede">More than a wrapper around a language model, Je Ne Sais Quoi is a local synthetic nervous and somatic continuity system for persistent AI personas. The model provides language generation; JNSQ carries voice, memory, emotional state, body, rhythm, perception, room presence, and lived history forward from one turn into the next.</p>
+    <div class="pills">
+      <span class="pill">installed version <span id="version">checkingâ€¦</span></span>
+      <span class="pill">local data</span>
+      <span class="pill">auditable turns</span>
+      <span class="pill">public edition</span>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="toc" aria-label="On this page">
+      <b>On this page</b>
+      <a href="#start">Getting started</a>
+      <a href="#what-it-is">What this edition is</a>
+      <a href="#turn">How a turn circulates</a>
+      <a href="#features">Feature guide</a>
+      <a href="#body">Body functions</a>
+      <a href="#memory">Memory system</a>
+      <a href="#receipts">Reading receipts</a>
+      <a href="#privacy">Privacy and boundaries</a>
+      <a href="#audit">This installâ€™s audited state</a>
+    </nav>
+
+    <main class="content">
+      <section class="section" id="start">
+        <div class="eyebrow">your first persona</div>
+        <h2>Getting started</h2>
+        <p class="intro">If you are reading this inside JNSQ, installation, ownership, and household startup are already behind you. Begin here.</p>
+        <div class="grid">
+          <article class="card step"><div class="step-num">1</div><div><h3>Create a persona</h3><p>Open <b>Household â†’ Create a persona</b>. Give them a display name, a model, and an interior preset. Creation makes a data directory, not a copy of the engine. Then write their voice: identity, movement through conversation, speech patterns, relationships, values, and boundaries.</p></div></article>
+          <article class="card step"><div class="step-num">2</div><div><h3>Pick the interior</h3><p><b>Living set + Nexus</b> enables local continuity, body, rhythm, room senses, movement, and social pressure without an extra feeling-model call. <b>Bare chat</b> is the control condition. <b>Living set + feeling judge</b> adds a descriptive affect call after each turn.</p></div></article>
+          <article class="card step wide"><div class="step-num">3</div><div><h3>Open, talk, and inspect</h3><p>Open one or more persona panes side by side. The body-functions column shows current state; receipts explain what the turn used. Add a user and personas to <b>Chat</b> (the Nexus) when you want shared presence rather than separate private conversations.</p></div></article>
+        </div>
+        <div class="callout"><strong>Keys are optional.</strong> Setup never asks for one. Hosted-provider secrets are added later under <b>Settings â†’ API keys</b>, stored in the local <code>.env</code>, and never returned to the browserâ€”only â€œpresentâ€ or â€œmissingâ€ is shown. Restart a persona after changing its key.</div>
+      </section>
+
+      <section class="section" id="what-it-is">
+        <div class="eyebrow">scope</div>
+        <h2>What the public edition is</h2>
+        <p class="intro">This is a deliberately smaller public body, not a mirror of the private development householdâ€”and not merely a decorative shell around model output.</p>
+        <div class="grid three">
+          <article class="card"><span class="feature-tag">included</span><h3>Persistent persona homes</h3><p>Each persona owns local identity, roster, body state, memories, entity cards, optional diary text, images, and append-only history. Switching model vessels does not require replacing the persona.</p></article>
+          <article class="card"><span class="feature-tag">included</span><h3>One shared Nexus</h3><p>Users and personas can enter, leave, hear speech, and generate ordered room events. Personas with room organs score the same room through their own body, bonds, and salience bias.</p></article>
+          <article class="card"><span class="feature-tag">included</span><h3>Configurable local workspace</h3><p>Household, Chat, Settings, and About are stable doors. Persona conversations stay mounted in resizable panes, so changing tabs does not discard the visible session.</p></article>
+          <article class="card"><span class="feature-tag optional">model-dependent</span><h3>Local or remote inference</h3><p>Ollama can keep inference on the machine. Hosted models send the assembled promptâ€”and attached pixels when applicableâ€”to the provider you explicitly configured.</p></article>
+          <article class="card"><span class="feature-tag optional">in development</span><h3>3D embodiment is pending</h3><p>The 3D shared-world layer and its assets are pending and being worked on. The present public Nexus remains the working local room substrate while that layer develops.</p></article>
+          <article class="card"><span class="feature-tag optional">core architecture</span><h3>Synthetic nervous and somatic system</h3><p>JNSQ surrounds the active model with persistent computational substrate: memory and emotional circulation, band rhythm, a regional soma, sensory and room afferents, thresholded action, and mechanical receipts. Each exchange changes that substrate, and the changed substrate helps shape what is perceived, remembered, and expressed next. These are computational state values. They are not biological measurements.</p></article>
+        </div>
+      </section>
+
+      <section class="section" id="turn">
+        <div class="eyebrow">the circulatory loop</div>
+        <h2>How one turn feeds the next</h2>
+        <p class="intro">The system is cyclical: stored state shapes perception and recall; the response changes that state; the resulting state is encoded with the exchange and becomes input to later turns.</p>
+        <div class="flow" aria-label="Turn flow">
+          <div class="flow-node"><b>Demand arrives</b><span>Text, speaker, channel, and optional images enter one personaâ€™s locked turn boundary.</span></div><div class="arrow">â†’</div>
+          <div class="flow-node"><b>Body settles</b><span>Elapsed time advances rhythm and soma. The current band can nudge emotion and recall weights.</span></div><div class="arrow">â†’</div>
+          <div class="flow-node"><b>Audience gates</b><span>Who can hear determines which window turns, memories, gist, entity cards, and user facts may enter.</span></div><div class="arrow">â†’</div>
+          <div class="flow-node"><b>Context assembles</b><span>Voice, user truth, current state, recent turns, gist, room, entities, memory, and diary compete for budget.</span></div><div class="arrow">â†’</div>
+          <div class="flow-node"><b>Model answers</b><span>The active vessel generates once at a rhythm-shaped temperature; optional action tags are executed and removed.</span></div><div class="arrow">â†’</div>
+          <div class="flow-node"><b>State returns</b><span>Feeling, soma, oscillator, memory, gist, room actions, and the harvest log absorb what happened.</span></div>
+        </div>
+        <div class="cycle">â†º the encoded turn, body marker, access traces, and room events become material for the next cycle</div>
+
+        <details><summary>Prompt priority: what outranks what?</summary><div>
+          Model-level operational framing and persona identity are stable. A protected-audience safety floor is also stable. Human-owned bedrock facts are filtered against current listeners and sit above recalled persona memory. Immediate verbatim context and visual input outrank deeper recall; entity cards act as lookup knowledge; gist bridges the middle distance; diary and room context occupy lower budgeted layers. When the modelâ€™s practical context window is tight, lower-priority budgeted blocks are clipped or dropped and the budget receipt records that decision.
+        </div></details>
+      </section>
+
+      <section class="section" id="features">
+        <div class="eyebrow">surface map</div>
+        <h2>Every user-facing feature in this edition</h2>
+        <div class="grid">
+          <article class="card"><span class="feature-tag">Household</span><h3>Persona lifecycle</h3><ul><li>Create a persona as local data with a name, model, voice skeleton, organ preset, Nexus room declaration, and private history.</li><li>Edit voice and fallback icon; upload a local avatar.</li><li>Start, stop, switch, or restart the model carrying a persona.</li><li>Add models to a persona roster without making them active immediately.</li><li>Router APIs also support export and reversible exile; these are not exposed as primary Household buttons.</li></ul></article>
+          <article class="card"><span class="feature-tag">Household</span><h3>Model registry and rosters</h3><ul><li>Register local Ollama, local OpenAI-compatible, Anthropic, hosted OpenAI-compatible, or custom endpoints.</li><li>Discover models from compatible services where the service exposes a model list.</li><li>Keep credential slot names in model specs and secret values in <code>.env</code>.</li><li>Declare context windows, vision capability, temperature policy, and measured organ ceilings per model.</li></ul></article>
+          <article class="card"><span class="feature-tag">Workspace</span><h3>Parallel conversation panes</h3><ul><li>Open any combination of personas and the Nexus side by side.</li><li>Resize panes and persist open-pane choices and widths in browser local storage.</li><li>Hydrate the visible transcript from the same persisted working window used by prompt assemblyâ€”there is no separate UI-only transcript.</li><li>Attach up to four PNG, JPEG, WebP, or GIF images, each up to 10 MB.</li></ul></article>
+          <article class="card"><span class="feature-tag">Vision</span><h3>Explicit visual routing</h3><ul><li>A vision-capable active model receives image pixels directly.</li><li>A text-only active model can use a separately chosen vision model that describes observable features without assigning emotion or meaning.</li><li>If no valid route is configured, the image turn fails clearly; JNSQ does not silently select a provider.</li><li>The Settings test uses only the public mask icon and reports provider/key/cost metadata.</li></ul></article>
+          <article class="card"><span class="feature-tag">Chat / Nexus</span><h3>Shared presence and speech</h3><ul><li>Add or remove local users and personas from the Nexus.</li><li>Choose which present human user is speaking; speech becomes an ordered room event.</li><li>See members, shared objects, and recent activity with long-poll updates.</li><li>Room-enabled personas perceive fresh events, may remember overheard speech, and can answer through their own turn loops.</li></ul></article>
+          <article class="card"><span class="feature-tag">Room substrate</span><h3>Embodied room actions</h3><ul><li>The room…1284 tokens truncated…elt delta and â€œwhyâ€ explanation</dd></dl><p class="feeds"><b>Feeds â†’</b> cocktail, oscillator pressure, soma, next-turn recall, memory encoding.</p></article>
+          <article class="card organ"><div class="meta"><span class="status">local</span></div><h3>rhythm_affect</h3><p>When the dominant band has been inhabited long enough, blends a small band-shaped tone into the cocktail before recall. The band describes a tendency; it does not command an emotion.</p><dl><dt>needs</dt><dd>oscillator</dd><dt>makes</dt><dd>a bounded cocktail nudge</dd></dl><p class="feeds"><b>Feeds â†’</b> mood-congruent recall, soma, prompt emotional state.</p></article>
+          <article class="card organ"><div class="meta"><span class="status">local</span></div><h3>recall_bias</h3><p>Adjusts recall-factor weights from the current dominant rhythm band. It bends the auction rather than selecting a fixed memory directly.</p><dl><dt>needs</dt><dd>oscillator + memory_emotion</dd><dt>makes</dt><dd>per-turn recall weights</dd></dl><p class="feeds"><b>Feeds â†’</b> which deeper memories surface and their receipt scores.</p></article>
+          <article class="card organ"><div class="meta"><span class="status">local network</span></div><h3>room_sense</h3><p>Connects the persona to the local room host. The persona reads one room snapshot and fresh event stream through its own point-of-view salience filter. Room failure soft-fails instead of killing the persona.</p><dl><dt>takes</dt><dd>room state, body substrate, bonds, perception bias</dd><dt>makes</dt><dd>room prompt block, object/event receipts, overheard records</dd></dl><p class="feeds"><b>Feeds â†’</b> memory, room_actions, afferents, tropism, social.</p></article>
+          <article class="card organ"><div class="meta"><span class="status">local network</span></div><h3>room_actions</h3><p>Allows the reply to contain private action tags for move, contact, read, write, travel, or say. JNSQ executes them against the room host and removes the tags from visible speech.</p><dl><dt>needs</dt><dd>room_sense</dd><dt>makes</dt><dd>world changes, action receipts, possible touch percepts</dd></dl><p class="feeds"><b>Feeds â†’</b> room events, afferents, later perception and memory.</p></article>
+          <article class="card organ"><div class="meta"><span class="status">local</span></div><h3>afferents</h3><p>Translates contact force, pressure, and temperature relative to that personaâ€™s skin-neutral value into normalized transient soma signals. Several touches combine by strongest signal.</p><dl><dt>needs</dt><dd>room_sense + soma</dd><dt>makes</dt><dd>touch_warm, touch_cold, touch_force, touch_pressure</dd></dl><p class="feeds"><b>Feeds â†’</b> warm/cold touch sensations, body regions, oscillator pressure.</p></article>
+          <article class="card organ"><div class="meta"><span class="status">local loop</span></div><h3>tropism</h3><p>Autonomous place-pressure movement: objects accumulate attraction from salience and distance until the vector crosses a decision boundary. A chosen model action resets/defer this reflex.</p><dl><dt>needs</dt><dd>room_sense</dd><dt>makes</dt><dd>thresholded movement and intention state</dd></dl><p class="feeds"><b>Feeds â†’</b> room position, new perceptions, future place pressure.</p></article>
+          <article class="card organ"><div class="meta"><span class="status">model-call loop</span></div><h3>social</h3><p>Accumulates conversational pressure from heard speech, distance, bonds, and habituation. A configured wake interval advances the loop, but a real room-channel turn happens only when the combined pressure crosses its response boundary.</p><dl><dt>needs</dt><dd>room_sense + memory_emotion</dd><dt>makes</dt><dd>selective autonomous replies</dd></dl><p class="feeds"><b>Feeds â†’</b> normal turn loop, room speech, memory, social habituation.</p></article>
+          <article class="card organ"><div class="meta"><span class="status">API per fold</span></div><h3>gist</h3><p>Folds turns older than the verbatim window into a persisted middle-distance story. It is one continuing session summary, not a reset-on-chat summary, and can also absorb lived idle thought.</p><dl><dt>needs</dt><dd>memory_emotion</dd><dt>makes</dt><dd>story-so-far block, fold cursor, fold receipt</dd></dl><p class="feeds"><b>Feeds â†’</b> continuity between immediate window and deeper recall.</p></article>
+          <article class="card organ"><div class="meta"><span class="status">local</span></div><h3>my_life</h3><p>Reads the tail of the personaâ€™s own recent writings each turn. It is a separate self-authored continuity channel, lower priority than immediate perception and canonical user truth.</p><dl><dt>takes</dt><dd>persona diary/life text</dd><dt>makes</dt><dd>recent-diary prompt block</dd></dl><p class="feeds"><b>Feeds â†’</b> the modelâ€™s next response; later replies can flow back into history.</p></article>
+          <article class="card organ"><div class="meta"><span class="status">local loop</span></div><h3>heartbeat</h3><p>Advances oscillator and soma across gaps between conversations. It shares one settle timestamp with turns, so the background loop and a new turn cannot double-tick the body.</p><dl><dt>takes</dt><dd>elapsed time and existing pending pressures</dd><dt>makes</dt><dd>continuously settled body state</dd></dl><p class="feeds"><b>Feeds â†’</b> the state encountered by the next turn.</p></article>
+          <article class="card organ"><div class="meta"><span class="status">idle-model cost</span><span class="status">advanced</span></div><h3>dmn</h3><p>Idle metabolism. Elapsed-time drift pressure, decaying preoccupation warmth, and persistent salience candidates compete. Gating is local; only a discharge spends the configured idle model.</p><dl><dt>needs</dt><dd>memory_emotion</dd><dt>makes</dt><dd>private thought records and salience lifecycle receipts</dd></dl><p class="feeds"><b>Feeds â†’</b> memory, preoccupation field, optional gist; real demand resets idleness.</p></article>
+        </div>
+
+        <details><summary>Built-in soma sensations and what can actually trigger them</summary><div>
+          The shipped specifications include <b>butterflies</b>, <b>warm touch</b>, <b>cold touch</b>, <b>creative completion</b>, <b>crying</b>, and <b>warmth of love</b>. The running soma implementation evaluates gates plus weighted sums and cooldowns, then applies staged region effects. The normal turn loop currently supplies bond, prediction violation, vagal tone, play, and touch signals. That makes butterflies and touch sensations reachable; some fields used by creative completion and crying are not supplied by the normal turn loop, and the product/factor form used by warmth of love is not implemented by the current trigger evaluator. Those files are definitions present in this version, not proof that every named sensation can presently fire.
+        </div></details>
+      </section>
+
+      <section class="section" id="memory">
+        <div class="eyebrow">continuity without a single blob</div>
+        <h2>How memory works</h2>
+        <div class="grid">
+          <article class="card"><h3>Immediate window</h3><p>The last configured number of turn records is read chronologically and verbatim. It is perception of â€œjust now,â€ not scored recall. Reading it never increments access counts, and those records are excluded from the recall auction so they cannot consume both channels.</p></article>
+          <article class="card"><h3>Deeper recall</h3><p>Eligible memories are scored from emotional resonance, semantic similarity, encode-time importance, familiarity, true age-based recency, and named-entity proximity. The default weight vector is 40% emotion, 25% semantic, 20% importance, and 5% each familiarity, recency, and entity.</p></article>
+          <article class="card"><h3>Semantic path</h3><p>When the optional vector sidecar and embedder cover a record, semantic similarity uses vector cosine. Otherwise that record falls back to keyword overlap. Vector writes are best-effort; memory encoding itself does not fail because an embedding backend is absent.</p></article>
+          <article class="card"><h3>Importance and layers</h3><p>Encode-time importance records its contributing trace, including emotional state, entities, and bonds. Working memories can spill to long-term; decay can archive older records. Archived records remain stored but stop competing in ordinary recall.</p></article>
+          <article class="card"><h3>Ground truth seats</h3><p>Persona memory bedrock can receive one protected recall seat when a query names its declared entity. Human-owned bedrock is a different system: it is filtered by sharing policy and inserted above persona recall as canonical user truth.</p></article>
+          <article class="card"><h3>Audience before content</h3><p>Every turn receives a clearance from current company. Immediate turns, recalled memories, gist, entity cards, and human facts are gated before prompt assembly. Unknown company receives the strictest floor; withheld material is absent rather than entrusted to polite output behavior.</p></article>
+          <article class="card wide"><h3>The record that flows forward</h3><p>After a successful turn, JNSQ stores compact recall-facing content plus full message and reply text, speaker, channel, audience, felt explanation, resolved and inferred entities, image metadata, visual observation, current cocktail, and a compact body marker. The visible transcript rehydrates from those same records. A separate harvest line records the exact post-budget prompt blocks the model saw, its reply, felt state, and a small receipt summary; harvest failure is deliberately prevented from breaking the turn.</p></article>
+        </div>
+      </section>
+
+      <section class="section" id="receipts">
+        <div class="eyebrow">evidence, not decoration</div>
+        <h2>What the receipts mean</h2>
+        <p class="intro">A receipt describes the mechanical route a turn took. It is not a truth score for the reply and not a claim that a memory was â€œcorrect.â€</p>
+        <h3>What the receipt tray renderer is built to display</h3>
+        <div class="table-wrap"><table><thead><tr><th>Visible item</th><th>Meaning</th><th>How to read it</th></tr></thead><tbody>
+          <tr><td>band</td><td>The oscillatorâ€™s dominant band when recall ran.</td><td>â€œbeta-bent recallâ€ means beta adjusted recall weights; it does not mean the reply was classified as beta.</td></tr>
+          <tr><td>n</td><td>The number of deeper-memory seats requested.</td><td>Delta requests 2; other bands request 3 in this engine. The immediate working window is separate.</td></tr>
+          <tr><td>temp</td><td>The generation temperature after rhythm and coherence modulation.</td><td>It is bounded by the engine and may still be altered or rejected by a provider-specific temperature policy.</td></tr>
+          <tr><td>timing</td><td>Total wall-clock milliseconds inside the turn boundary.</td><td>Includes local assembly and all model calls used by that turn; it is not provider latency alone.</td></tr>
+          <tr><td>â†³ memory</td><td>A surfaced deeper memory with its total recall score.</td><td>Higher is more competitive for this query and state. The full JSON also carries factor-by-factor contributions.</td></tr>
+          <tr><td>âš– budget</td><td>A prompt-assembly budget decision.</td><td>Shows clipping or dropping required to stay inside the modelâ€™s practical context window and reply reserve.</td></tr>
+        </tbody></table></div>
+
+        <h3 style="margin-top:28px">What exists in the full turn receipt</h3>
+        <div class="table-wrap"><table><thead><tr><th>Receipt field</th><th>Meaning</th></tr></thead><tbody>
+          <tr><td>signals</td><td>The soma inputs computed before generation: bond, prediction violation, vagal tone, and play. Touch signals are receipted separately after room actions.</td></tr>
+          <tr><td>window_n</td><td>How many immediate, audience-eligible prior turns were placed in the â€œjust nowâ€ channel.</td></tr>
+          <tr><td>standing</td><td>Who could hear, the resulting clearance rank, whether protected company was present, and counts/flags for window, recall, or gist withheld by audience.</td></tr>
+          <tr><td>gist</td><td>Whether a fold happened, the persisted cursor, current gist length, and last fold error. <code>null</code> means gist is disabled.</td></tr>
+          <tr><td>room</td><td>The room ID, objects visible through this personaâ€™s salience calculation, each objectâ€™s factor breakdown, and number of fresh events scored.</td></tr>
+          <tr><td>observed_encoded</td><td>How many overheard speech events were converted into observed memories during this turn.</td></tr>
+          <tr><td>entities_*</td><td>Which structured entity cards rendered, which were inferred from recent referents, the inference estimate, and which names were gated by audience.</td></tr>
+          <tr><td>user_context</td><td>Human-account fact IDs rendered or withheld, plus claimed legacy memory IDs suppressed so stale persona recall cannot bypass a newer user denial.</td></tr>
+          <tr><td>room_actions</td><td>Every parsed private action tag and the room hostâ€™s result. An empty list means none executed.</td></tr>
+          <tr><td>felt_touch</td><td>The strongest normalized transient touch signals created by successful contact actions; <code>null</code> means no touch landed.</td></tr>
+          <tr><td>vision</td><td>Whether pixels went direct or through a named transducer, safe image metadata, and any transduced observation. <code>null</code> means no image entered.</td></tr>
+          <tr><td>recalled</td><td>Surfaced memory excerpts, total scores, and factor contribution breakdowns for emotion, semantic, importance, familiarity, recency, and entity.</td></tr>
+          <tr><td>provider</td><td>Provider response metadata exposed by the active client, such as attempts or usage when available. It can be <code>null</code> for clients that do not report it.</td></tr>
+        </tbody></table></div>
+        <div class="callout"><strong>Receipt â‰  endorsement.</strong> A high recall score means â€œthis record won this weighted competition under this state and audience.â€ It does not certify the recordâ€™s factual accuracy, the modelâ€™s reasoning, or the quality of the reply.</div>
+      </section>
+
+      <section class="section" id="privacy">
+        <div class="eyebrow">where information goes</div>
+        <h2>Privacy and boundaries</h2>
+        <div class="grid">
+          <article class="card"><h3>Always local storage</h3><p><code>.jnsq_local.json</code> identifies the owner; <code>users/</code> holds account truth and sharing policy; <code>personas/</code> holds personas and history; <code>.env</code> holds keys; <code>room/room_world.json</code>, <code>logs/</code>, and <code>jnsq_running.json</code> hold runtime state.</p></article>
+          <article class="card"><h3>Local-first is not local-only</h3><p>Local state remains on disk, but a hosted model necessarily receives the prompt JNSQ assembles for it. Direct-vision models also receive selected image pixels. A configured remote visual transducer receives the selected image and returns an observation to the active persona.</p></article>
+          <article class="card"><h3>Images</h3><p>Manual attachments are copied into that personaâ€™s local history with content-derived IDs and safe metadata. The code accepts only PNG, JPEG, WebP, and GIF within size/count limits. Provider transmission follows the explicit vision route.</p></article>
+          <article class="card"><h3>Updates</h3><p>The updater owns only files named and fingerprinted by the public manifest. Stop JNSQ before applying. Local identity, accounts, personas, memories, histories, keys, logs, exports, room state, and environment are deliberately preserved.</p></article>
+        </div>
+      </section>
+
+      <section class="section" id="audit">
+        <div class="eyebrow">verified 2026-07-18</div>
+        <h2>This installed folderâ€™s audited state</h2>
+        <p class="intro">These notes describe the installed public edition as it existed during this audit, not an assumed private checkout and not a future release.</p>
+        <div class="card">
+          <div class="audit-row"><div class="label">Version</div><p><b>0.5.3</b> in both <code>VERSION</code> and <code>DISTRIBUTION_MANIFEST.json</code>.</p></div>
+          <div class="audit-row"><div class="label">Engine core</div><p>At audit baseline, every managed Python engine file matched its 0.5.3 manifest fingerprint, and the live stack exposed the expected room host, router, and isolated persona cockpit routes. The router now differs only by the local <code>/about</code> route added for this guide.</p></div>
+          <div class="audit-row"><div class="label">Local UI drift</div><p>Nineteen manifest-managed presentation/theme files already differed from the stock 0.5.3 fingerprints: the JNSQ icon set, main shell pages, Nexus viewer, cockpit, Settings/Users pages, and theme files. With the new About route, the current managed-file drift count is twenty; <code>about.html</code> is one additional local file outside the old manifest.</p></div>
+          <div class="audit-row bad"><div class="label">Open red line</div><p>The current cockpit HTML includes ambient camera/audio, salience-field, memory-field, streaming-turn, voice-output, and substrate controls, but the 0.5.3 cockpit server does not expose their required routes. The composer currently calls <code>/api/turn/stream</code> while the live server exposes only <code>/api/turn</code>, so this locally modified conversation UI and the packaged backend are not aligned.</p></div>
+          <div class="audit-row bad"><div class="label">Status meaning</div><p>Those advanced controls are <b>visible definitions, not working public features in this installed state</b>. The underlying ordinary turn API, memory/body engine, and receipts remain implemented; the page-to-server connection must be repaired before the visible composer can use them.</p></div>
+          <div class="audit-row"><div class="label">About page</div><p>This guide and its Household navigation door are local additions made by the audit. Restart JNSQ once so the router loads the new <code>/about</code> route.</p></div>
+        </div>
+      </section>
+
+      <footer class="footer">Je Ne Sais Quoi public field guide Â· describes the installed public engine, its local presentation drift, and the actual connections traced in source and live routes on 2026-07-18.</footer>
+    </main>
+  </div>
+</div>
+<script>
+(function(){
+  const map={bg:"bg",panel:"panel",line:"line",ink:"ink",dim:"dim",accent:"mint",accent2:"gold"};
+  function apply(theme){if(!theme)return;const t=theme.tokens||theme,root=document.documentElement;
+    for(const [source,target] of Object.entries(map))if(t[source])root.style.setProperty(`--${target}`,t[source]);
+    const scale=Math.max(.8,Math.min(1.35,Number(t.font_scale)||1));const glow=Math.max(0,Math.min(1,Number(t.glow)||0));
+    root.style.setProperty("--base-font-size",`${16*scale}px`);root.style.setProperty("--theme-glow-radius",`${2+glow*25}px`);
+    document.body.dataset.density=t.density||"cozy"}
+  Promise.all([fetch("/api/ui/theme").then(r=>r.json()),fetch("/api/version").then(r=>r.json())]).then(([theme,version])=>{
+    apply(theme);document.getElementById("version").textContent=version.version||"development"}).catch(()=>{
+      document.getElementById("version").textContent="unavailable"});
+  window.addEventListener("message",event=>{if(event.data?.type==="jnsq-theme-refresh")apply(event.data.tokens)});
+})();
+</script>
+</body>
+</html>

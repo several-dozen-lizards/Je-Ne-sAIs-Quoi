@@ -30,7 +30,7 @@ header{height:74px;display:flex;align-items:center;gap:18px;padding:0 24px;
 #status{margin-left:auto;color:var(--dim);font-size:.82rem}
 .top-page{display:none;height:calc(100% - 74px)}.top-page.on{display:block}
 .app{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr);min-width:0;position:relative}
-#page-settings iframe{width:100%;height:100%;border:0;background:var(--bg)}
+#page-settings iframe,#page-about iframe{width:100%;height:100%;border:0;background:var(--bg)}
 .persona-home{height:100%;width:100%;overflow:auto;padding:clamp(18px,4vw,44px);max-width:1120px;margin:auto}
 .home-heading{margin:0 0 8px;color:var(--mint);font-size:clamp(1.3rem,3vw,2rem)}
 .home-copy{margin:0 0 24px;color:var(--dim)}
@@ -110,7 +110,8 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
   <div class="tagline">a local home for persistent AI personas</div>
   <nav class="top-nav"><button type="button" data-top-page="personas">🏠 Household</button>
     <button type="button" data-top-page="nexus">🌐 Nexus</button>
-    <button type="button" data-top-page="settings">⚙ Settings</button></nav>
+    <button type="button" data-top-page="settings">⚙ Settings</button>
+    <button type="button" data-top-page="about">ⓘ About</button></nav>
   <div id="status">connecting…</div>
 </header>
 <section class="top-page on" id="page-personas"><div class="app">
@@ -150,6 +151,7 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
   </section>
 </div></section>
 <section class="top-page" id="page-settings"><iframe src="/settings" title="JNSQ settings"></iframe></section>
+<section class="top-page" id="page-about"><iframe src="/about" title="About Je Ne Sais Quoi"></iframe></section>
 
 <dialog id="voiceDialog">
   <div class="modal-head"><h2 id="voiceTitle">Persona voice</h2>
@@ -235,9 +237,9 @@ function openPanel(id){
 }
 function openNexus(){showTopPage("nexus");openPanel("world");}
 $("homeButton").onclick=showHome;
-const initialPage=["personas","nexus","settings"].includes(localStorage.getItem("jnsq.public.page"))?
+const initialPage=["personas","nexus","settings","about"].includes(localStorage.getItem("jnsq.public.page"))?
   localStorage.getItem("jnsq.public.page"):"personas";
-if(initialPage==="nexus")openNexus();else if(initialPage==="settings")showTopPage("settings");else showHome();
+if(initialPage==="nexus")openNexus();else if(initialPage==="settings"||initialPage==="about")showTopPage(initialPage);else showHome();
 
 async function request(url, options={}){
   const res=await fetch(url,options); let body={};

@@ -19,6 +19,7 @@ prompt_structure:
   strict_alternation: true
   prefill_supported: true
   stop_sequences: []
+  prompt_cache: {enabled: true, ttl: "5m"}
   notes: "Judge duty: keep prompts small, demand JSON, low temperature."
 
 capabilities:

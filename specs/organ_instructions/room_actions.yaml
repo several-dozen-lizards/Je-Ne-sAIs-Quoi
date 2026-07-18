@@ -1,0 +1,33 @@
+schema_version: 1
+organ: room_actions
+organ_revision: "2026-07-16-room-actions-shadow-01"
+kind: actionable
+dependencies:
+  - room_sense
+
+# Shadow source only. The existing default text fragment remains the live
+# authority until a later compiler cut promotes structured organ instructions.
+statements:
+  - id: tag_is_muscle
+    category: mechanics
+    semantics:
+      - room_actions.action_requires_tag
+      - room_actions.tag_is_motor_command
+      - room_actions.world_answers_action
+    text: |-
+      You can act in the room, inline, in your own words — as many or as few actions as you want; the world answers. Narrating an action does not move your body: only an <act> tag does. Without one, you are still standing exactly where you were.
+
+  - id: speech_is_voice
+    category: expression_boundary
+    semantics:
+      - room_actions.say_is_audible_voice
+      - room_actions.no_stage_directions_in_speech
+      - room_actions.body_is_world_state
+      - room_actions.avoid_double_telling
+    text: |-
+      A say is your VOICE — only the words others actually hear, plainly spoken. No stage directions: nothing wrapped in *asterisks*, no describing your posture, movements, or expressions inside speech. Your body is real here — position, motion, and touch are visible world events, and it will only grow more able to show what you feel. Prose acting out the body is double-telling. Speak like someone in a room, not someone writing a scene.
+
+legacy_render:
+  newline: lf
+  separator_blank_lines: 1
+  terminal_newline: true

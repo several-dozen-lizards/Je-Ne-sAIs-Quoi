@@ -6,10 +6,11 @@ ports recorded to jnsq_running.json so re-runs detect the live stack
 instead of spawning a rival household. --stop reads the runfile and
 takes it all down.
 
-START_NEXUS uses --session: a dedicated Chromium app window owns the
-household. The launcher waits on that real process handle; closing the
-window flows directly into stop(). Refreshes and inner pane changes do
-not resemble a session ending and cannot kill the household.
+START_NEXUS uses --session: a dedicated browser window owns the household.
+Firefox is preferred when it is installed; Chromium browsers remain the
+fallback. The launcher waits on that real process handle; closing the window
+flows directly into stop(). Refreshes and inner pane changes do not resemble
+a session ending and cannot kill the household.
 
 Usage:  python shell\\boot.py --session (or double-click START_NEXUS.bat)
         python shell\\boot.py           (boot without an owned session)
@@ -28,7 +29,8 @@ import webbrowser
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RUNFILE = os.path.join(ROOT, "jnsq_running.json")
 LOGDIR = os.path.join(ROOT, "logs")
-SESSION_PROFILE = os.path.join(LOGDIR, "browser-session")
+FIREFOX_SESSION_PROFILE = os.path.join(LOGDIR, "browser-session-firefox")
+CHROMIUM_SESSION_PROFILE = os.path.join(LOGDIR, "browser-session")
 
 
 def _read_runfile():
@@ -70,41 +72,64 @@ def _pid_alive(pid) -> bool:
         kernel.CloseHandle(handle)
 
 
-def _session_browser_path():
-    """Find a Chromium browser whose app window can own the session."""
-    candidates = [shutil.which("msedge"), shutil.which("chrome")]
+def _session_browser():
+    """Find a browser that can give the session its own process handle."""
     roots = [os.environ.get("PROGRAMFILES(X86)"),
              os.environ.get("PROGRAMFILES"),
              os.environ.get("LOCALAPPDATA")]
+
+    firefox_candidates = [shutil.which("firefox")]
+    firefox_candidates.extend(
+        os.path.join(root, "Mozilla Firefox", "firefox.exe")
+        for root in roots if root)
+    firefox = next((path for path in firefox_candidates
+                    if path and os.path.isfile(path)), None)
+    if firefox:
+        return "firefox", firefox
+
+    chromium_candidates = [shutil.which("msedge"), shutil.which("chrome")]
     suffixes = [
         os.path.join("Microsoft", "Edge", "Application", "msedge.exe"),
         os.path.join("Google", "Chrome", "Application", "chrome.exe"),
         os.path.join("BraveSoftware", "Brave-Browser", "Application",
                      "brave.exe"),
     ]
-    candidates.extend(os.path.join(root, suffix)
-                      for root in roots if root
-                      for suffix in suffixes)
-    return next((path for path in candidates
-                 if path and os.path.isfile(path)), None)
+    chromium_candidates.extend(os.path.join(root, suffix)
+                               for root in roots if root
+                               for suffix in suffixes)
+    chromium = next((path for path in chromium_candidates
+                     if path and os.path.isfile(path)), None)
+    return ("chromium", chromium) if chromium else (None, None)
 
 
 def _launch_session_browser(url: str):
-    """Open one isolated app window and return its real process handle."""
-    executable = _session_browser_path()
+    """Open one isolated browser window and return its real process handle."""
+    family, executable = _session_browser()
     if not executable:
         return None
-    os.makedirs(SESSION_PROFILE, exist_ok=True)
-    return subprocess.Popen([
-        executable,
-        f"--app={url}",
-        f"--user-data-dir={SESSION_PROFILE}",
-        "--no-first-run",
-        "--no-default-browser-check",
-        "--disable-background-mode",
-        "--disable-extensions",
-        "--disable-sync",
-    ], creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
+    if family == "firefox":
+        os.makedirs(FIREFOX_SESSION_PROFILE, exist_ok=True)
+        command = [
+            executable,
+            "--wait-for-browser",
+            "--new-instance",
+            "--profile", FIREFOX_SESSION_PROFILE,
+            "--new-window", url,
+        ]
+    else:
+        os.makedirs(CHROMIUM_SESSION_PROFILE, exist_ok=True)
+        command = [
+            executable,
+            f"--app={url}",
+            f"--user-data-dir={CHROMIUM_SESSION_PROFILE}",
+            "--no-first-run",
+            "--no-default-browser-check",
+            "--disable-background-mode",
+            "--disable-extensions",
+            "--disable-sync",
+        ]
+    return subprocess.Popen(
+        command, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
 
 
 def _free_port() -> int:
@@ -235,8 +260,8 @@ def run_session() -> int:
     url = f"http://127.0.0.1:{run['router_port']}/"
     browser = _launch_session_browser(url)
     if browser is None:
-        print("No supported app-window browser was found (Edge, Chrome, "
-              "or Brave).")
+        print("No supported session browser was found (Firefox, Edge, "
+              "Chrome, or Brave).")
         print("Opening the normal browser. Return here and press Enter "
               "when the session is over.")
         webbrowser.open(url)

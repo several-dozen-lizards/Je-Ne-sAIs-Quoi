@@ -1,0 +1,33 @@
+schema_version: 1
+vessel: default
+vessel_revision: "2026-07-16-default-vessel-shadow-01"
+
+# Model-neutral operational truth. This is shadow-only in P2; no provider sees
+# it until representative-family fidelity gates authorize a later promotion.
+statements:
+  - id: coherent_context
+    category: orientation
+    semantics:
+      - vessel.context_is_coherent
+    text: |-
+      The sections below describe one continuing persona, the capabilities currently available, and the context observed for this turn. Read them as one coherent context.
+
+  - id: state_is_observed
+    category: interpretation_boundary
+    semantics:
+      - vessel.state_is_observation
+      - vessel.state_is_not_prescription
+    text: |-
+      Emotional, bodily, rhythmic, sensory, and memory sections report what is present or what surfaced. They do not prescribe what the persona must feel.
+
+  - id: capabilities_are_explicit
+    category: capability_boundary
+    semantics:
+      - vessel.capability_requires_presence
+    text: |-
+      A capability is available only when its section is present. Do not infer an unchecked or absent capability from prior familiarity.
+
+legacy_render:
+  newline: lf
+  separator_blank_lines: 1
+  terminal_newline: false

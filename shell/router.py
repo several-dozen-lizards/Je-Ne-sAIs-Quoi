@@ -56,8 +56,12 @@ PUBLIC_MANIFEST_URL = (
 # into os.environ, so persona subprocesses launched below inherit any
 # saved keys at spawn.
 from shell import env_store  # noqa: E402
-from shell.ui_themes import resolve_theme, save_theme  # noqa: E402
-from shell.local_identity import load_local_identity  # noqa: E402
+from shell.ui_themes import (delete_custom_preset, resolve_theme,
+                             save_custom_preset, save_theme)  # noqa: E402
+from shell.local_identity import load_local_identity, save_local_identity  # noqa: E402
+from shell.ui_background import (delete_conversation_background,
+                                  load_conversation_background,
+                                  save_conversation_background)  # noqa: E402
 from shell.persona_media import (load_persona_avatar, save_persona_avatar,
                                  write_roster_mapping_scalar,
                                  write_roster_scalar)  # noqa: E402
@@ -67,6 +71,11 @@ class TurnRequest(BaseModel):
     message: str
     speaker: str = None
     images: list[dict] = Field(default_factory=list)
+
+
+class AgencyInboxRequest(BaseModel):
+    label: str
+    content: str
 
 
 class StartRequest(BaseModel):
@@ -94,11 +103,15 @@ class VisionRouteRequest(BaseModel):
 
 class ModelCreateRequest(BaseModel):
     name: str
-    family: str               # ollama | anthropic | openai_compat
+    family: str               # ollama | ollama_openai | anthropic | openai_compat
     endpoint: str
     window_tokens: int = None
     base_url: str = None      # openai_compat only: http://host:port/v1
     api_key_env: str = None   # openai_compat: env var NAME, never a value
+    connect_timeout_s: float = None
+    read_timeout_s: float = None
+    write_timeout_s: float = None
+    pool_timeout_s: float = None
 
 
 class ModelDiscoverRequest(BaseModel):
@@ -134,6 +147,16 @@ class ThemeRequest(BaseModel):
     patch: dict
     reset: bool = False
     replace: bool = False
+
+
+class PresetRequest(BaseModel):
+    id: str = ""
+    label: str
+    tokens: dict
+
+
+class ConversationBackgroundRequest(BaseModel):
+    data_url: str
 
 
 class UserRequest(BaseModel):
@@ -176,16 +199,44 @@ class UserPersonaRequest(BaseModel):
     description: str = ""
     preferences: str = ""
     boundaries: str = ""
+    icon: str | None = None
 
 
-def model_start_blocker(model: str):
-    """Return a user-facing reason an installed model cannot start yet."""
+def model_start_blocker(model: str, verify_remote: bool = True):
+    """Return a user-facing reason a configured model cannot answer yet.
+
+    A process reaching ``/api/state`` only proves that the cockpit booted; it
+    does not prove that its model endpoint exists. Check local Ollama tags on
+    every start, and verify OpenAI's model catalog on explicit starts. Router
+    boot skips the remote catalog so a temporary network outage cannot erase a
+    household, while still enforcing key presence and local model truth.
+    """
     from harness.clients import model_auth_status
     from harness.spec_loader import load_spec
-    auth = model_auth_status(load_spec(model))
+    from shell.model_catalog import discover_models
+    spec = load_spec(model)
+    ident = spec.get("identity") or {}
+    auth = model_auth_status(spec)
     if auth["required"] and not auth["set"]:
         return (f"model '{model}' needs {auth['env']}, but it is not set. "
                 f"Open Settings → API Keys, paste it there, then Start again.")
+    endpoint = (ident.get("endpoint") or "").strip()
+    provider = ident.get("provider")
+    if provider == "ollama":
+        installed = discover_models("ollama")["models"]
+        if endpoint not in installed:
+            return (f"model '{model}' points to Ollama tag '{endpoint}', but "
+                    f"that model is not installed. Open Settings → Models "
+                    f"and install it or choose an installed model.")
+    base_url = (ident.get("base_url") or "").rstrip("/")
+    if (verify_remote and provider == "openai_compat"
+            and base_url == "https://api.openai.com/v1"):
+        available = discover_models(
+            "openai_compat", base_url, ident.get("api_key_env"))["models"]
+        if endpoint not in available:
+            return (f"model '{model}' points to OpenAI model '{endpoint}', "
+                    f"but this API key cannot access that model. Open Settings "
+                    f"→ Models and choose one returned by Discover.")
     return None
 
 
@@ -368,7 +419,12 @@ def build_app(room_url: str = None) -> FastAPI:
 
     @app.get("/api/ui/theme")
     def ui_theme():
-        return resolve_theme(ROOT)
+        result = resolve_theme(ROOT)
+        media = load_conversation_background(ROOT)
+        result["conversation_background"] = ({"url": "/api/ui/conversation-background",
+                                               "revision": media["revision"]}
+                                              if media else None)
+        return result
 
     @app.post("/api/ui/theme")
     def set_ui_theme(req: ThemeRequest):
@@ -379,16 +435,66 @@ def build_app(room_url: str = None) -> FastAPI:
             return JSONResponse(status_code=400,
                                 content={"error": str(e)})
 
+    @app.post("/api/ui/presets")
+    def ui_preset_save(req: PresetRequest):
+        try:
+            return save_custom_preset(ROOT, preset_id=req.id,
+                                      label=req.label, tokens=req.tokens)
+        except ValueError as e:
+            return JSONResponse(status_code=400, content={"error": str(e)})
+
+    @app.delete("/api/ui/presets/{preset_id}")
+    def ui_preset_delete(preset_id: str):
+        try:
+            return delete_custom_preset(ROOT, preset_id)
+        except KeyError as e:
+            return JSONResponse(status_code=404, content={"error": str(e)})
+        except ValueError as e:
+            return JSONResponse(status_code=400, content={"error": str(e)})
+
+    @app.get("/api/ui/conversation-background")
+    def ui_background_get():
+        media = load_conversation_background(ROOT)
+        if not media:
+            return JSONResponse(status_code=404,
+                                content={"error": "no conversation background"})
+        return FileResponse(media["path"], media_type=media["mime"],
+                            headers={"X-Content-Type-Options": "nosniff",
+                                     "Cache-Control": "no-cache"})
+
+    @app.post("/api/ui/conversation-background")
+    def ui_background_save(req: ConversationBackgroundRequest):
+        try:
+            media = save_conversation_background(ROOT, req.data_url)
+            return {"ok": True, "url": "/api/ui/conversation-background",
+                    "revision": media["revision"]}
+        except ValueError as e:
+            return JSONResponse(status_code=400, content={"error": str(e)})
+
+    @app.delete("/api/ui/conversation-background")
+    def ui_background_delete():
+        return {"ok": True, "removed": delete_conversation_background(ROOT)}
+
     def launch_all():
         for pid, entry in app.state.registry.items():
             if entry["kind"] != "model_persona":
+                continue
+            try:
+                blocked = model_start_blocker(entry["model"],
+                                              verify_remote=False)
+            except Exception as error:
+                print(f"[router] {pid} on {entry['model']} -> BLOCKED: {error}")
+                continue
+            if blocked:
+                print(f"[router] {pid} on {entry['model']} -> BLOCKED: "
+                      f"{blocked}")
                 continue
             proc = PersonaProcess(pid, entry["model"],
                                   entry.get("identity_file"),
                                   room_cfg=entry.get("room"),
                                   room_url=room_url,
                                   max_tokens=entry.get("max_tokens"),
-                                  speaker=app.state.local_identity["display_name"])
+                                  speaker=None)
             app.state.processes[pid] = proc
             ready = proc.wait_ready()
             print(f"[router] {pid} on {entry['model']} -> port {proc.port} "
@@ -492,10 +598,34 @@ def build_app(room_url: str = None) -> FastAPI:
                   encoding="utf-8") as f:
             return f.read()
 
+    @app.get("/model-calls", response_class=HTMLResponse)
+    def model_calls_page():
+        """Content-free household cost and latency observatory."""
+        with open(os.path.join(ROOT, "shell", "model_calls.html"),
+                  encoding="utf-8") as f:
+            return f.read()
+
+    @app.get("/api/model-calls/summary")
+    def model_calls_summary(hours: int = 24):
+        from shell.model_call_dashboard import read_receipts
+        if hours < 0 or hours > 24 * 366:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "hours must be between 0 and 8784"})
+        return read_receipts(hours=hours)
+
     @app.get("/api/users")
     def users_list():
+        from core.users import load_user_avatar
         from shell.local_identity import local_user_directory
-        return {"users": list(local_user_directory(ROOT).values())}
+        users = []
+        for uid, account in local_user_directory(ROOT).items():
+            shown = dict(account)
+            avatar = load_user_avatar(ROOT, uid)
+            shown["avatar_url"] = (f"/api/users/{uid}/avatar?v="
+                                   f"{avatar['version']}" if avatar else "")
+            users.append(shown)
+        return {"users": users}
 
     @app.post("/api/users")
     def users_upsert(req: UserRequest):
@@ -505,6 +635,9 @@ def build_app(room_url: str = None) -> FastAPI:
                 ROOT, username=req.username, display_name=req.display_name,
                 pronouns=req.pronouns, public_profile=req.public_profile,
                 update=req.update)
+            if account["id"] == app.state.local_identity["user_id"]:
+                app.state.local_identity = save_local_identity(
+                    ROOT, account["id"], account["display_name"])
             return {"ok": True, "account": account}
         except FileExistsError as e:
             return JSONResponse(status_code=409, content={"error": str(e)})
@@ -513,7 +646,8 @@ def build_app(room_url: str = None) -> FastAPI:
 
     @app.get("/api/users/{uid}")
     def user_detail(uid: str):
-        from core.users import get_user
+        from core.users import (get_user, load_user_avatar,
+                                load_user_persona_avatar)
         try:
             user = get_user(ROOT, uid)
         except ValueError as e:
@@ -521,7 +655,50 @@ def build_app(room_url: str = None) -> FastAPI:
         if not user:
             return JSONResponse(status_code=404,
                                 content={"error": f"no user '{uid}'"})
+        avatar = load_user_avatar(ROOT, uid)
+        user["account"]["avatar_url"] = (
+            f"/api/users/{uid}/avatar?v={avatar['version']}" if avatar else "")
+        for pid, persona in user["user_personas"].items():
+            media = load_user_persona_avatar(ROOT, uid, pid)
+            persona["avatar_url"] = (
+                f"/api/users/{uid}/personas/{pid}/avatar?v={media['version']}"
+                if media else "")
         return user
+
+    @app.post("/api/users/{uid}/icon")
+    def user_icon(uid: str, req: PersonaIconRequest):
+        from core.users import set_user_icon
+        try:
+            account = set_user_icon(ROOT, uid, req.icon)
+            return {"ok": True, "user": uid, "icon": account["icon"]}
+        except KeyError as error:
+            return JSONResponse(status_code=404, content={"error": str(error)})
+        except (OSError, ValueError) as error:
+            return JSONResponse(status_code=400, content={"error": str(error)})
+
+    @app.get("/api/users/{uid}/avatar")
+    def user_avatar_file(uid: str):
+        from core.users import load_user_avatar
+        avatar = load_user_avatar(ROOT, uid)
+        if not avatar:
+            return JSONResponse(status_code=404,
+                                content={"error": "user has no avatar"})
+        return FileResponse(avatar["path"], media_type=avatar["mime"],
+                            headers={"X-Content-Type-Options": "nosniff",
+                                     "Cache-Control": "no-cache"})
+
+    @app.post("/api/users/{uid}/avatar")
+    def user_avatar_save(uid: str, req: PersonaAvatarRequest):
+        from core.users import save_user_avatar
+        try:
+            avatar = save_user_avatar(ROOT, uid, req.data_url)
+            version = os.stat(avatar["path"]).st_mtime_ns
+            return {"ok": True, "user": uid,
+                    "avatar_url": f"/api/users/{uid}/avatar?v={version}"}
+        except KeyError as error:
+            return JSONResponse(status_code=404, content={"error": str(error)})
+        except (OSError, ValueError) as error:
+            return JSONResponse(status_code=400, content={"error": str(error)})
 
     @app.post("/api/users/{uid}/bedrock")
     def user_bedrock(uid: str, req: BedrockRequest):
@@ -594,12 +771,51 @@ def build_app(room_url: str = None) -> FastAPI:
             persona = put_user_persona(
                 ROOT, uid, persona_id=req.id, name=req.name,
                 description=req.description, preferences=req.preferences,
-                boundaries=req.boundaries)
+                boundaries=req.boundaries, icon=req.icon)
             return {"ok": True, "persona": persona}
         except KeyError as e:
             return JSONResponse(status_code=404, content={"error": str(e)})
         except ValueError as e:
             return JSONResponse(status_code=400, content={"error": str(e)})
+
+    @app.delete("/api/users/{uid}/personas/{persona_id}")
+    def user_persona_delete(uid: str, persona_id: str):
+        from core.users import delete_user_persona
+        try:
+            removed = delete_user_persona(ROOT, uid, persona_id)
+        except KeyError as e:
+            return JSONResponse(status_code=404, content={"error": str(e)})
+        if not removed:
+            return JSONResponse(status_code=404,
+                                content={"error": f"no user persona '{persona_id}'"})
+        return {"ok": True}
+
+    @app.get("/api/users/{uid}/personas/{persona_id}/avatar")
+    def user_persona_avatar_file(uid: str, persona_id: str):
+        from core.users import load_user_persona_avatar
+        avatar = load_user_persona_avatar(ROOT, uid, persona_id)
+        if not avatar:
+            return JSONResponse(status_code=404,
+                                content={"error": "user persona has no avatar"})
+        return FileResponse(avatar["path"], media_type=avatar["mime"],
+                            headers={"X-Content-Type-Options": "nosniff",
+                                     "Cache-Control": "no-cache"})
+
+    @app.post("/api/users/{uid}/personas/{persona_id}/avatar")
+    def user_persona_avatar_save(uid: str, persona_id: str,
+                                 req: PersonaAvatarRequest):
+        from core.users import save_user_persona_avatar
+        try:
+            avatar = save_user_persona_avatar(
+                ROOT, uid, persona_id, req.data_url)
+            version = os.stat(avatar["path"]).st_mtime_ns
+            return {"ok": True, "user": uid, "persona": persona_id,
+                    "avatar_url": (f"/api/users/{uid}/personas/{persona_id}/"
+                                   f"avatar?v={version}")}
+        except KeyError as error:
+            return JSONResponse(status_code=404, content={"error": str(error)})
+        except (OSError, ValueError) as error:
+            return JSONResponse(status_code=400, content={"error": str(error)})
 
     @app.get("/status", response_class=HTMLResponse)
     def status_table():
@@ -769,7 +985,7 @@ def build_app(room_url: str = None) -> FastAPI:
                               room_cfg=entry.get("room"),
                               room_url=app.state.room_url,
                               max_tokens=entry.get("max_tokens"),
-                              speaker=app.state.local_identity["display_name"])
+                              speaker=None)
         app.state.processes[pid] = proc
         ready = proc.wait_ready()
         # a switched start becomes roster truth: survives restarts,
@@ -888,6 +1104,10 @@ def build_app(room_url: str = None) -> FastAPI:
         models = []
         for spec in load_all():
             ident = spec.get("identity") or {}
+            # Internal purpose routes remain loadable by name without
+            # masquerading as conversational vessels in Settings.
+            if ident.get("catalog_visible") is False:
+                continue
             capabilities = spec.get("capabilities") or {}
             runtime = spec.get("runtime") or {}
             base_url = ident.get("base_url") or ""
@@ -919,6 +1139,7 @@ def build_app(room_url: str = None) -> FastAPI:
                 "name": ident.get("name"),
                 "family": ident.get("family"),
                 "provider": ident.get("provider"),
+                "service": ident.get("service"),
                 "vendor": vendor,
                 "locality": ident.get("locality"),
                 "endpoint": ident.get("endpoint"),
@@ -977,7 +1198,11 @@ def build_app(room_url: str = None) -> FastAPI:
             return scaffold_model_spec(req.name, req.family,
                                        req.endpoint, req.window_tokens,
                                        base_url=req.base_url,
-                                       api_key_env=req.api_key_env)
+                                       api_key_env=req.api_key_env,
+                                       connect_timeout_s=req.connect_timeout_s,
+                                       read_timeout_s=req.read_timeout_s,
+                                       write_timeout_s=req.write_timeout_s,
+                                       pool_timeout_s=req.pool_timeout_s)
         except Exception as e:
             return JSONResponse(status_code=400, content={"error": str(e)})
 
@@ -1129,6 +1354,26 @@ def build_app(room_url: str = None) -> FastAPI:
             return JSONResponse(status_code=r.status, content=json.loads(r.read()))
         except urllib.error.HTTPError as e:
             return JSONResponse(status_code=e.code, content=json.loads(e.read()))
+
+    @app.get("/api/personas/{pid}/agency/status")
+    def persona_agency_status(pid: str):
+        """Proxy the tenant-owned controller view without owning its task."""
+        return _proxy(pid, "/api/agency/status")
+
+    @app.post("/api/personas/{pid}/agency/inbox")
+    def persona_agency_inbox(pid: str, req: AgencyInboxRequest):
+        payload = (req.model_dump() if hasattr(req, "model_dump")
+                   else req.dict())
+        return _proxy(pid, "/api/agency/inbox", payload=payload)
+
+    @app.get("/api/personas/{pid}/agency/artifacts")
+    def persona_agency_artifacts(pid: str):
+        return _proxy(pid, "/api/agency/artifacts")
+
+    @app.get("/api/personas/{pid}/agency/artifacts/{name}")
+    def persona_agency_artifact(pid: str, name: str):
+        from urllib.parse import quote
+        return _proxy(pid, "/api/agency/artifacts/" + quote(name, safe=""))
 
     @app.post("/api/personas/{pid}/turn")
     def persona_turn(pid: str, req: TurnRequest):

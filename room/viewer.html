@@ -4,56 +4,107 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Je Ne Sais Quoi · Nexus</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Cormorant+Garamond:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Nunito:wght@400;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-:root{color-scheme:dark;--bg:#07110f;--panel:#0b1916;--panel2:#10231f;
-  --line:#21483f;--ink:#d9fff4;--dim:#85b9aa;--mint:#3ef0bd;--gold:#f6c85f}
-*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:radial-gradient(circle at 50% -20%,#173b33,transparent 44%),var(--bg);
-  color:var(--ink);font:15px "Segoe UI",system-ui,sans-serif}.shell{max-width:1050px;margin:auto;padding:30px}
-header{display:flex;align-items:center;gap:14px;margin-bottom:22px}header img{width:42px;height:42px}
-h1{font-size:1.35rem;color:var(--mint);margin:0}.subtitle{color:var(--dim);margin-top:4px}
-.grid{display:grid;grid-template-columns:minmax(240px,.8fr) minmax(320px,1.4fr);gap:16px}
-.card{border:1px solid var(--line);border-radius:15px;background:color-mix(in srgb,var(--panel) 92%,transparent);padding:18px}
-h2{font-size:.8rem;text-transform:uppercase;letter-spacing:.12em;color:var(--dim);margin:0 0 13px}
-.members{display:grid;gap:8px}.member{display:flex;align-items:center;gap:9px;border:1px solid var(--line);
+:root{color-scheme:dark;--bg:#0b0a15;--panel:#131120;--panel2:#191631;
+  --line:#2c2740;--ink:#eae3d2;--dim:#8b829d;--mint:#c9ab77;--gold:#f6ead0;
+  --base-font-size:15px;--shell-pad:30px;--card-pad:18px;--theme-glow-radius:10px;--theme-motion-duration:42s;
+  --background-opacity:.32;--conversation-background:none;
+  --font-ui:'Source Serif 4',Georgia,serif;
+  --font-display:'Cormorant Garamond',Georgia,serif}
+*{box-sizing:border-box;scrollbar-width:thin;scrollbar-color:var(--mint) color-mix(in srgb,var(--panel) 82%,var(--bg))}
+*::-webkit-scrollbar{width:10px;height:10px}*::-webkit-scrollbar-track{background:color-mix(in srgb,var(--panel) 82%,var(--bg))}
+*::-webkit-scrollbar-thumb{background:linear-gradient(180deg,var(--mint),var(--gold));border:2px solid color-mix(in srgb,var(--panel) 82%,var(--bg));border-radius:999px}
+html,body{margin:0;min-height:100%;background:radial-gradient(circle at 50% -20%,color-mix(in srgb,var(--line) 55%,var(--bg)),transparent 44%),var(--bg);
+  color:var(--ink);font:var(--base-font-size) var(--font-ui)}body::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:var(--theme-glow-alpha,.12);animation:nexus-drift var(--theme-motion-duration) ease-in-out infinite alternate}
+body[data-background="aurora"]::before{inset:-16%;background:radial-gradient(circle at 25% 25%,color-mix(in srgb,var(--mint) 56%,transparent),transparent 24%)}
+body[data-background="grid"]::before{background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:38px 38px}
+body[data-background="scales"]::before{background-image:radial-gradient(circle at 50% 100%,transparent 20px,color-mix(in srgb,var(--mint) 30%,transparent) 21px,transparent 23px);background-size:46px 24px}
+body[data-background="stars"]::before{background-image:radial-gradient(circle,#fff 0 1px,transparent 1.5px),radial-gradient(circle,var(--gold) 0 1px,transparent 1.5px);background-size:79px 79px,113px 113px;background-position:9px 17px,43px 59px}
+body[data-background="paper"]::before{background-image:repeating-linear-gradient(0deg,color-mix(in srgb,var(--ink) 7%,transparent) 0 1px,transparent 1px 4px)}
+body[data-background="image"]::before{background-image:var(--conversation-background);background-size:cover;background-position:center;opacity:var(--background-opacity);animation:none}
+body[data-background="none"]::before{display:none}body[data-motion="off"]::before{animation:none}@keyframes nexus-drift{to{transform:translate(6%,4%) scale(1.1)}}.shell{max-width:1050px;margin:auto;padding:var(--shell-pad);position:relative}
+header{display:flex;align-items:center;gap:14px;margin-bottom:22px}
+h1{font-size:1.35rem;color:var(--mint);margin:0;font-family:var(--font-display);font-weight:600}.subtitle{color:var(--dim);margin-top:4px}
+.grid{--presence-width:315px;display:grid;grid-template-columns:minmax(220px,var(--presence-width)) 9px minmax(320px,1fr);gap:7px;transition:grid-template-columns .18s ease}
+.grid.sidebar-collapsed{grid-template-columns:46px 0 minmax(320px,1fr)}.grid.sidebar-collapsed .nexus-resizer{display:none}
+.nexus-resizer{position:relative;cursor:col-resize;touch-action:none;border-radius:8px}.nexus-resizer::after{content:"";position:absolute;left:3px;top:36%;bottom:36%;width:3px;border-radius:4px;background:var(--line);transition:background .15s,top .15s,bottom .15s}
+.nexus-resizer:hover::after,.nexus-resizer.dragging::after{top:20%;bottom:20%;background:var(--mint)}
+.card{border:1px solid var(--line);border-radius:var(--theme-radius,15px);background:color-mix(in srgb,var(--panel) 92%,transparent);padding:var(--card-pad);box-shadow:0 0 var(--theme-glow-radius) color-mix(in srgb,var(--mint) 15%,transparent)}
+h2{font:600 .95rem/1.2 var(--font-display);font-variant:small-caps;letter-spacing:.06em;color:var(--gold);margin:0 0 13px}
+.sidebar-card{min-width:0}.sidebar-head{display:flex;justify-content:flex-end;margin:-6px -6px 8px}.sidebar-toggle{padding:5px 8px;color:var(--dim);white-space:nowrap}.grid.sidebar-collapsed .sidebar-card{padding:8px 5px}.grid.sidebar-collapsed .sidebar-head{margin:0}.grid.sidebar-collapsed .sidebar-toggle{width:34px;height:34px;overflow:hidden;color:transparent}.grid.sidebar-collapsed .sidebar-toggle::before{content:"\00BB";display:block;color:var(--mint);font-size:1.2rem}.grid.sidebar-collapsed .sidebar-content{display:none}
+.sidebar-section{border-bottom:1px solid var(--line);margin:0 0 14px;padding:0 0 14px}.sidebar-section:last-child{border-bottom:0;margin-bottom:0;padding-bottom:0}.sidebar-section summary{cursor:pointer;list-style:none;font:600 .95rem/1.2 var(--font-display);font-variant:small-caps;letter-spacing:.06em;color:var(--gold)}
+.sidebar-section summary::-webkit-details-marker{display:none}.sidebar-section summary::after{content:"\25B8";float:right;color:var(--dim)}.sidebar-section[open] summary::after{content:"\25BE"}.section-body{padding-top:13px}
+.appearance-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.appearance-grid label{display:grid;gap:4px;color:var(--dim);font-size:.72rem}.appearance-grid label.wide{grid-column:1/-1}.appearance-grid input[type="range"]{width:100%;padding:0}.appearance-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}.appearance-actions button{flex:1}.appearance-status{margin-top:8px;min-height:1.2em}.appearance-grid .jnsq-color-control{grid-template-columns:38px minmax(72px,1fr)}
+.members{display:grid;gap:8px}.member{--speaker-color:var(--mint);display:flex;align-items:center;gap:9px;border:1px solid color-mix(in srgb,var(--speaker-color) 34%,var(--line));
   border-radius:10px;background:var(--panel2);padding:9px}.pulse{width:9px;height:9px;border-radius:50%;background:var(--mint);
   box-shadow:0 0 10px var(--mint)}.member small{color:var(--dim)}.member button{margin-left:auto}.empty{color:var(--dim);line-height:1.5}.objects{display:flex;gap:7px;flex-wrap:wrap;margin-top:15px}
 .object{border:1px solid var(--line);border-radius:999px;padding:5px 9px;color:var(--dim);font-size:.78rem}
-.events{display:grid;gap:8px;max-height:520px;overflow:auto}.event{border-left:2px solid var(--line);padding:4px 0 4px 11px}
-.event.say{border-color:var(--gold)}.event.arrive,.event.depart{border-color:var(--mint)}.event-head{display:flex;gap:8px;
-  font-size:.75rem;color:var(--dim)}.event-head b{color:var(--ink)}.event-text{margin-top:3px;line-height:1.45;white-space:pre-wrap}
-.sequence{margin-left:auto;color:var(--dim);font:12px Consolas,monospace}.error{color:#ff786e}.door{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-bottom:12px}
-select,input,button{font:inherit;border:1px solid var(--line);border-radius:8px;background:#06100d;color:var(--ink);padding:8px}
+.activity-card{display:flex;min-width:0;flex-direction:column}.events{display:grid;align-content:start;gap:8px;min-height:130px;max-height:520px;overflow:auto;flex:1}.event{--speaker-color:var(--line);display:grid;grid-template-columns:30px minmax(0,1fr);gap:9px;border-left:3px solid var(--speaker-color);border-radius:8px;padding:7px 9px;background:color-mix(in srgb,var(--speaker-color) 7%,transparent)}
+.event.say{background:color-mix(in srgb,var(--speaker-color) 12%,var(--panel))}.event-head{display:flex;align-items:baseline;gap:8px;
+  font-size:.75rem;color:var(--dim)}.event-head b{color:var(--speaker-color)}.event-text{margin-top:3px;line-height:1.45;white-space:pre-wrap}.speaker-mark{position:relative;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;overflow:hidden;flex:0 0 28px;background:color-mix(in srgb,var(--speaker-color) 24%,var(--panel));border:1px solid color-mix(in srgb,var(--speaker-color) 70%,var(--line));color:var(--speaker-color);font-weight:700;box-shadow:0 0 10px color-mix(in srgb,var(--speaker-color) 28%,transparent)}.speaker-mark img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.event-body{min-width:0}
+.sequence{margin-left:auto;color:var(--dim);font:12px 'IBM Plex Mono',Consolas,monospace}.error{color:#d97b6c}.door{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-bottom:12px}
+select,input,button{font:inherit;border:1px solid var(--line);border-radius:8px;background:color-mix(in srgb,var(--bg) 70%,black);color:var(--ink);padding:8px}
 button{cursor:pointer;color:var(--mint)}button:hover{border-color:var(--mint)}button:disabled{opacity:.45;cursor:wait}.member button{padding:3px 7px;color:var(--dim)}
-.speak{display:grid;grid-template-columns:minmax(110px,.45fr) minmax(160px,1fr) auto;gap:8px;margin-top:16px}.note{color:var(--dim);font-size:.75rem;line-height:1.45}
-@media(max-width:700px){.shell{padding:18px}.grid{grid-template-columns:1fr}}
+.composer{margin-top:16px}.speak{display:grid;grid-template-columns:minmax(160px,1fr) auto;gap:8px}.speaker-choice{display:flex;align-items:center;gap:7px;width:max-content;max-width:100%;margin-top:8px;color:var(--dim);font-size:.72rem}.speaker-choice select{width:auto;min-width:120px;max-width:210px;padding:4px 7px;font-size:.74rem}.note{color:var(--dim);font-size:.75rem;line-height:1.45}
+@media(max-width:700px){.shell{padding:18px}.grid,.grid.sidebar-collapsed{grid-template-columns:1fr}.grid.sidebar-collapsed .sidebar-card{padding:8px}.grid.sidebar-collapsed .sidebar-toggle{width:auto;color:var(--dim)}.grid.sidebar-collapsed .sidebar-toggle::before{display:none}.nexus-resizer{display:none}.speaker-choice{width:100%}.speaker-choice select{flex:1;max-width:none}}
 </style>
 </head>
 <body><div class="shell">
-  <header><img src="/assets/jnsq_favicon.svg" alt=""><div><h1>The Nexus</h1>
+  <header><div><h1>The Nexus</h1>
     <div class="subtitle">One shared local room. People and personas can enter, leave, hear, and answer.</div></div>
     <span class="sequence" id="sequence">sequence 0</span></header>
-  <div class="grid">
-    <section class="card"><h2>Bring someone into the Nexus</h2>
-      <div class="door"><select id="joinMember" aria-label="User or persona to add"></select><button id="joinButton">add</button></div>
-      <div class="note" id="doorNote">Choose from the users and personas currently in this JNSQ home.</div>
-      <h2 style="margin-top:20px">Present now</h2><div class="members" id="members"></div>
-      <h2 style="margin-top:20px">Shared objects</h2><div class="objects" id="objects"></div></section>
-    <section class="card"><h2>Recent room activity</h2><div class="events" id="events"></div>
-      <div class="speak"><select id="speaker" aria-label="User speaking"></select><input id="say" placeholder="say something to the Nexus"><button id="sayButton">say</button></div>
-      <div class="note">Users speak here. Personas perceive and answer through their own conversation panes when their Nexus systems are enabled.</div></section>
+  <div class="grid" id="nexusGrid">
+    <section class="card sidebar-card"><div class="sidebar-head"><button class="sidebar-toggle" id="sidebarToggle" type="button" aria-expanded="true" title="Collapse the Nexus sidebar">collapse sidebar</button></div><div class="sidebar-content">
+      <details class="sidebar-section" data-nexus-section="invite"><summary>Bring someone into the Nexus</summary><div class="section-body">
+        <div class="door"><select id="joinMember" aria-label="User or persona to add"></select><button id="joinButton">add</button></div>
+        <div class="note" id="doorNote">Choose from the users and personas currently in this JNSQ home.</div></div></details>
+      <details class="sidebar-section" data-nexus-section="present" open><summary>Present now</summary><div class="section-body"><div class="members" id="members"></div></div></details>
+      <details class="sidebar-section" data-nexus-section="objects" open><summary>Shared objects</summary><div class="section-body"><div class="objects" id="objects"></div></div></details>
+      <details class="sidebar-section" data-nexus-section="appearance"><summary>Nexus appearance</summary><div class="section-body">
+        <div class="appearance-grid">
+          <label class="wide">Theme preset<select id="nexusPreset"></select></label>
+          <label>Background<select id="nexusBackground"><option value="stars">Stars</option><option value="aurora">Aurora</option><option value="grid">Grid</option><option value="scales">Scales</option><option value="paper">Paper</option><option value="image">Uploaded image</option><option value="none">None</option></select></label>
+          <label>Typeface<select id="nexusFont"><option value="serif">Serif</option><option value="system">System</option><option value="display">Display</option><option value="mono">Mono</option><option value="humanist">Humanist</option><option value="rounded">Rounded</option><option value="geometric">Geometric</option></select></label>
+          <label>Background <input type="color" id="nexusBg"></label>
+          <label>Panels <input type="color" id="nexusPanel"></label>
+          <label>Text <input type="color" id="nexusInk"></label>
+          <label>Accent <input type="color" id="nexusAccent"></label>
+          <label>Second accent <input type="color" id="nexusAccent2"></label>
+          <label>Lines <input type="color" id="nexusLine"></label>
+          <label>Density<select id="nexusDensity"><option value="compact">Compact</option><option value="cozy">Cozy</option><option value="roomy">Roomy</option></select></label>
+          <label>Text size<input type="range" id="nexusFontScale" min="0.8" max="1.35" step="0.05"></label>
+          <label>Roundness<input type="range" id="nexusRadius" min="0" max="28" step="1"></label>
+          <label>Glow<input type="range" id="nexusGlow" min="0" max="1" step="0.05"></label>
+          <label class="wide">Image opacity<input type="range" id="nexusBackgroundOpacity" min="0" max="1" step="0.05"></label>
+        </div>
+        <div class="appearance-actions"><button id="saveNexusAppearance" type="button">save Nexus look</button><button id="resetNexusAppearance" type="button">use household look</button></div>
+        <div class="note appearance-status" id="nexusAppearanceStatus">Changes preview here and only affect the Nexus.</div>
+      </div></details>
+    </div></section>
+    <div class="nexus-resizer" id="nexusResizer" role="separator" aria-orientation="vertical" aria-label="Resize Nexus presence and activity"></div>
+    <section class="card activity-card"><h2>Recent room activity</h2><div class="events" id="events"></div>
+      <div class="composer"><div class="speak"><input id="say" placeholder="say something to the Nexus"><button id="sayButton">say</button></div>
+      <label class="speaker-choice">speaking as <select id="speaker" aria-label="User speaking"></select></label></div>
+      <div class="note" id="activityNote">Users speak here. Personas perceive and answer through their own conversation panes when their Nexus systems are enabled.</div></section>
   </div>
 </div>
 <script>
 const $=id=>document.getElementById(id);
 const esc=value=>String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
-let since=0,closed=false,directory={personas:[],users:[],names:{},kinds:{}};
+let since=0,closed=false,directory={personas:[],users:[],names:{},kinds:{},profiles:{}},themeSpeakerColors={},themeSpeakerIcons={};
 async function api(path,options={}){const response=await fetch(path,options);let data={};
   try{data=await response.json()}catch(_){data={error:await response.text()}}
   if(!response.ok||data.error)throw new Error(data.error||response.statusText);return data}
 async function loadDirectory(){const [personas,users]=await Promise.all([api("/api/personas"),api("/api/users")]);
   directory.personas=personas.personas||[];directory.users=users.users||[];
-  for(const person of directory.personas){directory.names[person.id]=person.display_name||person.id;directory.kinds[person.id]="persona"}
-  for(const user of directory.users){directory.names[user.id]=user.display_name||user.id;if(!directory.kinds[user.id])directory.kinds[user.id]="user"}}
+  for(const person of directory.personas){directory.names[person.id]=person.display_name||person.id;directory.kinds[person.id]="persona";directory.profiles[person.id]=person}
+  for(const user of directory.users){directory.names[user.id]=user.display_name||user.id;if(!directory.kinds[user.id])directory.kinds[user.id]="user";directory.profiles[user.id]=user}}
+function fallbackColor(name){let hash=0;for(const ch of String(name))hash=((hash<<5)-hash+ch.charCodeAt(0))|0;return `hsl(${Math.abs(hash)%360} 62% 62%)`}
+function speakerProfile(member){const raw=directory.profiles[member]||{};const name=raw.display_name||directory.names[member]||member||"Room";return {name,color:raw.speaker_color||themeSpeakerColors[name]||themeSpeakerColors[member]||fallbackColor(name),icon:raw.icon||themeSpeakerIcons[name]||themeSpeakerIcons[member]||name.trim().slice(0,1).toUpperCase()||"·",avatar:raw.avatar_url||""}}
+function speakerMark(profile){return `<span class="speaker-mark" aria-hidden="true"><span>${esc(profile.icon)}</span>${profile.avatar?`<img src="${esc(profile.avatar)}" alt="" onerror="this.remove()">`:""}</span>`}
 function eventText(event){const data=event.data||{};
   if(event.kind==="say")return data.text||data.message||"spoke";
   if(event.kind==="arrive")return "entered the Nexus";
@@ -63,9 +114,9 @@ function eventText(event){const data=event.data||{};
   const keys=Object.keys(data);return keys.length?keys.map(key=>`${key}: ${typeof data[key]==="object"?JSON.stringify(data[key]):data[key]}`).join(" · "):event.kind}
 function renderEvents(events,replace=false){const box=$("events");if(replace)box.textContent="";
   if(events.length&&box.querySelector(".empty"))box.textContent="";
-  for(const event of events){since=Math.max(since,Number(event.seq)||0);const row=document.createElement("div");row.className=`event ${event.kind||""}`;
-    row.innerHTML=`<div class="event-head"><span>${esc(event.ts||"")}</span><b>${esc(event.member||"room")}</b><span>${esc(event.kind||"")}</span></div>
-      <div class="event-text">${esc(eventText(event))}</div>`;box.append(row)}
+  for(const event of events){since=Math.max(since,Number(event.seq)||0);const profile=speakerProfile(event.member);const row=document.createElement("div");row.className=`event ${event.kind||""}`;row.dataset.member=event.member||"";row.style.setProperty("--speaker-color",profile.color);
+    row.innerHTML=`${speakerMark(profile)}<div class="event-body"><div class="event-head"><span>${esc(event.ts||"")}</span><b>${esc(profile.name)}</b><span>${esc(event.kind||"")}</span></div>
+      <div class="event-text">${esc(eventText(event))}</div></div>`;box.append(row)}
   while(box.children.length>80)box.firstElementChild.remove();if(events.length)box.scrollTop=box.scrollHeight;
   if(!box.children.length)box.innerHTML='<div class="empty">No shared activity yet. Events appear when a persona enters or acts in the Nexus.</div>';
   $("sequence").textContent=`sequence ${since}`}
@@ -78,7 +129,7 @@ function renderDoors(where,members){const absent=id=>!where[id];const seen=new S
   $("sayButton").disabled=!presentUsers.length}
 async function refreshState(){const [room,world]=await Promise.all([api("/api/rooms/nexus"),api("/api/world")]);
   since=Math.max(since,Number(room.last_seq)||0);const members=Object.keys(room.members||{});
-  $("members").innerHTML=members.length?members.map(name=>`<div class="member"><span class="pulse"></span><b>${esc(directory.names[name]||name)}</b><small>${esc(directory.kinds[name]||"member")}</small><button data-remove="${esc(name)}" title="remove from the Nexus">remove</button></div>`).join(""):
+  $("members").innerHTML=members.length?members.map(name=>{const profile=speakerProfile(name);return `<div class="member" data-member="${esc(name)}" style="--speaker-color:${profile.color}">${speakerMark(profile)}<b style="color:${profile.color}">${esc(profile.name)}</b><small>${esc(directory.kinds[name]||"member")}</small><button data-remove="${esc(name)}" title="remove from the Nexus">remove</button></div>`}).join(""):
     '<div class="empty">No one is present yet. Add a user or persona above.</div>';
   $("members").querySelectorAll("[data-remove]").forEach(button=>button.onclick=()=>removeMember(button.dataset.remove,button));
   renderDoors(world.where||{},members);
@@ -97,7 +148,7 @@ async function speak(){const member=$("speaker").value,text=$("say").value.trim(
   button.disabled=true;
   try{await api("/api/act",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({member,action:"say",text})});
     $("say").value="";await refreshState()}
-  catch(error){$("doorNote").textContent=error.message}finally{button.disabled=!$("speaker").value}}
+  catch(error){$("activityNote").textContent=error.message}finally{button.disabled=!$("speaker").value}}
 async function initial(){try{await loadDirectory();const room=await api("/api/rooms/nexus");const start=Math.max(0,(Number(room.last_seq)||0)-40);
     const history=await api(`/api/rooms/nexus/events?since=${start}`);
     renderEvents(history.events||[],true);await refreshState();watch()}catch(error){$("events").innerHTML=`<div class="error">${esc(error.message)}</div>`}}
@@ -107,6 +158,51 @@ async function watch(){while(!closed){try{const response=await fetch(`/api/rooms
     catch(error){$("sequence").textContent=`reconnecting · ${error.message}`;await new Promise(resolve=>setTimeout(resolve,1200))}}}
 $("joinButton").onclick=joinSelected;$("sayButton").onclick=speak;
 $("say").onkeydown=event=>{if(event.key==="Enter"){event.preventDefault();speak()}};
-window.addEventListener("pagehide",()=>{closed=true});initial();
+const savedPresenceWidth=Number(localStorage.getItem("jnsq.nexus.presenceWidth"));
+if(Number.isFinite(savedPresenceWidth)&&savedPresenceWidth>=220)$("nexusGrid").style.setProperty("--presence-width",`${savedPresenceWidth}px`);
+$("nexusResizer").onpointerdown=event=>{if(window.matchMedia("(max-width:700px)").matches)return;
+  event.preventDefault();const handle=$("nexusResizer"),grid=$("nexusGrid");handle.classList.add("dragging");handle.setPointerCapture(event.pointerId);
+  const move=pointer=>{const rect=grid.getBoundingClientRect();const width=Math.max(220,Math.min(rect.width-340,pointer.clientX-rect.left));grid.style.setProperty("--presence-width",`${width}px`)};
+  handle.onpointermove=move;handle.onpointerup=pointer=>{move(pointer);handle.releasePointerCapture(pointer.pointerId);handle.classList.remove("dragging");handle.onpointermove=handle.onpointerup=null;localStorage.setItem("jnsq.nexus.presenceWidth",String(Math.round(grid.children[0].getBoundingClientRect().width)))}};
+for(const section of document.querySelectorAll("[data-nexus-section]")){const key=`jnsq.nexus.section.${section.dataset.nexusSection}`,saved=localStorage.getItem(key);if(saved!==null)section.open=saved==="open";section.addEventListener("toggle",()=>localStorage.setItem(key,section.open?"open":"closed"))}
+const sidebarCollapsed=localStorage.getItem("jnsq.nexus.sidebarCollapsed")==="true";
+function setSidebarCollapsed(value){$("nexusGrid").classList.toggle("sidebar-collapsed",value);$("sidebarToggle").setAttribute("aria-expanded",String(!value));$("sidebarToggle").textContent=value?"expand sidebar":"collapse sidebar";$("sidebarToggle").title=value?"Expand the Nexus sidebar":"Collapse the Nexus sidebar";localStorage.setItem("jnsq.nexus.sidebarCollapsed",String(value))}
+setSidebarCollapsed(sidebarCollapsed);$("sidebarToggle").onclick=()=>setSidebarCollapsed(!$("nexusGrid").classList.contains("sidebar-collapsed"));
+window.addEventListener("pagehide",()=>{closed=true});window.startNexus=initial;
+</script>
+<script src="/assets/hex_color.js"></script>
+<script>
+(function(){
+  const map={bg:"bg",panel:"panel",line:"line",ink:"ink",dim:"dim",accent:"mint",accent2:"gold"};
+  const fonts={system:'"Segoe UI",system-ui,sans-serif',serif:'"Source Serif 4",Georgia,serif',display:'"Cormorant Garamond",Georgia,serif',mono:'"IBM Plex Mono",Consolas,monospace',humanist:'"Atkinson Hyperlegible","Segoe UI",sans-serif',rounded:'Nunito,"Segoe UI",sans-serif',geometric:'"Space Grotesk","Segoe UI",sans-serif'};
+  const controls={background:"nexusBackground",font:"nexusFont",bg:"nexusBg",panel:"nexusPanel",ink:"nexusInk",accent:"nexusAccent",accent2:"nexusAccent2",line:"nexusLine",density:"nexusDensity",font_scale:"nexusFontScale",radius:"nexusRadius",glow:"nexusGlow",background_opacity:"nexusBackgroundOpacity"};
+  const numberKeys=new Set(["font_scale","radius","glow","background_opacity"]);let themeDoc=null,dirty=new Set(),presetDirty=false,started=false;
+  function repaintSpeakers(){for(const row of document.querySelectorAll("[data-member]")){const profile=speakerProfile(row.dataset.member);row.style.setProperty("--speaker-color",profile.color);const mark=row.querySelector(".speaker-mark");if(mark)mark.outerHTML=speakerMark(profile);const name=row.querySelector(".event-head b,.member b");if(name){name.textContent=profile.name;name.style.color=profile.color}}}
+  function apply(t,media=null){
+    if(!t)return;const root=document.documentElement;
+    themeSpeakerColors=t.speaker_colors||{};themeSpeakerIcons=t.speaker_icons||{};
+    for(const [s,d] of Object.entries(map))if(t[s])root.style.setProperty("--"+d,t[s]);
+    if(t.font){const stack=fonts[t.font]||fonts.system;root.style.setProperty("--font-ui",stack);root.style.setProperty("--font-display",stack)}
+    const scale=Math.max(.8,Math.min(1.35,Number(t.font_scale)||1));const glow=Math.max(0,Math.min(1,Number(t.glow)||0));const motion=Math.max(0,Math.min(1,Number(t.motion)||0));
+    root.style.setProperty("--base-font-size",`${15*scale}px`);root.style.setProperty("--theme-glow-radius",`${2+glow*25}px`);root.style.setProperty("--theme-glow-alpha",String(.03+glow*.28));root.style.setProperty("--theme-motion-duration",`${70-motion*52}s`);
+    root.style.setProperty("--shell-pad",t.density==="compact"?"20px":t.density==="roomy"?"40px":"30px");root.style.setProperty("--card-pad",t.density==="compact"?"12px":t.density==="roomy"?"24px":"18px");
+    root.style.setProperty("--background-opacity",Number.isFinite(Number(t.background_opacity))?t.background_opacity:.32);root.style.setProperty("--conversation-background",media?.url?`url("${media.url}?v=${encodeURIComponent(media.revision||"0")}")`:"none");root.style.setProperty("--theme-radius",`${Math.max(0,Math.min(28,Number(t.radius)||0))}px`);
+    document.body.dataset.motion=motion>0?"on":"off";document.body.dataset.background=t.background||"stars";
+    repaintSpeakers();window.dispatchEvent(new CustomEvent("jnsq-theme-applied"));
+  }
+  function fill(doc){themeDoc=doc;const preset=$("nexusPreset");preset.innerHTML=Object.entries(doc.presets||{}).map(([id,label])=>`<option value="${esc(id)}">${esc(label)}</option>`).join("");preset.value=doc.preset;for(const [key,id] of Object.entries(controls))if(doc.tokens[key]!==undefined)$(id).value=doc.tokens[key];dirty.clear();presetDirty=false;window.JNSQHexColors?.sync();apply(doc.tokens,doc.conversation_background)}
+  function readTokens(){const tokens={};for(const [key,id] of Object.entries(controls))tokens[key]=numberKeys.has(key)?Number($(id).value):$(id).value;return tokens}
+  function preview(){const base=presetDirty?themeDoc.preset_tokens[$("nexusPreset").value]||{}:themeDoc.tokens;apply({...base,...readTokens(),speaker_colors:themeDoc.tokens.speaker_colors,speaker_icons:themeDoc.tokens.speaker_icons},themeDoc.conversation_background);$("nexusAppearanceStatus").textContent="Previewing unsaved Nexus changes."}
+  async function fetchTheme(){try{const response=await fetch("/api/ui/theme");if(!response.ok)throw new Error(`theme ${response.status}`);fill(await response.json())}catch(error){$("nexusAppearanceStatus").textContent=`Could not load Nexus appearance: ${error.message}`}finally{if(!started){started=true;window.startNexus?.()}}}
+  $("nexusPreset").addEventListener("change",()=>{presetDirty=true;dirty.clear();const chosen=themeDoc.preset_tokens[$("nexusPreset").value]||{};for(const [key,id] of Object.entries(controls))if(chosen[key]!==undefined)$(id).value=chosen[key];window.JNSQHexColors?.sync();preview()});
+  for(const [key,id] of Object.entries(controls))$(id).addEventListener("input",()=>{dirty.add(key);preview()});
+  $("saveNexusAppearance").onclick=async()=>{const button=$("saveNexusAppearance");button.disabled=true;try{const tokens={};for(const key of dirty)tokens[key]=readTokens()[key];const patch={};if(presetDirty)patch.preset=$("nexusPreset").value;if(dirty.size)patch.tokens=tokens;const response=await fetch("/api/ui/theme",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({patch,replace:presetDirty})});const doc=await response.json();if(!response.ok||doc.error)throw new Error(doc.error||response.statusText);fill(doc);$("nexusAppearanceStatus").textContent="Nexus appearance saved."}catch(error){$("nexusAppearanceStatus").textContent=error.message}finally{button.disabled=false}};
+  $("resetNexusAppearance").onclick=async()=>{const button=$("resetNexusAppearance");button.disabled=true;try{const response=await fetch("/api/ui/theme",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({patch:{},reset:true})});const doc=await response.json();if(!response.ok||doc.error)throw new Error(doc.error||response.statusText);fill(doc);$("nexusAppearanceStatus").textContent="The Nexus is using the household appearance again."}catch(error){$("nexusAppearanceStatus").textContent=error.message}finally{button.disabled=false}};
+  window.addEventListener("message",e=>{
+    if(e.data&&e.data.type==="jnsq-theme-refresh")fetchTheme();
+  });
+  if(window.parent!==window){try{window.parent.postMessage({type:"jnsq-theme-request"},"*")}catch(e){}}
+  fetchTheme();
+})();
 </script>
 </body></html>

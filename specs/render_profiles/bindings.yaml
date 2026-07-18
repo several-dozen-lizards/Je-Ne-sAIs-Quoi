@@ -1,0 +1,10 @@
+schema_version: 1
+default_profile: structured_general_v1
+
+# Family bindings select shared renderer mechanics. They contain no persona,
+# organ, model name, or prompt prose. A new model inside an existing family
+# requires no prompt work; an unknown future family uses the default profile.
+families:
+  anthropic: structured_general_v1
+  openai_chat: structured_general_v1
+  llama3-chatml: structured_general_v1

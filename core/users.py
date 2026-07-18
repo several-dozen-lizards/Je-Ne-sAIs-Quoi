@@ -332,17 +332,108 @@ def put_relationship(repo: str, uid: str, other: str, *, status: str,
 
 def put_user_persona(repo: str, uid: str, *, persona_id: str, name: str,
                      description: str = "", preferences: str = "",
-                     boundaries: str = "") -> dict:
+                     boundaries: str = "", icon: str | None = None) -> dict:
     if not get_user(repo, uid):
         raise KeyError(f"no user '{uid}'")
     pid = slugify(persona_id or name)
+    path = os.path.join(_user_dir(repo, uid), "user_personas", pid + ".yaml")
+    prior = _read_yaml(path, {})
     rec = {"id": pid, "name": (name or persona_id).strip(),
            "description": (description or "").strip(),
            "preferences": (preferences or "").strip(),
            "boundaries": (boundaries or "").strip()}
-    path = os.path.join(_user_dir(repo, uid), "user_personas", pid + ".yaml")
+    for key in ("icon", "avatar"):
+        if prior.get(key):
+            rec[key] = prior[key]
+    if icon is not None:
+        value = icon.strip()
+        if not value or len(value) > 16:
+            raise ValueError("user persona icon must be 1-16 characters")
+        rec["icon"] = value
     _write_yaml(path, rec)
     return rec
+
+
+def set_user_icon(repo: str, uid: str, icon: str) -> dict:
+    """Persist a human account's fallback glyph in the account record."""
+    user = get_user(repo, uid)
+    if not user:
+        raise KeyError(f"no user '{uid}'")
+    value = (icon or "").strip()
+    if not value or len(value) > 16:
+        raise ValueError("user icon must be 1-16 characters")
+    account = dict(user["account"])
+    account["icon"] = value
+    _write_yaml(os.path.join(_user_dir(repo, uid), "account.yaml"), account)
+    return account
+
+
+def save_user_avatar(repo: str, uid: str, data_url: str) -> dict:
+    """Store an account avatar locally and persist only its relative path."""
+    user = get_user(repo, uid)
+    if not user:
+        raise KeyError(f"no user '{uid}'")
+    from shell.persona_media import save_local_avatar
+    base = _user_dir(repo, uid)
+    result = save_local_avatar(os.path.join(base, "ui"), data_url)
+    account = dict(user["account"])
+    account["avatar"] = f"ui/{os.path.basename(result['path'])}"
+    _write_yaml(os.path.join(base, "account.yaml"), account)
+    return {**result, "relative": account["avatar"]}
+
+
+def load_user_avatar(repo: str, uid: str) -> dict | None:
+    user = get_user(repo, uid)
+    if not user:
+        return None
+    from shell.persona_media import load_local_avatar
+    return load_local_avatar(_user_dir(repo, uid),
+                             user["account"].get("avatar") or "")
+
+
+def save_user_persona_avatar(repo: str, uid: str, persona_id: str,
+                             data_url: str) -> dict:
+    """Store an RP user-persona avatar without joining it to the account."""
+    user = get_user(repo, uid)
+    if not user:
+        raise KeyError(f"no user '{uid}'")
+    pid = slugify(persona_id)
+    rec = user["user_personas"].get(pid)
+    if not rec:
+        raise KeyError(f"no user persona '{pid}'")
+    from shell.persona_media import save_local_avatar
+    base = _user_dir(repo, uid)
+    media_dir = os.path.join(base, "ui", "user_personas", pid)
+    result = save_local_avatar(media_dir, data_url)
+    updated = dict(rec)
+    updated["avatar"] = (f"ui/user_personas/{pid}/"
+                         f"{os.path.basename(result['path'])}")
+    _write_yaml(os.path.join(base, "user_personas", pid + ".yaml"), updated)
+    return {**result, "relative": updated["avatar"]}
+
+
+def load_user_persona_avatar(repo: str, uid: str,
+                             persona_id: str) -> dict | None:
+    user = get_user(repo, uid)
+    if not user:
+        return None
+    pid = slugify(persona_id)
+    rec = user["user_personas"].get(pid)
+    if not rec:
+        return None
+    from shell.persona_media import load_local_avatar
+    return load_local_avatar(_user_dir(repo, uid), rec.get("avatar") or "")
+
+
+def delete_user_persona(repo: str, uid: str, persona_id: str) -> bool:
+    if not get_user(repo, uid):
+        raise KeyError(f"no user '{uid}'")
+    pid = slugify(persona_id)
+    path = os.path.join(_user_dir(repo, uid), "user_personas", pid + ".yaml")
+    if not os.path.isfile(path):
+        return False
+    os.unlink(path)
+    return True
 
 
 def can_disclose_fact(user: dict, fact: dict, recipient: str) -> bool:

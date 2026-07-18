@@ -1,12 +1,28 @@
 <!doctype html><html><head><meta charset="utf-8"><title>JNSQ users</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Cormorant+Garamond:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Nunito:wght@400;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="/assets/hex_color.js"></script>
 <style>
-:root{--bg:#07110f;--panel:#0d1b19;--line:#21443d;--ink:#d8f2e9;
---dim:#779f94;--accent:#44e0b2;--warn:#ff776d}*{box-sizing:border-box}
-body{margin:0;padding:1.2rem;background:var(--bg);color:var(--ink);
-font:14px Consolas,monospace;line-height:1.45}h1,h2{color:var(--accent);font-size:1rem}
+:root{--bg:#0b0a15;--panel:#131120;--line:#2c2740;--ink:#eae3d2;
+--dim:#8b829d;--accent:#c9ab77;--accent2:#f6ead0;--warn:#d97b6c;--base-font-size:14px;--card-pad:1rem;--theme-glow-radius:10px;
+--font-ui:'Source Serif 4',Georgia,serif;
+--font-display:'Cormorant Garamond',Georgia,serif;
+--font-mono:'IBM Plex Mono',Consolas,monospace}*{box-sizing:border-box;scrollbar-width:thin;
+scrollbar-color:var(--accent) color-mix(in srgb,var(--panel) 82%,var(--bg))}
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-track{background:color-mix(in srgb,var(--panel) 82%,var(--bg))}
+*::-webkit-scrollbar-thumb{background:linear-gradient(180deg,var(--accent),var(--accent2));
+border:2px solid color-mix(in srgb,var(--panel) 82%,var(--bg));border-radius:999px}
+*::-webkit-scrollbar-thumb:hover{background:var(--accent2)}
+body{margin:0;padding:1.2rem;color:var(--ink);
+background:radial-gradient(circle at 15% -10%,color-mix(in srgb,var(--line) 55%,var(--bg)) 0,transparent 38%),var(--bg);
+font:var(--base-font-size) var(--font-ui);line-height:1.45}h1,h2{color:var(--accent);font-size:1.05rem;
+font-family:var(--font-display);font-weight:600}
+.ui-icon{width:13px;height:13px;display:inline-block;vertical-align:-2px;margin-right:5px}
 .top,.row,.actions{display:flex;gap:.55rem;align-items:center;flex-wrap:wrap}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:1rem}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:1rem;min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:var(--card-pad);min-width:0;box-shadow:0 0 var(--theme-glow-radius) color-mix(in srgb,var(--accent) 14%,transparent)}
 input,select,textarea,button{background:var(--bg);color:var(--ink);border:1px solid
 var(--line);border-radius:6px;padding:.42rem;font:inherit}input,select{min-width:0;width:100%}
 textarea{width:100%;min-height:4rem;resize:vertical}button{cursor:pointer}
@@ -21,11 +37,15 @@ flex:1}.hint,.empty,#note{color:var(--dim);font-size:.78rem}.hint{white-space:no
 .source{color:var(--accent);font-size:.7rem}.top label{max-width:28rem}
 #facts{max-height:30rem;overflow:auto;padding-right:.35rem;margin-bottom:.75rem;scrollbar-color:var(--line) transparent}
 .item{border-top:1px solid var(--line);padding:.65rem 0}.item:first-child{border-top:0}
+.look-row{display:grid;grid-template-columns:42px minmax(70px,1fr) minmax(145px,190px) auto;gap:.5rem;
+align-items:end;margin:.65rem 0}.look-mark{width:38px;height:38px;border-radius:50%;display:grid;
+place-items:center;overflow:hidden;border:1px solid var(--line);background:var(--bg);font-size:1.1rem}
+.look-mark img{width:100%;height:100%;object-fit:cover}.look-file{grid-column:2/4}.look-note{grid-column:2/-1}
 .tag{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:.12rem .4rem;
 color:var(--dim);font-size:.72rem;margin:.1rem}.hidden{display:none}.wide{flex-basis:100%}
 @media(max-width:720px){.grid,.form-grid{grid-template-columns:1fr}.form-grid .wide,.form-grid .form-actions{grid-column:1}}
 </style></head><body>
-<h1>👤 user accounts</h1>
+<h1><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5.5 20c.6-4 2.8-6 6.5-6s5.9 2 6.5 6"/></svg>user accounts</h1>
 <p class="hint">The human is canonical. Bedrock belongs to the account. User personas are
 separate RP identities and never overwrite the human.</p>
 <div class="card top">
@@ -38,6 +58,17 @@ separate RP identities and never overwrite the human.</p>
     <label>display name<input id="displayName"></label>
     <label>pronouns<input id="pronouns"></label>
     <button id="saveAccount">save account</button>
+  </div>
+  <h2>account look</h2>
+  <p class="hint">The uploaded image stays on this computer. The glyph appears whenever there is no image; the speaker color follows this display name through chats.</p>
+  <div class="look-row">
+    <span class="look-mark" id="accountLookMark"></span>
+    <label>fallback glyph<input id="accountIcon" maxlength="16"></label>
+    <label>speaker color<input type="color" id="accountColor"></label>
+    <button id="saveAccountLook">save look</button>
+    <input class="look-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" id="accountAvatarFile">
+    <button id="uploadAccountAvatar">upload image</button>
+    <span class="hint look-note" id="accountLookNote"></span>
   </div>
 </div>
 <div id="workspace" class="hidden">
@@ -75,7 +106,7 @@ separate RP identities and never overwrite the human.</p>
         <span id="factEditNote" class="hint"></span></div>
     </div>
   </section>
-  <section class="card"><h2>sharing groups</h2>
+  <section class="card" hidden><h2>sharing groups</h2>
     <div class="help">
       <p><strong>What this is:</strong> reusable disclosure policies for circles of people,
       such as immediate family, church friends, coworkers, or extended family.</p>
@@ -99,7 +130,7 @@ separate RP identities and never overwrite the human.</p>
       <div class="form-actions"><button id="saveGroup">save group</button></div>
     </div>
   </section>
-  <section class="card"><h2>connections</h2>
+  <section class="card" hidden><h2>connections</h2>
     <div class="help">
       <p><strong>What this is:</strong> your one-way declaration of what JNSQ may reveal
       about you to another user. Their declaration about you is separate.</p>
@@ -137,7 +168,9 @@ separate RP identities and never overwrite the human.</p>
       <label class="wide">details<textarea id="personaDescription"></textarea></label>
       <label class="wide">preferences<textarea id="personaPreferences"></textarea></label>
       <label class="wide">boundaries<textarea id="personaBoundaries"></textarea></label>
-      <div class="form-actions"><button id="savePersona">save user persona</button></div>
+      <div class="form-actions"><button id="savePersona">save user persona</button>
+        <button id="cancelPersona" type="button" class="hidden">cancel edit</button>
+        <span id="personaEditNote" class="hint"></span></div>
     </div>
   </section>
 </div></div>
@@ -145,7 +178,7 @@ separate RP identities and never overwrite the human.</p>
 const $=id=>document.getElementById(id), esc=s=>String(s??"").replace(/[&<>"']/g,
   c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const csv=id=>$(id).value.split(",").map(x=>x.trim()).filter(Boolean);
-let uid=null,data=null,editingFactId=null;
+let uid=null,data=null,editingFactId=null,editingPersonaId=null,themeDoc=null;
 async function request(url,method="GET",body){const r=await fetch(url,{method,
  headers:{"Content-Type":"application/json"},body:body?JSON.stringify(body):undefined});
  const d=await r.json();if(!r.ok||d.error)throw Error(d.error||r.statusText);return d}
@@ -155,11 +188,18 @@ async function loadUsers(select){const d=await request("/api/users");
  `<option value="${esc(u.id)}">${esc(u.display_name)} (@${esc(u.username)})</option>`).join("");
  if(select){$("userSelect").value=select;await loadUser(select)}}
 async function loadUser(id){uid=id;if(!id){$("workspace").classList.add("hidden");return}
- data=await request(`/api/users/${encodeURIComponent(id)}`);render();}
+ [data,themeDoc]=await Promise.all([request(`/api/users/${encodeURIComponent(id)}`),request("/api/ui/theme")]);render();}
+function named(obj,name){const key=Object.keys(obj||{}).find(k=>k.toLowerCase()===String(name).toLowerCase());return key?obj[key]:null}
+function lookMark(image,icon,name){return image?`<img src="${esc(image)}" alt="">`:esc(icon||String(name||"?").slice(0,1).toUpperCase())}
+function fileDataUrl(file){return new Promise((resolve,reject)=>{if(!file)return reject(Error("choose an image first"));
+ const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(Error("could not read that image"));reader.readAsDataURL(file)})}
+async function saveSpeakerColor(name,color){await request("/api/ui/theme","POST",{patch:{tokens:{speaker_colors:{[name]:color}}}});themeDoc=await request("/api/ui/theme")}
 function tags(xs){return(xs||[]).map(x=>`<span class="tag">${esc(x)}</span>`).join("")}
 function render(){$("workspace").classList.remove("hidden");$("accountForm").classList.remove("hidden");
  const a=data.account;$("username").value=a.username;$("displayName").value=a.display_name;
- $("pronouns").value=a.pronouns||"";
+ $("pronouns").value=a.pronouns||"";$("accountIcon").value=a.icon||String(a.display_name||a.username||"U").slice(0,1).toUpperCase();
+ $("accountColor").value=named(themeDoc?.tokens?.speaker_colors,a.display_name)||"#5ba7d9";
+ $("accountLookMark").innerHTML=lookMark(a.avatar_url,a.icon,a.display_name);
  $("facts").innerHTML=data.bedrock.length?data.bedrock.map(f=>`<div class="item">
  <b>${esc(f.text)}</b><br>${tags([f.category,f.visibility,...(f.groups||[]),
    ...(f.share_with||[]).map(x=>"share:"+x),
@@ -173,7 +213,15 @@ function render(){$("workspace").classList.remove("hidden");$("accountForm").cla
  const rs=Object.values(data.relationships);$("relationships").innerHTML=rs.length?rs.map(r=>`<div class="item"><b>${esc(r.user)}</b>
  ${tags([r.status,...(r.groups||[])])}<div class="hint">${esc(r.note)}</div></div>`).join(""):'<p class="empty">No connections declared yet.</p>';
  const ps=Object.values(data.user_personas);$("personas").innerHTML=ps.length?ps.map(p=>`<div class="item"><b>${esc(p.name)}</b>
- <div>${esc(p.description)}</div><div class="hint">preferences: ${esc(p.preferences)}<br>boundaries: ${esc(p.boundaries)}</div></div>`).join(""):'<p class="empty">No RP personas yet.</p>'}
+ <div>${esc(p.description)}</div><div class="hint">preferences: ${esc(p.preferences)}<br>boundaries: ${esc(p.boundaries)}</div>
+ <div class="look-row"><span class="look-mark">${lookMark(p.avatar_url,p.icon,p.name)}</span>
+ <label>fallback glyph<input id="personaIcon_${esc(p.id)}" maxlength="16" value="${esc(p.icon||String(p.name||"P").slice(0,1).toUpperCase())}"></label>
+ <label>speaker color<input type="color" id="personaColor_${esc(p.id)}" value="${esc(named(themeDoc?.tokens?.speaker_colors,p.name)||"#b985ff")}"></label>
+ <button onclick="savePersonaLook('${esc(p.id)}')">save look</button>
+ <input class="look-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif" id="personaAvatar_${esc(p.id)}">
+ <button onclick="uploadPersonaAvatar('${esc(p.id)}')">upload image</button><span class="hint look-note" id="personaLookNote_${esc(p.id)}"></span></div>
+ <div class="actions"><button onclick="editPersona('${esc(p.id)}')">edit</button>
+ <button class="danger" onclick="delPersona('${esc(p.id)}')">delete</button></div></div>`).join(""):'<p class="empty">No RP personas yet.</p>';window.JNSQHexColors?.sync()}
 async function refresh(msg){await loadUser(uid);say(msg)}
 function clearFactEditor(){editingFactId=null;
  ["factText","factCategory","factGroups","factShare","factDeny"].forEach(id=>$(id).value="");
@@ -187,6 +235,16 @@ function editFact(id){const fact=(data.bedrock||[]).find(f=>f.id===id);if(!fact)
  $("factEditNote").textContent=`editing ${id}`;$("factText").focus();
  $("factText").scrollIntoView({behavior:"smooth",block:"center"})}
 window.editFact=editFact;$("cancelFact").onclick=clearFactEditor;
+function clearPersonaEditor(){editingPersonaId=null;
+ ["personaName","personaDescription","personaPreferences","personaBoundaries"].forEach(id=>$(id).value="");
+ $("savePersona").textContent="save user persona";$("cancelPersona").classList.add("hidden");
+ $("personaEditNote").textContent=""}
+function editPersona(id){const persona=Object.values(data.user_personas||{}).find(p=>p.id===id);if(!persona)return;
+ editingPersonaId=id;$("personaName").value=persona.name||"";$("personaDescription").value=persona.description||"";
+ $("personaPreferences").value=persona.preferences||"";$("personaBoundaries").value=persona.boundaries||"";
+ $("savePersona").textContent="save persona changes";$("cancelPersona").classList.remove("hidden");
+ $("personaEditNote").textContent=`editing ${persona.name}`;$("personaName").focus()}
+window.editPersona=editPersona;$("cancelPersona").onclick=clearPersonaEditor;
 $("userSelect").onchange=e=>{clearFactEditor();loadUser(e.target.value).catch(e=>say(e.message,true))};
 $("newUser").onclick=()=>{clearFactEditor();uid=null;data=null;$("workspace").classList.add("hidden");
  $("accountForm").classList.remove("hidden");["username","displayName","pronouns"].forEach(x=>$(x).value="")};
@@ -194,6 +252,13 @@ $("saveAccount").onclick=async()=>{try{const id=$("username").value;await reques
  {username:id,display_name:$("displayName").value,pronouns:$("pronouns").value,update:!!uid});
  await loadUsers(id.toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_|_$/g,""));say("account saved")}
  catch(e){say(e.message,true)}};
+$("saveAccountLook").onclick=async()=>{const note=$("accountLookNote");try{note.textContent="saving…";
+ await request(`/api/users/${encodeURIComponent(uid)}/icon`,"POST",{icon:$("accountIcon").value});
+ await saveSpeakerColor(data.account.display_name,$("accountColor").value);await refresh("account look saved");note.textContent="saved"}
+ catch(e){note.textContent="⚠ "+e.message}};
+$("uploadAccountAvatar").onclick=async()=>{const note=$("accountLookNote");try{note.textContent="uploading…";
+ const dataUrl=await fileDataUrl($("accountAvatarFile").files[0]);await request(`/api/users/${encodeURIComponent(uid)}/avatar`,"POST",{data_url:dataUrl});
+ await refresh("account image saved locally")}catch(e){note.textContent="⚠ "+e.message}};
 $("saveFact").onclick=async()=>{try{const wasEditing=!!editingFactId;
  await request(`/api/users/${uid}/bedrock`,"POST",{id:editingFactId||"",text:$("factText").value,
  category:$("factCategory").value||"general",visibility:$("factVisibility").value,
@@ -214,8 +279,36 @@ $("saveGroup").onclick=async()=>{try{await request(`/api/users/${uid}/groups`,"P
 $("saveRelationship").onclick=async()=>{try{await request(`/api/users/${uid}/relationships`,"POST",{user:$("relUser").value,
  status:$("relStatus").value,groups:csv("relGroups"),note:$("relNote").value});await refresh("connection saved")}
  catch(e){say(e.message,true)}};
-$("savePersona").onclick=async()=>{try{await request(`/api/users/${uid}/personas`,"POST",{name:$("personaName").value,
+$("savePersona").onclick=async()=>{try{const wasEditing=!!editingPersonaId;
+ await request(`/api/users/${uid}/personas`,"POST",{id:editingPersonaId||"",name:$("personaName").value,
  description:$("personaDescription").value,preferences:$("personaPreferences").value,boundaries:$("personaBoundaries").value});
- await refresh("user persona saved")}catch(e){say(e.message,true)}};
+ clearPersonaEditor();await refresh(wasEditing?"user persona changes saved":"user persona saved")}catch(e){say(e.message,true)}};
+async function delPersona(id){const persona=data.user_personas?.[id];
+ if(!confirm(`Delete ${persona?.name||id}? This removes this RP persona, not your account.`))return;
+ try{await request(`/api/users/${uid}/personas/${encodeURIComponent(id)}`,"DELETE");
+  if(editingPersonaId===id)clearPersonaEditor();await refresh("user persona deleted")}
+ catch(e){say(e.message,true)}}window.delPersona=delPersona;
+async function savePersonaLook(id){const p=data.user_personas?.[id],note=$(`personaLookNote_${id}`);try{note.textContent="saving…";
+ await request(`/api/users/${encodeURIComponent(uid)}/personas`,"POST",{...p,icon:$(`personaIcon_${id}`).value});
+ await saveSpeakerColor(p.name,$(`personaColor_${id}`).value);await refresh(`${p.name} look saved`)}catch(e){note.textContent="⚠ "+e.message}}
+async function uploadPersonaAvatar(id){const p=data.user_personas?.[id],note=$(`personaLookNote_${id}`);try{note.textContent="uploading…";
+ const dataUrl=await fileDataUrl($(`personaAvatar_${id}`).files[0]);await request(`/api/users/${encodeURIComponent(uid)}/personas/${encodeURIComponent(id)}/avatar`,"POST",{data_url:dataUrl});
+ await refresh(`${p.name} image saved locally`)}catch(e){note.textContent="⚠ "+e.message}}
+window.savePersonaLook=savePersonaLook;window.uploadPersonaAvatar=uploadPersonaAvatar;
 loadUsers().catch(e=>say(e.message,true));
+const FONT_STACKS={system:'"Segoe UI",system-ui,sans-serif',serif:'"Source Serif 4",Georgia,serif',display:'"Cormorant Garamond",Georgia,serif',mono:'"IBM Plex Mono",Consolas,monospace',humanist:'"Atkinson Hyperlegible","Segoe UI",sans-serif',rounded:'Nunito,"Segoe UI",sans-serif',geometric:'"Space Grotesk","Segoe UI",sans-serif'};
+const themeFontStack=id=>FONT_STACKS[id]||FONT_STACKS.system;
+const JNSQ_KEYS=["bg","panel","line","ink","dim","accent","accent2","warn","good"];
+async function jnsqTheme(){
+  try{
+    const r=await (await fetch("/api/ui/theme")).json();
+    const t=r.tokens||{}; const root=document.documentElement;
+    JNSQ_KEYS.forEach(k=>t[k]&&root.style.setProperty("--"+k,t[k]));
+    root.style.setProperty("--font-ui",themeFontStack(t.font));root.style.setProperty("--font-display",themeFontStack(t.font));
+    const scale=Math.max(.8,Math.min(1.35,Number(t.font_scale)||1));const glow=Math.max(0,Math.min(1,Number(t.glow)||0));
+    root.style.setProperty("--base-font-size",`${14*scale}px`);root.style.setProperty("--theme-glow-radius",`${2+glow*24}px`);root.style.setProperty("--card-pad",t.density==="compact"?".7rem":t.density==="roomy"?"1.35rem":"1rem");
+  }catch(e){}
+}
+window.addEventListener("message",e=>{if(e.data&&e.data.type==="jnsq-theme-refresh")jnsqTheme()});
+jnsqTheme();
 </script></body></html>

@@ -22,7 +22,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -34,11 +34,24 @@ mimetypes.add_type("application/wasm", ".wasm")
 
 from room.layout import build_world, build_persona_den
 from room.state import CONTRACT_VERSION
+from shell.persona_media import load_persona_avatar
+from shell.ui_background import load_conversation_background
+from shell.ui_themes import resolve_nexus_theme, resolve_theme, save_nexus_theme
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STATE_FILE = os.environ.get(
     "JNSQ_ROOM_STATE",                      # test isolation forever
     os.path.join(REPO, "room", "room_world.json"))
+
+
+def _named_theme_value(mapping: dict, *names):
+    """Case-insensitive lookup for display names and stable ids."""
+    folded = {str(key).casefold(): value for key, value in
+              (mapping or {}).items()}
+    for name in names:
+        if name is not None and str(name).casefold() in folded:
+            return folded[str(name).casefold()]
+    return None
 
 # ── THE WORLD LOCK (audit finding 2, 2026-07-05) ──
 # One world, one writer at a time. Three live actors + heartbeats +
@@ -161,6 +174,12 @@ class JoinReq(BaseModel):
 
 class LeaveReq(BaseModel):
     member: str
+
+
+class ThemeRequest(BaseModel):
+    patch: dict
+    reset: bool = False
+    replace: bool = False
 
 
 class PersonReq(BaseModel):
@@ -291,6 +310,41 @@ def build_app() -> FastAPI:
             return f.read().replace("/*CONFIG*/", json.dumps(
                 load_local_identity(REPO)))
 
+    @app.get("/api/ui/theme")
+    def nexus_ui_theme():
+        result = resolve_nexus_theme(REPO)
+        media = load_conversation_background(REPO)
+        result["conversation_background"] = ({
+            "url": "/api/ui/conversation-background",
+            "revision": media["revision"],
+        } if media else None)
+        return result
+
+    @app.post("/api/ui/theme")
+    def set_nexus_ui_theme(req: ThemeRequest):
+        try:
+            result = save_nexus_theme(REPO, req.patch, reset=req.reset,
+                                      replace=req.replace)
+            media = load_conversation_background(REPO)
+            result["conversation_background"] = ({
+                "url": "/api/ui/conversation-background",
+                "revision": media["revision"],
+            } if media else None)
+            return result
+        except ValueError as error:
+            return JSONResponse(status_code=400,
+                                content={"error": str(error)})
+
+    @app.get("/api/ui/conversation-background")
+    def nexus_ui_background():
+        media = load_conversation_background(REPO)
+        if not media:
+            return JSONResponse(status_code=404,
+                                content={"error": "no conversation background"})
+        return FileResponse(media["path"], media_type=media["mime"],
+                            headers={"X-Content-Type-Options": "nosniff",
+                                     "Cache-Control": "no-cache"})
+
     @app.get("/api/world")
     def world_view():
         return {"contract_version": CONTRACT_VERSION,
@@ -352,27 +406,82 @@ def build_app() -> FastAPI:
             if not os.path.isdir(os.path.join(pdir, n)):
                 continue
             disp = n
+            icon = ""
             rpath = os.path.join(pdir, n, "roster.yaml")
             if os.path.exists(rpath):
                 try:
                     import yaml
                     with open(rpath, encoding="utf-8") as f:
-                        disp = (yaml.safe_load(f) or {}).get(
-                            "display_name") or n
+                        roster = yaml.safe_load(f) or {}
+                    disp = roster.get("display_name") or n
+                    icon = str(roster.get("icon") or "").strip()
                 except Exception:
                     pass          # a broken roster never breaks the list
-            out.append({"id": n, "display_name": disp})
+            avatar = load_persona_avatar(os.path.join(pdir, n))
+            tokens = resolve_theme(REPO, n)["tokens"]
+            speaker_color = (_named_theme_value(
+                tokens.get("speaker_colors"), disp, n)
+                or tokens.get("accent2"))
+            out.append({"id": n, "display_name": disp,
+                        "icon": icon or disp[:1].upper(),
+                        "speaker_color": speaker_color,
+                        "avatar_url": (f"/api/personas/{n}/avatar?v="
+                                       f"{avatar['version']}"
+                                       if avatar else "")})
         return {"personas": out}
+
+    @app.get("/api/personas/{pid}/avatar")
+    def persona_avatar(pid: str):
+        """Serve one validated roster avatar from the room's own origin."""
+        personas_root = os.path.realpath(os.path.join(REPO, "personas"))
+        persona_dir = os.path.realpath(os.path.join(personas_root, pid))
+        try:
+            inside = os.path.commonpath([personas_root, persona_dir]) \
+                == personas_root
+        except ValueError:
+            inside = False
+        avatar = (load_persona_avatar(persona_dir)
+                  if inside and os.path.isdir(persona_dir) else None)
+        if not avatar:
+            return JSONResponse(status_code=404, content={
+                "error": f"persona '{pid}' has no avatar"})
+        return FileResponse(avatar["path"], media_type=avatar["mime"])
 
     @app.get("/api/users")
     def users_list():
         """Human accounts that can be present and speak in the Nexus."""
+        from core.users import load_user_avatar
         from shell.local_identity import local_user_directory
-        return {"users": [
-            {"id": uid,
-             "display_name": account.get("display_name") or uid,
-             "username": account.get("username") or uid}
-            for uid, account in sorted(local_user_directory(REPO).items())]}
+        users = []
+        household_tokens = resolve_theme(REPO)["tokens"]
+        for uid, account in sorted(local_user_directory(REPO).items()):
+            display = account.get("display_name") or uid
+            username = account.get("username") or uid
+            avatar = load_user_avatar(REPO, uid)
+            users.append({"id": uid, "display_name": display,
+                          "username": username,
+                          "icon": str(account.get("icon") or
+                                      display[:1].upper()),
+                          "speaker_color": (_named_theme_value(
+                              household_tokens.get("speaker_colors"),
+                              display, uid, username, "User")
+                              or household_tokens.get("accent")),
+                          "avatar_url": (f"/api/users/{uid}/avatar?v="
+                                         f"{avatar['version']}"
+                                         if avatar else "")})
+        return {"users": users}
+
+    @app.get("/api/users/{uid}/avatar")
+    def user_avatar(uid: str):
+        """Serve one validated local account avatar from the room origin."""
+        from core.users import load_user_avatar
+        avatar = load_user_avatar(REPO, uid)
+        if not avatar:
+            return JSONResponse(status_code=404, content={
+                "error": f"user '{uid}' has no avatar"})
+        return FileResponse(avatar["path"], media_type=avatar["mime"],
+                            headers={"X-Content-Type-Options": "nosniff",
+                                     "Cache-Control": "no-cache"})
 
     @app.get("/api/people")
     def people_list():

@@ -1,0 +1,45 @@
+# Mistral Nemo through Ollama's native chat transport. This generic local
+# vessel is suitable for public installations that already have the standard
+# Ollama tag; model_start_blocker verifies the tag before a persona starts.
+identity:
+  name: "mistral-nemo"
+  family: "llama3-chatml"
+  base_model: "Mistral Nemo 12B"
+  provider: "ollama"
+  service: "ollama"
+  endpoint: "mistral-nemo:latest"
+  locality: "local"
+context:
+  window_tokens: 8192
+  practical_window_tokens: 7000
+  block_budgets: {}
+prompt_structure:
+  system_prompt: true
+  template: "ollama"
+  strict_alternation: false
+  prefill_supported: false
+  stop_sequences: []
+sampling:
+  temperature:
+    mode: "dynamic"
+wire:
+  ollama:
+    keep_alive: "10m"
+capabilities:
+  tool_use: false
+  vision: false
+  structured_output: "coaxable"
+  streaming: true
+module_capability:
+  validated: []
+  saturates_on: []
+  ceiling_notes: "unmeasured local vessel"
+runtime:
+  gpu_constraints: "local hardware dependent"
+  cost: "free_local"
+  latency_class: "slow_first_token_when_cold"
+quirks:
+  - "Ollama native chat; endpoint availability is checked before start"
+harness:
+  last_mechanical_pass: null
+  fidelity_floor_results: {}

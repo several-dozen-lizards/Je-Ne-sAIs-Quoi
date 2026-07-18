@@ -2,6 +2,8 @@
 import uuid
 from datetime import datetime, timezone
 
+from .context import normalize_context
+
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -11,8 +13,9 @@ def make_memory(content: str, *, mem_type: str = "fact",
                 emotion_tags=None, emotional_snapshot=None,
                 entities=None, origin: str = "lived",
                 perspective: str = "shared",
-                importance: float = 0.5, fields=None) -> dict:
-    """origin: lived | read | observed   (v1's epistemics, kept)
+                importance: float = 0.5, fields=None,
+                context_at_encoding=None) -> dict:
+    """origin: lived | read | observed | sensory   (v1 epistemics + perception)
     perspective: user | persona | shared (parameterized — no names baked in)
     fields: optional structured payload (one record, two renders — the
     working window renders fields verbatim; recall renders content).
@@ -36,6 +39,9 @@ def make_memory(content: str, *, mem_type: str = "fact",
     }
     if fields:
         mem["fields"] = dict(fields)
+    context = normalize_context(context_at_encoding)
+    if context is not None:
+        mem["context_at_encoding"] = context
     return mem
 
 

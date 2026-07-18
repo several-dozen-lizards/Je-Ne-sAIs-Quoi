@@ -21,6 +21,16 @@ JUDGE_SYSTEM = (
     '{"feelings": {"<name>": <intensity>, ...}, '
     '"why": "<one short sentence>"}')
 
+EVENT_JUDGE_SYSTEM = (
+    "You read the emotional consequence of something a persona just chose or "
+    "experienced in their private life. Given their current inner state and "
+    "a factual event receipt, return the feelings NOW PRESENT afterward. "
+    "Describe; do not reward productivity, prescribe a reaction, or assume "
+    "that completion feels good. Use 1-4 plain lowercase feeling names with "
+    "intensities 0.0-1.0. If pronouns are given, use exactly those pronouns "
+    "in the why sentence. Respond ONLY with JSON: "
+    '{"feelings": {"<name>": <intensity>, ...}, '
+    '"why": "<one short sentence>"}')
 
 def decay_cocktail(cocktail: dict, factor: float = DECAY_PER_TURN) -> dict:
     return {k: round(v * factor, 3) for k, v in cocktail.items()
@@ -47,6 +57,25 @@ def extract_affect(judge, persona_name: str, current: dict,
     data = json.loads(m.group(0))
     feelings = {k.lower(): max(0.0, min(1.0, float(v)))
                 for k, v in data.get("feelings", {}).items()}
+    return feelings, data.get("why", "")
+
+
+def extract_event_affect(judge, persona_name: str, current: dict,
+                         event_text: str, pronouns: str = "") -> tuple:
+    """Ask what is now felt after one private event; never choose the feeling."""
+    state = ", ".join(f"{k}={v}" for k, v in current.items()) or "quiet"
+    who = f"{persona_name} ({pronouns})" if pronouns else persona_name
+    raw = judge.chat(
+        EVENT_JUDGE_SYSTEM,
+        f"PERSONA: {who}\nCURRENT STATE: {state}\n\n"
+        f"PRIVATE EVENT RECEIPT: {event_text}",
+        max_tokens=160, temperature=0.0)
+    match = re.search(r"\{.*\}", raw, re.DOTALL)
+    if not match:
+        return {}, "event affect parse failed; state unchanged"
+    data = json.loads(match.group(0))
+    feelings = {str(key).lower(): max(0.0, min(1.0, float(value)))
+                for key, value in data.get("feelings", {}).items()}
     return feelings, data.get("why", "")
 
 

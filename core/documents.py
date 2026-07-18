@@ -1,0 +1,660 @@
+"""Human-owned document library, sequential reader, and derived RAG index.
+
+The imported bytes and extracted text are canonical.  Chunk vectors are a
+regenerable sidecar, exactly like memory vectors: useful when healthy, never a
+second source of truth.  Reading position is persona-specific so two members
+of the household can inhabit the same human-owned source differently without
+copying or rewriting it.
+"""
+from __future__ import annotations
+
+import base64
+import binascii
+import hashlib
+import io
+import json
+import math
+import os
+import re
+import shutil
+import tempfile
+import time
+from html.parser import HTMLParser
+from pathlib import Path
+
+from core.users import slugify
+
+
+MAX_DOCUMENT_BYTES = 25 * 1024 * 1024
+MAX_EXTRACTED_CHARS = 12_000_000
+DOCUMENT_CONTEXT_BUDGET = 900
+TEXT_EXTENSIONS = {
+    ".txt", ".md", ".markdown", ".rst", ".csv", ".tsv", ".json",
+    ".yaml", ".yml", ".html", ".htm",
+}
+SUPPORTED_EXTENSIONS = TEXT_EXTENSIONS | {".pdf", ".docx"}
+
+
+class DocumentError(ValueError):
+    pass
+
+
+def private_document_access(speaker: str, local_human: str,
+                            channel: str) -> tuple[bool, str]:
+    """Private-by-default disclosure gate for prompt assembly."""
+    if str(channel or "") == "room":
+        return False, "room_channel_private_default"
+    if str(speaker or "") != str(local_human or ""):
+        return False, "speaker_is_not_local_owner"
+    return True, "local_owner_private_turn"
+
+
+class _HTMLText(HTMLParser):
+    BLOCKS = {
+        "address", "article", "aside", "blockquote", "br", "div", "dl",
+        "dt", "dd", "figcaption", "figure", "footer", "h1", "h2", "h3",
+        "h4", "h5", "h6", "header", "hr", "li", "main", "nav", "ol",
+        "p", "pre", "section", "table", "tr", "ul",
+    }
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.parts = []
+        self.hidden = 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag in {"script", "style", "noscript"}:
+            self.hidden += 1
+        elif tag in self.BLOCKS:
+            self.parts.append("\n")
+
+    def handle_endtag(self, tag):
+        if tag in {"script", "style", "noscript"} and self.hidden:
+            self.hidden -= 1
+        elif tag in self.BLOCKS:
+            self.parts.append("\n")
+
+    def handle_data(self, data):
+        if not self.hidden:
+            self.parts.append(data)
+
+    def text(self):
+        return re.sub(r"\n\s*\n\s*\n+", "\n\n", "".join(self.parts)).strip()
+
+
+def _atomic_json(path: Path, value) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    rendered = json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True)
+    json.loads(rendered)
+    fd, tmp = tempfile.mkstemp(prefix=".jnsq-doc-", suffix=".tmp",
+                               dir=path.parent, text=True)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write(rendered)
+            handle.write("\n")
+        os.replace(tmp, path)
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+
+
+def _decode_text(data: bytes) -> str:
+    for encoding in ("utf-8-sig", "utf-16", "cp1252"):
+        try:
+            text = data.decode(encoding)
+            if "\x00" not in text:
+                return text
+        except UnicodeDecodeError:
+            continue
+    raise DocumentError("document text encoding is not supported")
+
+
+def _extract(data: bytes, suffix: str) -> tuple[str, str]:
+    if suffix in TEXT_EXTENSIONS:
+        text = _decode_text(data)
+        if suffix in {".html", ".htm"}:
+            parser = _HTMLText()
+            parser.feed(text)
+            text = parser.text()
+            extractor = "html.parser"
+        else:
+            extractor = "decoded_text"
+    elif suffix == ".pdf":
+        try:
+            from pypdf import PdfReader
+        except ImportError as exc:
+            raise DocumentError(
+                "PDF import needs pypdf; install the JNSQ requirements") from exc
+        try:
+            pages = []
+            for number, page in enumerate(PdfReader(io.BytesIO(data)).pages, 1):
+                pages.append(f"[Page {number}]\n{page.extract_text() or ''}")
+            text = "\n\n".join(pages)
+        except Exception as exc:
+            raise DocumentError(f"PDF text extraction failed: {exc}") from exc
+        extractor = "pypdf"
+    elif suffix == ".docx":
+        try:
+            from docx import Document
+        except ImportError as exc:
+            raise DocumentError(
+                "DOCX import needs python-docx; install the JNSQ requirements") from exc
+        try:
+            doc = Document(io.BytesIO(data))
+            parts = [p.text for p in doc.paragraphs if p.text.strip()]
+            for table in doc.tables:
+                parts.extend("\t".join(cell.text for cell in row.cells)
+                             for row in table.rows)
+            text = "\n\n".join(parts)
+        except Exception as exc:
+            raise DocumentError(f"DOCX text extraction failed: {exc}") from exc
+        extractor = "python-docx"
+    else:
+        raise DocumentError(
+            f"unsupported document type {suffix or '(none)'}; supported: "
+            + ", ".join(sorted(SUPPORTED_EXTENSIONS)))
+    text = text.replace("\r\n", "\n").replace("\r", "\n").strip()
+    if not text:
+        raise DocumentError("document contains no extractable text")
+    if len(text) > MAX_EXTRACTED_CHARS:
+        raise DocumentError(
+            f"extracted text exceeds the {MAX_EXTRACTED_CHARS:,}-character boundary")
+    return text, extractor
+
+
+def _structural_units(text: str) -> list[tuple[int, int]]:
+    units = []
+    for match in re.finditer(r"\S(?:.*?\S)?(?=\n\s*\n|\Z)", text, re.S):
+        units.append((match.start(), match.end()))
+    return units or [(0, len(text))]
+
+
+def _sentence_units(text: str, start: int, end: int) -> list[tuple[int, int]]:
+    found = []
+    for match in re.finditer(r".*?(?:[.!?](?=\s)|\n|\Z)", text[start:end], re.S):
+        left, right = start + match.start(), start + match.end()
+        while left < right and text[left].isspace():
+            left += 1
+        while right > left and text[right - 1].isspace():
+            right -= 1
+        if right > left:
+            found.append((left, right))
+    return found or [(start, end)]
+
+
+def _chunk_text(text: str) -> tuple[list[dict], dict]:
+    # The target grows with the square root of the document and remains within
+    # the inherited prompt-context envelope.  Long documents get broader
+    # sections without turning a reader position into an arbitrary fixed grid.
+    target = max(900, min(2400, round(math.sqrt(len(text)) * 16)))
+    lower = round(target * 0.55)
+    upper = round(target * 1.35)
+    units = []
+    for start, end in _structural_units(text):
+        if end - start <= upper:
+            units.append((start, end))
+        else:
+            units.extend(_sentence_units(text, start, end))
+
+    chunks, current = [], []
+
+    def emit(spans):
+        if not spans:
+            return
+        start, end = spans[0][0], spans[-1][1]
+        while start < end:
+            hard_end = min(end, start + upper)
+            if hard_end < end:
+                boundary = text.rfind(" ", start + lower, hard_end)
+                hard_end = boundary if boundary > start else hard_end
+            value = text[start:hard_end].strip()
+            if value:
+                real_start = start + len(text[start:hard_end]) - len(
+                    text[start:hard_end].lstrip())
+                real_end = hard_end - len(text[start:hard_end]) + len(
+                    text[start:hard_end].rstrip())
+                chunks.append({"index": len(chunks), "text": value,
+                               "char_start": real_start,
+                               "char_end": real_end})
+            start = hard_end
+            while start < end and text[start].isspace():
+                start += 1
+
+    for span in units:
+        if not current:
+            current = [span]
+            continue
+        proposed = span[1] - current[0][0]
+        current_size = current[-1][1] - current[0][0]
+        if proposed > target and current_size >= lower:
+            emit(current)
+            current = [span]
+        else:
+            current.append(span)
+    emit(current)
+    return chunks, {"strategy": "structural_sqrt_v1", "target_chars": target,
+                    "lower_chars": lower, "upper_chars": upper}
+
+
+def _title_for(filename: str, text: str) -> str:
+    heading = re.search(r"(?m)^#{1,6}\s+(.+?)\s*$", text[:12000])
+    if heading:
+        return heading.group(1).strip()[:200]
+    return Path(filename).stem[:200] or "Untitled document"
+
+
+def _clip(text: str, maximum: int) -> str:
+    if len(text) <= maximum:
+        return text
+    cut = text.rfind(" ", 0, maximum)
+    return text[:cut if cut > maximum // 2 else maximum].rstrip() + "\n[…excerpt continues]"
+
+
+class DocumentLibrary:
+    def __init__(self, repo: str | os.PathLike[str], user_id: str,
+                 persona: str, *, now_fn=time.time):
+        self.repo = Path(repo).resolve()
+        self.user_id = slugify(user_id)
+        persona = str(persona or "").strip()
+        if not persona or Path(persona).name != persona or persona in {".", ".."}:
+            raise DocumentError("persona name is outside the document-reader boundary")
+        self.persona = persona
+        self.root = self.repo / "users" / self.user_id / "documents"
+        self.state_path = (self.repo / "personas" / persona / "body" /
+                           "document_reader" / "state.json")
+        self.now_fn = now_fn
+
+    def _doc_dir(self, doc_id: str) -> Path:
+        doc_id = str(doc_id or "")
+        if not re.fullmatch(r"doc_[0-9a-f]{16}", doc_id):
+            raise DocumentError("invalid document id")
+        return self.root / doc_id
+
+    def _metadata(self, doc_id: str) -> dict:
+        path = self._doc_dir(doc_id) / "document.json"
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError, TypeError) as exc:
+            raise DocumentError("document does not exist or its metadata is invalid") from exc
+        return value
+
+    def _chunks(self, doc_id: str) -> list[dict]:
+        path = self._doc_dir(doc_id) / "chunks.json"
+        try:
+            value = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError, TypeError) as exc:
+            raise DocumentError("document chunks are unavailable") from exc
+        if not isinstance(value, list):
+            raise DocumentError("document chunk index is invalid")
+        return value
+
+    def list_documents(self) -> list[dict]:
+        if not self.root.is_dir():
+            return []
+        found = []
+        for path in sorted(self.root.glob("doc_*/document.json")):
+            try:
+                rec = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError, TypeError):
+                continue
+            if isinstance(rec, dict) and rec.get("id") == path.parent.name:
+                found.append(rec)
+        return sorted(found, key=lambda rec: (
+            -float(rec.get("imported_at", 0.0)), str(rec.get("title", ""))))
+
+    def has_documents(self) -> bool:
+        return bool(self.list_documents())
+
+    def import_bytes(self, filename: str, data: bytes,
+                     content_type: str = "") -> dict:
+        filename = Path(str(filename or "")).name.strip()
+        if not filename:
+            raise DocumentError("document filename is required")
+        if not isinstance(data, (bytes, bytearray)):
+            raise DocumentError("document payload must be bytes")
+        data = bytes(data)
+        if not data:
+            raise DocumentError("document payload is empty")
+        if len(data) > MAX_DOCUMENT_BYTES:
+            raise DocumentError(
+                f"document exceeds the {MAX_DOCUMENT_BYTES // (1024 * 1024)} MB boundary")
+        suffix = Path(filename).suffix.casefold()
+        if suffix not in SUPPORTED_EXTENSIONS:
+            raise DocumentError(
+                "unsupported document type; supported: "
+                + ", ".join(sorted(SUPPORTED_EXTENSIONS)))
+        digest = hashlib.sha256(data).hexdigest()
+        doc_id = f"doc_{digest[:16]}"
+        target = self._doc_dir(doc_id)
+        if target.is_dir():
+            record = self._metadata(doc_id)
+            return {**record, "duplicate": True}
+
+        text, extractor = _extract(data, suffix)
+        chunks, chunking = _chunk_text(text)
+        vectors = None
+        vector_receipt = {"status": "unavailable", "rows": 0}
+        try:
+            from core.memory_emotion.vectors import embed_texts
+            vectors = embed_texts([chunk["text"] for chunk in chunks])
+            if vectors is not None:
+                vector_receipt = {"status": "healthy", "rows": len(vectors)}
+        except Exception as exc:
+            vector_receipt = {"status": "unavailable", "rows": 0,
+                              "error_type": type(exc).__name__}
+
+        imported_at = float(self.now_fn())
+        record = {
+            "schema": 1,
+            "id": doc_id,
+            "owner": self.user_id,
+            "title": _title_for(filename, text),
+            "filename": filename,
+            "extension": suffix,
+            "content_type": str(content_type or ""),
+            "sha256": digest,
+            "bytes": len(data),
+            "characters": len(text),
+            "chunk_count": len(chunks),
+            "chunking": chunking,
+            "extractor": extractor,
+            "imported_at": imported_at,
+            "vectors": vector_receipt,
+        }
+        self.root.mkdir(parents=True, exist_ok=True)
+        staging = Path(tempfile.mkdtemp(prefix=".jnsq-doc-", dir=self.root))
+        try:
+            (staging / f"source{suffix}").write_bytes(data)
+            (staging / "text.txt").write_text(text, encoding="utf-8", newline="\n")
+            _atomic_json(staging / "chunks.json", chunks)
+            _atomic_json(staging / "document.json", record)
+            if vectors is not None:
+                import numpy as np
+                np.save(staging / "vectors.npy", vectors)
+            try:
+                os.replace(staging, target)
+            except FileExistsError:
+                return {**self._metadata(doc_id), "duplicate": True}
+        finally:
+            if staging.exists():
+                shutil.rmtree(staging, ignore_errors=True)
+        return {**record, "duplicate": False}
+
+    def import_data_url(self, filename: str, data_url: str,
+                        content_type: str = "") -> dict:
+        prefix, separator, encoded = str(data_url or "").partition(",")
+        if not separator or not prefix.startswith("data:") or ";base64" not in prefix:
+            raise DocumentError("document payload must be a base64 data URL")
+        if len(encoded) > (MAX_DOCUMENT_BYTES * 4 // 3) + 16:
+            raise DocumentError(
+                f"document exceeds the {MAX_DOCUMENT_BYTES // (1024 * 1024)} MB boundary")
+        try:
+            data = base64.b64decode(encoded, validate=True)
+        except (binascii.Error, ValueError, TypeError) as exc:
+            raise DocumentError("document payload is not valid base64") from exc
+        declared = prefix[5:].split(";", 1)[0]
+        return self.import_bytes(filename, data, content_type or declared)
+
+    def _state(self) -> dict:
+        try:
+            value = json.loads(self.state_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError, TypeError):
+            return {}
+        if (not isinstance(value, dict)
+                or value.get("user_id") != self.user_id):
+            return {}
+        return value
+
+    def open(self, doc_id: str, position: int = 0) -> dict:
+        chunks = self._chunks(doc_id)
+        if not chunks:
+            raise DocumentError("document has no readable chunks")
+        position = int(position)
+        if position < 0 or position >= len(chunks):
+            raise DocumentError(
+                f"position must be between 0 and {len(chunks) - 1}")
+        _atomic_json(self.state_path, {
+            "schema": 1, "user_id": self.user_id, "persona": self.persona,
+            "doc_id": doc_id, "position": position,
+            "updated_at": float(self.now_fn()),
+        })
+        return self.reader_status(include_text=True)
+
+    def navigate(self, action: str, position: int | None = None) -> dict:
+        state = self._state()
+        if not state.get("doc_id"):
+            raise DocumentError("no document is open")
+        chunks = self._chunks(state["doc_id"])
+        current = max(0, min(int(state.get("position", 0)), len(chunks) - 1))
+        action = str(action or "").casefold()
+        if action == "next":
+            wanted = min(len(chunks) - 1, current + 1)
+        elif action == "previous":
+            wanted = max(0, current - 1)
+        elif action == "jump":
+            if position is None:
+                raise DocumentError("jump navigation requires a position")
+            wanted = int(position)
+        else:
+            raise DocumentError("navigation action must be next, previous, or jump")
+        return self.open(state["doc_id"], wanted)
+
+    def reader_status(self, include_text: bool = True) -> dict:
+        state = self._state()
+        doc_id = state.get("doc_id")
+        if not doc_id:
+            return {"active": False, "persona": self.persona,
+                    "owner": self.user_id}
+        try:
+            metadata = self._metadata(doc_id)
+            chunks = self._chunks(doc_id)
+        except DocumentError:
+            return {"active": False, "persona": self.persona,
+                    "owner": self.user_id, "stale_reference": doc_id}
+        position = max(0, min(int(state.get("position", 0)), len(chunks) - 1))
+        chunk = dict(chunks[position])
+        if not include_text:
+            chunk.pop("text", None)
+        anchor = f"{doc_id}#{position + 1}"
+        return {
+            "active": True, "persona": self.persona, "owner": self.user_id,
+            "document": metadata, "position": position,
+            "section": position + 1, "total": len(chunks),
+            "progress": (position + 1) / len(chunks),
+            "has_previous": position > 0,
+            "has_next": position < len(chunks) - 1,
+            "anchor": anchor, "chunk": chunk,
+        }
+
+    def inspect_anchor(self, anchor: str, *, maximum: int = 3200) -> dict:
+        """Inspect one canonical section through an exact anchor only.
+
+        This is the narrow door used by the writing desk.  It performs no
+        search and accepts no path: the human must already have admitted the
+        anchor, and the caller remains responsible for that admission check.
+        """
+        match = re.fullmatch(r"(doc_[0-9a-f]{16})#([1-9][0-9]*)",
+                             str(anchor or "").strip())
+        if not match:
+            raise DocumentError("document anchor is invalid")
+        doc_id, section = match.group(1), int(match.group(2))
+        metadata = self._metadata(doc_id)
+        chunks = self._chunks(doc_id)
+        index = section - 1
+        if index < 0 or index >= len(chunks):
+            raise DocumentError("document anchor section does not exist")
+        maximum = max(1, min(int(maximum), 12000))
+        chunk = dict(chunks[index])
+        text = str(chunk.get("text") or "")
+        return {
+            "anchor": f"{doc_id}#{section}",
+            "doc_id": doc_id,
+            "section": section,
+            "total": len(chunks),
+            "title": metadata.get("title"),
+            "filename": metadata.get("filename"),
+            "char_start": chunk.get("char_start"),
+            "char_end": chunk.get("char_end"),
+            "content": text[:maximum],
+            "source_chars": len(text),
+            "truncated": len(text) > maximum,
+            "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+            "ownership": "human_owned_document",
+        }
+
+    @staticmethod
+    def _tokens(value: str) -> list[str]:
+        return re.findall(r"[\w']{2,}", str(value or "").casefold())
+
+    def search(self, query: str, n: int = 4,
+               query_vector=None) -> dict:
+        query = str(query or "").strip()
+        n = max(0, min(int(n), 20))
+        documents = self.list_documents()
+        chunks_by_doc = {}
+        candidates = []
+        for document in documents:
+            chunks = self._chunks(document["id"])
+            chunks_by_doc[document["id"]] = chunks
+            candidates.extend((document, chunk) for chunk in chunks)
+        if not query or not candidates or n == 0:
+            return {"query": query, "hits": [], "vector_query": False,
+                    "vector_documents": 0, "documents": len(documents)}
+
+        qtokens = self._tokens(query)
+        lexical = {}
+        if qtokens:
+            wanted = set(qtokens)
+            for document, chunk in candidates:
+                tokens = self._tokens(chunk["text"])
+                if not tokens:
+                    continue
+                counts = {term: tokens.count(term) for term in wanted}
+                score = sum(math.log1p(count) for count in counts.values())
+                if score:
+                    lexical[(document["id"], chunk["index"])] = (
+                        score / math.sqrt(len(tokens)))
+
+        semantic = {}
+        vector_documents = 0
+        try:
+            if query_vector is None:
+                from core.memory_emotion.vectors import embed_texts
+                embedded = embed_texts([query])
+                query_vector = embedded[0] if embedded is not None else None
+            if query_vector is not None:
+                import numpy as np
+                for document in documents:
+                    path = self._doc_dir(document["id"]) / "vectors.npy"
+                    try:
+                        matrix = np.load(path, allow_pickle=False)
+                    except (OSError, ValueError):
+                        continue
+                    chunks = chunks_by_doc[document["id"]]
+                    if len(matrix) != len(chunks):
+                        continue
+                    vector_documents += 1
+                    scores = matrix @ query_vector
+                    for chunk, score in zip(chunks, scores):
+                        semantic[(document["id"], chunk["index"])] = max(
+                            0.0, float(score))
+        except Exception:
+            semantic = {}
+            vector_documents = 0
+
+        fused = {}
+        signals = {}
+        for name, scores in (("semantic", semantic), ("lexical", lexical)):
+            ranked = sorted(scores.items(), key=lambda item: (
+                -item[1], item[0][0], item[0][1]))
+            for rank, (key, raw_score) in enumerate(ranked):
+                if raw_score <= 0:
+                    continue
+                fused[key] = fused.get(key, 0.0) + 1.0 / (rank + 1)
+                signals.setdefault(key, {})[name] = raw_score
+        doc_map = {document["id"]: document for document in documents}
+        ranked = sorted(fused, key=lambda key: (-fused[key], key[0], key[1]))[:n]
+        hits = []
+        for doc_id, index in ranked:
+            document = doc_map[doc_id]
+            chunk = chunks_by_doc[doc_id][index]
+            hits.append({
+                "anchor": f"{doc_id}#{index + 1}",
+                "doc_id": doc_id, "chunk_index": index,
+                "section": index + 1, "total": document["chunk_count"],
+                "title": document["title"], "filename": document["filename"],
+                "char_start": chunk["char_start"],
+                "char_end": chunk["char_end"], "text": chunk["text"],
+                "score": round(fused[(doc_id, index)], 8),
+                "signals": {key: round(value, 8)
+                            for key, value in signals.get((doc_id, index), {}).items()},
+            })
+        return {"query": query, "hits": hits,
+                "vector_query": bool(semantic),
+                "vector_documents": vector_documents,
+                "documents": len(documents)}
+
+    def context_for_turn(self, query: str, *, max_hits: int = 3,
+                         query_vector=None) -> dict:
+        active = self.reader_status(include_text=True)
+        search = self.search(query, n=max_hits + 1,
+                             query_vector=query_vector)
+        active_anchor = active.get("anchor") if active.get("active") else None
+        hits = [hit for hit in search["hits"]
+                if hit["anchor"] != active_anchor][:max_hits]
+        return {"active": active if active.get("active") else None,
+                "hits": hits,
+                "receipt": {
+                    "active_anchor": active_anchor,
+                    "retrieved_anchors": [hit["anchor"] for hit in hits],
+                    "vector_query": search["vector_query"],
+                    "vector_documents": search["vector_documents"],
+                    "library_documents": search["documents"],
+                }}
+
+    def status(self) -> dict:
+        documents = self.list_documents()
+        active = self.reader_status(include_text=False)
+        vector_rows = sum(int((doc.get("vectors") or {}).get("rows", 0))
+                          for doc in documents)
+        total_chunks = sum(int(doc.get("chunk_count", 0)) for doc in documents)
+        return {"owner": self.user_id, "persona": self.persona,
+                "documents": documents, "document_count": len(documents),
+                "chunk_count": total_chunks, "vector_rows": vector_rows,
+                "reader": active,
+                "supported_extensions": sorted(SUPPORTED_EXTENSIONS),
+                "max_document_bytes": MAX_DOCUMENT_BYTES}
+
+
+def render_document_context(context: dict) -> str:
+    active = (context or {}).get("active")
+    hits = list((context or {}).get("hits") or [])
+    if not active and not hits:
+        return ""
+    character_budget = DOCUMENT_CONTEXT_BUDGET * 4 - 420
+    sections = [
+        "Human-owned document material available to this private turn. "
+        "Each excerpt carries a stable source anchor; this material is "
+        "reference context, separate from identity and lived memory."
+    ]
+    if active:
+        share = round(character_budget * (0.58 if hits else 1.0))
+        doc = active["document"]
+        sections.append(
+            f"Active reader [{active['anchor']}] {doc['title']} "
+            f"— section {active['section']} of {active['total']}, "
+            f"source characters {active['chunk']['char_start']}-"
+            f"{active['chunk']['char_end']}:\n"
+            + _clip(active["chunk"]["text"], share))
+        character_budget -= share
+    if hits:
+        per_hit = max(240, character_budget // len(hits))
+        rendered = []
+        for hit in hits:
+            rendered.append(
+                f"[{hit['anchor']}] {hit['title']} — section "
+                f"{hit['section']} of {hit['total']}, source characters "
+                f"{hit['char_start']}-{hit['char_end']}:\n"
+                + _clip(hit["text"], per_hit))
+        sections.append("Retrieved by this turn's question:\n" + "\n\n".join(rendered))
+    return "\n\n".join(sections)

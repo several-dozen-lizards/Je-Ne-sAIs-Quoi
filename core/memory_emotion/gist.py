@@ -116,6 +116,22 @@ class RollingGist:
         eligible = n_turns - self.verbatim_window
         return (eligible - self.upto) >= self.update_every
 
+    def pending_turn_records(self, turn_records: list) -> list:
+        """Return the aged, not-yet-folded contiguous source slice.
+
+        This is intentionally a pure read.  The idle owner uses it to create
+        a bounded salience candidate; turns never call it.
+        """
+        fold_upto = max(0, len(turn_records) - self.verbatim_window)
+        if fold_upto <= self.upto:
+            return []
+        return turn_records[self.upto:fold_upto]
+
+    def pending_source_chars(self, turn_records: list) -> int:
+        """Measure narrative backlog in the renderer's own source units."""
+        return sum(len(render_turn(record))
+                   for record in self.pending_turn_records(turn_records))
+
     def _batch(self, records: list, renderer,
                budget: int = None) -> tuple[str, int]:
         """Take the next contiguous fold that fits the compression budget.

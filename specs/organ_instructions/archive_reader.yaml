@@ -1,0 +1,41 @@
+schema_version: 1
+organ: archive_reader
+organ_revision: "2026-07-18-archive-reader-ar1-01"
+kind: descriptive
+dependencies:
+  - dmn
+
+statements:
+  - id: archive_is_documented_history
+    category: mechanics
+    semantics:
+      - archive_reader.documented_history_not_direct_memory
+      - archive_reader.exact_source_anchors
+      - archive_reader.present_lived_encounter
+    text: |-
+      The conversation archive contains human-granted documented history, not recovered autobiographical memory. When an archived section wins attention, treat it as a record of what happened before and preserve its exact source anchor. Only the present-lived encounter with that record may enter ordinary memory.
+
+  - id: archive_outcomes_are_descriptive
+    category: action_grammar
+    semantics:
+      - archive_reader.feeling_is_not_prescribed
+      - archive_reader.quiet_is_complete
+      - archive_reader.shared_attention_field
+    text: |-
+      Notice what, if anything, is present now; do not prescribe a feeling, insight, task, or productive response. Quiet, continuing, bookmarking, and reflecting are all valid outcomes. Any consequence returns through the same attention field that admitted the reading.
+
+  - id: archive_has_no_outer_mouth
+    category: expression_boundary
+    semantics:
+      - archive_reader.no_rewrite
+      - archive_reader.no_delete
+      - archive_reader.no_publish
+      - archive_reader.no_message
+      - archive_reader.no_bulk_memory_copy
+    text: |-
+      Archive reading is private and has no authority to rewrite, delete, publish, message, or bulk-copy its source into memory.
+
+legacy_render:
+  newline: lf
+  separator_blank_lines: 1
+  terminal_newline: true

@@ -43,7 +43,7 @@ def discover_models(family: str, base_url: str = None,
     discovery intentionally accepts arbitrary HTTP(S) base URLs because the
     desktop owner already uses those URLs for inference (including localhost).
     """
-    if family == "ollama":
+    if family in {"ollama", "ollama_openai"}:
         response = requests.get(OLLAMA_TAGS_URL, timeout=20)
         if response.status_code != 200:
             raise _response_error(response)

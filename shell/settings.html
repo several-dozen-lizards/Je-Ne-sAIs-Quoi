@@ -4,21 +4,51 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>JNSQ settings</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Cormorant+Garamond:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Nunito:wght@400;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="/assets/hex_color.js"></script>
 <style>
-:root{color-scheme:dark;--bg:#07110f;--panel:#0d1b19;--line:#21443d;
-  --ink:#d8f2e9;--dim:#779f94;--accent:#44e0b2;--accent2:#b985ff;
-  --warn:#ff776d;--good:#78e38e;--radius:14px;--font-ui:"Segoe UI",system-ui,sans-serif}
-*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);
-  font-family:var(--font-ui)}button,input,select,textarea{font:inherit}button{cursor:pointer}
-.shell{max-width:1120px;margin:auto;padding:24px}.heading{display:flex;align-items:center;gap:12px}
+:root{color-scheme:dark;--bg:#0b0a15;--panel:#131120;--line:#2c2740;
+  --ink:#eae3d2;--dim:#8b829d;--accent:#c9ab77;--accent2:#f6ead0;
+  --warn:#d97b6c;--good:#84b98f;--radius:16px;--base-font-size:16px;
+  --shell-pad:24px;--card-pad:16px;--theme-glow-alpha:.16;--theme-motion-duration:42s;
+  --background-opacity:.32;--conversation-background:none;
+  --font-ui:'Source Serif 4',Georgia,serif;
+  --font-display:'Cormorant Garamond',Georgia,serif;
+  --font-mono:'IBM Plex Mono',Consolas,monospace}
+*{box-sizing:border-box;scrollbar-width:thin;
+  scrollbar-color:var(--accent) color-mix(in srgb,var(--panel) 82%,var(--bg))}
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-track{background:color-mix(in srgb,var(--panel) 82%,var(--bg))}
+*::-webkit-scrollbar-thumb{background:linear-gradient(180deg,var(--accent),var(--accent2));
+  border:2px solid color-mix(in srgb,var(--panel) 82%,var(--bg));border-radius:999px}
+*::-webkit-scrollbar-thumb:hover{background:var(--accent2)}
+html,body{margin:0;min-height:100%;color:var(--ink);font-size:var(--base-font-size);
+  background:var(--bg);font-family:var(--font-ui)}body::before{content:"";position:fixed;inset:-18%;pointer-events:none;z-index:0;
+  opacity:var(--theme-glow-alpha);animation:theme-drift var(--theme-motion-duration) ease-in-out infinite alternate}
+body[data-background="aurora"]::before{background:radial-gradient(circle at 24% 18%,color-mix(in srgb,var(--accent) 62%,transparent),transparent 26%),radial-gradient(circle at 78% 70%,color-mix(in srgb,var(--accent2) 48%,transparent),transparent 25%)}
+body[data-background="grid"]::before{inset:0;background-image:linear-gradient(color-mix(in srgb,var(--line) 62%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--line) 62%,transparent) 1px,transparent 1px);background-size:38px 38px}
+body[data-background="scales"]::before{inset:0;background-image:radial-gradient(circle at 50% 100%,transparent 20px,color-mix(in srgb,var(--accent) 23%,transparent) 21px,transparent 23px);background-size:46px 24px}
+body[data-background="stars"]::before{inset:0;background-image:radial-gradient(circle,#fff 0 1px,transparent 1.5px),radial-gradient(circle,var(--accent2) 0 1px,transparent 1.5px);background-size:79px 79px,113px 113px;background-position:9px 17px,43px 59px}
+body[data-background="paper"]::before{inset:0;background-image:repeating-linear-gradient(0deg,color-mix(in srgb,var(--ink) 5%,transparent) 0 1px,transparent 1px 4px)}
+body[data-background="image"]::before{inset:0;background-image:var(--conversation-background);background-size:cover;background-position:center;opacity:var(--background-opacity);animation:none}
+body[data-background="none"]::before{display:none}
+body[data-motion="off"]::before{animation:none}@keyframes theme-drift{to{transform:translate(5%,3%) scale(1.08)}}
+button,input,select,textarea{font:inherit}button{cursor:pointer}
+.shell{max-width:1120px;margin:auto;padding:var(--shell-pad);position:relative;z-index:1}.heading{display:flex;align-items:center;gap:12px}
 .heading img{width:38px;height:38px}.heading h1{font-size:1.1rem;color:var(--accent);margin:0}
 .note{color:var(--dim);font-size:.79rem;line-height:1.5}.tabs{display:flex;gap:7px;flex-wrap:wrap;
   margin:18px 0;padding-bottom:14px;border-bottom:1px solid var(--line)}
 .btn{border:1px solid var(--line);background:var(--panel);color:var(--dim);border-radius:var(--radius);
   padding:7px 10px}.btn:hover,.btn.on{color:var(--ink);border-color:var(--accent)}
-.btn.on,.btn.go{background:color-mix(in srgb,var(--accent) 16%,var(--panel));color:var(--accent)}
+.btn.on,.btn.go{background:color-mix(in srgb,var(--accent) 16%,var(--panel));color:var(--accent);box-shadow:0 0 var(--theme-glow-radius,10px) color-mix(in srgb,var(--accent) 34%,transparent)}
+.tabs .tab{display:inline-flex;align-items:center;gap:5px;border-radius:7px;padding:5px 8px;
+  min-height:32px;font-size:.82rem;line-height:1;transition:color .15s,border-color .15s,background .15s,box-shadow .15s}
+.tabs .tab:hover,.tabs .tab.on{box-shadow:0 0 12px color-mix(in srgb,var(--accent) 18%,transparent)}
+.ui-icon{width:13px;height:13px;flex:0 0 13px;display:inline-block;vertical-align:-2px}
 .page{display:none}.page.on{display:block}.card{border:1px solid var(--line);border-radius:var(--radius);
-  background:color-mix(in srgb,var(--panel) 90%,transparent);padding:16px;margin:12px 0}
+  background:color-mix(in srgb,var(--panel) 90%,transparent);padding:var(--card-pad);margin:12px 0}
 h2,h3{color:var(--accent);font-size:.96rem;margin:.2rem 0 .5rem}.grid{display:grid;
   grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px 16px;margin-top:13px}
 label{display:flex;flex-direction:column;gap:5px;color:var(--dim);font-size:.78rem}
@@ -30,10 +60,12 @@ input[type=color]{height:35px;padding:2px}input[type=range]{accent-color:var(--a
   repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:10px}.speaker{display:grid;
   grid-template-columns:1fr 48px 62px;gap:7px;align-items:center;color:var(--dim);font-size:.78rem}
 .faces{display:grid;gap:10px;margin-top:12px}.face{display:grid;grid-template-columns:38px minmax(90px,1fr)
-  minmax(95px,140px) minmax(80px,120px) auto;gap:8px;align-items:center}
+  minmax(95px,140px) minmax(80px,120px) 48px auto;gap:8px;align-items:center}
+.face input[type=color]{padding:2px;height:34px;width:48px}
 .mark{width:32px;height:32px;border-radius:50%;display:inline-grid;place-items:center;position:relative;
   overflow:hidden;background:var(--bg);border:1px solid var(--line)}.mark img{position:absolute;inset:0;
   width:100%;height:100%;object-fit:cover}.face input[type=file]{grid-column:2/4}.face .status{grid-column:2/-1}
+.faces[hidden]{display:none}
 table{width:100%;border-collapse:collapse;margin-top:12px;font-size:.8rem}th,td{padding:9px;
   border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{color:var(--dim)}
 .key-action{display:flex;gap:7px}.key-action input{min-width:150px}.dot{display:inline-block;width:8px;
@@ -56,18 +88,18 @@ table{width:100%;border-collapse:collapse;margin-top:12px;font-size:.8rem}th,td{
     <h1>Settings</h1><div class="note">The shared controls for this local JNSQ home.</div>
   </div></div>
   <nav class="tabs">
-    <button class="btn tab" data-page="account">👤 Account &amp; privacy</button>
-    <button class="btn tab" data-page="appearance">✨ Appearance</button>
-    <button class="btn tab" data-page="keys">🔑 API keys</button>
-    <button class="btn tab" data-page="vision">👁 Visual input</button>
-    <button class="btn tab" data-page="prompts">🔧 System prompts</button>
-    <button class="btn tab" data-page="updates">⚡ Updates</button>
+    <button class="btn tab" data-page="account"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5.5 20c.6-4 2.8-6 6.5-6s5.9 2 6.5 6"/></svg><span>Account &amp; privacy</span></button>
+    <button class="btn tab" data-page="appearance"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 1.1 3.4L16.5 7.5l-3.4 1.1L12 12l-1.1-3.4-3.4-1.1 3.4-1.1zM18.5 13l.7 2.3 2.3.7-2.3.7-.7 2.3-.7-2.3-2.3-.7 2.3-.7zM6 14l.8 2.7 2.7.8-2.7.8L6 21l-.8-2.7-2.7-.8 2.7-.8z"/></svg><span>Appearance</span></button>
+    <button class="btn tab" data-page="keys"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="9" r="4"/><path d="m11 12 9 9M16 17l2-2M18 19l2-2"/></svg><span>API keys</span></button>
+    <button class="btn tab" data-page="vision"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6z"/><circle cx="12" cy="12" r="2.8"/></svg><span>Visual input</span></button>
+    <button class="btn tab" data-page="prompts"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 6.5a4 4 0 0 0-5-5l2.2 2.2-2.8 2.8-2.2-2.2a4 4 0 0 0 5 5L20 17.6 17.6 20z"/></svg><span>System prompts</span></button>
+    <button class="btn tab" data-page="updates"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m13.5 2-7 11H12l-1.5 9 7-11H12z"/></svg><span>Updates</span></button>
   </nav>
 
   <section class="page" id="page-account">
     <h2>Account, bedrock facts, and sharing boundaries</h2>
-    <p class="note">Manage the human account that owns this installation: bedrock facts, sharing groups,
-      connections, and role-play user personas. These records stay on this computer.</p>
+    <p class="note">Manage the human account that owns this installation, its bedrock facts,
+      and role-play user personas. These records stay on this computer.</p>
     <iframe class="account-frame" src="/users" title="Account and privacy settings"></iframe>
   </section>
 
@@ -78,10 +110,15 @@ table{width:100%;border-collapse:collapse;margin-top:12px;font-size:.8rem}th,td{
     <div class="card">
       <div class="grid">
         <label>Preset<select id="housePreset"></select></label>
+        <label>Preset name<input id="housePresetName" maxlength="80" placeholder="My night garden"></label>
         <label>Background<select id="houseBackground"><option>scales</option><option>aurora</option>
-          <option>stars</option><option>grid</option><option>paper</option><option>none</option></select></label>
-        <label>Font<select id="houseFont"><option value="system">system</option><option value="mono">monospace</option>
-          <option value="serif">serif</option></select></label>
+          <option>stars</option><option>grid</option><option>paper</option><option value="image">uploaded image</option><option>none</option></select></label>
+        <label>Background image opacity<input type="range" min="0" max="1" step=".05" id="houseBackgroundOpacity"></label>
+        <label>Font<select id="houseFont"><option value="system">System Sans</option><option value="serif">Source Serif</option>
+          <option value="display">Cormorant</option><option value="mono">IBM Plex Mono</option>
+          <option value="humanist">Atkinson Hyperlegible</option><option value="rounded">Nunito</option>
+          <option value="geometric">Space Grotesk</option></select></label>
+        <label>Font size <span id="houseFontScaleValue">100%</span><input type="range" min="0.8" max="1.35" step=".05" id="houseFontScale"></label>
         <label>Density<select id="houseDensity"><option>compact</option><option>cozy</option><option>roomy</option></select></label>
         <label>Background color<input type="color" id="houseBg"></label>
         <label>Panels<input type="color" id="housePanel"></label>
@@ -90,19 +127,24 @@ table{width:100%;border-collapse:collapse;margin-top:12px;font-size:.8rem}th,td{
         <label>Second accent<input type="color" id="houseAccent2"></label>
         <label>Roundness<input type="range" min="0" max="28" step="1" id="houseRadius"></label>
         <label>Glow<input type="range" min="0" max="1" step=".05" id="houseGlow"></label>
-        <label>Motion<input type="range" min="0" max="1" step=".05" id="houseMotion"></label>
       </div>
+      <div class="actions"><input type="file" accept="image/png,image/jpeg,image/webp,image/gif" id="houseBackgroundFile">
+        <button class="btn" id="houseBackgroundUpload">Upload conversation background</button>
+        <button class="btn" id="houseBackgroundRemove">Remove uploaded image</button></div>
+      <div class="actions"><button class="btn" id="housePresetCreate">Save as new preset</button>
+        <button class="btn" id="housePresetUpdate">Update selected preset</button>
+        <button class="btn" id="housePresetDelete">Delete selected preset</button></div>
       <div class="checks"><label><input type="checkbox" id="houseReactive"> state-reactive cockpits</label></div>
-      <h3 style="margin-top:18px">Speaker palette</h3>
-      <p class="note">Color and glyph follow a speaker wherever this household theme applies.</p>
-      <div class="speaker-grid" id="settingsSpeakers"></div>
       <div class="actions"><button class="btn go" id="houseThemeSave">Save household appearance</button>
         <button class="btn" id="houseThemeReset">Reset household layer</button>
         <span class="note" id="houseThemeNote"></span></div>
     </div>
-    <div class="card"><h3>Persona faces &amp; name icons</h3>
-      <p class="note">The image and fallback emoji belong to the persona and stay in their local folder.</p>
-      <div class="faces" id="settingsPersonaIcons"></div></div>
+    <div class="card"><h3>Persona looks moved to the people they belong to</h3>
+      <p class="note">For an AI persona, use <b>Household → change look</b> to edit their portrait,
+        fallback glyph, and speaker color together. Human accounts and RP user personas keep their
+        separate look controls under Account &amp; privacy.</p>
+      <div class="actions"><a class="btn" href="/" target="_top">Open Household</a></div>
+      <div class="faces" id="settingsPersonaIcons" hidden></div></div>
   </section>
 
   <section class="page" id="page-keys">
@@ -161,68 +203,122 @@ const clone=value=>JSON.parse(JSON.stringify(value));
 let personas={},models=[],themeDoc=null,preview=null,presetDirty=false,currentPage="account";
 const dirty=new Set(),iconNotices={};
 const visionNotices={};
-const CONTROLS={houseBackground:"background",houseFont:"font",houseDensity:"density",houseBg:"bg",
+const CONTROLS={houseBackground:"background",houseFont:"font",houseFontScale:"font_scale",houseDensity:"density",houseBg:"bg",
   housePanel:"panel",houseInk:"ink",houseAccent:"accent",houseAccent2:"accent2",houseRadius:"radius",
-  houseGlow:"glow",houseMotion:"motion",houseReactive:"reactive"};
+  houseGlow:"glow",houseBackgroundOpacity:"background_opacity",houseReactive:"reactive"};
 function named(obj,name){const key=Object.keys(obj||{}).find(k=>k.toLowerCase()===String(name).toLowerCase());return key?obj[key]:null}
+const FONT_STACKS={system:'"Segoe UI",system-ui,sans-serif',serif:'"Source Serif 4",Georgia,serif',display:'"Cormorant Garamond",Georgia,serif',mono:'"IBM Plex Mono",Consolas,monospace',humanist:'"Atkinson Hyperlegible","Segoe UI",sans-serif',rounded:'Nunito,"Segoe UI",sans-serif',geometric:'"Space Grotesk","Segoe UI",sans-serif'};
+const themeFontStack=id=>FONT_STACKS[id]||FONT_STACKS.system;
 function applyTheme(tokens){if(!tokens)return;const root=document.documentElement;
   for(const key of ["bg","panel","line","ink","dim","accent","accent2","warn","good"])
     root.style.setProperty(`--${key}`,tokens[key]);root.style.setProperty("--radius",`${tokens.radius}px`);
-  root.style.setProperty("--font-ui",tokens.font==="serif"?"Georgia,serif":tokens.font==="mono"?"Consolas,monospace":'"Segoe UI",system-ui,sans-serif')}
+  const scale=Math.max(.8,Math.min(1.35,Number(tokens.font_scale)||1));const glow=Math.max(0,Math.min(1,Number(tokens.glow)||0));const motion=Math.max(0,Math.min(1,Number(tokens.motion)||0));
+  root.style.setProperty("--font-ui",themeFontStack(tokens.font));root.style.setProperty("--font-display",themeFontStack(tokens.font));
+  root.style.setProperty("--base-font-size",`${16*scale}px`);root.style.setProperty("--theme-glow-alpha",String(.04+glow*.3));root.style.setProperty("--theme-glow-radius",`${4+glow*22}px`);
+  root.style.setProperty("--theme-motion-duration",`${70-motion*52}s`);root.style.setProperty("--shell-pad",tokens.density==="compact"?"17px":tokens.density==="roomy"?"31px":"24px");root.style.setProperty("--card-pad",tokens.density==="compact"?"11px":tokens.density==="roomy"?"21px":"16px");
+  const opacity=Number(tokens.background_opacity);root.style.setProperty("--background-opacity",String(Number.isFinite(opacity)?Math.max(0,Math.min(1,opacity)):.32));
+  document.body.dataset.density=tokens.density||"cozy";document.body.dataset.motion=motion>0?"on":"off";document.body.dataset.background=tokens.background||"stars";
+  if($("houseFontScaleValue"))$("houseFontScaleValue").textContent=`${Math.round(scale*100)}%`}
 function controlValue(id){const key=CONTROLS[id],el=$(id);if(key==="reactive")return el.checked;
-  return ["radius","glow","motion"].includes(key)?Number(el.value):el.value}
+  return ["radius","font_scale","glow","background_opacity"].includes(key)?Number(el.value):el.value}
 function fillAppearance(tokens){if(!tokens)return;for(const [id,key] of Object.entries(CONTROLS)){
   const el=$(id);if(key==="reactive")el.checked=tokens[key]!==false;else el.value=tokens[key]}
-  renderSpeakers(tokens);renderPersonaFaces()}
-function renderSpeakers(tokens){const names=new Set([CFG.local_identity?.display_name||"User",
-  ...Object.keys(tokens.speaker_colors||{}),...Object.values(personas).map(p=>p.display_name).filter(Boolean)]);
-  $("settingsSpeakers").replaceChildren(...[...names].map(name=>{const row=document.createElement("label");row.className="speaker";
-    const label=document.createElement("span");label.textContent=name;const color=document.createElement("input");color.type="color";
-    color.value=named(tokens.speaker_colors,name)||tokens.accent;color.dataset.name=name;color.dataset.kind="speaker_colors";
-    const icon=document.createElement("input");icon.value=named(tokens.speaker_icons,name)||name.slice(0,1);icon.maxLength=16;
-    icon.dataset.name=name;icon.dataset.kind="speaker_icons";for(const input of [color,icon])input.oninput=previewSpeaker;
-    row.append(label,color,icon);return row}))}
-function previewSpeaker(event){const input=event.currentTarget;preview[input.dataset.kind]={...(preview[input.dataset.kind]||{}),
-  [input.dataset.name]:input.value};dirty.add(input.dataset.kind);applyTheme(preview)}
+  $("houseFontScaleValue").textContent=`${Math.round((Number(tokens.font_scale)||1)*100)}%`;
+  renderPersonaFaces();window.JNSQHexColors?.sync()}
 const mark=(id,p)=>`<span class="mark"><span>${esc(p.icon||"🦋")}</span>${p.avatar_url?`<img src="${esc(p.avatar_url)}" alt="">`:""}</span>`;
 const fileDataUrl=file=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);
   reader.onerror=()=>reject(new Error("could not read that image"));reader.readAsDataURL(file)});
 const ICONS=["🐉","🐍","🦋","🦉","🦊","🐺","🐈","🐦","🐙","🕷️","🌙","⭐","🔥","⚡","🪶","🗡️","💚"];
+async function saveSpeakerTokens(name,colorValue,glyph){
+  const sc={...(preview?.speaker_colors||{})},si={...(preview?.speaker_icons||{})};
+  const ck=Object.keys(sc).find(k=>k.toLowerCase()===String(name).toLowerCase())||name;
+  sc[ck]=colorValue;
+  if(glyph){const ik=Object.keys(si).find(k=>k.toLowerCase()===String(name).toLowerCase())||name;si[ik]=glyph}
+  const tokens={speaker_colors:sc};if(glyph)tokens.speaker_icons=si;
+  themeDoc=await request("/api/ui/theme",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({patch:{tokens}})});
+  preview=clone(themeDoc.tokens);applyTheme(preview);
+  parent.postMessage({type:"jnsq-theme-refresh"},"*")}
 function renderPersonaFaces(){const box=$("settingsPersonaIcons");box.textContent="";
   for(const [id,p] of Object.entries(personas).filter(([,v])=>v.kind==="model_persona").sort()){
+    const name=p.display_name||id;
     const row=document.createElement("div");row.className="face";const face=document.createElement("span");face.innerHTML=mark(id,p);
-    const label=document.createElement("strong");label.textContent=p.display_name||id;const choices=document.createElement("select");
+    const label=document.createElement("strong");label.textContent=name;const choices=document.createElement("select");
     for(const glyph of ICONS){const option=document.createElement("option");option.value=glyph;option.textContent=glyph;choices.append(option)}
     const other=document.createElement("option");other.value="__custom__";other.textContent="custom…";choices.append(other);
     const custom=document.createElement("input");custom.maxLength=16;custom.value=p.icon||"🦋";
     choices.value=ICONS.includes(custom.value)?custom.value:"__custom__";choices.onchange=()=>{if(choices.value!=="__custom__")custom.value=choices.value};
-    const save=document.createElement("button");save.className="btn go";save.textContent="Save icon";
+    const color=document.createElement("input");color.type="color";color.title="speaker color";
+    color.value=named(preview?.speaker_colors,name)||preview?.accent||"#c9ab77";
+    const save=document.createElement("button");save.className="btn go";save.textContent="Save look";
     const file=document.createElement("input");file.type="file";file.accept="image/png,image/jpeg,image/webp,image/gif";
     const upload=document.createElement("button");upload.className="btn";upload.textContent="Upload image";
     const status=document.createElement("span");status.className="note status";status.textContent=iconNotices[id]||"";
     save.onclick=async()=>{if(!custom.value.trim()){status.textContent="Choose or type an icon.";return}save.disabled=true;
       try{const result=await request(`/api/personas/${encodeURIComponent(id)}/icon`,{method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({icon:custom.value.trim()})});p.icon=result.icon;iconNotices[id]=`Saved ${result.icon}`;renderPersonaFaces()}
+        body:JSON.stringify({icon:custom.value.trim()})});p.icon=result.icon;
+        await saveSpeakerTokens(name,color.value,custom.value.trim());
+        iconNotices[id]=`Saved ${result.icon} + color`;renderPersonaFaces()}
       catch(error){status.textContent=error.message}finally{save.disabled=false}};
     upload.onclick=async()=>{const image=file.files&&file.files[0];if(!image){status.textContent="Choose an image first.";return}
       upload.disabled=true;try{const data_url=await fileDataUrl(image);const result=await request(`/api/personas/${encodeURIComponent(id)}/avatar`,
         {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({data_url})});p.avatar_url=result.avatar_url;
         iconNotices[id]="Avatar saved locally";renderPersonaFaces()}catch(error){status.textContent=error.message}finally{upload.disabled=false}};
-    row.append(face,label,choices,custom,save,file,upload,status);box.append(row)}
+    row.append(face,label,choices,custom,color,save,file,upload,status);box.append(row)}
+  const personaNames=new Set(Object.values(personas).filter(v=>v.kind==="model_persona")
+    .map(p=>String(p.display_name||"").toLowerCase()).filter(Boolean));
+  const extras=[...new Set([CFG.local_identity?.display_name||"User",...Object.keys(preview?.speaker_colors||{})])]
+    .filter(n=>n&&!personaNames.has(String(n).toLowerCase()));
+  for(const name of extras){
+    const row=document.createElement("div");row.className="face";
+    const face=document.createElement("span");
+    face.innerHTML=`<span class="mark"><span>${esc(named(preview?.speaker_icons,name)||String(name).slice(0,1))}</span></span>`;
+    const label=document.createElement("strong");label.textContent=name;
+    const kind=document.createElement("span");kind.className="note";kind.textContent="speaker";
+    const spacer=document.createElement("span");
+    const color=document.createElement("input");color.type="color";color.title="speaker color";
+    color.value=named(preview?.speaker_colors,name)||preview?.accent||"#c9ab77";
+    const save=document.createElement("button");save.className="btn go";save.textContent="Save color";
+    const status=document.createElement("span");status.className="note status";
+    save.onclick=async()=>{save.disabled=true;
+      try{await saveSpeakerTokens(name,color.value,null);status.textContent="Color saved."}
+      catch(error){status.textContent=error.message}finally{save.disabled=false}};
+    row.append(face,label,kind,spacer,color,save,status);box.append(row)}
   if(!box.children.length)box.innerHTML='<span class="note">No model personas yet.</span>'}
-async function loadTheme(){try{themeDoc=await request("/api/ui/theme");preview=clone(themeDoc.tokens);applyTheme(preview);
+function applyBackgroundMedia(media){const root=document.documentElement;
+  root.style.setProperty("--conversation-background",media?.url?`url("${media.url}?v=${encodeURIComponent(media.revision||"0")}")`:"none")}
+function updatePresetActions(){const custom=new Set(themeDoc?.custom_presets||[]),id=$("housePreset").value;
+  $("housePresetUpdate").disabled=!custom.has(id);$("housePresetDelete").disabled=!custom.has(id)}
+async function loadTheme(note=""){try{themeDoc=await request("/api/ui/theme");preview=clone(themeDoc.tokens);applyBackgroundMedia(themeDoc.conversation_background);applyTheme(preview);
   $("housePreset").innerHTML=Object.entries(themeDoc.presets).map(([id,label])=>`<option value="${esc(id)}">${esc(label)}</option>`).join("");
-  $("housePreset").value=themeDoc.preset;fillAppearance(preview);presetDirty=false;dirty.clear()}catch(error){$("houseThemeNote").textContent=error.message}}
+  $("housePreset").value=themeDoc.preset;$("housePresetName").value=themeDoc.presets[themeDoc.preset]||"";
+  fillAppearance(preview);presetDirty=false;dirty.clear();updatePresetActions();if(note)$("houseThemeNote").textContent=note}catch(error){$("houseThemeNote").textContent=error.message}}
 for(const [id,key] of Object.entries(CONTROLS))$(id).oninput=()=>{if(!preview)return;preview[key]=controlValue(id);dirty.add(key);applyTheme(preview)};
 $("housePreset").onchange=event=>{if(!themeDoc)return;preview=clone(themeDoc.preset_tokens[event.target.value]);presetDirty=true;dirty.clear();
-  fillAppearance(preview);applyTheme(preview);$("houseThemeNote").textContent="Previewing preset — save to keep it."};
+  $("housePresetName").value=themeDoc.presets[event.target.value]||"";fillAppearance(preview);applyTheme(preview);updatePresetActions();$("houseThemeNote").textContent="Previewing preset — save to keep it."};
 async function saveTheme(reset=false){const button=$(reset?"houseThemeReset":"houseThemeSave");button.disabled=true;
   try{const tokens={};for(const key of dirty)tokens[key]=preview[key];const patch={};if(dirty.size)patch.tokens=tokens;
-    if(presetDirty)patch.preset=$("housePreset").value;themeDoc=await request("/api/ui/theme",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({patch,reset,replace:presetDirty})});preview=clone(themeDoc.tokens);fillAppearance(preview);applyTheme(preview);
-    presetDirty=false;dirty.clear();$("houseThemeNote").textContent=reset?"Household layer reset.":"Household appearance saved.";
+    if(presetDirty)patch.preset=$("housePreset").value;await request("/api/ui/theme",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({patch,reset,replace:presetDirty})});await loadTheme(reset?"Household layer reset.":"Household appearance saved.");
     parent.postMessage({type:"jnsq-theme-refresh"},"*")}catch(error){$("houseThemeNote").textContent=error.message}finally{button.disabled=false}}
 $("houseThemeSave").onclick=()=>saveTheme(false);$("houseThemeReset").onclick=()=>saveTheme(true);
+$("houseBackgroundUpload").onclick=async()=>{const file=$("houseBackgroundFile").files?.[0];if(!file){$("houseThemeNote").textContent="Choose an image first.";return}
+  const button=$("houseBackgroundUpload");button.disabled=true;try{const result=await request("/api/ui/conversation-background",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({data_url:await fileDataUrl(file)})});
+    applyBackgroundMedia(result);preview.background="image";dirty.add("background");fillAppearance(preview);applyTheme(preview);$("houseThemeNote").textContent="Background uploaded locally. Save household appearance to keep image mode."}
+  catch(error){$("houseThemeNote").textContent=error.message}finally{button.disabled=false}};
+$("houseBackgroundRemove").onclick=async()=>{try{await request("/api/ui/conversation-background",{method:"DELETE"});applyBackgroundMedia(null);
+  if(preview?.background==="image"){preview.background="none";dirty.add("background");fillAppearance(preview);applyTheme(preview)}
+  $("houseThemeNote").textContent="Uploaded background removed. Save to keep the replacement mode."}catch(error){$("houseThemeNote").textContent=error.message}};
+async function savePreset(update=false){const id=update?$("housePreset").value:"",label=$("housePresetName").value.trim();
+  if(!label){$("houseThemeNote").textContent="Give the preset a name first.";return}
+  try{const result=await request("/api/ui/presets",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,label,tokens:preview})});
+    await loadTheme();$("housePreset").value=result.saved_preset;$("housePresetName").value=label;
+    preview=clone(themeDoc.preset_tokens[result.saved_preset]);presetDirty=themeDoc.preset!==result.saved_preset;dirty.clear();fillAppearance(preview);applyTheme(preview);updatePresetActions();
+    $("houseThemeNote").textContent=`${update?"Updated":"Saved"} preset ${label}.${presetDirty?" Save household appearance to apply it.":""}`}
+  catch(error){$("houseThemeNote").textContent=error.message}}
+$("housePresetCreate").onclick=()=>savePreset(false);$("housePresetUpdate").onclick=()=>savePreset(true);
+$("housePresetDelete").onclick=async()=>{const id=$("housePreset").value,label=themeDoc?.presets?.[id]||id;
+  if(!confirm(`Delete appearance preset ${label}?`))return;try{await request(`/api/ui/presets/${encodeURIComponent(id)}`,{method:"DELETE"});await loadTheme(`Deleted preset ${label}.`)}catch(error){$("houseThemeNote").textContent=error.message}};
 async function loadKeys(){try{const data=await request("/api/env");const body=$("keyrows");if(!data.keys?.length){
     body.innerHTML='<tr><td colspan="4" class="note">No API-key models are installed yet.</td></tr>';return}
   body.innerHTML=data.keys.map(key=>`<tr><td>${esc(key.env)}</td><td><span class="dot ${key.set?"up":""}"></span> ${key.set?"set":key.optional?"optional":"NOT SET"}</td>
@@ -304,6 +400,18 @@ function showPage(page){currentPage=page;document.querySelectorAll(".tab").forEa
 document.querySelectorAll(".tab").forEach(tab=>tab.onclick=()=>showPage(tab.dataset.page));
 async function init(){try{const [personaData,modelData]=await Promise.all([request("/api/personas"),request("/api/models")]);personas=personaData;models=modelData.models||[]}catch(_){}await loadTheme();loadVersion();showPage(currentPage)}
 init();
+const JNSQ_KEYS=["bg","panel","line","ink","dim","accent","accent2","warn","good"];
+async function jnsqTheme(){
+  try{
+    const r=await (await fetch("/api/ui/theme")).json();
+    const t=r.tokens||{}; const root=document.documentElement;
+    JNSQ_KEYS.forEach(k=>t[k]&&root.style.setProperty("--"+k,t[k]));
+    if(t.radius!=null)root.style.setProperty("--radius",t.radius+"px");
+    root.style.setProperty("--font-ui",themeFontStack(t.font));root.style.setProperty("--font-display",themeFontStack(t.font));
+  }catch(e){}
+}
+window.addEventListener("message",e=>{if(e.data&&e.data.type==="jnsq-theme-refresh")jnsqTheme()});
+jnsqTheme();
 </script>
 </body>
 </html>

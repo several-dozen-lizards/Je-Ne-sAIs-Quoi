@@ -114,6 +114,11 @@ perception:
   # Used only when the active model cannot receive pixels directly.
   # null means refuse image turns clearly rather than silently rerouting.
   vision_model: null
+agency:
+  # The agency organ is the live switch. New personas start with no admitted
+  # effect authority even if their selected vessel supports structured tools.
+  model: {model}
+  authority_tier: 0
 enabled_organs: [{organs}]
 room:
   id: nexus
@@ -323,6 +328,12 @@ SPEC_FAMILIES = {
         "default_window": 8192,
         "needs_env": None,
     },
+    "ollama_openai": {
+        "label": "Ollama (OpenAI-compatible local)",
+        "endpoint_hint": "ollama model tag, e.g. qwen3:8b",
+        "default_window": 8192,
+        "needs_env": None,
+    },
     "anthropic": {
         "label": "Anthropic API",
         "endpoint_hint": "API model string, e.g. claude-sonnet-4-6",
@@ -442,6 +453,7 @@ identity:
   family: "openai_chat"
   base_model: "@ENDPOINT@ (user-added)"
   provider: "openai_compat"
+  service: "@SERVICE@"
   endpoint: "@ENDPOINT@"
   base_url: "@BASEURL@"
   api_key_env: "@KEYENV@"
@@ -456,6 +468,8 @@ prompt_structure:
   strict_alternation: false
   prefill_supported: false
   stop_sequences: []
+@TEMPERATURE_POLICY@
+@TRANSPORT@
 capabilities:
   tool_use: false
   vision: false
@@ -509,7 +523,11 @@ def _temperature_policy_block(base_url: str, endpoint: str) -> str:
 def scaffold_model_spec(name: str, family: str, endpoint: str,
                         window_tokens: int = None,
                         base_url: str = None,
-                        api_key_env: str = None) -> dict:
+                        api_key_env: str = None,
+                        connect_timeout_s: float = None,
+                        read_timeout_s: float = None,
+                        write_timeout_s: float = None,
+                        pool_timeout_s: float = None) -> dict:
     """Write a new model spec — the 'add model' path. Refuses clobber
     (specs are receipts) and never touches credentials: the returned
     manifest names the env var an API family needs, plus whether it's
@@ -528,10 +546,14 @@ def scaffold_model_spec(name: str, family: str, endpoint: str,
     if not endpoint:
         raise ValueError("endpoint required "
                          f"({fam['endpoint_hint']})")
+    if family == "ollama_openai" and not base_url:
+        base_url = "http://localhost:11434/v1"
     base_url = (base_url or "").strip().rstrip("/")
-    keyenv = (api_key_env or "").strip() or "OPENAI_API_KEY"
+    default_keyenv = ("OLLAMA_API_KEY" if family == "ollama_openai"
+                      else "OPENAI_API_KEY")
+    keyenv = (api_key_env or "").strip() or default_keyenv
     locality = "api"
-    if family == "openai_compat":
+    if family in {"openai_compat", "ollama_openai"}:
         if not re.match(r"^https?://", base_url):
             raise ValueError("openai_compat needs a base_url starting "
                              "http:// or https:// (e.g. "
@@ -550,22 +572,61 @@ def scaffold_model_spec(name: str, family: str, endpoint: str,
         raise FileExistsError(f"{path} already exists — specs are "
                               f"receipts; the factory does not clobber.")
     tpl = {"ollama": OLLAMA_SPEC, "anthropic": ANTHROPIC_SPEC,
-           "openai_compat": OPENAI_COMPAT_SPEC}[family]
+           "openai_compat": OPENAI_COMPAT_SPEC,
+           "ollama_openai": OPENAI_COMPAT_SPEC}[family]
     temperature_policy = (_temperature_policy_block(base_url, endpoint)
-                          if family == "openai_compat" else "")
+                          if family in {"openai_compat", "ollama_openai"}
+                          else "")
+    service = "ollama" if family == "ollama_openai" else "generic"
+    timeout_values = {
+        "connect_timeout_s": connect_timeout_s,
+        "read_timeout_s": read_timeout_s,
+        "write_timeout_s": write_timeout_s,
+        "pool_timeout_s": pool_timeout_s,
+    }
+    declared_timeouts = {key: value for key, value in timeout_values.items()
+                         if value is not None}
+    if family == "ollama_openai":
+        local_defaults = {
+            "connect_timeout_s": 10,
+            "read_timeout_s": 600,
+            "write_timeout_s": 60,
+            "pool_timeout_s": 600,
+        }
+        local_defaults.update(declared_timeouts)
+        declared_timeouts = local_defaults
+    transport = ""
+    if declared_timeouts:
+        from harness.clients import resolve_http_timeouts
+        resolved = resolve_http_timeouts({
+            "transport": {"http": declared_timeouts}})
+        transport = (
+            "transport:\n"
+            "  http:\n"
+            f"    connect_timeout_s: {resolved['connect']:g}\n"
+            f"    read_timeout_s: {resolved['read']:g}\n"
+            f"    write_timeout_s: {resolved['write']:g}\n"
+            f"    pool_timeout_s: {resolved['pool']:g}")
+    if family == "ollama_openai":
+        transport += (
+            "\nwire:\n"
+            "  chat_completions:\n"
+            "    include_stream_usage: true")
     text = (tpl.replace("@NAME@", name)
                .replace("@ENDPOINT@", endpoint)
                .replace("@BASEURL@", base_url)
                .replace("@KEYENV@", keyenv)
+               .replace("@SERVICE@", service)
                .replace("@LOCALITY@", locality)
                .replace("@TEMPERATURE_POLICY@", temperature_policy)
+               .replace("@TRANSPORT@", transport)
                .replace("@DATE@", time.strftime("%Y-%m-%d"))
                .replace("@WINDOW@", str(window))
                .replace("@PRACTICAL@", str(int(window * 0.85))))
     with open(path, "w", encoding="utf-8") as f:
         f.write(text)
     needs = None
-    if family == "openai_compat":
+    if family in {"openai_compat", "ollama_openai"}:
         needs = {"env": keyenv, "set": bool(os.environ.get(keyenv)),
                  "optional": locality == "local"}
     elif fam["needs_env"]:

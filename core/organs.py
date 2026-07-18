@@ -40,6 +40,10 @@ REGISTRY = {o.organ_id: o for o in (
              "band rhythm; heartbeat ticks across the gaps"),
     OrganDef("soma", (),
              "body map + declarative sensation specs"),
+    OrganDef("perception", (),
+             "adaptive camera/audio exteroception: persistent modality "
+             "fields, provenance, rhythm-shaped admission, and raw "
+             "sensory pressure (device and model independent)"),
     OrganDef("feel", ("memory_emotion",),
              "language->substrate judge loop (Haiku); writes felt state "
              "back into the organ after each exchange", cost="api"),
@@ -76,6 +80,28 @@ REGISTRY = {o.organ_id: o for o in (
              "circulate into generated private thoughts. Gating is "
              "free; discharge spends the roster's idle_model and may "
              "fold the lived result into gist", loop=True),
+    OrganDef("writing_desk", ("dmn",),
+             "private append-only writing projects compete through the DMN; "
+             "admitted material and open projects may become one local, "
+             "authority-bounded action whose consequence returns to the field"),
+    OrganDef("archive_reader", ("dmn",),
+             "human-granted documented conversation history may recur at a "
+             "genuine DMN boundary, compete in the shared field, and become "
+             "one local private reading whose lived consequence returns to "
+             "the field without rewriting history or transplanting memory"),
+    OrganDef("research_desk", ("dmn",),
+             "self-formed or human-offered interests may compete through the "
+             "shared field; a local planner may take one bounded step through "
+             "an isolated read-only public-web boundary and return cited "
+             "private evidence, notes, or reports to the same circulation"),
+    OrganDef("atelier", ("dmn",),
+             "human-admitted creative material may compete through the shared "
+             "field and become one host-validated private artifact whose lived "
+             "consequence returns to the same circulation"),
+    OrganDef("agency", ("dmn",),
+             "a winning salience candidate may become interruptible private "
+             "work through persona-owned, authority-gated capabilities; "
+             "effects return to the shared field", cost="api"),
 )}
 
 

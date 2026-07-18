@@ -7,28 +7,50 @@
 <link rel="icon" href="/assets/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/assets/jnsq_favicon.svg">
 <link rel="apple-touch-icon" href="/assets/favicon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=IBM+Plex+Mono:wght@400;500&family=Nunito:wght@400;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="/assets/hex_color.js"></script>
 <style>
-  :root { --bg:#07110f; --panel:#0d1b19; --line:#21443d; --ink:#d8f2e9;
-          --dim:#779f94; --accent:#44e0b2; --accent2:#b985ff;
-          --teal:var(--accent); --gold:var(--accent2); --warn:#ff776d;
-          --good:#78e38e; --radius:14px; --space:1;
-          --font-ui:"Segoe UI",system-ui,sans-serif;
-          --theme-glow:.62; --theme-motion:.7;
+  :root { --bg:#0b0a15; --panel:#131120; --line:#2c2740; --ink:#eae3d2;
+          --dim:#8b829d; --accent:#c9ab77; --accent2:#f6ead0;
+          --teal:var(--accent); --gold:var(--accent2); --warn:#d97b6c;
+          --good:#84b98f; --radius:16px; --space:1; --base-font-size:14px;
+          --font-ui:'Source Serif 4',Georgia,serif;
+          --font-display:'Cormorant Garamond',Georgia,serif;
+          --font-mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+          --theme-glow:.30; --theme-motion:.45;
           --state-energy:.25; --state-calm:.5; --state-warmth:.2;
           --state-tension:.1; --state-glow:.28; --state-hue-shift:0deg;
           --drift-duration:34s; --pulse-duration:8s;
           --wash-opacity:.06; --orb-opacity:.20; --flow-opacity:.12;
           --pulse-opacity:.15; --pattern-opacity:.09;
-          --aurora-opacity:.28; --speaker-glow-size:16px; }
-  * { box-sizing:border-box; }
+          --aurora-opacity:.28; --speaker-glow-size:16px;
+          --background-opacity:.32; --conversation-background:none; }
+  * { box-sizing:border-box; scrollbar-width:thin;
+      scrollbar-color:var(--accent) color-mix(in srgb,var(--panel) 82%,var(--bg)); }
+  *::-webkit-scrollbar { width:10px;height:10px; }
+  *::-webkit-scrollbar-track {
+      background:color-mix(in srgb,var(--panel) 82%,var(--bg)); }
+  *::-webkit-scrollbar-thumb {
+      background:linear-gradient(180deg,var(--accent),var(--accent2));
+      border:2px solid color-mix(in srgb,var(--panel) 82%,var(--bg));
+      border-radius:999px; }
+  *::-webkit-scrollbar-thumb:hover { background:var(--accent2); }
   html,body { height:100%; }
-  body { margin:0; background:var(--bg); color:var(--ink); overflow:hidden;
-         font:calc(14px * var(--space))/1.45 var(--font-ui);
+  body { margin:0; color:var(--ink); overflow:hidden;
+         background:radial-gradient(circle at 15% -10%,color-mix(in srgb,var(--line) 55%,var(--bg)) 0,transparent 38%),var(--bg);
+         font:var(--base-font-size)/1.45 var(--font-ui);
          transition:background .8s,color .5s; }
   #atmosphere { position:fixed; inset:0; z-index:0; pointer-events:none;
                 overflow:hidden; opacity:.92;
                 filter:hue-rotate(var(--state-hue-shift));
                 transition:filter 1.2s,opacity 1.2s; }
+  #conversation-background { position:fixed;inset:0;z-index:0;pointer-events:none;
+      background-image:var(--conversation-background);background-size:cover;
+      background-position:center;opacity:0;transition:opacity .5s; }
+  body[data-background="image"] #conversation-background { opacity:var(--background-opacity); }
+  body[data-background="image"] #atmosphere { opacity:0; }
   #atmosphere svg { width:100%; height:100%; display:block; }
   #atmosphere .wash { fill:var(--accent); opacity:var(--wash-opacity); }
   #atmosphere .orb { transform-box:fill-box; transform-origin:center;
@@ -47,6 +69,8 @@
   body[data-background="scales"] .pattern.scales,
   body[data-background="stars"] .pattern.stars,
   body[data-background="paper"] .pattern.paper { opacity:var(--pattern-opacity); }
+  #atmosphere .pattern.stars { animation:star-pan calc(150s - 80s * var(--theme-motion,.5)) linear infinite; }
+  @keyframes star-pan { to { transform:translate(-240px,-200px); } }
   body[data-background="aurora"] .orb { opacity:var(--aurora-opacity); }
   @keyframes ambient-drift { from{transform:translate(-3%,-2%) scale(.92)}
                             to{transform:translate(4%,3%) scale(1.12)} }
@@ -62,8 +86,9 @@
   body[data-high-contrast="true"] .panel,
   body[data-high-contrast="true"] .bubble { box-shadow:none !important; }
   header { display:flex; gap:12px; align-items:center; padding:8px 16px;
-           border-bottom:1px solid var(--line); background:color-mix(in srgb,var(--panel) 92%,transparent);
-           position:relative;z-index:2;backdrop-filter:blur(16px); }
+           border-bottom:1px solid var(--line);
+           background:color-mix(in srgb,var(--panel) 90%,transparent);
+           position:relative;z-index:2; }
   header .meta { color:var(--dim); font-size:12px; }
   main { --inspector-width:380px; display:grid;
          grid-template-columns:minmax(320px,1fr) 9px minmax(280px,var(--inspector-width)); gap:7px;
@@ -79,17 +104,21 @@
   #column-resizer:hover::after,#column-resizer.dragging::after{top:20%;bottom:20%;background:var(--accent)}
   .header-spacer{flex:1}.layout-toggle{padding:5px 9px;background:transparent;color:var(--dim);
       border:1px solid var(--line);font-size:11px}.layout-toggle:hover{color:var(--ink);border-color:var(--accent)}
-  .panel { background:color-mix(in srgb,var(--panel) 91%,transparent);
+  .panel { background:color-mix(in srgb,var(--panel) 90%,transparent);
            border:1px solid var(--line); border-radius:var(--radius);
            padding:calc(10px * var(--space)) calc(12px * var(--space));
-           box-shadow:0 10px 35px color-mix(in srgb,var(--accent) 8%,transparent);
-           backdrop-filter:blur(14px); transition:background .7s,border .7s,box-shadow 1s; }
-  .panel h2 { margin:0; font-size:11px; letter-spacing:.12em;
-              text-transform:uppercase; color:var(--dim); }
+           transition:background .7s,border .7s; }
+  .panel h2 { margin:0; font:600 14px/1.2 var(--font-display);
+              font-variant:small-caps; letter-spacing:.06em; color:var(--gold); }
+  #substrate-readout { white-space:pre-wrap;overflow-wrap:anywhere;
+      max-height:240px;overflow:auto;font-size:11px;line-height:1.35; }
   .panel-heading{display:flex;align-items:center;gap:8px;margin:0 0 8px}
   .panel-heading h2{flex:1}.collapse-toggle{padding:2px 7px;background:transparent;color:var(--dim);
       border:1px solid transparent;font-size:11px}.collapse-toggle:hover{color:var(--ink);border-color:var(--line)}
   .panel.collapsed>.collapsible-content{display:none}.panel.collapsed>.panel-heading{margin-bottom:0}
+  #inspector .panel h2.sec-toggle{cursor:pointer;user-select:none}
+  #inspector .panel h2.sec-toggle::after{content:"▾";margin-left:7px;color:var(--dim);font-size:.75em}
+  #inspector .panel.collapsed h2.sec-toggle::after{content:"▸"}
   #chat { flex:1; overflow-y:auto; display:flex; flex-direction:column;
           gap:8px; }
   #thought-mark { flex:0 0 34px; display:flex; align-items:center;
@@ -115,17 +144,16 @@
                      object-fit:cover;display:block; }
   .msg .bubble { min-width:70px; padding:8px 11px; border-radius:var(--radius);
       background:color-mix(in srgb,var(--speaker-color) 13%,var(--panel));
-      border:1px solid color-mix(in srgb,var(--speaker-color) 38%,var(--line));
-      box-shadow:0 5px 20px color-mix(in srgb,var(--speaker-color) 10%,transparent); }
+      border:1px solid color-mix(in srgb,var(--speaker-color) 38%,var(--line)); }
   .msg.user .bubble { border-top-right-radius:3px; }
   .msg.persona .bubble { border-top-left-radius:3px; }
   .speaker-name { display:block;color:var(--speaker-color);font-size:10px;
                   letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px; }
   .msg.sys { align-self:center; color:var(--dim); font-size:12px;
              background:none; display:block; max-width:92%; text-align:center; }
-  #composer { display:grid; grid-template-columns:auto 1fr auto; gap:8px; }
+  #composer { display:grid; grid-template-columns:auto auto auto 1fr auto; gap:8px; }
   #say { min-width:0; min-height:38px; max-height:160px; resize:none;
-         overflow-y:auto; background:#0c1116; color:var(--ink);
+         overflow-y:auto; background:#14110e; color:var(--ink);
          font:inherit; line-height:1.4; border:1px solid var(--line);
          border-radius:6px; padding:9px 11px; transition:border .16s,box-shadow .16s; }
   #composer.dragging #say { border-color:var(--accent);
@@ -134,6 +162,157 @@
   #image-preview { grid-column:1/-1; display:none; gap:7px; flex-wrap:wrap;
                    padding:5px 0; }
   #image-preview.has-images { display:flex; }
+  #afferent-rack { flex:0 0 auto; }
+  #afferent-rack h2 { margin-bottom:8px; }
+  #camera-panel { display:none; align-items:center; gap:10px;
+    padding:8px;border:1px solid var(--line);border-radius:9px;background:#0a0806; }
+  #camera-panel.live { display:flex; }
+  #camera-feed { width:180px;max-height:120px;border-radius:7px;object-fit:cover;
+    background:#000;transform:scaleX(-1); }
+  #camera-story { color:var(--muted);font-size:.78rem;line-height:1.35; }
+  .afferent-copy { flex:1;min-width:0;display:flex;flex-direction:column;gap:5px; }
+  .afferent-edge { border-top:1px solid var(--line);padding-top:5px;
+    font:9px/1.35 var(--font-mono);color:var(--dim); }
+  .afferent-pressure { position:relative;height:6px;margin:3px 0 4px;
+    overflow:hidden;border-radius:99px;background:var(--line); }
+  .afferent-pressure .pressure-fill { display:block;height:100%;width:0;
+    background:var(--teal);transition:width .08s linear; }
+  .afferent-pressure .boundary-mark { position:absolute;top:0;bottom:0;width:2px;
+    left:50%;background:var(--gold);box-shadow:0 0 3px #000; }
+  .afferent-vector { overflow-wrap:anywhere; }
+  .afferent-outcome { color:var(--muted); }
+  .afferent-outcome.crossed { color:var(--gold); }
+  .afferent-outcome.admitted { color:var(--good); }
+  .afferent-outcome.held { color:var(--warn); }
+  #composer .sensory-control {
+    background:transparent; color:var(--dim); border:1px solid var(--line);
+    border-radius:9px; padding:8px 10px; display:grid; place-items:center;
+    line-height:0; transition:color .15s,border-color .15s,background .15s; }
+  #composer .sensory-control:hover {
+    color:var(--accent); border-color:var(--accent);
+    background:color-mix(in srgb,var(--accent) 10%,transparent); }
+  #composer #camera.live { color:var(--warn);border-color:var(--warn); }
+  #audio-panel { display:none; align-items:center; gap:10px;
+    padding:8px;border:1px solid var(--line);border-radius:9px;background:#0a0806; }
+  #audio-panel.live { display:flex; }
+  #audio-meter { width:180px;height:8px;border-radius:99px;overflow:hidden;
+    background:var(--line); }
+  #audio-meter span { display:block;height:100%;width:0;background:var(--accent);
+    transition:width .08s linear; }
+  #audio-story { color:var(--dim);font-size:.78rem;line-height:1.35; }
+  #audio-copy { flex:1;display:flex;flex-direction:column;gap:5px; }
+  #voice-turn-label { color:var(--muted);font-size:.72rem;display:flex;
+    align-items:center;gap:6px;cursor:pointer; }
+  #voice-turn-label input { accent-color:var(--teal); }
+  #voice-output-control { display:flex;align-items:center;gap:8px;
+    color:var(--muted);font-size:.72rem;padding:6px 2px 0; }
+  #voice-output-control label { display:flex;align-items:center;gap:6px;
+    cursor:pointer; }
+  #voice-output-control input { accent-color:var(--teal); }
+  #voice-output-story { color:var(--dim); }
+  #composer #microphone.live { color:var(--warn);border-color:var(--warn); }
+  .salience-head { display:flex;align-items:center;justify-content:space-between;
+    gap:8px;margin-bottom:8px; }
+  .salience-controls { display:flex;align-items:center;gap:7px;color:var(--dim);
+    font-size:10px; }
+  .salience-controls select { background:var(--bg);color:var(--ink);
+    border:1px solid var(--line);border-radius:5px;padding:3px;max-width:105px; }
+  .salience-candidate { width:100%;text-align:left;background:transparent;
+    color:var(--ink);border:1px solid var(--line);padding:7px;margin:0 0 6px; }
+  .salience-candidate:hover { border-color:var(--accent); }
+  .salience-candidate .meta-line { display:flex;gap:6px;align-items:center;
+    color:var(--dim);font-size:10px;margin-bottom:4px; }
+  .salience-candidate .digest { font-size:11px;line-height:1.3; }
+  .salience-total { margin-left:auto;color:var(--ink);font-variant-numeric:tabular-nums; }
+  .salience-stack { height:7px;display:flex;overflow:hidden;border-radius:99px;
+    background:var(--line);margin-top:6px; }
+  .salience-segment { height:100%;min-width:1px; }
+  #salience-legend { display:flex;flex-wrap:wrap;gap:4px 8px;margin:5px 0; }
+  .salience-legend-item { color:var(--dim);font-size:9px;display:flex;
+    align-items:center;gap:3px; }
+  .salience-swatch { width:7px;height:7px;border-radius:2px; }
+  #salience-history { display:flex;gap:5px;overflow-x:auto;padding:6px 1px;
+    border-top:1px solid var(--line);border-bottom:1px solid var(--line); }
+  .salience-event { flex:0 0 auto;background:transparent;color:var(--muted);
+    border:1px solid var(--line);font-size:9px;padding:4px 6px; }
+  #salience-drill { max-height:240px;overflow:auto;margin-top:7px;font-size:10px; }
+  .salience-life { border-left:2px solid var(--line);padding:3px 0 5px 7px; }
+  .salience-life .tick { color:var(--dim);font-size:9px; }
+  .salience-life pre { white-space:pre-wrap;word-break:break-word;color:var(--muted);
+    margin:3px 0 0;font:9px/1.3 ui-monospace,monospace; }
+  .document-controls { display:grid;grid-template-columns:1fr auto;gap:5px; }
+  .document-controls select,.document-controls input { min-width:0;background:var(--bg);
+    color:var(--ink);border:1px solid var(--line);border-radius:5px;padding:5px;font:inherit; }
+  .document-controls .wide { grid-column:1/-1; }
+  .document-actions { display:flex;gap:5px;align-items:center;margin-top:6px; }
+  .document-actions button { flex:0 0 auto; }
+  #document-progress { flex:1;text-align:center;font-size:10px;color:var(--dim); }
+  #document-reader { white-space:pre-wrap;word-break:break-word;max-height:300px;
+    overflow:auto;margin:7px 0 0;padding:7px;border:1px solid var(--line);
+    border-radius:6px;background:var(--bg);font:10px/1.45 var(--font-ui); }
+  #document-results { display:grid;gap:4px;max-height:180px;overflow:auto;margin-top:6px; }
+  .document-hit { display:block;width:100%;text-align:left;background:transparent;
+    color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:5px; }
+  .document-hit:hover { border-color:var(--accent);color:var(--ink); }
+  .memory-controls { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px; }
+  .memory-controls input,.memory-controls select { min-width:0;background:var(--bg);color:var(--ink);
+    border:1px solid var(--line);border-radius:5px;padding:5px;font:inherit; }
+  .memory-controls .wide { grid-column:1/-1; }
+  #memory-results { max-height:300px;overflow:auto;margin-top:7px; }
+  .memory-record { width:100%;display:block;text-align:left;background:transparent;color:var(--muted);
+    border:1px solid var(--line);border-radius:6px;padding:6px;margin:0 0 5px;cursor:pointer; }
+  .memory-record:hover { border-color:var(--accent); }
+  .memory-record .meta-line { display:flex;gap:6px;align-items:center;color:var(--dim);font-size:9px; }
+  .memory-record .digest { color:var(--ink);font-size:10px;line-height:1.35;margin-top:3px; }
+  .memory-source { margin-left:auto; }
+  #memory-pages { display:flex;align-items:center;justify-content:space-between;margin-top:5px; }
+  #memory-pages button { background:transparent;color:var(--muted);border:1px solid var(--line);
+    border-radius:5px;padding:3px 7px; }
+  #memory-drill { max-height:360px;overflow:auto;margin-top:7px; }
+  #memory-drill pre { white-space:pre-wrap;word-break:break-word;color:var(--muted);font-size:9px; }
+  .agency-status { display:flex;gap:7px;align-items:center;flex-wrap:wrap;
+    color:var(--muted);font-size:10px;margin-bottom:7px; }
+  .agency-lamp { width:8px;height:8px;border-radius:50%;background:var(--dim); }
+  .agency-lamp.ready { background:var(--good);box-shadow:0 0 8px color-mix(in srgb,var(--good) 70%,transparent); }
+  .agency-lamp.active { background:var(--accent);box-shadow:0 0 9px color-mix(in srgb,var(--accent) 70%,transparent); }
+  .agency-lamp.blocked { background:var(--warn); }
+  .agency-admit { display:grid;grid-template-columns:1fr auto;gap:5px; }
+  .agency-admit input,.agency-admit textarea { min-width:0;background:var(--bg);color:var(--ink);
+    border:1px solid var(--line);border-radius:5px;padding:6px;font:inherit; }
+  .agency-admit textarea { grid-column:1/-1;resize:vertical;min-height:64px; }
+  .agency-admit button { align-self:stretch; }
+  .agency-help { color:var(--dim);font-size:9px;line-height:1.35;margin:6px 0; }
+  #agency-artifacts { display:grid;gap:4px;margin-top:7px; }
+  .agency-artifact { display:block;width:100%;text-align:left;background:transparent;color:var(--muted);
+    border:1px solid var(--line);border-radius:5px;padding:5px;font-size:10px; }
+  .agency-artifact:hover { border-color:var(--accent);color:var(--ink); }
+  #agency-drill { white-space:pre-wrap;word-break:break-word;max-height:240px;overflow:auto;
+    margin-top:7px;color:var(--muted);font-size:10px; }
+  .desk-admit { display:grid;grid-template-columns:1fr auto;gap:5px; }
+  .desk-admit input,.desk-admit textarea { min-width:0;background:var(--bg);color:var(--ink);
+    border:1px solid var(--line);border-radius:5px;padding:6px;font:inherit; }
+  .desk-admit textarea { grid-column:1/-1;resize:vertical;min-height:64px; }
+  #writing-desk-projects { display:grid;gap:4px;margin-top:7px; }
+  .desk-project-row { display:grid;grid-template-columns:1fr auto;gap:4px; }
+  .desk-project { width:100%;text-align:left;background:transparent;color:var(--muted);
+    border:1px solid var(--line);border-radius:5px;padding:5px;font-size:10px; }
+  .desk-project:hover { border-color:var(--accent);color:var(--ink); }
+  #writing-desk-drill { white-space:pre-wrap;word-break:break-word;max-height:300px;overflow:auto;
+    margin-top:7px;color:var(--muted);font-size:10px; }
+  #atelier-artifacts { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:7px; }
+  .atelier-card { min-width:0;border:1px solid var(--line);border-radius:7px;padding:6px;
+    background:color-mix(in srgb,var(--bg) 88%,var(--accent) 12%); }
+  .atelier-card img { display:block;width:100%;aspect-ratio:1/1;object-fit:contain;border-radius:5px;
+    background:color-mix(in srgb,var(--bg) 92%,white 8%); }
+  .atelier-title { margin:5px 0;color:var(--ink);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+  .atelier-card button { width:100%;padding:5px;font-size:9px; }
+  #atelier-drill { white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto;
+    margin-top:7px;color:var(--muted);font-size:10px; }
+  #research-items { display:grid;gap:4px;margin-top:7px; }
+  #research-drill { white-space:pre-wrap;word-break:break-word;max-height:340px;overflow:auto;
+    margin-top:7px;color:var(--muted);font-size:10px; }
+  #archive-reader { white-space:pre-wrap;word-break:break-word;max-height:360px;overflow:auto; }
+  #archive-results { display:grid;gap:4px;margin-top:7px; }
   .image-chip { position:relative; width:72px; height:58px; }
   .image-chip img,.message-images img { width:100%;height:100%;object-fit:cover;
       border-radius:8px;border:1px solid var(--line); }
@@ -142,13 +321,13 @@
   .message-images { display:grid;grid-template-columns:repeat(2,minmax(90px,180px));
                     gap:6px;margin:6px 0 2px; }
   .message-images img { height:auto;max-height:240px;cursor:zoom-in; }
-  button { background:var(--teal); color:#08211e; border:0; font-weight:600;
+  button { background:var(--teal); color:#0f1a15; border:0; font-weight:600;
            border-radius:6px; padding:9px 14px; cursor:pointer; }
-  button:disabled { background:#2a3a44; color:var(--dim); cursor:wait; }
+  button:disabled { background:#2b2620; color:var(--dim); cursor:wait; }
   .bar { display:flex; align-items:center; gap:8px; margin:3px 0; }
   .bar .label { width:110px; color:var(--dim); font-size:12px;
                 overflow:hidden; text-overflow:ellipsis; }
-  .bar .track { flex:1; height:9px; background:#0c1116; border-radius:5px;
+  .bar .track { flex:1; height:9px; background:#14110e; border-radius:5px;
                 overflow:hidden; }
   .bar .fill { height:100%; background:var(--teal); border-radius:5px;
                transition:width .4s; }
@@ -165,7 +344,7 @@
   .rcpt .mem { color:var(--dim); }
   .quiet { color:var(--dim); font-style:italic; }
   #moodrow { display:flex; gap:6px; margin-top:6px; }
-  #moodrow input { flex:1; background:#0c1116; color:var(--ink);
+  #moodrow input { flex:1; background:#14110e; color:var(--ink);
         border:1px solid var(--line); border-radius:6px; padding:5px 8px;
         font-size:12px; }
   #moodrow button { padding:5px 10px; font-size:12px; }
@@ -174,8 +353,8 @@
   .organ input { accent-color:var(--teal); cursor:pointer; }
   .organ .tag { font-size:10px; border-radius:8px; padding:1px 7px;
                 background:#3a2f17; color:var(--gold); }
-  .organ .tag.loop { background:#16303a; color:var(--teal); }
-  .organ .tag.wall { background:#401d25; color:#ff8d9b; }
+  .organ .tag.loop { background:#14302a; color:var(--teal); }
+  .organ .tag.wall { background:#3a1f18; color:#e39c8d; }
   #organnote { font-size:11px; margin-top:6px; }
   .organ-help { color:var(--dim);font-size:11px;line-height:1.45;
                 margin:0 0 8px; }
@@ -195,6 +374,14 @@
       border-radius:6px;padding:4px; }
   .appearance-grid input[type="color"] { width:100%;height:28px;padding:1px;
       background:var(--bg);border:1px solid var(--line);border-radius:6px; }
+  .appearance-subhead { grid-column:1/-1;color:var(--accent);font-size:11px;
+      letter-spacing:.06em;margin-top:4px;border-top:1px solid var(--line);padding-top:7px; }
+  .background-upload { grid-column:1/-1;display:grid;gap:6px; }
+  .background-upload input[type="file"] { width:100%;color:var(--dim);font-size:11px;
+      border:1px solid var(--line);border-radius:6px;padding:5px;background:var(--bg); }
+  .background-upload-actions { display:flex;gap:6px;flex-wrap:wrap; }
+  .background-upload-actions button { flex:1;padding:5px 8px;font-size:11px; }
+  #themeBackgroundStatus { min-height:1.25em;color:var(--dim);font-size:10px; }
   .appearance-checks { display:flex;flex-wrap:wrap;gap:8px 12px;margin-top:8px; }
   .appearance-checks label { color:var(--dim);font-size:11px; }
   .appearance-actions { display:flex;gap:6px;margin-top:8px; }
@@ -205,6 +392,7 @@
 </style>
 </head>
 <body>
+<div id="conversation-background" aria-hidden="true"></div>
 <div id="atmosphere" aria-hidden="true">
   <svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
     <defs>
@@ -212,13 +400,13 @@
       <radialGradient id="orbB"><stop offset="0" stop-color="var(--accent2)" stop-opacity=".6"/><stop offset="1" stop-color="var(--accent2)" stop-opacity="0"/></radialGradient>
       <pattern id="gridPattern" width="42" height="42" patternUnits="userSpaceOnUse"><path d="M42 0H0V42" fill="none" stroke="var(--accent)" stroke-width=".7"/></pattern>
       <pattern id="scalePattern" width="54" height="30" patternUnits="userSpaceOnUse"><path d="M0 0 Q13.5 28 27 0 Q40.5 28 54 0" fill="none" stroke="var(--accent)" stroke-width="1"/></pattern>
-      <pattern id="starPattern" width="110" height="90" patternUnits="userSpaceOnUse"><circle cx="13" cy="17" r="1.1" fill="var(--ink)"/><circle cx="76" cy="52" r=".8" fill="var(--accent2)"/><circle cx="101" cy="11" r=".6" fill="var(--accent)"/></pattern>
+      <pattern id="starPattern" width="240" height="200" patternUnits="userSpaceOnUse"><circle cx="158" cy="79" r="3.2" fill="var(--ink)" opacity=".12"/><circle cx="37" cy="90" r="3.6" fill="var(--ink)" opacity=".12"/><circle cx="17" cy="23" r=".9" fill="var(--ink)" opacity=".8"/><circle cx="44" cy="141" r=".6" fill="var(--ink)" opacity=".55"/><circle cx="61" cy="58" r="1.2" fill="var(--ink)" opacity=".9"/><circle cx="83" cy="177" r=".5" fill="var(--ink)" opacity=".5"/><circle cx="96" cy="31" r=".7" fill="var(--accent2)" opacity=".75"/><circle cx="112" cy="104" r=".45" fill="var(--ink)" opacity=".5"/><circle cx="129" cy="166" r=".9" fill="var(--ink)" opacity=".7"/><circle cx="143" cy="12" r=".55" fill="var(--ink)" opacity=".6"/><circle cx="158" cy="79" r="1.5" fill="var(--ink)"/><circle cx="171" cy="138" r=".5" fill="var(--accent)" opacity=".6"/><circle cx="187" cy="44" r=".8" fill="var(--ink)" opacity=".7"/><circle cx="203" cy="186" r=".6" fill="var(--ink)" opacity=".55"/><circle cx="218" cy="96" r="1.1" fill="var(--accent2)" opacity=".85"/><circle cx="231" cy="19" r=".5" fill="var(--ink)" opacity=".5"/><circle cx="9" cy="113" r=".65" fill="var(--ink)" opacity=".6"/><circle cx="28" cy="187" r=".8" fill="var(--ink)" opacity=".7"/><circle cx="52" cy="7" r=".5" fill="var(--ink)" opacity=".5"/><circle cx="74" cy="122" r=".4" fill="var(--ink)" opacity=".45"/><circle cx="91" cy="73" r=".55" fill="var(--ink)" opacity=".6"/><circle cx="107" cy="9" r="1.3" fill="var(--accent)" opacity=".8"/><circle cx="124" cy="52" r=".45" fill="var(--ink)" opacity=".5"/><circle cx="139" cy="119" r=".7" fill="var(--ink)" opacity=".65"/><circle cx="152" cy="192" r=".9" fill="var(--accent2)" opacity=".7"/><circle cx="168" cy="27" r=".5" fill="var(--ink)" opacity=".55"/><circle cx="183" cy="161" r=".45" fill="var(--ink)" opacity=".5"/><circle cx="197" cy="68" r=".6" fill="var(--ink)" opacity=".6"/><circle cx="212" cy="143" r=".5" fill="var(--ink)" opacity=".5"/><circle cx="226" cy="58" r=".75" fill="var(--ink)" opacity=".65"/><circle cx="37" cy="90" r="1.6" fill="var(--ink)"/><circle cx="6" cy="49" r=".5" fill="var(--ink)" opacity=".5"/><circle cx="233" cy="168" r=".45" fill="var(--ink)" opacity=".5"/></pattern>
       <pattern id="paperPattern" width="80" height="80" patternUnits="userSpaceOnUse"><path d="M0 12H80M0 46H80M17 0V80M63 0V80" stroke="var(--accent2)" stroke-width=".35" opacity=".55"/></pattern>
     </defs>
     <rect class="wash" width="1200" height="800"/>
     <rect class="pattern grid" width="1200" height="800" fill="url(#gridPattern)"/>
     <rect class="pattern scales" width="1200" height="800" fill="url(#scalePattern)"/>
-    <rect class="pattern stars" width="1200" height="800" fill="url(#starPattern)"/>
+    <rect class="pattern stars" width="1440" height="1000" fill="url(#starPattern)"/>
     <rect class="pattern paper" width="1200" height="800" fill="url(#paperPattern)"/>
     <ellipse class="orb one" cx="210" cy="160" rx="360" ry="280" fill="url(#orbA)"/>
     <ellipse class="orb two" cx="1010" cy="650" rx="430" ry="320" fill="url(#orbB)"/>
@@ -230,9 +418,9 @@
   <span class="meta" id="who">connecting…</span>
   <span class="meta" id="timing"></span>
   <span class="header-spacer"></span>
-  <button class="layout-toggle" id="bodyToggle" type="button" aria-expanded="true">hide body functions</button>
+  <button class="layout-toggle" id="bodyToggle" type="button" aria-expanded="false">show body functions</button>
 </header>
-<main id="cockpit-main">
+<main id="cockpit-main" class="inspector-collapsed">
   <div class="col">
     <div class="panel" style="flex:1; display:flex; flex-direction:column; min-height:0;">
       <h2>conversation</h2>
@@ -242,20 +430,193 @@
       </div>
       <div id="composer">
         <div id="image-preview" aria-live="polite"></div>
-        <button id="attach" type="button" title="share image">📎</button>
+        <button class="sensory-control" id="camera" type="button" title="start ambient camera perception"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5A1.5 1.5 0 0 1 5 7h2.4l1.7-2h5.8l1.7 2H19a1.5 1.5 0 0 1 1.5 1.5V17a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 17z"/><circle cx="12" cy="12.7" r="3.2"/></svg></button>
+        <button class="sensory-control" id="microphone" type="button" title="start ambient acoustic perception"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9.2" y="3.5" width="5.6" height="10" rx="2.8"/><path d="M6 11.5a6 6 0 0 0 12 0"/><path d="M12 17.5v3"/><path d="M9 20.5h6"/></svg></button>
+        <button class="sensory-control" id="attach" type="button" title="share image"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 12.5l6.2-6.2a3.1 3.1 0 0 1 4.4 4.4l-7.8 7.8a5 5 0 0 1-7.1-7.1l7.4-7.4"/></svg></button>
         <input id="image-picker" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden>
         <textarea id="say" rows="1" placeholder="say something…" autocomplete="off"
           aria-label="Message. Drop images here; Shift plus Enter starts a new paragraph."></textarea>
         <button id="send">Send</button>
       </div>
+      <div id="voice-output-control">
+        <label><input id="voice-output" type="checkbox"> let replies use local voice</label>
+        <span id="voice-output-story">output quiet</span>
+      </div>
     </div>
-    <div class="panel" id="receipts-panel">
-      <div class="panel-heading"><h2>receipts</h2><button class="collapse-toggle" id="receiptsToggle" type="button" aria-expanded="true">minimize</button></div>
+    <div class="panel collapsed" id="receipts-panel">
+      <div class="panel-heading"><h2>receipts</h2><button class="collapse-toggle" id="receiptsToggle" type="button" aria-expanded="false">pull up</button></div>
       <div class="collapsible-content" id="receipts"><div class="quiet">no turns yet</div></div>
     </div>
   </div>
   <div id="column-resizer" role="separator" aria-orientation="vertical" aria-label="Resize body functions"></div>
   <div class="col" id="inspector">
+    <div class="panel" id="afferent-rack">
+      <h2>live afferents</h2>
+      <div id="camera-panel"><video id="camera-feed" autoplay muted playsinline></video>
+        <div class="afferent-copy"><div id="camera-story">Camera is local until visual change crosses the
+          salience threshold. Only admitted frames are stored and transduced.</div>
+          <div class="afferent-edge" id="camera-edge">
+            <div>pressure <span data-edge="pressure">0.000</span> / boundary <span data-edge="boundary">0.000</span></div>
+            <div class="afferent-pressure"><span class="pressure-fill"></span><i class="boundary-mark"></i></div>
+            <div class="afferent-vector" data-edge="evidence">evidence waiting for frames</div>
+            <div class="afferent-vector" data-edge="rhythm">rhythm waiting for body state</div>
+            <div class="afferent-outcome" data-edge="outcome">local · establishing baseline</div>
+          </div></div></div>
+      <div id="audio-panel"><div id="audio-meter"><span></span></div>
+        <div id="audio-copy" class="afferent-copy"><div id="audio-story">Microphone features remain local until acoustic
+          pressure crosses the rhythm-shaped attention boundary.</div>
+          <div class="afferent-edge" id="audio-edge">
+            <div>pressure <span data-edge="pressure">0.000</span> / boundary <span data-edge="boundary">0.000</span></div>
+            <div class="afferent-pressure"><span class="pressure-fill"></span><i class="boundary-mark"></i></div>
+            <div class="afferent-vector" data-edge="evidence">evidence waiting for sound</div>
+            <div class="afferent-vector" data-edge="rhythm">rhythm waiting for body state</div>
+            <div class="afferent-outcome" data-edge="outcome">local · establishing baseline</div>
+          </div>
+          <label id="voice-turn-label"><input id="voice-turns" type="checkbox">
+            let rhythm-admitted spoken segments enter conversation</label></div></div>
+    </div>
+    <div class="panel" id="salience-observatory">
+      <div class="salience-head"><h2>salience field</h2>
+        <div class="salience-controls">
+          <label><input id="salience-pause" type="checkbox"> pause</label>
+          <select id="salience-filter" aria-label="Salience history type">
+            <option value="">all events</option>
+            <option value="candidate_offered">offered</option>
+            <option value="candidates_merged">merged</option>
+            <option value="candidate_won">won</option>
+            <option value="discharge">discharged</option>
+            <option value="candidate_expired">expired</option>
+            <option value="admission_boundary">voice boundary</option>
+          </select>
+        </div>
+      </div>
+      <div id="salience-status" class="quiet">connecting to observatory…</div>
+      <div id="salience-live"></div>
+      <div id="salience-legend"></div>
+      <div id="salience-history"></div>
+      <div id="salience-drill"><div class="quiet">select a candidate or event for its lifecycle</div></div>
+    </div>
+    <div class="panel" id="agency-workbench">
+      <h2>private workbench</h2>
+      <div class="agency-status"><span class="agency-lamp" id="agency-lamp"></span>
+        <span id="agency-status">reading agency boundaryâ€¦</span></div>
+      <div class="agency-admit">
+        <input id="agency-label" placeholder="name this admitted material">
+        <button id="agency-submit" type="button">admit</button>
+        <textarea id="agency-content" placeholder="Place text into this persona's private inbox. It enters the salience field; it is not an order and may lose, wait, or receive [quiet]."></textarea>
+      </div>
+      <div class="agency-help">Admission makes material available to attention. Only a real field winner may begin work. Drafts stay private and unsent; overwrite, deletion, shell, and external effects are unavailable.</div>
+      <div id="agency-note" class="quiet"></div>
+      <div id="agency-artifacts"></div>
+      <pre id="agency-drill" class="quiet">no private artifacts yet</pre>
+    </div>
+    <div class="panel" id="writing-desk">
+      <h2>writing desk</h2>
+      <div class="agency-status"><span class="agency-lamp" id="writing-desk-lamp"></span>
+        <span id="writing-desk-status">reading the desk boundaryâ€¦</span></div>
+      <div class="desk-admit">
+        <input id="writing-desk-label" placeholder="name the material placed here">
+        <button id="writing-desk-submit" type="button">place</button>
+        <textarea id="writing-desk-content" placeholder="Place text here without ordering a result. It will enter the shared field and may become a project, settle quietly, or wait."></textarea>
+      </div>
+      <div class="agency-help">The desk has no timer and no outer mouth. Seeds and open projects recur only at real field fires. WD1 writes through a local model only; publish, message, overwrite, delete, and API fallback are unavailable.</div>
+      <div id="writing-desk-note" class="quiet"></div>
+      <div id="writing-desk-projects"></div>
+      <pre id="writing-desk-drill" class="quiet">no writing projects yet</pre>
+    </div>
+    <div class="panel" id="atelier">
+      <h2>atelier</h2>
+      <div class="agency-status"><span class="agency-lamp" id="atelier-lamp"></span>
+        <span id="atelier-status">reading the creative boundaryâ€¦</span></div>
+      <div class="desk-admit">
+        <input id="atelier-label" placeholder="name the material placed here">
+        <button id="atelier-submit" type="button">place</button>
+        <textarea id="atelier-brief" placeholder="Place an image, question, fragment, or visual pull here without ordering a result. It may become form, settle quietly, or wait."></textarea>
+      </div>
+      <div class="agency-help">AT1 creates static SVG through a local model only after the material wins the shared field. The host strips active content and remote references. Artifacts stay private; “let them look” is a separate explicit return through vision, not automatic memory.</div>
+      <div id="atelier-note" class="quiet"></div>
+      <div id="atelier-artifacts"></div>
+      <pre id="atelier-drill" class="quiet">no private visual artifacts yet</pre>
+    </div>
+    <div class="panel" id="research-desk">
+      <h2>research desk</h2>
+      <div class="agency-status"><span class="agency-lamp" id="research-lamp"></span>
+        <span id="research-status">reading the research boundary…</span></div>
+      <div class="agency-admit">
+        <input id="research-topic" placeholder="offer a question or topic (optional)">
+        <button id="research-submit" type="button">offer</button>
+      </div>
+      <div class="agency-help">An offer is not an assignment. Interests may also form from lived questions, and every step must win the shared field. Local Qwen plans; the host performs one isolated read-only public search or fetch. Search queries leave this computer. No accounts, cookies, JavaScript, forms, uploads, publishing, messaging, purchases, or personal browser.</div>
+      <div id="research-note" class="quiet"></div>
+      <div id="research-items"></div>
+      <pre id="research-drill" class="quiet">no private research notes or reports yet</pre>
+    </div>
+    <div class="panel" id="document-library">
+      <h2>document library</h2>
+      <div class="document-controls">
+        <select id="document-select" aria-label="Imported document">
+          <option value="">no documents imported</option>
+        </select>
+        <button id="document-open" type="button">open</button>
+        <input id="document-search" class="wide" placeholder="search the human-owned library">
+        <button id="document-import" type="button">import document</button>
+        <button id="document-search-button" type="button">search</button>
+        <input id="document-picker" type="file" hidden
+          accept=".txt,.md,.markdown,.rst,.csv,.tsv,.json,.yaml,.yml,.html,.htm,.pdf,.docx">
+      </div>
+      <div id="document-status" class="quiet">library state has not arrived yet</div>
+      <div class="document-actions">
+        <button id="document-previous" type="button">previous</button>
+        <span id="document-progress">no active reader</span>
+        <button id="document-next" type="button">next</button>
+      </div>
+      <button id="document-to-desk" type="button" disabled>place current section on writing desk</button>
+      <pre id="document-reader" class="quiet">Import or open a document. Its active section and question-relevant excerpts enter private turns with source anchors; the source itself stays separate from memory.</pre>
+      <div id="document-results"></div>
+    </div>
+    <div class="panel" id="conversation-archive">
+      <h2>conversation archive</h2>
+      <div class="agency-status"><span class="agency-lamp" id="archive-lamp"></span>
+        <span id="archive-runtime">reading the archive boundaryâ€¦</span></div>
+      <div class="document-controls">
+        <input id="archive-search" class="wide" placeholder="search documented conversation history">
+        <button id="archive-search-button" type="button">search</button>
+      </div>
+      <div id="archive-status" class="quiet">archive state has not arrived yet</div>
+      <div class="document-actions">
+        <button id="archive-previous" type="button">previous</button>
+        <span id="archive-progress">no active archive reader</span>
+        <button id="archive-next" type="button">next</button>
+        <button id="archive-bookmark" type="button">bookmark</button>
+      </div>
+      <button id="archive-to-desk" type="button" disabled>place current section on writing desk</button>
+      <pre id="archive-reader" class="quiet">This shelf is documented history, not direct memory. Opening a section changes only this persona's private reader position; the immutable source stays human-owned.</pre>
+      <div class="agency-help">Autonomous reading has no timer. Unread sections recur only at genuine field fires, must win attention, and use the local Qwen vessel with zero paid fallbacks. Quiet is a complete outcome.</div>
+      <div id="archive-results"></div>
+    </div>
+    <div class="panel" id="memory-observatory">
+      <h2>memory field</h2>
+      <div class="memory-controls">
+        <input id="memory-query" class="wide" placeholder="search content, entity, or id">
+        <select id="memory-layer"><option value="">all layers</option></select>
+        <select id="memory-origin"><option value="">all origins</option></select>
+        <select id="memory-type"><option value="">all types</option></select>
+        <select id="memory-entities-state"><option value="all">entities: any</option><option value="empty">entities: empty</option><option value="present">entities: present</option></select>
+        <input id="memory-source" placeholder="source contains">
+        <input id="memory-entity" placeholder="entity contains">
+        <input id="memory-min-age" type="number" min="0" step="0.1" placeholder="minimum age days">
+        <input id="memory-max-age" type="number" min="0" step="0.1" placeholder="maximum age days">
+        <input id="memory-min-importance" type="number" step="0.01" placeholder="minimum importance">
+        <input id="memory-max-importance" type="number" step="0.01" placeholder="maximum importance">
+        <select id="memory-access"><option value="all">times selected: any</option><option value="never">never selected</option><option value="selected">selected at least once</option></select>
+        <input id="memory-min-access" type="number" min="0" step="1" placeholder="minimum selections">
+      </div>
+      <div id="memory-status" class="quiet">waiting for observatory revision…</div>
+      <div id="memory-embedder-status" class="quiet">embedder status arrives with the observatory</div>
+      <div id="memory-results"></div>
+      <div id="memory-pages"><button id="memory-prev" type="button">previous</button><span class="quiet"></span><button id="memory-next" type="button">next</button></div>
+      <div id="memory-drill"><div class="quiet">select a memory for payload and provenance</div></div>
+    </div>
     <div class="panel">
       <h2>emotional state</h2>
       <div id="cocktail"><div class="quiet">quiet</div></div>
@@ -268,6 +629,10 @@
       <h2>rhythm</h2>
       <div id="bands"></div>
       <div id="rhythmtext" class="quiet"></div>
+    </div>
+    <div class="panel">
+      <h2>room substrate</h2>
+      <pre id="substrate-readout" class="quiet">no body-step summary yet</pre>
     </div>
     <div class="panel">
       <h2>body</h2>
@@ -303,11 +668,14 @@
         <label>background<select id="themeBackground">
           <option value="scales">scales</option><option value="aurora">aurora</option>
           <option value="stars">stars</option><option value="grid">grid</option>
-          <option value="paper">paper</option><option value="none">none</option>
+          <option value="paper">paper</option><option value="image">uploaded image</option><option value="none">none</option>
         </select></label>
-        <label>font<select id="themeFont"><option value="system">system</option>
-          <option value="mono">monospace</option><option value="serif">serif</option>
+        <label>font<select id="themeFont"><option value="system">System Sans</option>
+          <option value="serif">Source Serif</option><option value="display">Cormorant</option>
+          <option value="mono">IBM Plex Mono</option><option value="humanist">Atkinson Hyperlegible</option>
+          <option value="rounded">Nunito</option><option value="geometric">Space Grotesk</option>
         </select></label>
+        <label>font size <span id="themeFontScaleValue">100%</span><input type="range" min="0.8" max="1.35" step=".05" id="themeFontScale"></label>
         <label>density<select id="themeDensity"><option value="compact">compact</option>
           <option value="cozy">cozy</option><option value="roomy">roomy</option>
         </select></label>
@@ -316,14 +684,22 @@
         <label>text<input type="color" id="themeInk"></label>
         <label>accent<input type="color" id="themeAccent"></label>
         <label>second accent<input type="color" id="themeAccent2"></label>
-        <label>local user<input type="color" id="themeUser"></label>
+        <div class="appearance-subhead">speaker colors &amp; fallback glyphs</div>
+        <label><span id="userColorLabel">local user</span><input type="color" id="themeUser"></label>
         <label><span id="personaColorLabel">persona</span><input type="color" id="themePersona"></label>
-        <label>local user icon<input type="text" maxlength="16" id="themeUserIcon"></label>
+        <label><span id="userIconLabel">local user glyph</span><input type="text" maxlength="16" id="themeUserIcon"></label>
         <label><span id="personaIconLabel">persona icon</span><input type="text" maxlength="16" id="themePersonaIcon"></label>
         <label>roundness<input type="range" min="0" max="28" step="1" id="themeRadius"></label>
         <label>glow<input type="range" min="0" max="1" step=".05" id="themeGlow"></label>
-        <label>motion<input type="range" min="0" max="1" step=".05" id="themeMotion"></label>
+        <label>background image opacity<input type="range" min="0" max="1" step=".05" id="themeBackgroundOpacity"></label>
+        <div class="appearance-subhead">solo-chat background image</div>
+        <div class="background-upload">
+          <input type="file" id="themeBackgroundFile" accept="image/png,image/jpeg,image/webp,image/gif" aria-label="Choose a solo-chat background image">
+          <div class="background-upload-actions"><button type="button" id="themeBackgroundUpload">Upload image</button><button type="button" id="themeBackgroundRemove">Remove image</button></div>
+          <div id="themeBackgroundStatus">PNG, JPEG, WebP, or GIF · up to 12 MB. Image opacity changes the picture layer only, never the messages.</div>
+        </div>
       </div>
+      <p class="muted" style="margin:7px 0 0">Colors preview beside the conversation. Uploaded portraits live under Household → change look; these glyphs are their fallback.</p>
       <div class="appearance-checks">
         <label><input type="checkbox" id="themeReactive"> state-reactive</label>
         <label><input type="checkbox" id="themeReduce"> reduce motion</label>
@@ -411,6 +787,8 @@ function applyAccessibility() {
   $("themeReduce").checked = reduce; $("themeContrast").checked = contrast;
 }
 
+const FONT_STACKS={system:'"Segoe UI",system-ui,sans-serif',serif:'"Source Serif 4",Georgia,serif',display:'"Cormorant Garamond",Georgia,serif',mono:'"IBM Plex Mono",Consolas,"Cascadia Mono",monospace',humanist:'"Atkinson Hyperlegible","Segoe UI",sans-serif',rounded:'Nunito,"Segoe UI",sans-serif',geometric:'"Space Grotesk","Segoe UI",sans-serif'};
+const themeFontStack=id=>FONT_STACKS[id]||FONT_STACKS.system;
 function applyTheme(tokens) {
   if (!tokens) return;
   currentPreview = mergeTokens(tokens, {});
@@ -422,10 +800,12 @@ function applyTheme(tokens) {
   root.style.setProperty("--radius", `${tokens.radius}px`);
   root.style.setProperty("--theme-glow", tokens.glow);
   root.style.setProperty("--theme-motion", tokens.motion);
+  root.style.setProperty("--background-opacity", Number.isFinite(Number(tokens.background_opacity)) ? tokens.background_opacity : .32);
   root.style.setProperty("--space", tokens.density === "compact" ? ".86" : tokens.density === "roomy" ? "1.12" : "1");
-  root.style.setProperty("--font-ui", tokens.font === "mono"
-    ? 'Consolas,"Cascadia Mono",monospace' : tokens.font === "serif"
-    ? 'Georgia,"Times New Roman",serif' : '"Segoe UI",system-ui,sans-serif');
+  root.style.setProperty("--base-font-size", `${14*Math.max(.8,Math.min(1.35,Number(tokens.font_scale)||1))}px`);
+  if($("themeFontScaleValue"))$("themeFontScaleValue").textContent=`${Math.round((Number(tokens.font_scale)||1)*100)}%`;
+  root.style.setProperty("--font-ui",themeFontStack(tokens.font));
+  root.style.setProperty("--font-display",themeFontStack(tokens.font));
   document.body.dataset.background = tokens.background;
   restyleMessages(); applyAccessibility();
   if (lastState) applyReactiveState(lastState);
@@ -471,19 +851,20 @@ function applyReactiveState(st) {
 }
 
 const CONTROL_TOKEN = {
-  themeBackground:"background", themeFont:"font", themeDensity:"density",
+  themeBackground:"background", themeFont:"font", themeFontScale:"font_scale", themeDensity:"density",
   themeBg:"bg", themePanel:"panel", themeInk:"ink", themeAccent:"accent",
   themeAccent2:"accent2", themeRadius:"radius", themeGlow:"glow",
-  themeMotion:"motion", themeReactive:"reactive"
+  themeBackgroundOpacity:"background_opacity", themeReactive:"reactive"
 };
 
 function fillAppearance(tokens) {
   $("themeBackground").value=tokens.background; $("themeFont").value=tokens.font;
+  $("themeFontScale").value=tokens.font_scale||1; $("themeFontScaleValue").textContent=`${Math.round((Number(tokens.font_scale)||1)*100)}%`;
   $("themeDensity").value=tokens.density; $("themeBg").value=tokens.bg;
   $("themePanel").value=tokens.panel; $("themeInk").value=tokens.ink;
   $("themeAccent").value=tokens.accent; $("themeAccent2").value=tokens.accent2;
   $("themeRadius").value=tokens.radius; $("themeGlow").value=tokens.glow;
-  $("themeMotion").value=tokens.motion; $("themeReactive").checked=tokens.reactive!==false;
+  $("themeBackgroundOpacity").value=tokens.background_opacity??.32; $("themeReactive").checked=tokens.reactive!==false;
   $("themeUser").value=namedValue(tokens.speaker_colors||{},PRIMARY_USER)||"#5ba7d9";
   $("themePersona").value=namedValue(tokens.speaker_colors||{},personaLabel())
     || namedValue(tokens.speaker_colors||{},currentPersona) || tokens.accent2;
@@ -492,12 +873,15 @@ function fillAppearance(tokens) {
     || namedValue(tokens.speaker_icons||{},currentPersona) || personaLabel().slice(0,1);
   $("personaColorLabel").textContent=personaLabel();
   $("personaIconLabel").textContent=personaLabel()+" icon";
+  $("userColorLabel").textContent=PRIMARY_USER;
+  $("userIconLabel").textContent=PRIMARY_USER+" glyph";
+  window.JNSQHexColors?.sync();
 }
 
 function readControl(id) {
   const el=$(id), key=CONTROL_TOKEN[id];
   if (key === "reactive") return el.checked;
-  if (["radius","glow","motion"].includes(key)) return Number(el.value);
+  if (["radius","font_scale","glow","background_opacity"].includes(key)) return Number(el.value);
   return el.value;
 }
 
@@ -517,12 +901,39 @@ function previewControl(id) {
   applyTheme(currentPreview);
 }
 
+function applyConversationBackground(media) {
+  document.documentElement.style.setProperty("--conversation-background",media?.url?`url("${media.url}?v=${encodeURIComponent(media.revision||"0")}")`:"none");
+  if ($("themeBackgroundStatus") && media)
+    $("themeBackgroundStatus").textContent="Background image ready. Choose ‘uploaded image’, set its opacity, then Save for the scope you want.";
+}
+
+async function uploadThemeBackground() {
+  const file=$("themeBackgroundFile").files?.[0],button=$("themeBackgroundUpload");
+  if(!file){$("themeBackgroundStatus").textContent="Choose an image first.";return}
+  button.disabled=true;$("themeBackgroundStatus").textContent="Uploading image…";
+  try{
+    const data_url=await fileDataUrl(file);const response=await fetch("/api/ui/conversation-background",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({data_url})});
+    const media=await response.json();if(!response.ok||media.error)throw new Error(media.error||response.statusText);
+    applyConversationBackground(media);currentPreview.background="image";$("themeBackground").value="image";themeDirty.add("background");applyTheme(currentPreview);
+    $("themeBackgroundStatus").textContent="Image uploaded and previewing. Adjust opacity, choose persona/model/household, then Save.";
+  }catch(error){$("themeBackgroundStatus").textContent=error.message}finally{button.disabled=false}
+}
+
+async function removeThemeBackground() {
+  const button=$("themeBackgroundRemove");button.disabled=true;
+  try{const response=await fetch("/api/ui/conversation-background",{method:"DELETE"});const result=await response.json();if(!response.ok||result.error)throw new Error(result.error||response.statusText);
+    applyConversationBackground(null);if(currentPreview.background==="image"){currentPreview.background="none";$("themeBackground").value="none";themeDirty.add("background");applyTheme(currentPreview)}
+    $("themeBackgroundFile").value="";$("themeBackgroundStatus").textContent=result.removed?"Background image removed. Save if you want this scope set to ‘none’.":"There was no uploaded background image to remove.";
+  }catch(error){$("themeBackgroundStatus").textContent=error.message}finally{button.disabled=false}
+}
+
 async function fetchTheme(note="") {
   const r=await (await fetch("/api/theme")).json();
   if (r.error) { $("themenote").textContent="⚠ "+r.error; return; }
   themeDoc=r; currentPersona=r.display_name||r.persona||currentPersona;
   currentModel=r.model||currentModel;
   currentTheme=clone(r.tokens); currentPreview=clone(r.tokens);
+  applyConversationBackground(r.conversation_background);
   $("themePreset").innerHTML=Object.entries(r.presets)
     .map(([id,label])=>`<option value="${id}">${label}</option>`).join("");
   $("themePreset").value=r.preset; fillAppearance(currentPreview);
@@ -569,6 +980,8 @@ function bindAppearance() {
   });
   $("themeSave").onclick=()=>saveAppearance(false);
   $("themeReset").onclick=()=>saveAppearance(true);
+  $("themeBackgroundUpload").onclick=uploadThemeBackground;
+  $("themeBackgroundRemove").onclick=removeThemeBackground;
 }
 
 function bars(el, entries, max=1, color=null) {
@@ -587,10 +1000,17 @@ function renderState(st) {
     `${st.persona} on ${st.model} · contract v${st.contract_version} · ${st.memory_count} memories`;
   bars($("cocktail"),
        Object.entries(st.cocktail||{}).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k,v]));
+  if(st.documents)renderDocumentLibrary(st.documents);
+  if(st.archive)renderArchive(st.archive);
   if (st.bands) {
     bars($("bands"), BANDS.map(b=>[b, st.bands[b]||0,
          b==="gamma"?"var(--warn)":b==="alpha"?"var(--good)":null]), 0.6);
     $("rhythmtext").textContent = st.rhythm||"";
+  }
+  const substrate=st.perception?.substrate;
+  if(substrate&&Object.keys(substrate).length){
+    $("substrate-readout").classList.remove("quiet");
+    $("substrate-readout").textContent=JSON.stringify(substrate,null,2)
   }
   const snap = st.body_snapshot;
   if (snap) {
@@ -606,6 +1026,570 @@ function renderState(st) {
   applyReactiveState(st);
   syncConversation(st.conversation_window || []);
 }
+
+let salienceStream=null,salienceSelected=null;
+function salienceSlug(){return String(lastState?.persona||currentPersona||"").toLowerCase()}
+function componentColor(name){let hash=0;for(const ch of String(name))
+  hash=((hash<<5)-hash+ch.charCodeAt(0))|0;
+  return `hsl(${Math.abs(hash)%360} 58% 58%)`}
+function salienceKey(record){
+  return record?.candidate?.key||record?.candidate_key||record?.surviving_key||null;
+}
+function salienceEventLabel(record){
+  const labels={candidate_offered:"offered",candidates_merged:"merged",
+    candidate_won:"won",candidate_requeued:"requeued",discharge:`discharge:${record.outcome||""}`,
+    candidate_expired:"expired",field_effect:"effect",admission_boundary:`voice:${record.outcome||""}`};
+  return labels[record.type]||record.type;
+}
+function renderSalienceField(view){
+  const live=$("salience-live"),legend=$("salience-legend");live.innerHTML="";legend.innerHTML="";
+  const candidates=view.candidates||[];
+  if(!candidates.length){live.innerHTML='<div class="quiet">field quiet — no candidates</div>';return}
+  const componentNames=new Set();
+  candidates.forEach(candidate=>{
+    const button=document.createElement("button");button.type="button";button.className="salience-candidate";
+    const meta=document.createElement("div");meta.className="meta-line";
+    const source=document.createElement("span");source.textContent=candidate.source||candidate.kind||"candidate";
+    const owner=document.createElement("span");owner.textContent=candidate.ownership||"ownership unavailable";
+    const age=document.createElement("span");age.textContent=`age ${Number(candidate.age_s||0).toFixed(1)}s`;
+    const total=document.createElement("span");total.className="salience-total";
+    total.textContent=Number(candidate.salience_total||0).toFixed(3);meta.append(source,owner,age,total);
+    const digest=document.createElement("div");digest.className="digest";
+    digest.textContent=candidate.content_digest||candidate.key;
+    const stack=document.createElement("div");stack.className="salience-stack";
+    const components=candidate.salience_components||{};
+    const denominator=Math.max(.000001,Object.values(components).reduce((a,b)=>a+Number(b||0),0));
+    Object.entries(components).forEach(([name,value])=>{componentNames.add(name);
+      const segment=document.createElement("span");segment.className="salience-segment";
+      segment.title=`${name} ${Number(value).toFixed(3)}`;
+      segment.style.width=`${Math.max(0,Number(value)/denominator*100)}%`;
+      segment.style.background=componentColor(name);stack.appendChild(segment)});
+    button.append(meta,digest,stack);button.onclick=()=>loadSalienceCandidate(candidate.key);
+    live.appendChild(button);
+  });
+  [...componentNames].sort().forEach(name=>{const item=document.createElement("span");
+    item.className="salience-legend-item";const swatch=document.createElement("span");
+    swatch.className="salience-swatch";swatch.style.background=componentColor(name);
+    item.append(swatch,document.createTextNode(name));legend.appendChild(item)});
+}
+function renderSalienceHistory(records){
+  const lane=$("salience-history");lane.innerHTML="";
+  const visible=(records||[]).filter(record=>record.type!=="field_snapshot").reverse();
+  if(!visible.length){lane.innerHTML='<div class="quiet">no matching events</div>';return}
+  visible.forEach(record=>{const chip=document.createElement("button");chip.type="button";
+    chip.className="salience-event";chip.textContent=salienceEventLabel(record);
+    chip.title=`${record.tick} · seq ${record.seq}`;const key=salienceKey(record);
+    chip.disabled=!key;chip.onclick=()=>key&&loadSalienceCandidate(key);lane.appendChild(chip)});
+  lane.scrollLeft=lane.scrollWidth;
+}
+async function loadSalienceCandidate(key){
+  salienceSelected=key;const drill=$("salience-drill");
+  try{const response=await fetch(`/api/salience/${encodeURIComponent(salienceSlug())}/candidate/${encodeURIComponent(key)}`);
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    drill.innerHTML="";(result.records||[]).forEach(record=>{const row=document.createElement("div");
+      row.className="salience-life";const title=document.createElement("strong");title.textContent=salienceEventLabel(record);
+      const tick=document.createElement("div");tick.className="tick";tick.textContent=`${record.tick} · seq ${record.seq}`;
+      const data=document.createElement("pre");data.textContent=JSON.stringify(record,null,2);
+      row.append(title,tick,data);drill.appendChild(row)})
+  }catch(error){drill.innerHTML="";const quiet=document.createElement("div");quiet.className="quiet";
+    quiet.textContent=`lifecycle unavailable: ${error.message||error}`;drill.appendChild(quiet)}
+}
+async function refreshSalience(){
+  const slug=salienceSlug();if(!slug||$("salience-pause").checked)return;
+  const types=$("salience-filter").value;
+  try{const [fieldResponse,historyResponse]=await Promise.all([
+      fetch(`/api/salience/${encodeURIComponent(slug)}/field`),
+      fetch(`/api/salience/${encodeURIComponent(slug)}/history?n=200${types?`&types=${encodeURIComponent(types)}`:""}`)]);
+    if(!fieldResponse.ok||!historyResponse.ok)throw new Error("observatory routes not available");
+    const field=await fieldResponse.json(),history=await historyResponse.json();
+    $("salience-status").textContent=`pressure ${Number(field.field_pressure?.pressure||0).toFixed(3)} · ${field.observed_at}`;
+    renderSalienceField(field);renderSalienceHistory(history.records||[]);
+    if(salienceSelected)loadSalienceCandidate(salienceSelected)
+  }catch(error){$("salience-status").textContent="observatory routes not available";
+    $("salience-live").innerHTML="";$("salience-history").innerHTML=""}
+}
+function startSalienceStream(){
+  if(salienceStream){salienceStream.close();salienceStream=null}
+  if($("salience-pause").checked)return;
+  salienceStream=new EventSource(`/api/salience/${encodeURIComponent(salienceSlug())}/events`);
+  salienceStream.onmessage=()=>{refreshSalience();refreshMemoryPanel();refreshAgency();refreshWritingDesk();refreshAtelier();refreshResearchDesk();refreshArchive()};
+  salienceStream.onerror=()=>{$("salience-status").textContent="observatory event stream unavailable"};
+}
+
+async function openAgencyArtifact(ref){
+  const drill=$("agency-drill");
+  try{
+    const name=String(ref||"").split("/",2)[1];
+    if(!name)throw new Error("artifact reference is incomplete");
+    const response=await fetch(`/api/agency/artifacts/${encodeURIComponent(name)}`);
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    drill.classList.remove("quiet");drill.textContent=result.content||"";
+  }catch(error){drill.classList.add("quiet");drill.textContent=`artifact unavailable: ${error.message||error}`}
+}
+function renderAgencyArtifacts(records){
+  const host=$("agency-artifacts");host.innerHTML="";
+  if(!(records||[]).length){host.innerHTML='<div class="quiet">no private drafts yet</div>';return}
+  [...records].reverse().forEach(record=>{
+    const button=document.createElement("button");button.type="button";button.className="agency-artifact";
+    button.textContent=`${record.label||"private draft"} Â· ${record.chars||0} chars`;
+    button.title=record.ref||"";button.onclick=()=>openAgencyArtifact(record.ref);host.appendChild(button)
+  })
+}
+async function refreshAgency(){
+  try{
+    const response=await fetch("/api/agency/status");const result=await response.json();
+    if(!response.ok)throw new Error(result.error||response.status);
+    const runtime=result.runtime,lamp=$("agency-lamp");lamp.className="agency-lamp";
+    if(!runtime){$("agency-status").textContent="workbench runtime not attached";lamp.classList.add("blocked");return}
+    const active=runtime.controller?.active;
+    if(active){lamp.classList.add("active");$("agency-status").textContent=`working privately Â· ${active.run_id}`}
+    else if(runtime.enabled&&runtime.capability?.usable&&runtime.readiness?.hard_blocked){lamp.classList.add("blocked");
+      const why=(runtime.readiness.reasons||[]).join(", ").replaceAll("_"," ");
+      $("agency-status").textContent=`resting - ${why||"current state holds action closed"}`}
+    else if(runtime.enabled&&runtime.capability?.usable){lamp.classList.add("ready");
+      $("agency-status").textContent=`ready Â· ${runtime.config.model} Â· authority tier ${runtime.config.authority_tier}`}
+    else{lamp.classList.add("blocked");$("agency-status").textContent=runtime.enabled
+      ?`held closed Â· ${runtime.capability?.reason||"capability unavailable"}`:"agency organ disabled"}
+    renderAgencyArtifacts(runtime.workbench?.artifacts||[]);
+    const inbox=(runtime.workbench?.inbox||[]).length;
+    $("agency-note").textContent=`${inbox} admitted inbox item${inbox===1?"":"s"} Â· effects return through salience`;
+    const pending=(runtime.workbench?.pending_inbox||[]).length;
+    const capacity=Math.round((runtime.readiness?.capacity||0)*100),support=Math.round((runtime.readiness?.support||0)*100);
+    $("agency-note").textContent=`${pending}/${inbox} pending - capacity ${capacity}% - support ${support}% - effects return through feeling, body, rhythm, and salience`;
+  }catch(error){$("agency-lamp").className="agency-lamp blocked";
+    $("agency-status").textContent=`workbench unavailable: ${error.message||error}`}
+}
+async function admitAgencyText(){
+  const label=$("agency-label").value.trim(),content=$("agency-content").value.trim();
+  if(!label||!content){$("agency-note").textContent="name and text are both required";return}
+  $("agency-submit").disabled=true;$("agency-note").textContent="admitting to the fieldâ€¦";
+  try{
+    const response=await fetch("/api/agency/inbox",{method:"POST",
+      headers:{"Content-Type":"application/json"},body:JSON.stringify({label,content})});
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    $("agency-label").value="";$("agency-content").value="";
+    $("agency-note").textContent=`admitted Â· candidate ${result.candidate?.key||"entered field"}`;
+    refreshAgency();refreshSalience()
+  }catch(error){$("agency-note").textContent=`not admitted: ${error.message||error}`}
+  finally{$("agency-submit").disabled=false}
+}
+
+async function openWritingProject(projectId){
+  const drill=$("writing-desk-drill");
+  try{const response=await fetch(`/api/writing-desk/projects/${encodeURIComponent(projectId)}`);
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    drill.classList.remove("quiet");drill.textContent=result.content||"";
+  }catch(error){drill.classList.add("quiet");drill.textContent=`project unavailable: ${error.message||error}`}
+}
+async function resumeWritingProject(projectId){
+  try{const response=await fetch(`/api/writing-desk/projects/${encodeURIComponent(projectId)}/resume`,{method:"POST"});
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    renderWritingDesk(result.status);refreshSalience()
+  }catch(error){$("writing-desk-note").textContent=`project did not resume: ${error.message||error}`}
+}
+function renderWritingDesk(runtime){
+  const lamp=$("writing-desk-lamp");lamp.className="agency-lamp";
+  const active=runtime.controller?.active;
+  if(active&&String(active.run_id||"").startsWith("writing-desk-")){
+    lamp.classList.add("active");$("writing-desk-status").textContent=`writing privately · ${active.run_id}`
+  }else if(runtime.enabled&&runtime.capability?.usable&&runtime.readiness?.hard_blocked){
+    lamp.classList.add("blocked");const why=(runtime.readiness.reasons||[]).join(", ").replaceAll("_"," ");
+    $("writing-desk-status").textContent=`resting · ${why||"the current body holds writing closed"}`
+  }else if(runtime.enabled&&runtime.capability?.usable){lamp.classList.add("ready");
+    $("writing-desk-status").textContent=`ready · ${runtime.config.model} · ${runtime.capability.locality} · paid fallbacks 0`
+  }else{lamp.classList.add("blocked");$("writing-desk-status").textContent=runtime.enabled
+    ?`held closed · ${runtime.capability?.reason||"capability unavailable"}`:"writing desk organ disabled"}
+  const desk=runtime.desk||{},projects=desk.projects||[],pending=desk.pending_seeds||[];
+  const receipts=desk.receipts||[],last=receipts.length?receipts[receipts.length-1]:null;
+  $("writing-desk-note").textContent=`${pending.length} seed${pending.length===1?"":"s"} waiting · ${projects.filter(p=>p.state==="open").length} open · ${projects.filter(p=>p.state==="completed").length} completed${last?` · last ${last.outcome} via ${last.locality} · $${Number(last.estimated_cost_usd||0).toFixed(4)}`:""}`;
+  const host=$("writing-desk-projects");host.innerHTML="";
+  if(!projects.length){host.innerHTML='<div class="quiet">no writing projects yet</div>';return}
+  projects.forEach(project=>{const row=document.createElement("div");row.className="desk-project-row";
+    const button=document.createElement("button");button.type="button";button.className="desk-project";
+    button.textContent=`${project.title||"untitled"} · ${project.form||"writing"} · ${project.state} · v${project.revision_count||1}`;
+    button.onclick=()=>openWritingProject(project.project_id);row.appendChild(button);
+    if(project.state==="paused"){const resume=document.createElement("button");resume.type="button";
+      resume.textContent="resume";resume.onclick=()=>resumeWritingProject(project.project_id);row.appendChild(resume)}
+    host.appendChild(row)})
+}
+async function refreshWritingDesk(){
+  try{const response=await fetch("/api/writing-desk"),result=await response.json();
+    if(!response.ok)throw new Error(result.error||response.status);renderWritingDesk(result)
+  }catch(error){$("writing-desk-lamp").className="agency-lamp blocked";
+    $("writing-desk-status").textContent=`desk unavailable: ${error.message||error}`}
+}
+async function admitWritingDesk(source="text"){
+  const useReader=source!=="text";
+  const reader=source==="archive"?archiveState?.reader:documentLibraryState?.reader;
+  const anchors=useReader&&reader?.active?[reader.anchor]:[];
+  const sourceLabel=source==="archive"
+    ?`${(reader?.participants||[]).join(" / ")||"legacy conversation"} · ${reader?.started||reader?.anchor||"archive"}`
+    :(reader?.document?.title||reader?.document?.filename||"");
+  const label=useReader?sourceLabel:$("writing-desk-label").value.trim();
+  const content=useReader?"":$("writing-desk-content").value.trim();
+  if(!label||(!content&&!anchors.length)){$("writing-desk-note").textContent="name the material and provide text or an active source section";return}
+  $("writing-desk-submit").disabled=true;$("document-to-desk").disabled=true;
+  $("archive-to-desk").disabled=true;
+  $("writing-desk-note").textContent="placing material into the shared field…";
+  try{const response=await fetch("/api/writing-desk/seeds",{method:"POST",
+      headers:{"Content-Type":"application/json"},body:JSON.stringify({label,content,anchors})});
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    if(!useReader){$("writing-desk-label").value="";$("writing-desk-content").value=""}
+    renderWritingDesk(result.status);$("writing-desk-note").textContent=`${result.record?.duplicate?"already waiting":"placed"} · ${result.candidate?.key||"entered field"}`;
+    refreshSalience()
+  }catch(error){$("writing-desk-note").textContent=`not placed: ${error.message||error}`}
+  finally{$("writing-desk-submit").disabled=false;
+    $("document-to-desk").disabled=!documentLibraryState?.reader?.active;
+    $("archive-to-desk").disabled=!archiveState?.reader?.active}
+}
+
+function renderAtelier(runtime){
+  const lamp=$("atelier-lamp");lamp.className="agency-lamp";
+  const active=runtime.controller?.active;
+  if(active&&String(active.run_id||"").startsWith("atelier-")){
+    lamp.classList.add("active");$("atelier-status").textContent=`creating privately · ${active.run_id}`
+  }else if(runtime.enabled&&runtime.capability?.usable&&runtime.readiness?.hard_blocked){
+    lamp.classList.add("blocked");const why=(runtime.readiness.reasons||[]).join(", ").replaceAll("_"," ");
+    $("atelier-status").textContent=`resting · ${why||"the current body holds making closed"}`
+  }else if(runtime.enabled&&runtime.capability?.usable){lamp.classList.add("ready");
+    $("atelier-status").textContent=`ready · ${runtime.config.model} · SVG · local · paid fallbacks 0`
+  }else{lamp.classList.add("blocked");$("atelier-status").textContent=runtime.enabled
+    ?`held closed · ${runtime.capability?.reason||"capability unavailable"}`:"atelier organ disabled"}
+  const state=runtime.atelier||{},artifacts=state.artifacts||[],pending=state.pending_seeds||[];
+  const receipts=state.receipts||[],last=receipts.length?receipts[receipts.length-1]:null;
+  $("atelier-note").textContent=`${pending.length} material${pending.length===1?"":"s"} waiting · ${artifacts.length} private artifact${artifacts.length===1?"":"s"}${last?` · last ${last.outcome||last.kind} · $${Number(last.estimated_cost_usd||0).toFixed(4)}`:""}`;
+  const host=$("atelier-artifacts");host.innerHTML="";
+  if(!artifacts.length){host.innerHTML='<div class="quiet">no visual artifacts have taken form yet</div>';return}
+  artifacts.slice(0,12).forEach(artifact=>{
+    const card=document.createElement("div");card.className="atelier-card";
+    const image=document.createElement("img");
+    image.src=`/api/atelier/artifacts/${encodeURIComponent(artifact.artifact_id)}`;
+    image.alt=artifact.title||"private SVG artifact";image.loading="lazy";card.appendChild(image);
+    const title=document.createElement("div");title.className="atelier-title";
+    title.textContent=`${artifact.title||"untitled"} · ${artifact.width||"?"}×${artifact.height||"?"}`;
+    card.appendChild(title);
+    const perceive=document.createElement("button");perceive.type="button";
+    perceive.textContent="let them look";perceive.onclick=()=>perceiveAtelierArtifact(artifact,image,perceive);
+    card.appendChild(perceive);host.appendChild(card)
+  })
+}
+async function refreshAtelier(){
+  try{const response=await fetch("/api/atelier"),result=await response.json();
+    if(!response.ok)throw new Error(result.error||response.status);renderAtelier(result)
+  }catch(error){$("atelier-lamp").className="agency-lamp blocked";
+    $("atelier-status").textContent=`atelier unavailable: ${error.message||error}`}
+}
+async function admitAtelier(){
+  const label=$("atelier-label").value.trim(),brief=$("atelier-brief").value.trim();
+  if(!label||!brief){$("atelier-note").textContent="name and material are both required";return}
+  $("atelier-submit").disabled=true;$("atelier-note").textContent="placing material into the shared fieldâ€¦";
+  try{const response=await fetch("/api/atelier/seeds",{method:"POST",
+      headers:{"Content-Type":"application/json"},body:JSON.stringify({label,brief})});
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    $("atelier-label").value="";$("atelier-brief").value="";renderAtelier(result.status);
+    $("atelier-note").textContent=`${result.record?.duplicate?"already waiting":"placed"} · ${result.candidate?.key||"entered field"}`;
+    refreshSalience()
+  }catch(error){$("atelier-note").textContent=`not placed: ${error.message||error}`}
+  finally{$("atelier-submit").disabled=false}
+}
+async function perceiveAtelierArtifact(artifact,image,button){
+  const drill=$("atelier-drill");button.disabled=true;drill.classList.add("quiet");
+  drill.textContent="returning the private artifact through visionâ€¦";
+  try{
+    if(!image.complete)await new Promise((resolve,reject)=>{image.addEventListener("load",resolve,{once:true});image.addEventListener("error",reject,{once:true})});
+    const sourceWidth=Math.max(16,Number(artifact.width)||image.naturalWidth||1024);
+    const sourceHeight=Math.max(16,Number(artifact.height)||image.naturalHeight||1024);
+    const scale=Math.min(1,1024/Math.max(sourceWidth,sourceHeight));
+    const canvas=document.createElement("canvas");canvas.width=Math.max(16,Math.round(sourceWidth*scale));
+    canvas.height=Math.max(16,Math.round(sourceHeight*scale));
+    const context=canvas.getContext("2d");context.drawImage(image,0,0,canvas.width,canvas.height);
+    const data_url=canvas.toDataURL("image/png");
+    const response=await fetch(`/api/atelier/artifacts/${encodeURIComponent(artifact.artifact_id)}/perceive`,{method:"POST",
+      headers:{"Content-Type":"application/json"},body:JSON.stringify({image:{name:`${artifact.artifact_id}.png`,data_url}})});
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    drill.classList.remove("quiet");drill.textContent=result.admitted
+      ?`seen through ${result.route} · ${result.observation||"the encounter returned without words"}`
+      :`held at the sensory boundary · pressure ${Number(result.pressure||0).toFixed(3)}`;
+    refreshAtelier();refreshSalience()
+  }catch(error){drill.classList.add("quiet");drill.textContent=`artifact was not perceived: ${error.message||error}`}
+  finally{button.disabled=false}
+}
+
+async function openResearchText(ref){
+  const drill=$("research-drill"),parts=String(ref||"").split("/");
+  if(parts.length!==2){drill.textContent="research record has no readable text";return}
+  try{const response=await fetch(`/api/research-desk/text/${encodeURIComponent(parts[0])}/${encodeURIComponent(parts[1])}`);
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    drill.classList.remove("quiet");drill.textContent=result.content||""
+  }catch(error){drill.classList.add("quiet");drill.textContent=`research text unavailable: ${error.message||error}`}
+}
+function renderResearchDesk(runtime){
+  const lamp=$("research-lamp");lamp.className="agency-lamp";
+  const active=runtime.controller?.active;
+  if(active&&String(active.run_id||"").startsWith("research-desk-")){
+    lamp.classList.add("active");$("research-status").textContent=`researching privately · ${active.run_id}`
+  }else if(runtime.enabled&&runtime.capability?.usable&&runtime.readiness?.hard_blocked){
+    lamp.classList.add("blocked");const why=(runtime.readiness.reasons||[]).join(", ").replaceAll("_"," ");
+    $("research-status").textContent=`resting · ${why||"the current body holds research closed"}`
+  }else if(runtime.enabled&&runtime.capability?.usable){lamp.classList.add("ready");
+    $("research-status").textContent=`ready · ${runtime.config.model} · local planning · paid fallbacks 0`
+  }else{lamp.classList.add("blocked");$("research-status").textContent=runtime.enabled
+    ?`held closed · ${runtime.capability?.reason||"capability unavailable"}`:"research desk organ disabled"}
+  const desk=runtime.desk||{},interests=desk.interests||[],unread=desk.unread_sources||[];
+  const notes=desk.notes||[],reports=desk.reports||[],receipts=desk.receipts||[];
+  const last=receipts.length?receipts[receipts.length-1]:null;
+  $("research-note").textContent=`${interests.filter(i=>i.state==="open").length} open interest${interests.filter(i=>i.state==="open").length===1?"":"s"} · ${unread.length} unread source${unread.length===1?"":"s"} · ${notes.length} note${notes.length===1?"":"s"} · ${reports.length} report${reports.length===1?"":"s"}${last?` · last ${last.action||last.outcome} · $${Number(last.estimated_cost_usd||0).toFixed(4)}`:""}`;
+  const host=$("research-items");host.innerHTML="";
+  interests.forEach(interest=>{const row=document.createElement("div");row.className="desk-project";
+    row.textContent=`${interest.topic} · ${interest.state} · ${interest.search_count||0} searches · ${interest.source_count||0} sources`;host.appendChild(row)});
+  [...reports,...notes].slice(-12).reverse().forEach(record=>{const button=document.createElement("button");
+    button.type="button";button.className="desk-project";
+    button.textContent=`${record.kind==="report_created"?"report":"note"} · ${(record.source_ids||[]).join(", ")}`;
+    button.onclick=()=>openResearchText(record.ref);host.appendChild(button)});
+  if(!interests.length&&!notes.length&&!reports.length)host.innerHTML='<div class="quiet">no research has settled yet</div>'
+}
+async function refreshResearchDesk(){
+  try{const response=await fetch("/api/research-desk"),result=await response.json();
+    if(!response.ok)throw new Error(result.error||response.status);renderResearchDesk(result)
+  }catch(error){$("research-lamp").className="agency-lamp blocked";
+    $("research-status").textContent=`research desk unavailable: ${error.message||error}`}
+}
+async function offerResearchInterest(){
+  const topic=$("research-topic").value.trim();
+  if(topic.length<2){$("research-note").textContent="offer a topic in at least two characters";return}
+  $("research-submit").disabled=true;$("research-note").textContent="offering the question to the shared field…";
+  try{const response=await fetch("/api/research-desk/interests",{method:"POST",
+      headers:{"Content-Type":"application/json"},body:JSON.stringify({topic})});
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    $("research-topic").value="";renderResearchDesk(result.status);refreshSalience()
+  }catch(error){$("research-note").textContent=`interest was not offered: ${error.message||error}`}
+  finally{$("research-submit").disabled=false}
+}
+
+let documentLibraryState=null;
+function renderDocumentReader(reader){
+  const pre=$("document-reader"),progress=$("document-progress");
+  if(!reader?.active){
+    progress.textContent="no active reader";
+    $("document-previous").disabled=true;$("document-next").disabled=true;
+    $("document-to-desk").disabled=true;
+    pre.classList.add("quiet");
+    pre.textContent="Import or open a document. Its active section and question-relevant excerpts enter private turns with source anchors; the source itself stays separate from memory.";
+    return;
+  }
+  pre.classList.remove("quiet");pre.textContent=reader.chunk?.text||"";
+  progress.textContent=`${reader.document?.title||reader.document?.filename||"document"} · ${reader.anchor} · ${Math.round((reader.progress||0)*100)}%`;
+  $("document-previous").disabled=!reader.has_previous;
+  $("document-next").disabled=!reader.has_next;
+  $("document-to-desk").disabled=false;
+  $("document-select").value=reader.document?.id||"";
+}
+function renderDocumentLibrary(status){
+  documentLibraryState=status;const select=$("document-select"),prior=select.value;
+  select.innerHTML="";
+  if(!(status.documents||[]).length){
+    const option=document.createElement("option");option.value="";option.textContent="no documents imported";select.appendChild(option);
+  }else (status.documents||[]).forEach(document=>{
+    const option=document.createElement("option");option.value=document.id;
+    option.textContent=`${document.title||document.filename} · ${document.chunk_count} sections`;
+    select.appendChild(option);
+  });
+  const active=status.reader?.document?.id;
+  if(active)select.value=active;else if([...select.options].some(o=>o.value===prior))select.value=prior;
+  $("document-status").textContent=`${status.document_count||0} document${status.document_count===1?"":"s"} · ${status.chunk_count||0} source sections · ${status.vector_rows||0} derived vectors · private by default`;
+  renderDocumentReader(status.reader);
+}
+async function refreshDocuments(){
+  try{const response=await fetch("/api/documents"),result=await response.json();
+    if(!response.ok)throw new Error(result.error||response.status);renderDocumentLibrary(result)
+  }catch(error){$("document-status").textContent=`library unavailable: ${error.message||error}`}
+}
+function readDocumentFile(file){
+  return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);
+    reader.onerror=()=>reject(reader.error||new Error("browser could not read document"));reader.readAsDataURL(file)})
+}
+async function importDocument(file){
+  if(!file)return;const maximum=documentLibraryState?.max_document_bytes||25*1024*1024;
+  if(file.size>maximum){$("document-status").textContent=`not imported: ${file.name} exceeds ${Math.round(maximum/1048576)} MB`;return}
+  $("document-import").disabled=true;$("document-status").textContent=`extracting and indexing ${file.name}…`;
+  try{const data_url=await readDocumentFile(file);const response=await fetch("/api/documents/import",{method:"POST",
+      headers:{"Content-Type":"application/json"},body:JSON.stringify({name:file.name,content_type:file.type||"",data_url})});
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    renderDocumentLibrary(result.status);renderDocumentReader(result.reader);
+    $("document-status").textContent=`${result.document.duplicate?"already present":"imported"} · ${result.document.title} · ${result.document.chunk_count} sections · source ${result.document.sha256.slice(0,12)}`
+  }catch(error){$("document-status").textContent=`not imported: ${error.message||error}`}
+  finally{$("document-import").disabled=false}
+}
+async function openDocument(docId,position=0){
+  if(!docId)return;
+  try{const response=await fetch(`/api/documents/${encodeURIComponent(docId)}/open`,{method:"POST",
+      headers:{"Content-Type":"application/json"},body:JSON.stringify({position})});
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    renderDocumentReader(result.reader);if(documentLibraryState)documentLibraryState.reader=result.reader
+  }catch(error){$("document-status").textContent=`reader did not move: ${error.message||error}`}
+}
+async function navigateDocument(action){
+  try{const response=await fetch("/api/documents/reader/navigate",{method:"POST",
+      headers:{"Content-Type":"application/json"},body:JSON.stringify({action})});
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    renderDocumentReader(result.reader);if(documentLibraryState)documentLibraryState.reader=result.reader
+  }catch(error){$("document-status").textContent=`reader did not move: ${error.message||error}`}
+}
+async function searchDocuments(){
+  const query=$("document-search").value.trim(),host=$("document-results");host.innerHTML="";
+  if(!query)return;
+  try{const response=await fetch(`/api/documents/search?q=${encodeURIComponent(query)}&n=8`);
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    (result.hits||[]).forEach(hit=>{const button=document.createElement("button");button.type="button";button.className="document-hit";
+      button.textContent=`${hit.anchor} · ${hit.title} · ${hit.text.slice(0,120).replace(/\s+/g," ")}`;
+      button.onclick=()=>openDocument(hit.doc_id,hit.chunk_index);host.appendChild(button)});
+    if(!result.hits?.length)host.innerHTML='<div class="quiet">no document sections match that question</div>'
+  }catch(error){host.innerHTML="";const line=document.createElement("div");line.className="quiet";line.textContent=`search unavailable: ${error.message||error}`;host.appendChild(line)}
+}
+
+let archiveState=null;
+function renderArchiveReader(reader){
+  const pre=$("archive-reader"),progress=$("archive-progress");
+  if(!reader?.active){
+    progress.textContent="no active archive reader";
+    $("archive-previous").disabled=true;$("archive-next").disabled=true;
+    $("archive-bookmark").disabled=true;$("archive-to-desk").disabled=true;
+    pre.classList.add("quiet");
+    pre.textContent="This shelf is documented history, not direct memory. Opening a section changes only this persona's private reader position; the immutable source stays human-owned.";
+    return;
+  }
+  pre.classList.remove("quiet");pre.textContent=reader.content||"";
+  progress.textContent=`${(reader.participants||[]).join(" / ")||"conversation"} · ${reader.anchor} · ${Math.round((reader.progress||0)*100)}%`;
+  $("archive-previous").disabled=!reader.has_previous;
+  $("archive-next").disabled=!reader.has_next;
+  $("archive-bookmark").disabled=Boolean(reader.bookmarked);
+  $("archive-bookmark").textContent=reader.bookmarked?"bookmarked":"bookmark";
+  $("archive-to-desk").disabled=false;
+}
+function renderArchive(status){
+  archiveState=status;
+  const vectors=status.vectors||{},runtime=status.autonomous_reader;
+  $("archive-status").textContent=`${status.session_count||0} conversation${status.session_count===1?"":"s"} · ${status.section_count||0} sections · ${status.source_count||0} immutable sources · vectors ${vectors.status||"unavailable"} (${vectors.rows||0}) · ${(status.reader?.seen_count||0)} seen · ${(status.reader?.bookmark_count||0)} bookmarked · source, not direct memory`;
+  const lamp=$("archive-lamp");lamp.className="agency-lamp";
+  if(!runtime){lamp.classList.add(status.granted?"ready":"blocked");
+    $("archive-runtime").textContent=status.granted?"archive granted · autonomous boundary loading":"archive access not granted";
+  }else{
+    const active=runtime.controller?.active;
+    if(active&&String(active.run_id||"").startsWith("archive-reader-")){
+      lamp.classList.add("active");$("archive-runtime").textContent=`reading privately · ${active.run_id}`
+    }else if(runtime.enabled&&runtime.capability?.usable&&runtime.readiness?.hard_blocked){
+      lamp.classList.add("blocked");const why=(runtime.readiness.reasons||[]).join(", ").replaceAll("_"," ");
+      $("archive-runtime").textContent=`resting · ${why||"the current body holds reading closed"}`
+    }else if(runtime.enabled&&runtime.capability?.usable){lamp.classList.add("ready");
+      $("archive-runtime").textContent=`ready · ${runtime.config.model} · local · paid fallbacks 0`
+    }else{lamp.classList.add("blocked");$("archive-runtime").textContent=runtime.enabled
+      ?`held closed · ${runtime.capability?.reason||"capability unavailable"}`:"archive reader organ disabled"}
+  }
+  renderArchiveReader(status.reader);
+}
+async function refreshArchive(){
+  try{const response=await fetch("/api/archive"),result=await response.json();
+    if(!response.ok)throw new Error(result.error||response.status);renderArchive(result)
+  }catch(error){$("archive-lamp").className="agency-lamp blocked";
+    $("archive-runtime").textContent=`archive unavailable: ${error.message||error}`}
+}
+async function openArchive(archiveId,section=1){
+  try{const response=await fetch(`/api/archive/${encodeURIComponent(archiveId)}/open`,{method:"POST",
+      headers:{"Content-Type":"application/json"},body:JSON.stringify({section})});
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    if(archiveState)archiveState.reader=result.reader;renderArchiveReader(result.reader);refreshArchive()
+  }catch(error){$("archive-status").textContent=`archive reader did not move: ${error.message||error}`}
+}
+async function navigateArchive(action){
+  try{const response=await fetch("/api/archive/reader/navigate",{method:"POST",
+      headers:{"Content-Type":"application/json"},body:JSON.stringify({action})});
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    if(archiveState)archiveState.reader=result.reader;renderArchiveReader(result.reader);refreshArchive()
+  }catch(error){$("archive-status").textContent=`archive reader did not move: ${error.message||error}`}
+}
+async function bookmarkArchive(){
+  try{const response=await fetch("/api/archive/reader/bookmark",{method:"POST",
+      headers:{"Content-Type":"application/json"},body:"{}"});
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    if(archiveState)archiveState.reader=result.reader;renderArchiveReader(result.reader);refreshArchive()
+  }catch(error){$("archive-status").textContent=`bookmark did not settle: ${error.message||error}`}
+}
+async function searchArchive(){
+  const query=$("archive-search").value.trim(),host=$("archive-results");host.innerHTML="";
+  if(!query)return;
+  try{const response=await fetch(`/api/archive/search?q=${encodeURIComponent(query)}&n=8`);
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    (result.results||[]).forEach(hit=>{const button=document.createElement("button");button.type="button";button.className="document-hit";
+      button.textContent=`${hit.anchor} · ${(hit.participants||[]).join(" / ")} · ${hit.started||"date unknown"} · ${(hit.excerpt||"").slice(0,140).replace(/\s+/g," ")}`;
+      button.onclick=()=>openArchive(hit.archive_id,hit.section);host.appendChild(button)});
+    if(!result.results?.length)host.innerHTML='<div class="quiet">no conversation sections match that question</div>'
+  }catch(error){host.innerHTML="";const line=document.createElement("div");line.className="quiet";line.textContent=`search unavailable: ${error.message||error}`;host.appendChild(line)}
+}
+
+let memoryPage=1,memoryPages=1,memorySelected=null,memoryRefreshTimer=null;
+function memoryFilterParams(){
+  const params=new URLSearchParams({page:String(memoryPage),per_page:"30"});
+  const fields={q:"memory-query",layer:"memory-layer",origin:"memory-origin",
+    memory_type:"memory-type",source:"memory-source",entity:"memory-entity",
+    entities_state:"memory-entities-state",min_age_days:"memory-min-age",
+    max_age_days:"memory-max-age",min_importance:"memory-min-importance",
+    max_importance:"memory-max-importance",access_state:"memory-access",
+    min_access:"memory-min-access"};
+  Object.entries(fields).forEach(([name,id])=>{const value=$(id).value.trim();if(value)params.set(name,value)});
+  return params;
+}
+function memoryFacets(facets){
+  [["memory-layer",facets.layers],["memory-origin",facets.origins],["memory-type",facets.types]].forEach(([id,values])=>{
+    const select=$(id),current=select.value,label=select.options[0].textContent;select.innerHTML="";
+    const all=document.createElement("option");all.value="";all.textContent=label;select.appendChild(all);
+    (values||[]).forEach(value=>{const option=document.createElement("option");option.value=value;option.textContent=value;select.appendChild(option)});
+    select.value=current;
+  });
+}
+function renderMemoryRecords(result){
+  const host=$("memory-results");host.innerHTML="";memoryPages=Math.max(1,Number(result.pages||1));
+  $("memory-status").textContent=`${result.total} matching · page ${result.page}/${memoryPages} · history begins at instrumentation`;
+  (result.records||[]).forEach(record=>{const button=document.createElement("button");button.type="button";button.className="memory-record";
+    const meta=document.createElement("div");meta.className="meta-line";
+    const kind=document.createElement("span");kind.textContent=`${record.layer||"?"} · ${record.origin||"?"} · ${record.type||"?"}`;
+    const access=document.createElement("span");access.textContent=`selected ${record.access_count||0}×`;
+    const source=document.createElement("span");source.className="memory-source";source.textContent=record.source||"unknown";
+    const digest=document.createElement("div");digest.className="digest";digest.textContent=record.content_digest||record.id;
+    meta.append(kind,access,source);button.append(meta,digest);button.onclick=()=>loadMemoryRecord(record.id);host.appendChild(button)});
+  if(!result.records?.length)host.innerHTML='<div class="quiet">no memories match this projection</div>';
+  const pageLabel=$("memory-pages").querySelector("span");pageLabel.textContent=`${result.page}/${memoryPages}`;
+  $("memory-prev").disabled=memoryPage<=1;$("memory-next").disabled=memoryPage>=memoryPages;
+  memoryFacets(result.facets||{});
+}
+async function loadMemoryRecord(id){
+  memorySelected=id;const drill=$("memory-drill");
+  try{const response=await fetch(`/api/memory/${encodeURIComponent(salienceSlug())}/record/${encodeURIComponent(id)}`);
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    drill.innerHTML="";const heading=document.createElement("strong");heading.textContent=`${id} · source ${result.source_projection?.value||"unknown"}`;
+    const rule=document.createElement("div");rule.className="quiet";
+    rule.textContent=`projection: ${result.source_projection?.rule||"unknown"} · times selected by recall: ${result.access_history?.times_selected_by_recall||0} · ${result.access_history?.note||""}`;
+    drill.append(heading,rule);
+    (result.provenance?.gaps||[]).forEach(gap=>{const line=document.createElement("div");line.className="quiet";line.textContent=`provenance gap: ${gap}`;drill.appendChild(line)});
+    const payload=document.createElement("pre");payload.textContent=JSON.stringify(result,null,2);drill.appendChild(payload)
+  }catch(error){drill.innerHTML="";const line=document.createElement("div");line.className="quiet";
+    line.textContent=`memory unavailable: ${error.message||error}`;drill.appendChild(line)}
+}
+async function refreshMemoryPanel(){
+  const slug=salienceSlug();if(!slug)return;
+  try{const [response,statusResponse]=await Promise.all([
+      fetch(`/api/memory/${encodeURIComponent(slug)}/records?${memoryFilterParams()}`),
+      fetch(`/api/memory/${encodeURIComponent(slug)}/status`)]);
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    const status=await statusResponse.json();
+    if(statusResponse.ok){const state=status.healthy?"healthy":"UNAVAILABLE";
+      $("memory-embedder-status").textContent=`embedder ${state} / ${status.covered}/${status.records} records covered / ${status.sidecar_rows} sidecar rows`;
+      $("memory-embedder-status").style.color=status.healthy?"var(--good)":"var(--warn)"}
+    else $("memory-embedder-status").textContent=`embedder status unavailable: ${status.error||statusResponse.status}`;
+    renderMemoryRecords(result);if(memorySelected)loadMemoryRecord(memorySelected)
+  }catch(error){$("memory-status").textContent=`memory projection unavailable: ${error.message||error}`;
+    $("memory-embedder-status").textContent="embedder status unavailable"}
+}
+function scheduleMemoryRefresh(){clearTimeout(memoryRefreshTimer);memoryRefreshTimer=setTimeout(()=>{memoryPage=1;refreshMemoryPanel()},180)}
 
 let conversationSignature = null;
 
@@ -668,6 +1652,7 @@ function syncConversation(turns) {
 
 async function fetchState() {
   renderState(await (await fetch("/api/state")).json());
+  refreshAgency();
 }
 
 let organsDirty = false;
@@ -726,6 +1711,706 @@ async function pushOrgans() {
 <script>
 let thoughtSerial = 0;
 let pendingImages = [];
+const turnQueue = [];
+let turnWorkerActive = false;
+let cameraStream=null, cameraWatching=false, cameraBusy=false;
+let cameraPrevious=null, cameraPressure=0, cameraLastFrame=0;
+let cameraLastFeatures=null;
+const cameraBaseline={mean:0,variance:.0001,ready:false};
+let audioStream=null,audioContext=null,audioAnalyser=null,audioWatching=false,audioBusy=false;
+let audioSource=null,audioProcessor=null,audioSink=null;
+let audioPressure=0,audioLastFrame=0,audioPreviousSpectrum=null,audioLastDemand=0;
+let audioArmed=true,audioEpisodePeak=0;
+let voicePressure=0,speechUploadBusy=false,speechCapture=null;
+let speechPreRoll=[],speechPreSamples=0;
+let voiceOutputSpeaking=false,voiceOutputGeneration=0,voiceOutputSession=null;
+let outputInterruptPressure=0,outputLastVoiceDemand=0;
+const audioBaseline={mean:0,variance:.0001,ready:false};
+const cameraProbe=document.createElement("canvas");
+cameraProbe.width=32;cameraProbe.height=24;
+const cameraCapture=document.createElement("canvas");
+
+// S3 substrate transport mirror. The backend's 30-second settle() step remains
+// the only body clock; this scheduler merely ships one locally integrated
+// interval at that resolution. The correct future transport is a body-tick
+// event the browser subscribes to, not a second wall-clock mirror.
+const SUBSTRATE_MIRROR_MS=30000;
+const SUBSTRATE_BANDS=["delta","theta","alpha","beta","gamma"];
+let substrateMirrorTimer=null,substrateWindowStarted=0,substrateSerial=0;
+
+function newRunningStat(){return {n:0,mean:0,m2:0,first:0,last:0,
+  t0:null,sumT:0,sumY:0,sumTT:0,sumTY:0}}
+function addRunningStat(stat,value,now){
+  value=Number(value);if(!Number.isFinite(value))return;
+  if(!stat.n){stat.first=value;stat.t0=now}
+  stat.n++;const delta=value-stat.mean;stat.mean+=delta/stat.n;
+  stat.m2+=delta*(value-stat.mean);stat.last=value;
+  const t=Math.max(0,(now-stat.t0)/1000);
+  stat.sumT+=t;stat.sumY+=value;stat.sumTT+=t*t;stat.sumTY+=t*value
+}
+function runningSummary(stat){
+  if(!stat||!stat.n)return {mean:0,variance:0,first:0,last:0,trajectory:0};
+  const den=stat.n*stat.sumTT-stat.sumT*stat.sumT;
+  return {mean:stat.mean,variance:stat.n>1?stat.m2/(stat.n-1):0,
+    first:stat.first,last:stat.last,
+    trajectory:den?((stat.n*stat.sumTY-stat.sumT*stat.sumY)/den):0}
+}
+function newAudioSubstrate(){return {started:null,count:0,total:newRunningStat(),
+  power:Object.fromEntries(SUBSTRATE_BANDS.map(b=>[b,newRunningStat()])),
+  share:Object.fromEntries(SUBSTRATE_BANDS.map(b=>[b,newRunningStat()]))}}
+function newCameraSubstrate(){return {started:null,count:0,demand:newRunningStat(),
+  features:Object.fromEntries(["motion","novelty","brightness","color_warmth",
+    "saturation","edge_density","stability","brightness_delta","edge_change"]
+    .map(k=>[k,newRunningStat()]))}}
+let audioSubstrate=newAudioSubstrate(),cameraSubstrate=newCameraSubstrate();
+const audioNoiseFloor=Object.fromEntries(SUBSTRATE_BANDS.map(b=>[b,
+  {n:0,mean:0,variance:0}]));
+
+function recordAudioSubstrate(power,share,totalLevel,now){
+  if(audioSubstrate.started===null)audioSubstrate.started=now;
+  audioSubstrate.count++;addRunningStat(audioSubstrate.total,totalLevel,now);
+  SUBSTRATE_BANDS.forEach(b=>{addRunningStat(audioSubstrate.power[b],power[b]||0,now);
+    addRunningStat(audioSubstrate.share[b],share[b]||0,now)})
+}
+function recordCameraSubstrate(features,demand,now){
+  if(cameraSubstrate.started===null)cameraSubstrate.started=now;
+  cameraSubstrate.count++;addRunningStat(cameraSubstrate.demand,demand,now);
+  Object.entries(cameraSubstrate.features).forEach(([name,stat])=>
+    addRunningStat(stat,features[name]||0,now))
+}
+function updateAudioFloor(band,powerSummary){
+  const floor=audioNoiseFloor[band],sample=Math.max(0,powerSummary.mean||0);
+  if(!floor.n){floor.n=1;floor.mean=sample;
+    floor.variance=Math.max(0,powerSummary.variance||0);return}
+  const sigma=Math.sqrt(Math.max(0,floor.variance));
+  // The same three-sigma surprise boundary already used by the afferent
+  // limits how quickly a new foreground can rename itself "room floor".
+  // A zero-variance floor accepts downward evidence but does not swallow a
+  // new upward departure merely because it persists.
+  const clipped=sample>floor.mean
+    ?(sigma?Math.min(sample,floor.mean+3*sigma):floor.mean):sample;
+  const n=floor.n,newN=n+1,newMean=(n*floor.mean+clipped)/newN;
+  floor.variance=(n*(floor.variance+(floor.mean-newMean)**2)
+    +(clipped-newMean)**2)/newN;
+  floor.mean=newMean;floor.n=newN
+}
+function buildAudioSubstrate(now){
+  if(!audioSubstrate.count)return null;
+  const ready=SUBSTRATE_BANDS.every(b=>audioNoiseFloor[b].n>0);
+  const bandShare={},bandDeparture={},bandPowerMean={},noiseFloor={},
+    floorSigma={},floorN={},bandVariance={},bandTrajectory={};
+  SUBSTRATE_BANDS.forEach(b=>{
+    const power=runningSummary(audioSubstrate.power[b]);
+    const share=runningSummary(audioSubstrate.share[b]);
+    const floor=audioNoiseFloor[b],sigma=Math.sqrt(Math.max(0,floor.variance));
+    const departure=ready?Math.max(0,power.mean-floor.mean):0;
+    const scale=floor.mean+sigma;
+    bandShare[b]=share.mean;
+    bandDeparture[b]=departure>0?(scale>0?departure/(departure+scale):1):0;
+    bandPowerMean[b]=power.mean;
+    noiseFloor[b]=ready?floor.mean:power.mean;
+    floorSigma[b]=ready?sigma:0;
+    floorN[b]=floor.n;
+    bandVariance[b]={power:power.variance,share:share.variance};
+    bandTrajectory[b]={power:power.trajectory,share:share.trajectory};
+    updateAudioFloor(b,power)
+  });
+  const summary={active:true,
+    duration_s:Math.max(0,(now-audioSubstrate.started)/1000),
+    sample_count:audioSubstrate.count,total_level:runningSummary(audioSubstrate.total),
+    band_share:bandShare,band_departure:bandDeparture,
+    band_power_mean:bandPowerMean,noise_floor:noiseFloor,
+    floor_sigma:floorSigma,floor_n:floorN,
+    band_variance:bandVariance,band_trajectory:bandTrajectory,floor_ready:ready,
+    noise_floor_limitation:"sound present during the first interval may be learned as room floor"};
+  audioSubstrate=newAudioSubstrate();return summary
+}
+function buildCameraSubstrate(now){
+  if(!cameraSubstrate.count)return null;
+  const features=Object.fromEntries(Object.entries(cameraSubstrate.features)
+    .map(([name,stat])=>[name,runningSummary(stat)]));
+  const summary={active:true,
+    duration_s:Math.max(0,(now-cameraSubstrate.started)/1000),
+    sample_count:cameraSubstrate.count,features,
+    demand:runningSummary(cameraSubstrate.demand),
+    authored_prior:"existing numeric camera features to oscillator bands; not physics and not a feeling claim"};
+  cameraSubstrate=newCameraSubstrate();return summary
+}
+function postSubstrate(payload){
+  return fetch("/api/perception/substrate",{method:"POST",
+    headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)})
+    .then(async response=>{if(!response.ok){const body=await response.json().catch(()=>({}));
+      throw new Error(body.error||`substrate ${response.status}`)}return response.json()})
+}
+function postSubstrateInactive(modality){
+  const payload={batch_id:`browser-${++substrateSerial}`,duration_s:0};
+  payload[modality]={active:false,duration_s:0};
+  postSubstrate(payload).catch(()=>{})
+}
+async function flushSubstrateMirror(){
+  const now=performance.now(),payload={batch_id:`browser-${++substrateSerial}`,
+    duration_s:substrateWindowStarted?Math.max(0,(now-substrateWindowStarted)/1000):0};
+  const audio=audioWatching?buildAudioSubstrate(now):null;
+  const camera=cameraWatching?buildCameraSubstrate(now):null;
+  if(audio)payload.audio=audio;if(camera)payload.camera=camera;
+  substrateWindowStarted=now;
+  if(audio||camera)await postSubstrate(payload)
+}
+function scheduleSubstrateMirror(){
+  if(substrateMirrorTimer)return;
+  substrateWindowStarted=performance.now();
+  const pulse=()=>{substrateMirrorTimer=setTimeout(async()=>{
+    substrateMirrorTimer=null;
+    try{await flushSubstrateMirror()}catch(error){
+      if(audioWatching)audioStatus(`Substrate summary stayed local: ${error.message||error}`)}
+    if(audioWatching||cameraWatching)pulse()
+  },SUBSTRATE_MIRROR_MS)};pulse()
+}
+function stopSubstrateMirrorIfIdle(){
+  if(audioWatching||cameraWatching)return;
+  if(substrateMirrorTimer)clearTimeout(substrateMirrorTimer);
+  substrateMirrorTimer=null;substrateWindowStarted=0
+}
+
+const voiceOutputProviders={
+  "browser-native":{
+    available:()=>"speechSynthesis" in window&&"SpeechSynthesisUtterance" in window,
+    speak:(text,policy,hooks)=>{
+      const utterance=new SpeechSynthesisUtterance(text);
+      utterance.rate=Number(policy.rate||1);utterance.pitch=Number(policy.pitch||1);
+      utterance.volume=Number(policy.volume||1);
+      utterance.onstart=hooks.start;utterance.onend=hooks.end;utterance.onerror=hooks.error;
+      window.speechSynthesis.speak(utterance);return utterance},
+    cancel:()=>window.speechSynthesis.cancel()
+  }
+};
+const activeVoiceOutputProvider="browser-native";
+function voiceOutputStatus(text){$("voice-output-story").textContent=text}
+function postVoiceOutputReceipt(event,reason="",evidence={}){
+  const policy=lastState?.voice_output||{};
+  fetch("/api/voice/output",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({event,provider:activeVoiceOutputProvider,reason,policy,evidence})
+  }).catch(()=>{})
+}
+function stopVoiceOutput(reason="output stopped",evidence={}){
+  if(!voiceOutputSpeaking&&!voiceOutputSession)return;
+  const hadStarted=voiceOutputSpeaking;
+  voiceOutputGeneration++;voiceOutputSpeaking=false;voiceOutputSession=null;
+  voiceOutputProviders[activeVoiceOutputProvider].cancel();
+  outputInterruptPressure=0;outputLastVoiceDemand=0;
+  voiceOutputStatus(reason);
+  if(hadStarted)postVoiceOutputReceipt("interrupted",reason,evidence)
+}
+function speakVoiceOutput(text){
+  if(!$("voice-output").checked||!String(text||"").trim())return;
+  const provider=voiceOutputProviders[activeVoiceOutputProvider];
+  if(!provider.available()){voiceOutputStatus("local voice is unavailable in this browser");return}
+  if(voiceOutputSpeaking)stopVoiceOutput("superseded by a new reply");
+  const generation=++voiceOutputGeneration,policy=lastState?.voice_output||{};
+  outputInterruptPressure=0;outputLastVoiceDemand=0;
+  voiceOutputSpeaking=true;
+  provider.speak(text,policy,{
+    start:()=>{if(generation!==voiceOutputGeneration)return;
+      voiceOutputSpeaking=true;voiceOutputStatus(`speaking Â· rate ${Number(policy.rate||1).toFixed(2)} Â· pitch ${Number(policy.pitch||1).toFixed(2)}`);
+      postVoiceOutputReceipt("started")},
+    end:()=>{if(generation!==voiceOutputGeneration)return;
+      voiceOutputSpeaking=false;outputInterruptPressure=0;outputLastVoiceDemand=0;
+      voiceOutputStatus("output resolved");postVoiceOutputReceipt("completed")},
+    error:event=>{if(generation!==voiceOutputGeneration)return;
+      voiceOutputSpeaking=false;voiceOutputStatus(`output failed Â· ${event.error||"unknown"}`);
+      postVoiceOutputReceipt("failed",String(event.error||"unknown"))}
+  })
+}
+function beginStreamingVoiceOutput(requestedAt=performance.now()){
+  if(!$("voice-output").checked)return null;
+  const provider=voiceOutputProviders[activeVoiceOutputProvider];
+  if(!provider.available()){voiceOutputStatus("local voice is unavailable in this browser");return null}
+  if(voiceOutputSpeaking||voiceOutputSession)stopVoiceOutput("superseded by a new reply");
+  const generation=++voiceOutputGeneration,policy=lastState?.voice_output||{};
+  voiceOutputSession={generation,policy,buffer:"",queued:0,finished:false,started:false,
+    requestedAt,firstVisibleMs:null};
+  outputInterruptPressure=0;outputLastVoiceDemand=0;
+  voiceOutputStatus("reply forming Â· waiting for a resolved clause");
+  return voiceOutputSession
+}
+function queueStreamingVoiceClause(text){
+  const session=voiceOutputSession,clause=String(text||"").trim();
+  if(!session||!clause)return;
+  session.queued++;
+  voiceOutputProviders[activeVoiceOutputProvider].speak(clause,session.policy,{
+    start:()=>{if(session.generation!==voiceOutputGeneration)return;
+      voiceOutputSpeaking=true;
+      if(!session.started){session.started=true;postVoiceOutputReceipt("started","",{
+        first_visible_ms:session.firstVisibleMs,
+        voice_start_ms:Math.round(performance.now()-session.requestedAt)})}
+      voiceOutputStatus(`speaking Â· rate ${Number(session.policy.rate||1).toFixed(2)} Â· pitch ${Number(session.policy.pitch||1).toFixed(2)}`)},
+    end:()=>{if(session.generation!==voiceOutputGeneration)return;
+      session.queued=Math.max(0,session.queued-1);
+      if(session.finished&&session.queued===0){voiceOutputSpeaking=false;voiceOutputSession=null;
+        outputInterruptPressure=0;outputLastVoiceDemand=0;
+        voiceOutputStatus("output resolved");postVoiceOutputReceipt("completed")}},
+    error:event=>{if(session.generation!==voiceOutputGeneration)return;
+      voiceOutputSpeaking=false;voiceOutputSession=null;
+      voiceOutputStatus(`output failed Â· ${event.error||"unknown"}`);
+      postVoiceOutputReceipt("failed",String(event.error||"unknown"))}
+  })
+}
+function feedStreamingVoiceOutput(text,{final=false}={}){
+  const session=voiceOutputSession;if(!session)return;
+  session.buffer+=String(text||"");
+  // The model's own linguistic boundary releases speech. No character count
+  // or wall-clock delay decides when the mouth begins.
+  const boundary=/^([\s\S]*?[,.!?;:]["'\u2019\u201d)]*(?:\s+|$))/;
+  let match;
+  while((match=session.buffer.match(boundary))){
+    queueStreamingVoiceClause(match[1]);session.buffer=session.buffer.slice(match[1].length)}
+  if(final){if(session.buffer.trim())queueStreamingVoiceClause(session.buffer);
+    session.buffer="";session.finished=true;
+    if(session.queued===0){voiceOutputSession=null;voiceOutputSpeaking=false;
+      if(session.started){voiceOutputStatus("output resolved");
+        postVoiceOutputReceipt("completed")}}}
+}
+function advanceVoiceOutputInterruption(features,voiceLikelihood,acousticDemand,dt,policy){
+  if(!voiceOutputSpeaking){outputInterruptPressure=0;outputLastVoiceDemand=0;return}
+  const demand=clamp(.52*Number(acousticDemand||0)
+    +.24*Number(features.onset||0)+.14*Number(features.level_change||0)
+    +.10*Number(voiceLikelihood||0));
+  const rise=Math.max(0,demand-outputLastVoiceDemand);
+  const advanced=advanceSensoryPressure(outputInterruptPressure,demand,dt,rise);
+  outputInterruptPressure=advanced.pressure;outputLastVoiceDemand=demand;
+  if(outputInterruptPressure>=policy.threshold)stopVoiceOutput(
+    "interrupted Â· human voice evidence crossed",{
+      pressure:Number(outputInterruptPressure.toFixed(4)),
+      boundary:Number(policy.threshold.toFixed(4)),
+      voice_likelihood:Number(voiceLikelihood.toFixed(4)),
+      acoustic_demand:Number(Number(acousticDemand||0).toFixed(4)),
+      onset:Number(Number(features.onset||0).toFixed(4)),
+      level_change:Number(Number(features.level_change||0).toFixed(4))})
+}
+
+function sensoryPolicy(){
+  const p=lastState?.perception?.policy;
+  if(p)return p;
+  const b=lastState?.bands||{delta:.1,theta:.15,alpha:.3,beta:.3,gamma:.15};
+  const coherence=clamp(lastState?.coherence??1);
+  const permeability=(.34*(b.delta||0)+.62*(b.theta||0)+.86*(b.alpha||0)
+    +1.08*(b.beta||0)+1.24*(b.gamma||0))*(.74+.26*coherence);
+  return {permeability,threshold:clamp(.52/Math.max(.28,permeability)),
+    retention_s:1+2.4*((b.theta||0)+(b.alpha||0))+.8*coherence};
+}
+function adaptiveSurprise(sample,stats,dt){
+  if(!stats.ready){stats.mean=sample;stats.ready=true;return 0}
+  const sigma=Math.sqrt(stats.variance+1e-6);
+  const surprise=clamp((sample-stats.mean)/(sigma*3));
+  const a=1-Math.exp(-dt/8),delta=sample-stats.mean;
+  stats.mean+=delta*a;stats.variance+=(delta*delta-stats.variance)*a;
+  return surprise;
+}
+function advanceSensoryPressure(pressure,demand,dt,impulse=0){
+  const policy=sensoryPolicy();
+  return {pressure:pressure*Math.exp(-dt/policy.retention_s)
+    +(demand*dt+impulse)*policy.permeability,policy};
+}
+function edgeNumber(value){return Number(value||0).toFixed(3)}
+function rhythmEvidence(policy){
+  const b=lastState?.bands||{delta:.1,theta:.15,alpha:.3,beta:.3,gamma:.15};
+  const coherence=clamp(lastState?.coherence??1);
+  return `rhythm δ ${edgeNumber(b.delta)} · θ ${edgeNumber(b.theta)} · α ${edgeNumber(b.alpha)} · β ${edgeNumber(b.beta)} · γ ${edgeNumber(b.gamma)} · coh ${edgeNumber(coherence)} · perm ${edgeNumber(policy.permeability)} · retain ${Number(policy.retention_s||0).toFixed(2)}s`;
+}
+function renderAfferentEdge(id,{pressure=0,boundary=0,policy={},evidence="",outcome="local",tone=""}={}){
+  const root=$(id);if(!root)return;
+  const scale=Math.max(.001,pressure,boundary);
+  const rhythm=rhythmEvidence(policy);
+  const signature=[edgeNumber(pressure),edgeNumber(boundary),evidence,rhythm,outcome,tone].join("|");
+  if(root.dataset.signature===signature)return;
+  root.dataset.signature=signature;
+  root.querySelector('[data-edge="pressure"]').textContent=edgeNumber(pressure);
+  root.querySelector('[data-edge="boundary"]').textContent=edgeNumber(boundary);
+  root.querySelector(".pressure-fill").style.width=`${clamp(pressure/scale)*100}%`;
+  root.querySelector(".boundary-mark").style.left=`${clamp(boundary/scale)*100}%`;
+  root.querySelector('[data-edge="evidence"]').textContent=evidence;
+  root.querySelector('[data-edge="rhythm"]').textContent=rhythm;
+  const outcomeNode=root.querySelector('[data-edge="outcome"]');
+  outcomeNode.textContent=outcome;outcomeNode.className=`afferent-outcome ${tone}`;
+}
+
+function cameraStatus(text){$("camera-story").textContent=text}
+function stopCamera(){
+  const hadCamera=cameraWatching;
+  cameraWatching=false;
+  if(cameraStream) cameraStream.getTracks().forEach(track=>track.stop());
+  cameraStream=null;cameraPrevious=null;cameraPressure=0;cameraLastFrame=0;
+  cameraLastFeatures=null;cameraBaseline.ready=false;
+  cameraSubstrate=newCameraSubstrate();
+  if(hadCamera)postSubstrateInactive("camera");
+  stopSubstrateMirrorIfIdle();
+  renderAfferentEdge("camera-edge",{policy:sensoryPolicy(),
+    outcome:"off · camera pressure cleared"});
+  $("camera-panel").classList.remove("live");$("camera").classList.remove("live");
+  $("camera").title="start ambient camera perception";
+}
+async function startCamera(){
+  if(cameraStream){stopCamera();return}
+  try{
+    cameraStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user"},audio:false});
+    cameraStream.getTracks().forEach(track=>track.onended=()=>{
+      if(cameraWatching)stopCamera()});
+    const video=$("camera-feed");video.srcObject=cameraStream;
+    await video.play();cameraWatching=true;
+    $("camera-panel").classList.add("live");$("camera").classList.add("live");
+    $("camera").title="stop ambient camera perception";
+    cameraStatus(`Local preview live. Opening view is crossing to ${currentPersona}; later changes remain local until their pressure crosses.`);
+    scheduleSubstrateMirror();
+    scheduleCameraFrame(video);
+  }catch(error){stopCamera();addMsg("sys",`⚠ camera unavailable: ${error.message||error}`)}
+}
+function scheduleCameraFrame(video){
+  if(!cameraWatching)return;
+  if(video.requestVideoFrameCallback) video.requestVideoFrameCallback((now)=>cameraFrame(video,now));
+  else requestAnimationFrame((now)=>cameraFrame(video,now));
+}
+function cameraFrame(video,now){
+  if(!cameraWatching)return;
+  const ctx=cameraProbe.getContext("2d",{willReadFrequently:true});
+  ctx.drawImage(video,0,0,32,24);
+  const px=ctx.getImageData(0,0,32,24).data;
+  const lum=new Uint8Array(32*24);
+  let sumLum=0,sumWarm=0,sumSat=0,edges=0;
+  for(let p=0,i=0;p<px.length;p+=4,i++){
+    const r=px[p],g=px[p+1],b=px[p+2],y=(r*3+g*6+b)/10;
+    lum[i]=y;sumLum+=y;sumWarm+=(r-b)/510+.5;
+    sumSat+=(Math.max(r,g,b)-Math.min(r,g,b))/255;
+    if(i%32)edges+=Math.abs(y-lum[i-1])/255;
+  }
+  if(!cameraPrevious){
+    const brightness=sumLum/lum.length/255,edgeDensity=edges/(lum.length-24);
+    const features={motion:0,novelty:0,brightness,
+      color_warmth:sumWarm/lum.length,saturation:sumSat/lum.length,
+      edge_density:edgeDensity,stability:1,brightness_delta:0,edge_change:0,
+      presence_change:1,attention_request:1};
+    const policy=sensoryPolicy();cameraLastFeatures=features;
+    recordCameraSubstrate(features,0,now);
+    renderAfferentEdge("camera-edge",{pressure:policy.threshold,
+      boundary:policy.threshold,policy,
+      evidence:"opening view · presence 1.000 · explicit attention 1.000",
+      outcome:"crossed · establishing the visual field",tone:"crossed"});
+    if(!cameraBusy)admitCameraFrame(video,features,policy.threshold);
+  }else if(cameraLastFrame){
+    let delta=0;for(let i=0;i<lum.length;i++)delta+=Math.abs(lum[i]-cameraPrevious[i]);
+    const dt=Math.min(1,(now-cameraLastFrame)/1000);
+    const motion=delta/(lum.length*255),novelty=adaptiveSurprise(motion,cameraBaseline,dt);
+    const brightness=sumLum/lum.length/255,edgeDensity=edges/(lum.length-24);
+    const features={motion,novelty,brightness,color_warmth:sumWarm/lum.length,
+      saturation:sumSat/lum.length,edge_density:edgeDensity,
+      stability:clamp(1-motion*6),brightness_delta:cameraLastFeatures
+        ?Math.abs(brightness-cameraLastFeatures.brightness):0,
+      edge_change:cameraLastFeatures?Math.abs(edgeDensity-cameraLastFeatures.edge_density):0};
+    const demand=clamp(.42*novelty+.26*motion+.14*features.brightness_delta
+      +.10*features.edge_change+.08*(1-features.stability));
+    recordCameraSubstrate(features,demand,now);
+    const advanced=advanceSensoryPressure(cameraPressure,demand,dt);
+    cameraPressure=advanced.pressure;cameraLastFeatures=features;
+    renderAfferentEdge("camera-edge",{pressure:cameraPressure,
+      boundary:advanced.policy.threshold,policy:advanced.policy,
+      evidence:`demand ${edgeNumber(demand)} · novelty ${edgeNumber(novelty)} · motion ${edgeNumber(motion)} · lightΔ ${edgeNumber(features.brightness_delta)} · edgeΔ ${edgeNumber(features.edge_change)} · stability ${edgeNumber(features.stability)}`,
+      outcome:cameraPressure>=advanced.policy.threshold
+        ?"crossed · frame entering perception":"local · accumulating and decaying",
+      tone:cameraPressure>=advanced.policy.threshold?"crossed":""});
+    if(cameraPressure>=advanced.policy.threshold&&!cameraBusy)
+      admitCameraFrame(video,features,cameraPressure);
+  }
+  cameraPrevious=lum;cameraLastFrame=now;scheduleCameraFrame(video);
+}
+async function admitCameraFrame(video,features,pressure){
+  cameraBusy=true;cameraPressure=0;
+  const policy=sensoryPolicy();
+  renderAfferentEdge("camera-edge",{pressure,boundary:policy.threshold,policy,
+    evidence:`novelty ${edgeNumber(features.novelty)} · motion ${edgeNumber(features.motion)} · lightΔ ${edgeNumber(features.brightness_delta)} · edgeΔ ${edgeNumber(features.edge_change)}`,
+    outcome:"crossed · transducer occupied",tone:"crossed"});
+  const scale=Math.min(1,640/Math.max(1,video.videoWidth));
+  cameraCapture.width=Math.max(1,Math.round(video.videoWidth*scale));
+  cameraCapture.height=Math.max(1,Math.round(video.videoHeight*scale));
+  cameraCapture.getContext("2d").drawImage(video,0,0,cameraCapture.width,cameraCapture.height);
+  const data_url=cameraCapture.toDataURL("image/jpeg",.72);
+  cameraStatus("Visual change admitted; perception is looking…");
+  try{
+    const response=await fetch("/api/perception/camera",{method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({image:{name:"ambient-camera.jpg",data_url},
+        novelty:features.novelty,pressure,features})});
+    const result=await response.json();
+    if(!response.ok)throw new Error(result.error||`camera perception ${response.status}`);
+    cameraStatus(result.queued
+      ? `Seen → salience ${Number(result.candidate_salience||0).toFixed(2)}: ${result.observation}`
+      : `Seen, but DMN is not accepting candidates: ${result.observation}`);
+    renderAfferentEdge("camera-edge",{pressure,
+      boundary:result.policy?.threshold||policy.threshold,
+      policy:result.policy||policy,
+      evidence:`novelty ${edgeNumber(features.novelty)} · motion ${edgeNumber(features.motion)} · lightΔ ${edgeNumber(features.brightness_delta)} · edgeΔ ${edgeNumber(features.edge_change)}`,
+      outcome:result.admitted===false?"server · retained below body boundary"
+        :result.queued?"admitted · circulating in salience field":"admitted · perception only",
+      tone:result.admitted===false?"held":"admitted"});
+  }catch(error){
+    cameraPressure=Math.max(cameraPressure,sensoryPolicy().threshold*.72);
+    cameraStatus(`Frame stayed local to retry after attention frees: ${error.message||error}`);
+    const retry=sensoryPolicy();
+    renderAfferentEdge("camera-edge",{pressure:cameraPressure,
+      boundary:retry.threshold,policy:retry,
+      evidence:"crossing retained; raw frame remains local",
+      outcome:`held · ${error.message||error}`,tone:"held"});
+  }finally{cameraBusy=false}
+}
+
+function audioStatus(text){$("audio-story").textContent=text}
+async function stopMicrophone(){
+  const hadAudio=audioWatching;
+  audioWatching=false;
+  if(speechCapture)finishSpeechCapture(speechCapture.lastFeatures||{},"microphone stopped");
+  if(audioProcessor)audioProcessor.disconnect();
+  if(audioSource)audioSource.disconnect();
+  if(audioSink)audioSink.disconnect();
+  if(audioStream)audioStream.getTracks().forEach(track=>track.stop());
+  if(audioContext)await audioContext.close().catch(()=>{});
+  audioStream=null;audioContext=null;audioAnalyser=null;audioSource=null;
+  audioProcessor=null;audioSink=null;audioPressure=0;voicePressure=0;
+  speechCapture=null;speechPreRoll=[];speechPreSamples=0;
+  audioLastFrame=0;audioPreviousSpectrum=null;audioLastDemand=0;
+  audioArmed=true;audioEpisodePeak=0;
+  audioBaseline.ready=false;
+  audioSubstrate=newAudioSubstrate();
+  if(hadAudio)postSubstrateInactive("audio");
+  stopSubstrateMirrorIfIdle();
+  renderAfferentEdge("audio-edge",{policy:sensoryPolicy(),
+    outcome:"off · acoustic pressure cleared"});
+  $("audio-panel").classList.remove("live");$("microphone").classList.remove("live");
+  $("microphone").title="start ambient acoustic perception";
+}
+async function startMicrophone(){
+  if(audioStream){await stopMicrophone();return}
+  try{
+    audioStream=await navigator.mediaDevices.getUserMedia({audio:{
+      echoCancellation:true,noiseSuppression:true,autoGainControl:false},video:false});
+    audioStream.getTracks().forEach(track=>track.onended=()=>{
+      if(audioWatching)stopMicrophone()});
+    audioContext=new AudioContext();audioAnalyser=audioContext.createAnalyser();
+    audioAnalyser.fftSize=1024;audioAnalyser.smoothingTimeConstant=0;
+    audioSource=audioContext.createMediaStreamSource(audioStream);
+    audioSource.connect(audioAnalyser);
+    audioProcessor=audioContext.createScriptProcessor(2048,1,1);
+    audioSink=audioContext.createGain();audioSink.gain.value=0;
+    audioSource.connect(audioProcessor);audioProcessor.connect(audioSink);
+    audioSink.connect(audioContext.destination);
+    audioProcessor.onaudioprocess=event=>receiveSpeechSamples(
+      new Float32Array(event.inputBuffer.getChannelData(0)));
+    audioWatching=true;$("audio-panel").classList.add("live");
+    $("microphone").classList.add("live");
+    $("microphone").title="stop ambient acoustic perception";
+    audioStatus("Microphone live. The first 30s establishes the local acoustic floor; sound already playing may become that floor. Continuous band summaries touch the body without entering attention.");
+    scheduleSubstrateMirror();
+    requestAnimationFrame(audioFrame);
+  }catch(error){await stopMicrophone();addMsg("sys",`⚠ microphone unavailable: ${error.message||error}`)}
+}
+function audioFrame(now){
+  if(!audioWatching||!audioAnalyser)return;
+  const timeData=new Float32Array(audioAnalyser.fftSize);
+  const spectrum=new Uint8Array(audioAnalyser.frequencyBinCount);
+  const powerSpectrum=new Float32Array(audioAnalyser.frequencyBinCount);
+  audioAnalyser.getFloatTimeDomainData(timeData);audioAnalyser.getByteFrequencyData(spectrum);
+  audioAnalyser.getFloatFrequencyData(powerSpectrum);
+  let energy=0,crossings=0;
+  for(let i=0;i<timeData.length;i++){
+    energy+=timeData[i]*timeData[i];
+    if(i&&((timeData[i]>=0)!==(timeData[i-1]>=0)))crossings++;
+  }
+  const rms=Math.sqrt(energy/timeData.length),zcr=crossings/timeData.length;
+  let weighted=0,total=0,flux=0;
+  for(let i=0;i<spectrum.length;i++){
+    const value=spectrum[i]/255;weighted+=i*value;total+=value;
+    if(audioPreviousSpectrum)flux+=Math.max(0,value-audioPreviousSpectrum[i]/255);
+  }
+  const centroid=total?weighted/total/spectrum.length:0;
+  const spectralFlux=audioPreviousSpectrum?clamp(flux/spectrum.length*8):0;
+  const dt=audioLastFrame?Math.min(1,(now-audioLastFrame)/1000):0;
+  const onset=dt?adaptiveSurprise(rms,audioBaseline,dt):0;
+  const levelChange=audioLastFrame?clamp(Math.abs(rms-(audioBaseline.mean||0))*8):0;
+  const speechLikelihood=clamp(rms*7)*clamp(1-Math.abs(zcr-.10)*6)
+    *clamp(1-Math.max(0,centroid-.55)*2);
+  const features={rms:clamp(rms*4),onset,spectral_flux:spectralFlux,
+    level_change:levelChange,zero_crossing_rate:clamp(zcr*4),
+    spectral_centroid:centroid,speech_likelihood:speechLikelihood,
+    music_likelihood:clamp(total/spectrum.length*2)*(1-spectralFlux*.5)};
+  // Authored v1 transduction prior, not physics: five unequal acoustic
+  // ranges are named after five oscillator bands. No feeling is inferred.
+  const bandPower={delta:0,theta:0,alpha:0,beta:0,gamma:0};
+  for(let i=0;i<powerSpectrum.length;i++){
+    const hz=i*audioContext.sampleRate/audioAnalyser.fftSize;
+    if(hz<20||hz>20000)continue;
+    const db=powerSpectrum[i],power=Number.isFinite(db)?10**(db/10):0;
+    const band=hz<100?"delta":hz<400?"theta":hz<2000?"alpha":
+      hz<6000?"beta":"gamma";
+    bandPower[band]+=power
+  }
+  const spectralPower=SUBSTRATE_BANDS.reduce((sum,b)=>sum+bandPower[b],0);
+  const bandShare=Object.fromEntries(SUBSTRATE_BANDS.map(b=>
+    [b,spectralPower?bandPower[b]/spectralPower:0]));
+  recordAudioSubstrate(bandPower,bandShare,features.rms,now);
+  const voiceLikelihood=clamp(.50*speechLikelihood+.30*onset+.20*levelChange);
+  const rawDemand=clamp(.30*onset+.24*spectralFlux+.18*levelChange
+    +.12*speechLikelihood+.08*features.music_likelihood);
+  // Acoustic feature evidence is power-like.  Its square root restores a
+  // perceptual amplitude scale; only a positive change supplies an impulse.
+  // Static or falling sound therefore integrates/decays without retriggering.
+  const demand=Math.sqrt(rawDemand);
+  const impulse=Math.max(0,demand-audioLastDemand);
+  if(dt){
+    const advanced=advanceSensoryPressure(audioPressure,demand,dt,impulse);
+    audioPressure=advanced.pressure;
+    let edgeOutcome="local · accumulating and decaying",edgeTone="";
+    if(!audioArmed){
+      audioEpisodePeak=Math.max(audioEpisodePeak,demand);
+      const resolved=demand<=audioEpisodePeak/Math.E
+        &&audioPressure<=advanced.policy.threshold/Math.E;
+      if(resolved){audioArmed=true;audioEpisodePeak=0;
+        edgeOutcome="rearmed · prior sound episode resolved"}
+      else{edgeOutcome="held · one admitted sound episode is still resolving";
+        edgeTone="held"}
+    }
+    const crosses=audioArmed&&audioPressure>=advanced.policy.threshold;
+    if(crosses){edgeOutcome="crossed · feature vector entering perception";
+      edgeTone="crossed"}
+    renderAfferentEdge("audio-edge",{pressure:audioPressure,
+      boundary:advanced.policy.threshold,policy:advanced.policy,
+      evidence:`demand ${edgeNumber(demand)} · raw ${edgeNumber(rawDemand)} · rise ${edgeNumber(impulse)} · onset ${edgeNumber(onset)} · flux ${edgeNumber(spectralFlux)} · levelΔ ${edgeNumber(levelChange)} · speech ${edgeNumber(speechLikelihood)} · music ${edgeNumber(features.music_likelihood)}`,
+      outcome:edgeOutcome,tone:edgeTone});
+    if(crosses&&!audioBusy){
+      audioArmed=false;audioEpisodePeak=demand;
+      admitAudioFeatures(features,audioPressure);
+    }
+    advanceVoiceOutputInterruption(features,voiceLikelihood,demand,dt,advanced.policy);
+    advanceSpeechSegmentation(features,voiceLikelihood,dt,advanced.policy);
+  }
+  $("audio-meter").firstElementChild.style.width=`${Math.round(clamp(rms*8)*100)}%`;
+  audioLastDemand=demand;audioPreviousSpectrum=spectrum;audioLastFrame=now;
+  requestAnimationFrame(audioFrame);
+}
+
+function receiveSpeechSamples(samples){
+  if(!$('voice-turns').checked)return;
+  if(speechCapture){speechCapture.chunks.push(samples);
+    speechCapture.samples+=samples.length;return}
+  speechPreRoll.push(samples);speechPreSamples+=samples.length;
+  const policy=sensoryPolicy();
+  const wanted=Math.round(audioContext.sampleRate*clamp(policy.retention_s*.22,.12,.65));
+  while(speechPreSamples>wanted&&speechPreRoll.length>1)
+    speechPreSamples-=speechPreRoll.shift().length;
+}
+function beginSpeechCapture(features,policy){
+  speechCapture={chunks:speechPreRoll.splice(0),samples:speechPreSamples,
+    evidence:0,continuity:policy.threshold,voiced:0,frames:0,
+    peakOnset:Number(features.onset||0),lastFeatures:features};
+  speechPreSamples=0;voicePressure=0;
+  audioStatus("Speech boundary crossed; listening until its continuity resolves…");
+}
+function advanceSpeechSegmentation(features,voiceLikelihood,dt,policy){
+  if(!$('voice-turns').checked){voicePressure=0;return}
+  if(!speechCapture){
+    const advanced=advanceSensoryPressure(voicePressure,voiceLikelihood,dt);
+    voicePressure=advanced.pressure;
+    if(voicePressure>=policy.threshold&&!speechUploadBusy)
+      beginSpeechCapture(features,policy);
+    return;
+  }
+  const capture=speechCapture;
+  capture.evidence+=voiceLikelihood*dt;
+  capture.continuity=capture.continuity*Math.exp(-dt/policy.retention_s)
+    +voiceLikelihood*policy.permeability*dt;
+  capture.voiced+=voiceLikelihood;capture.frames++;
+  capture.peakOnset=Math.max(capture.peakOnset,Number(features.onset||0));
+  capture.lastFeatures=features;
+  const resolved=capture.continuity<policy.threshold*.22
+    &&voiceLikelihood<policy.threshold*.28
+    &&capture.evidence>=policy.threshold*.32;
+  const resourceBoundary=capture.samples*2>=7.5*1024*1024;
+  if((resolved||resourceBoundary)&&!speechUploadBusy&&!audioBusy&&!turnWorkerActive)
+    finishSpeechCapture(features,resolved?"continuity resolved":"resource boundary");
+}
+function encodeMonoWav(chunks,sampleRate){
+  const count=chunks.reduce((n,chunk)=>n+chunk.length,0);
+  const buffer=new ArrayBuffer(44+count*2),view=new DataView(buffer);
+  const word=(at,text)=>{for(let i=0;i<text.length;i++)view.setUint8(at+i,text.charCodeAt(i))};
+  word(0,"RIFF");view.setUint32(4,36+count*2,true);word(8,"WAVE");word(12,"fmt ");
+  view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,1,true);
+  view.setUint32(24,sampleRate,true);view.setUint32(28,sampleRate*2,true);
+  view.setUint16(32,2,true);view.setUint16(34,16,true);word(36,"data");
+  view.setUint32(40,count*2,true);let at=44;
+  for(const chunk of chunks)for(let sample of chunk){sample=Math.max(-1,Math.min(1,sample));
+    view.setInt16(at,sample<0?sample*32768:sample*32767,true);at+=2}
+  return new Blob([buffer],{type:"audio/wav"});
+}
+function blobDataUrl(blob){return new Promise((resolve,reject)=>{const reader=new FileReader();
+  reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error("could not encode speech"));
+  reader.readAsDataURL(blob)})}
+async function finishSpeechCapture(features,reason){
+  const capture=speechCapture;if(!capture||speechUploadBusy)return;
+  speechCapture=null;speechUploadBusy=true;voicePressure=0;
+  try{
+    const duration=capture.samples/Math.max(1,audioContext?.sampleRate||48000);
+    const voicedRatio=clamp(capture.voiced/Math.max(1,capture.frames));
+    const speechFeatures={...features,onset:capture.peakOnset,voiced_ratio:voicedRatio,
+      segment_evidence:clamp(capture.evidence/Math.max(.001,duration))};
+    const data_url=await blobDataUrl(encodeMonoWav(capture.chunks,audioContext.sampleRate));
+    audioStatus(`Speech ${reason}; transcribing locally…`);
+    const response=await fetch("/api/perception/speech",{method:"POST",
+      headers:{"Content-Type":"application/json"},body:JSON.stringify({
+        data_url,mime_type:"audio/wav",features:speechFeatures,
+        pressure:sensoryPolicy().threshold,speaker:PRIMARY_USER,auto_turn:true})});
+    const result=await response.json();
+    if(!response.ok)throw new Error(result.error||`speech perception ${response.status}`);
+    const heard=result.transcript?.text||"";
+    if(result.turn&&heard){addMsg("user",heard,PRIMARY_USER);
+      renderTurnResult(result.turn,heard);audioStatus(`Heard and answered: ${heard}`)}
+    else if(heard)audioStatus(result.queued
+      ? `Heard, held as ambient speech: ${heard}`
+      : `Heard, but did not enter conversation: ${heard}`);
+    else audioStatus("A speech-shaped segment resolved, but no words were recognized.");
+    if(result.state){lastState=result.state;applyReactiveState(lastState)}
+  }catch(error){audioStatus(`Speech segment could not cross: ${error.message||error}`)}
+  finally{speechUploadBusy=false}
+}
+async function admitAudioFeatures(features,pressure){
+  audioBusy=true;audioPressure=0;audioStatus("Acoustic change admitted into the body…");
+  const policy=sensoryPolicy();
+  renderAfferentEdge("audio-edge",{pressure,boundary:policy.threshold,policy,
+    evidence:`onset ${edgeNumber(features.onset)} · flux ${edgeNumber(features.spectral_flux)} · levelΔ ${edgeNumber(features.level_change)} · speech ${edgeNumber(features.speech_likelihood)} · music ${edgeNumber(features.music_likelihood)}`,
+    outcome:"crossed · body admission evaluating",tone:"crossed"});
+  try{
+    const response=await fetch("/api/perception/audio",{method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({features,pressure,confidence:.45})});
+    const result=await response.json();
+    if(!response.ok)throw new Error(result.error||`audio perception ${response.status}`);
+    if(result.state){lastState=result.state;applyReactiveState(lastState)}
+    audioStatus(result.admitted
+      ? `Heard → pressure ${Number(result.pressure||0).toFixed(2)}: ${result.description}`
+      : `Acoustic pressure ${Number(result.pressure||0).toFixed(2)} remained below attention.`);
+    renderAfferentEdge("audio-edge",{pressure:result.pressure??pressure,
+      boundary:result.policy?.threshold||policy.threshold,
+      policy:result.policy||policy,
+      evidence:`onset ${edgeNumber(features.onset)} · flux ${edgeNumber(features.spectral_flux)} · levelΔ ${edgeNumber(features.level_change)} · speech ${edgeNumber(features.speech_likelihood)} · music ${edgeNumber(features.music_likelihood)}`,
+      outcome:result.admitted
+        ?(result.queued?"admitted · circulating in salience field":"admitted · perception only")
+        :"server · retained below body boundary",
+      tone:result.admitted?"admitted":"held"});
+  }catch(error){
+    audioPressure=Math.max(audioPressure,sensoryPolicy().threshold*.72);
+    audioStatus(`Sound stayed local to retry after attention frees: ${error.message||error}`);
+    const retry=sensoryPolicy();
+    renderAfferentEdge("audio-edge",{pressure:audioPressure,
+      boundary:retry.threshold,policy:retry,
+      evidence:"crossing retained; waveform remains local",
+      outcome:`held · ${error.message||error}`,tone:"held"});
+  }finally{audioBusy=false}
+}
 
 function fileDataUrl(file) {
   return new Promise((resolve,reject)=>{const reader=new FileReader();
@@ -777,6 +2462,7 @@ function setThinking(active) {
 async function sendTurn() {
   const text = $("say").value.trim();
   if ((!text && !pendingImages.length) || $("send").disabled) return;
+  stopVoiceOutput("interrupted Â· new typed turn");
   const sentImages=pendingImages.slice();
   pendingImages=[];renderPendingImages();
   $("say").value = ""; resizeComposer(); $("send").disabled = true;
@@ -789,28 +2475,7 @@ async function sendTurn() {
     const r = await res.json();
     if (r.error) { pendingImages=sentImages;renderPendingImages();
       addMsg("sys", "⚠ " + r.error); return; }
-    const persisted = (r.state.conversation_window || []).some(t =>
-      t.message === text && t.reply === r.reply);
-    renderState(r.state);
-    // A bare model with memory_emotion disabled has no persisted window;
-    // its live response still belongs in this browser session.
-    if (!persisted) {
-      addMsg("persona", r.reply, personaLabel());
-      if (r.felt && r.felt.why) addMsg("sys", "felt: " + r.felt.why);
-    }
-    $("timing").textContent = `last turn ${r.timing_ms}ms · ${r.receipts.band}-bent recall`;
-    const sig = r.receipts.signals;
-    if (sig) bars($("signals"), Object.entries(sig).map(([k,v])=>[k,v]));
-    const rc = document.createElement("div");
-    rc.className = "rcpt";
-    rc.innerHTML = `<div class="hd">${r.receipts.band} · n=${r.receipts.recall_n}
-      · temp ${r.receipts.temperature} · ${r.timing_ms}ms</div>` +
-      r.receipts.recalled.map(m =>
-        `<div class="mem">↳ ${m.score.toFixed(2)} — ${m.content}</div>`).join("") +
-      (r.receipts.budget||[]).map(b=>`<div class="mem">⚖ ${b}</div>`).join("");
-    const box = $("receipts");
-    if (box.firstChild && box.firstChild.className==="quiet") box.innerHTML="";
-    box.prepend(rc);
+    renderTurnResult(r,text);
   } catch (e) {
     pendingImages=sentImages;renderPendingImages();
     addMsg("sys", "⚠ " + e);
@@ -819,6 +2484,102 @@ async function sendTurn() {
     scrollConversationToBottom();
     $("send").disabled = false; $("say").focus();
   }
+}
+
+function updateTurnQueueUI() {
+  const waiting=turnQueue.length,send=$("send");
+  send.disabled=false;
+  send.textContent=turnWorkerActive?(waiting?`Queued ${waiting}`:"Queue"):"Send";
+  send.title=turnWorkerActive
+    ?(waiting?`${waiting} message${waiting===1?"":"s"} waiting behind the current turn`:
+      "send another message to the queue")
+    :"send message";
+  send.setAttribute("aria-label",send.title);
+}
+
+function repaintQueuedTurns() {
+  turnQueue.forEach(item=>addMsg("user",item.text||"shared image material",
+    PRIMARY_USER,item.sentImages));
+}
+
+function sendTurnStream() {
+  const text=$("say").value.trim();
+  if(!text&&!pendingImages.length)return;
+  stopVoiceOutput("interrupted Â· new typed turn");
+  const sentImages=pendingImages.slice();pendingImages=[];renderPendingImages();
+  $("say").value="";resizeComposer();
+  addMsg("user",text||"shared image material",PRIMARY_USER,sentImages);
+  turnQueue.push({text,sentImages});updateTurnQueueUI();
+  drainTurnQueue();
+}
+
+async function drainTurnQueue() {
+  if(turnWorkerActive)return;
+  turnWorkerActive=true;setThinking(true);updateTurnQueueUI();
+  try{
+    while(turnQueue.length){
+      const item=turnQueue.shift();updateTurnQueueUI();
+      await runQueuedTurn(item);
+    }
+  }finally{
+    turnWorkerActive=false;setThinking(false);updateTurnQueueUI();
+    scrollConversationToBottom();$("say").focus();
+  }
+}
+
+async function runQueuedTurn({text,sentImages}) {
+  const turnStarted=performance.now();
+  try{
+    const res=await fetch("/api/turn/stream",{method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({message:text,images:sentImages})});
+    if(!res.ok){const failed=await res.json();throw new Error(failed.error||res.status)}
+    if(!res.body)throw new Error("streaming response body unavailable");
+    const decoder=new TextDecoder(),reader=res.body.getReader();
+    let wire="",reply="",messageNode=null,finished=false;
+    beginStreamingVoiceOutput(turnStarted);
+    while(!finished){
+      const chunk=await reader.read();
+      wire+=decoder.decode(chunk.value||new Uint8Array(),{stream:!chunk.done});
+      const lines=wire.split("\n");wire=lines.pop()||"";
+      for(const line of lines){if(!line.trim())continue;
+        const event=JSON.parse(line);
+        if(event.type==="delta"){
+          if(voiceOutputSession&&voiceOutputSession.firstVisibleMs==null)
+            voiceOutputSession.firstVisibleMs=Math.round(performance.now()-turnStarted);
+          if(!messageNode)messageNode=addMsg("persona","",personaLabel());
+          reply+=event.text||"";
+          messageNode.querySelector(".message-text").textContent=reply;
+          feedStreamingVoiceOutput(event.text||"");scrollConversationToBottom()
+        }else if(event.type==="final"){
+          feedStreamingVoiceOutput("",{final:true});
+          renderTurnResult(event.result,text,true);repaintQueuedTurns();finished=true
+        }else if(event.type==="error")throw new Error(event.error||"turn failed")
+      }
+      if(chunk.done&&!finished)throw new Error("turn stream ended before its final receipt")
+    }
+  }catch(error){stopVoiceOutput("output stopped Â· turn failed");
+    pendingImages=[...sentImages,...pendingImages].slice(0,4);renderPendingImages();
+    addMsg("sys","turn failed: "+error.message)
+  }finally{scrollConversationToBottom()}
+}
+
+function renderTurnResult(r,text,voiceAlreadyQueued=false){
+  const persisted=(r.state.conversation_window||[]).some(t=>
+    t.message===text&&t.reply===r.reply);
+  renderState(r.state);
+  if(!persisted){addMsg("persona",r.reply,personaLabel());
+    if(r.felt&&r.felt.why)addMsg("sys","felt: "+r.felt.why)}
+  if(!voiceAlreadyQueued)speakVoiceOutput(r.reply);
+  $("timing").textContent=`last turn ${r.timing_ms}ms · ${r.receipts.band}-bent recall`;
+  const sig=r.receipts.signals;if(sig)bars($("signals"),Object.entries(sig).map(([k,v])=>[k,v]));
+  const rc=document.createElement("div");rc.className="rcpt";
+  rc.innerHTML=`<div class="hd">${r.receipts.band} · n=${r.receipts.recall_n}
+    · temp ${r.receipts.temperature} · ${r.timing_ms}ms</div>`+
+    (r.receipts.recalled||[]).map(m=>`<div class="mem">↳ ${m.score.toFixed(2)} — ${m.content}</div>`).join("")+
+    (r.receipts.budget||[]).map(b=>`<div class="mem">⚖ ${b}</div>`).join("");
+  const box=$("receipts");if(box.firstChild&&box.firstChild.className==="quiet")box.innerHTML="";
+  box.prepend(rc);
 }
 
 async function setMood() {
@@ -833,11 +2594,11 @@ async function setMood() {
   $("mood").value = ""; fetchState();
 }
 
-$("send").onclick = sendTurn;
+$("send").onclick = sendTurnStream;
 $("say").addEventListener("input",resizeComposer);
 $("say").addEventListener("keydown", e => {
   if (e.key==="Enter" && !e.shiftKey && !e.isComposing) {
-    e.preventDefault();sendTurn();
+    e.preventDefault();sendTurnStream();
   }
 });
 $("say").addEventListener("dragenter",e=>{
@@ -856,29 +2617,96 @@ $("say").addEventListener("drop",async e=>{
   await chooseImages(e.dataTransfer?.files||[]);$("say").focus();
 });
 $("attach").onclick=()=>$("image-picker").click();
+$("camera").onclick=startCamera;
+$("microphone").onclick=startMicrophone;
+$("voice-turns").onchange=()=>{
+  if(!$("voice-turns").checked){speechCapture=null;speechPreRoll=[];
+    speechPreSamples=0;voicePressure=0;
+    if(audioWatching)audioStatus("Microphone live for ambient hearing; spoken segments stay out of conversation.")}
+  else if(audioWatching)audioStatus("Voice channel open; rhythm-admitted utterances may enter conversation.");
+};
+$("voice-output").onchange=()=>{
+  if(!$("voice-output").checked)stopVoiceOutput("output disabled");
+  else voiceOutputStatus(voiceOutputProviders[activeVoiceOutputProvider].available()
+    ?"local voice ready":"local voice is unavailable in this browser")
+};
+$("salience-pause").onchange=()=>{
+  if($("salience-pause").checked){if(salienceStream)salienceStream.close();salienceStream=null;
+    $("salience-status").textContent="observatory display paused"}
+  else{refreshSalience();refreshMemoryPanel();startSalienceStream()}
+};
+$("salience-filter").onchange=refreshSalience;
+$("document-import").onclick=()=>$('document-picker').click();
+$("document-picker").onchange=async event=>{await importDocument(event.target.files?.[0]);event.target.value=""};
+$("document-open").onclick=()=>openDocument($("document-select").value,0);
+$("document-previous").onclick=()=>navigateDocument("previous");
+$("document-next").onclick=()=>navigateDocument("next");
+$("document-search-button").onclick=searchDocuments;
+$("document-search").addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();searchDocuments()}});
+$("document-to-desk").onclick=()=>admitWritingDesk("document");
+$("archive-previous").onclick=()=>navigateArchive("previous");
+$("archive-next").onclick=()=>navigateArchive("next");
+$("archive-bookmark").onclick=bookmarkArchive;
+$("archive-search-button").onclick=searchArchive;
+$("archive-search").addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();searchArchive()}});
+$("archive-to-desk").onclick=()=>admitWritingDesk("archive");
+[
+  "memory-query","memory-layer","memory-origin","memory-type","memory-entities-state",
+  "memory-source","memory-entity","memory-min-age","memory-max-age",
+  "memory-min-importance","memory-max-importance","memory-access","memory-min-access"
+].forEach(id=>$(id).addEventListener(id==="memory-query"?"input":"change",scheduleMemoryRefresh));
+$("memory-prev").onclick=()=>{if(memoryPage>1){memoryPage--;refreshMemoryPanel()}};
+$("memory-next").onclick=()=>{if(memoryPage<memoryPages){memoryPage++;refreshMemoryPanel()}};
+$("agency-submit").onclick=admitAgencyText;
+$("writing-desk-submit").onclick=()=>admitWritingDesk("text");
+$("atelier-submit").onclick=admitAtelier;
+$("research-submit").onclick=offerResearchInterest;
+$("research-topic").addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();offerResearchInterest()}});
+window.addEventListener("pagehide",()=>{stopVoiceOutput("page closed");stopCamera();stopMicrophone();
+  if(salienceStream)salienceStream.close()});
 $("image-picker").onchange=async e=>{await chooseImages(e.target.files||[]);e.target.value=""};
 $("setmood").onclick = setMood;
 $("saveOrgans").onclick = pushOrgans;
 
-function setInspectorOpen(open) {
+const BODY_OPEN_KEY = "jnsq.cockpit.bodyOpen.v2";
+const RECEIPTS_OPEN_KEY = "jnsq.cockpit.receiptsOpen.v2";
+function setInspectorOpen(open, persist = true) {
   $("cockpit-main").classList.toggle("inspector-collapsed", !open);
   $("bodyToggle").textContent = open ? "hide body functions" : "show body functions";
   $("bodyToggle").setAttribute("aria-expanded", String(open));
-  localStorage.setItem("jnsq.cockpit.bodyOpen", String(open));
+  if (persist) localStorage.setItem(BODY_OPEN_KEY, String(open));
 }
-function setReceiptsOpen(open) {
+function setReceiptsOpen(open, persist = true) {
   $("receipts-panel").classList.toggle("collapsed", !open);
   $("receiptsToggle").textContent = open ? "minimize" : "pull up";
   $("receiptsToggle").setAttribute("aria-expanded", String(open));
-  localStorage.setItem("jnsq.cockpit.receiptsOpen", String(open));
+  if (persist) localStorage.setItem(RECEIPTS_OPEN_KEY, String(open));
 }
 const savedInspectorWidth = Number(localStorage.getItem("jnsq.cockpit.bodyWidth"));
 if (Number.isFinite(savedInspectorWidth) && savedInspectorWidth >= 280)
   $("cockpit-main").style.setProperty("--inspector-width", `${savedInspectorWidth}px`);
-setInspectorOpen(localStorage.getItem("jnsq.cockpit.bodyOpen") !== "false");
-setReceiptsOpen(localStorage.getItem("jnsq.cockpit.receiptsOpen") !== "false");
+setInspectorOpen(localStorage.getItem(BODY_OPEN_KEY) === "true", false);
+setReceiptsOpen(localStorage.getItem(RECEIPTS_OPEN_KEY) === "true", false);
 $("bodyToggle").onclick = () => setInspectorOpen($("cockpit-main").classList.contains("inspector-collapsed"));
 $("receiptsToggle").onclick = () => setReceiptsOpen($("receipts-panel").classList.contains("collapsed"));
+// collapsible body-function sections: heading toggles, choice persists
+document.querySelectorAll("#inspector > .panel").forEach(p => {
+  const head = p.querySelector(":scope > .panel-heading, :scope > .salience-head") || p.querySelector(":scope > h2");
+  if (!head) return;
+  const h2 = head.tagName === "H2" ? head : head.querySelector("h2");
+  if (!h2) return;
+  const wrap = document.createElement("div");
+  wrap.className = "collapsible-content";
+  [...p.children].filter(k => k !== head).forEach(k => wrap.appendChild(k));
+  p.appendChild(wrap);
+  h2.classList.add("sec-toggle");
+  const key = "jnsq.sec." + (p.id || h2.textContent.trim());
+  p.classList.toggle("collapsed", localStorage.getItem(key) !== "open");
+  h2.addEventListener("click", () => {
+    const closed = p.classList.toggle("collapsed");
+    localStorage.setItem(key, closed ? "closed" : "open");
+  });
+});
 $("column-resizer").onpointerdown = event => {
   if (window.matchMedia("(max-width:720px)").matches) return;
   event.preventDefault();
@@ -896,17 +2724,17 @@ $("column-resizer").onpointerdown = event => {
     localStorage.setItem("jnsq.cockpit.bodyWidth", String(Math.round($("inspector").getBoundingClientRect().width)));
   };
 };
-fetchState();
+fetchState().then(()=>{refreshSalience();refreshMemoryPanel();refreshAgency();refreshWritingDesk();refreshAtelier();refreshResearchDesk();refreshDocuments();refreshArchive();startSalienceStream()});
 fetchOrgans();
 bindAppearance();
 fetchTheme();
 // Event-driven refresh: user actions repaint directly; returning to the
 // cockpit catches background changes. No arbitrary state polling loop.
 window.addEventListener("focus", () => {
-  if (!$("send").disabled) fetchState().catch(()=>{});
+  if (!turnWorkerActive) fetchState().catch(()=>{});
 });
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden && !$("send").disabled)
+  if (!document.hidden && !turnWorkerActive)
     fetchState().catch(()=>{});
 });
 window.addEventListener("message", event => {

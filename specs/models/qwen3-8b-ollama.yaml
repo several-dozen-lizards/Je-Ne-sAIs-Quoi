@@ -1,0 +1,51 @@
+# qwen3-8b-ollama — local Qwen through Ollama's native chat transport.
+identity:
+  name: "qwen3-8b-ollama"
+  family: "llama3-chatml"
+  base_model: "Qwen3 8B"
+  provider: "ollama"
+  service: "ollama"
+  endpoint: "qwen3:8b"
+  locality: "local"
+context:
+  window_tokens: 8192
+  practical_window_tokens: 7000
+  block_budgets: {}
+prompt_structure:
+  system_prompt: true
+  template: "openai_messages"
+  strict_alternation: false
+  prefill_supported: false
+  stop_sequences: []
+sampling:
+  temperature:
+    mode: "dynamic"
+wire:
+  ollama:
+    # Qwen's hidden reasoning can consume the whole bounded completion and
+    # return no visible reply. Utility work needs the answer, not an invisible
+    # chain of thought.
+    think: false
+    # Resource retention, not a behavioral clock: amortize cold model loading
+    # across work that is still triggered by JNSQ's own thresholds.
+    keep_alive: "10m"
+capabilities:
+  tool_use: false
+  vision: false
+  structured_output: "unknown"
+  streaming: true
+module_capability:
+  validated: []
+  saturates_on: []
+  ceiling_notes: "unmeasured local vessel"
+runtime:
+  gpu_constraints: "single GPU; 8GB VRAM ceiling; effective concurrency 1"
+  cost: "free_local"
+  latency_class: "slow_first_token_when_cold"
+quirks:
+  - "Ollama native chat; thinking disabled declaratively for bounded visible output"
+  - "tool reliability unproved; tools remain disabled"
+  - "single local GPU slot; a different local vessel can still evict it"
+harness:
+  last_mechanical_pass: null
+  fidelity_floor_results: {}

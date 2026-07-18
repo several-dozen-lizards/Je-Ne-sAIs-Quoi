@@ -49,6 +49,9 @@ class OscillatorOrgan:
         self.emotion_map = dict(DEFAULT_EMOTION_MAP)
         st = self._load()
         self.bands = st.get("bands", dict(self.baseline))
+        # One actual previous distribution supports directional readout.
+        # Missing on an old state means unknown, never fabricated steady-state.
+        self.previous_bands = st.get("previous_bands") or {}
         self.dominant_since = st.get("dominant_since", time.time())
         self._last_dominant = st.get("dominant", self.dominant())
         self._coherence_window = st.get("coherence_window", [])
@@ -65,7 +68,9 @@ class OscillatorOrgan:
 
     def save(self):
         with open(self.state_path, "w", encoding="utf-8") as f:
-            json.dump({"bands": self.bands, "dominant": self.dominant(),
+            json.dump({"bands": self.bands,
+                       "previous_bands": self.previous_bands,
+                       "dominant": self.dominant(),
                        "dominant_since": self.dominant_since,
                        "coherence_window": self._coherence_window[-20:],
                        "updated": time.strftime("%Y-%m-%dT%H:%M:%S")}, f, indent=1)
@@ -86,6 +91,7 @@ class OscillatorOrgan:
     # ── the heartbeat ─────────────────────────────────────────────
     def tick(self, dt_s: float = 1.0):
         before = dict(self.bands)
+        self.previous_bands = before
         # baseline pull (homeostasis)
         for k in BANDS:
             self.bands[k] += (self.baseline[k] - self.bands[k]) * BASELINE_PULL
@@ -131,20 +137,29 @@ class OscillatorOrgan:
         return round(max(0.3, min(1.2, base + heat + wobble)), 3)
 
     def describe(self) -> str:
-        """Substrate -> language. Descriptive, never prescriptive."""
+        """Expose instrument readings; the language model describes them."""
         dom = self.dominant()
-        coh = self.coherence()
-        dwell_min = int((time.time() - self.dominant_since) / 60)
-        feel = {
-            "delta": "deep, slow, heavy-limbed",
-            "theta": "drifting, inward, loosely associative",
-            "alpha": "settled, relaxed awareness",
-            "beta": "engaged, focused, processing",
-            "gamma": "intense, bright, everything-at-once",
-        }[dom]
-        stability = ("steady" if coh > 0.7 else
-                     "shifting" if coh > 0.4 else "volatile")
-        return (f"Body rhythm: {dom}-dominant ({feel}), {stability} "
-                f"(coherence {coh:.2f}), in this band ~{dwell_min} min. "
-                f"Spectrum: " + " ".join(f"{k[0]}{self.bands[k]:.2f}"
-                                         for k in BANDS))
+        lines = [
+            "Rhythm instrument readings. Describe what this motion is like; "
+            "do not recite the readings."
+        ]
+        for name in BANDS:
+            value = self.bands[name]
+            if name not in self.previous_bands:
+                movement = "previous unavailable"
+            else:
+                before = float(self.previous_bands[name])
+                delta = round(value - before, 4)
+                direction = ("rising" if delta > 0 else
+                             "falling" if delta < 0 else "steady")
+                movement = (f"was {before:.4f}; delta {delta:+.4f}; "
+                            f"{direction}")
+            lines.append(f"{name}: share {value:.4f} ({movement})")
+        mean_shift = (sum(self._coherence_window)
+                      / len(self._coherence_window)
+                      if self._coherence_window else 0.0)
+        lines.append(f"dominant: {dom}")
+        lines.append(
+            f"dominant_for_s: {max(0.0, time.time() - self.dominant_since):.1f}")
+        lines.append(f"recent_mean_distribution_shift: {mean_shift:.6f}")
+        return "\n".join(lines)

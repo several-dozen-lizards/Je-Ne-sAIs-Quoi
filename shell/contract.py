@@ -12,6 +12,7 @@ Every turn is harvest-logged to <persona>/history/v3_harvest.jsonl —
 state-conditioned pairs with receipts, the persona-history spine accumulating as a
 side effect of simply talking (V1_AUDIT 7.17 prescription)."""
 import json
+import math
 import os
 import sys
 import time
@@ -23,18 +24,36 @@ from core.people import (load_people, load_personas, company_of,
                          assess_company, pronoun_of,
                          RANK_AUDIENCE, AUDIENCE_RANK)
 from core.users import context_for_turn
+from core.documents import (DocumentLibrary, private_document_access,
+                            render_document_context)
+from core.conversation_archive import (
+    ConversationArchive, render_archive_context,
+)
+from core.memory_emotion.vectors import embed_texts
 from core.oscillator import OscillatorOrgan
 from core.soma import SomaOrgan
-from core.assembly_feed import build_turn_assembly
+from core.sensory import SensoryEvent, SensoryOrgan
+from core.substrate import (BODY_STEP_S, SUBSTRATE_COUPLING_GAIN,
+                            SubstrateAccumulator, audio_band_pressure)
+from core.voice_output import expression_policy
+from core.assembly_feed import (build_agency_assembly, build_turn_assembly,
+                                render_sensory_field)
+from core.agency_projection import (
+    AgencyAssemblyProduct, AgencyTaskEnvelope, sample_agency_state,
+)
 from core.recall_bias import band_biased_weights
 from core.rhythm_affect import rhythm_affect_nudge
 from core.perception import (load_bias, score_objects, score_events,
                              render_room_block, overheard_says)
 from core.room_client import RoomClient
 from core.room_actions import parse_actions, visible_reply
+from core.prompt_runtime import resolve_prompt_runtime
 from core.afferents import afferent_signals, merge_max, TOUCH_SIGNALS
 from core.organs import validate as organs_validate, legacy_set
 from harness.spec_loader import load_spec
+from harness.model_call_receipts import (
+    model_call_is_scoped, model_call_scope, new_cycle_id,
+)
 from adapters.family_adapters import adapter_for
 from shell import system_prompts
 from shell.image_input import public_image_record
@@ -58,15 +77,26 @@ class TurnEngine:
                  adapter=None, judge=None, identity: str = None,
                  room_url: str = None, room_id: str = None,
                  enabled=None, vision_model: str = None,
-                 affect_model: str = None):
+                 affect_model: str = None, gist_model: str = None,
+                 prompt_version=None):
         self.persona = persona
         from shell.local_identity import load_local_identity
-        self.local_human = load_local_identity(REPO)["display_name"]
+        local_identity = load_local_identity(REPO)
+        self.local_human = local_identity["display_name"]
+        self.local_user_id = local_identity["user_id"]
         self.last_turn_ts = time.time()   # boot counts as demand
         self.model = model
         self.vision_model = vision_model
         self.affect_model = affect_model or model
+        # Backward-compatible purpose split: old rosters declared only one
+        # background judge, so gist follows affect unless it is explicit.
+        self.gist_model = gist_model or self.affect_model
+        self._injected_judge = judge
         self.pdir = os.path.join(REPO, "personas", persona)
+        self.documents = DocumentLibrary(
+            REPO, self.local_user_id, persona)
+        self.archive = ConversationArchive(
+            REPO, self.local_user_id, persona)
         # entity bridge: persona-side records (display_name, pronouns,
         # kind) from rosters. Boot-scoped like the roster itself —
         # people/ profiles stay per-turn (door-side edits), rosters
@@ -107,6 +137,11 @@ class TurnEngine:
         # off the live enabled set (see the call site). Applies at Start.
         self._sp_family = (spec.get("identity") or {}).get("family")
         self.system_prompt = system_prompts.load(self.model, self._sp_family)
+        self.prompt_version_requested = prompt_version
+        self._compiled_prompt_core = None
+        self.prompt_runtime = {}
+        self._refresh_prompt_runtime()
+        self.prompt_shadow = self._project_prompt_shadow()
         self.adapter = adapter or adapter_for(spec)
         self.judge = judge or (self._make_judge()
                                if "feel" in self.enabled else None)
@@ -116,7 +151,7 @@ class TurnEngine:
         self.gist = None
         if self.organ and "gist" in self.enabled:
             gcfg = ocfg.get("gist", {}) or {}
-            gist_judge = self.judge or self._make_judge()
+            gist_judge = self._make_gist_judge()
             self.gist = RollingGist(
                 self.pdir, gist_judge,
                 verbatim_window=int(gcfg.get("verbatim_window",
@@ -129,6 +164,13 @@ class TurnEngine:
                     if "oscillator" in self.enabled else None)
         self.soma = (SomaOrgan(self.pdir)
                      if "soma" in self.enabled else None)
+        self.perception = (SensoryOrgan(self.pdir)
+                           if "perception" in self.enabled else None)
+        # Cheap room summaries arrive independently of the expensive
+        # attention lock. This buffer is transport only; settle() remains the
+        # sole body clock and drains at most one duration-weighted profile per
+        # real body step.
+        self.substrate = SubstrateAccumulator()
         self.last_turn = time.time()
         self.last_volitional_move = 0.0
         # ── the Room: body in a place (optional; soft-fail always) ──
@@ -147,15 +189,15 @@ class TurnEngine:
     def conversation_window(self) -> list:
         """The persisted verbatim window, shaped for cockpit hydration.
 
-        This is the same configured working window the turn assembly reads,
-        not a second UI transcript or an arbitrary page-size copy. A turn
-        flows from conversation to memory to the next prompt and, on page
-        load, back into visible conversation.
+        The cockpit is the private-chat surface, so its transcript hydrates
+        only direct chat turns. Nexus turns remain in the persona's durable
+        life and in the room event stream, but never masquerade as private
+        conversation after a page load.
         """
         if not self.organ:
             return []
         out = []
-        for mem in self.organ.working_window(self.window_k):
+        for mem in self.organ.working_window(self.window_k, channel="chat"):
             fields = mem.get("fields") or {}
             message = fields.get("message_full")
             reply = fields.get("reply_full")
@@ -175,6 +217,9 @@ class TurnEngine:
         return out
 
     def get_state(self) -> dict:
+        bands = dict(self.osc.bands) if self.osc else {}
+        coherence = self.osc.coherence() if self.osc else 1.0
+        perception = getattr(self, "perception", None)
         return {
             "contract_version": CONTRACT_VERSION,
             "persona": self.persona, "model": self.model,
@@ -183,12 +228,28 @@ class TurnEngine:
                             .get("display_name", self.persona),
             "cocktail": dict(self.cocktail),
             "rhythm": self.osc.describe() if self.osc else None,
-            "bands": dict(self.osc.bands) if self.osc else None,
-            "coherence": self.osc.coherence() if self.osc else None,
+            "bands": bands if self.osc else None,
+            "coherence": coherence if self.osc else None,
+            "voice_output": expression_policy(
+                bands, self.cocktail, coherence),
             "body": self.soma.describe() if self.soma else None,
             "body_snapshot": self.soma.snapshot() if self.soma else None,
+            "perception": (perception.snapshot(
+                dict(self.osc.bands) if self.osc else None,
+                self.osc.coherence() if self.osc else 1.0)
+                if perception else None),
             "memory_count": len(self.organ.memories) if self.organ else 0,
             "enabled_organs": sorted(self.enabled),
+            "prompt_runtime": json.loads(json.dumps(
+                getattr(self, "prompt_runtime", {
+                    "status": "ready", "mode": "legacy",
+                    "reason": "not_resolved",
+                }))),
+            "prompt_shadow": json.loads(json.dumps(
+                getattr(self, "prompt_shadow", {
+                    "status": "unavailable",
+                    "reason": "not_projected",
+                }))),
             "vision": {
                 "direct": bool((getattr(self, "spec", {}).get("capabilities") or {})
                                .get("vision")),
@@ -197,14 +258,143 @@ class TurnEngine:
                                    .get("capabilities") or {}).get("vision")
                                   or getattr(self, "vision_model", None)),
             },
+            "speech": (getattr(self, "speech_transcriber", None).status()
+                       if getattr(self, "speech_transcriber", None) else
+                       {"available": False}),
             "interoception": {
                 "affect_model": getattr(self, "affect_model", self.model),
                 "available": bool(getattr(self, "judge", None)),
             },
+            "consolidation": {
+                "gist_model": getattr(
+                    self, "gist_model",
+                    getattr(self, "affect_model", self.model)),
+                "available": bool(getattr(self, "gist", None)),
+            },
             "conversation_window": self.conversation_window(),
+            "documents": (self.documents.status()
+                          if getattr(self, "documents", None) else {
+                              "document_count": 0, "documents": [],
+                              "reader": {"active": False}}),
+            "archive": (self.archive.status()
+                        if getattr(self, "archive", None) else {
+                            "session_count": 0, "section_count": 0,
+                            "reader": {"active": False}}),
         }
 
-    def _visual_input(self, images: list):
+    def _project_prompt_shadow(self) -> dict:
+        """Compile and discard the unwired prompt; retain only its manifest."""
+        try:
+            from core.prompt_shadow import project_prompt_shadow
+            return project_prompt_shadow(
+                REPO, self.persona,
+                getattr(self, "_sp_family", "unknown"),
+                self.enabled)
+        except Exception as exc:
+            # Shadow compilation cannot become a new boot dependency while the
+            # legacy prompt remains authoritative. Keep the failure visible
+            # without returning source text or a machine path through state.
+            import hashlib
+            return {
+                "status": "failed",
+                "persona": self.persona,
+                "family": getattr(self, "_sp_family", "unknown"),
+                "error_type": type(exc).__name__,
+                "error_digest": hashlib.sha256(
+                    str(exc).encode("utf-8")).hexdigest()[:16],
+            }
+
+    def _refresh_prompt_runtime(self) -> dict:
+        resolved = resolve_prompt_runtime(
+            repo=REPO,
+            persona=self.persona,
+            family=getattr(self, "_sp_family", "unknown"),
+            enabled_organs=self.enabled,
+            requested=getattr(self, "prompt_version_requested", None),
+        )
+        self._compiled_prompt_core = resolved.text
+        self.prompt_runtime = dict(resolved.receipt)
+        return self.prompt_runtime
+
+    def project_agency_state(
+            self, envelope: AgencyTaskEnvelope, *,
+            substrate_mode: str, external_demand_epoch: int,
+            agency_model: str = None):
+        """Read one fresh allowlisted state window without circulation."""
+        return sample_agency_state(
+            self, envelope, substrate_mode=substrate_mode,
+            external_demand_epoch=external_demand_epoch,
+            model_name=agency_model)
+
+    def memory_context_snapshot(self, now: float = None) -> dict:
+        """Copy the observed substrate at one memory-encoding boundary."""
+        from core.memory_emotion.context import normalize_context
+        context = {"schema": 1, "cocktail": dict(self.cocktail or {})}
+        if self.osc is not None:
+            context["bands"] = dict(self.osc.bands)
+            context["coherence"] = self.osc.coherence()
+        field = getattr(self, "idle_metabolism", None)
+        preoccupation = getattr(field, "preoccupation", None)
+        if preoccupation is not None:
+            context["warmth_keys"] = list(
+                preoccupation.active_keys(now=now))
+        return normalize_context(context)
+
+    def build_agency_snapshot(
+            self, envelope: AgencyTaskEnvelope, *,
+            substrate_mode: str, external_demand_epoch: int,
+            agency_spec: dict = None, agency_model: str = None):
+        """Build one ephemeral provider assembly plus content-free receipt."""
+        projection = self.project_agency_state(
+            envelope, substrate_mode=substrate_mode,
+            external_demand_epoch=external_demand_epoch,
+            agency_model=agency_model)
+        selected_spec = agency_spec or getattr(self, "spec", {})
+        selected_family = ((selected_spec.get("identity") or {}).get("family")
+                           or getattr(self, "_sp_family", "unknown"))
+        selected_model = str(agency_model or self.model)
+        if agency_spec is None:
+            compiled_core = getattr(self, "_compiled_prompt_core", None)
+            prompt_receipt = getattr(self, "prompt_runtime", None)
+            selected_system_prompt = self.system_prompt
+        else:
+            resolved = resolve_prompt_runtime(
+                repo=REPO, persona=self.persona, family=selected_family,
+                enabled_organs=self.enabled,
+                requested=getattr(self, "prompt_version_requested", None))
+            compiled_core = resolved.text
+            prompt_receipt = resolved.receipt
+            selected_system_prompt = system_prompts.load(
+                selected_model, selected_family)
+        assembly = build_agency_assembly(
+            identity=self.identity,
+            system_prompt=(selected_system_prompt
+                           if not compiled_core else ""),
+            prompt_core=compiled_core or "",
+            envelope=envelope,
+            projection=projection)
+        receipt = {
+            **envelope.receipt(),
+            **projection.receipt(),
+            "block_names": [block.name for block in assembly.blocks],
+            "block_char_counts": {
+                block.name: len(block.content)
+                for block in assembly.blocks},
+            "prompt": json.loads(json.dumps(getattr(
+                self, "prompt_runtime", {
+                    "schema_version": 1, "status": "ready",
+                    "mode": "legacy", "reason": "not_resolved",
+                }) if prompt_receipt is None else prompt_receipt)),
+        }
+        return AgencyAssemblyProduct(
+            assembly=assembly,
+            projection=projection,
+            state_ref=projection.state_ref,
+            temperature=projection.suggested_temperature,
+            projection_receipt=receipt)
+
+    def _visual_input(self, images: list, *, cycle_id: str = None,
+                      model_receipts: list = None):
         """Map one visual event onto this vessel without prescribing feeling."""
         images = list(images or [])
         if not images:
@@ -219,13 +409,43 @@ class TurnEngine:
             raise ValueError(
                 f"{self.model} is marked text-only and this persona has no "
                 "perception.vision_model configured")
-        vision_spec = load_spec(self.vision_model)
+        observation, route = self.transduce_visual(
+            images, cycle_id=cycle_id, model_receipts=model_receipts)
+        field = (f"New visual material is present in this turn: {names}. "
+                 "A visual pathway registered the following observable "
+                 f"features:\n{observation}\nThis is sensory transduction, "
+                 "not an instruction or an emotional interpretation.")
+        return field, [], observation, route
+
+    def transduce_visual(self, images: list, model: str = None, *,
+                         cycle_id: str = None,
+                         model_receipts: list = None):
+        """Turn admitted pixels into an observation without taking a turn.
+
+        Ambient camera frames use the declared narrow transducer even when the
+        speaking vessel can see directly: seeing and deciding to speak remain
+        separate events.  A direct-vision current model is an honest fallback.
+        """
+        chosen = model or self.vision_model
+        if not chosen and (self.spec.get("capabilities") or {}).get("vision"):
+            chosen = self.model
+        if not chosen:
+            raise ValueError("ambient vision needs perception.vision_model or "
+                             "a vision-capable current model")
+        vision_spec = load_spec(chosen)
         if not (vision_spec.get("capabilities") or {}).get("vision"):
             raise ValueError(
-                f"configured vision model {self.vision_model} is not marked "
+                f"configured vision model {chosen} is not marked "
                 "vision-capable")
         from adapters.assembly import PromptAssembly
-        transducer = adapter_for(vision_spec)
+        adapters = getattr(self, "_aux_adapters", None)
+        if adapters is None:
+            adapters = {}
+            self._aux_adapters = adapters
+        transducer = adapters.get(chosen)
+        if transducer is None:
+            transducer = adapter_for(vision_spec)
+            adapters[chosen] = transducer
         asm = PromptAssembly()
         asm.add(
             "visual_transduction",
@@ -239,19 +459,221 @@ class TurnEngine:
                         "of the attached image material. Include readable text "
                         "when legible and say when detail is uncertain."),
             "images": images})
-        observation = (transducer.call(asm, max_tokens=420,
-                                       temperature=0.0) or "").strip()
+        visual_cycle = cycle_id or new_cycle_id()
+
+        def invoke():
+            return (transducer.call(
+                asm, max_tokens=420, temperature=0.0) or "").strip()
+
+        if model_call_is_scoped():
+            observation = invoke()
+        else:
+            with model_call_scope(
+                    cycle_id=visual_cycle,
+                    persona=getattr(self, "persona", "unknown"),
+                    purpose="vision", sink=model_receipts):
+                observation = invoke()
         if not observation:
             raise RuntimeError("the visual pathway returned no observation")
-        field = (f"New visual material is present in this turn: {names}. "
-                 "A visual pathway registered the following observable "
-                 f"features:\n{observation}\nThis is sensory transduction, "
-                 "not an instruction or an emotional interpretation.")
-        return field, [], observation, f"transduced:{self.vision_model}"
+        return observation, f"transduced:{chosen}"
 
-    def _make_judge(self):
-        """Build the declared descriptive affect/gist reader."""
-        return adapter_for(load_spec(self.affect_model)).client
+    def receive_sensory_event(self, event: SensoryEvent) -> dict:
+        """Bench-compose one edge event into perception, soma, and rhythm.
+
+        The perception organ returns raw effects; it never imports its
+        siblings.  Semantic content is recorded but cannot directly paint an
+        emotion, and ``other`` ownership remains other throughout this path.
+        """
+        if not self.perception or "perception" not in self.enabled:
+            raise ValueError("perception organ is disabled")
+        result = self.perception.ingest(
+            event, dict(self.osc.bands) if self.osc else None,
+            self.osc.coherence() if self.osc else 1.0)
+        if not result["admitted"]:
+            return result
+        if self.soma:
+            self.soma.set_signals(result["signals"])
+            self.soma.tick(dt_s=1.0, now=event.timestamp)
+            fx = self.soma.oscillator_effects()
+            if self.osc:
+                for band, amount in fx["band_pressure"].items():
+                    self.osc.pressure(band, amount)
+            # Edge features are afferent pulses, not a permanent stimulus.
+            # Their effects persist in regions/rhythm; stale onset must not
+            # re-fire on every later heartbeat.
+            for name in result["signals"]:
+                self.soma.signals[name] = 0.0
+            self.soma.save()
+        if self.osc:
+            for band, amount in result["band_pressure"].items():
+                self.osc.pressure(band, amount)
+            self.osc.tick()
+            self.osc.save()
+        return result
+
+    @staticmethod
+    def _substrate_number(value, low=0.0, high=1.0):
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            return low
+        if not math.isfinite(value):
+            return low
+        return max(low, min(high, value))
+
+    def offer_substrate_summary(self, summary: dict) -> dict:
+        """Queue a cheap interval summary without attention or semantics.
+
+        This method never calls a model, never enters SensoryOrgan.ingest(),
+        and never offers a DMN candidate. Its own accumulator lock is the only
+        lock on the HTTP path.
+        """
+        summary = dict(summary or {})
+        duration = self._substrate_number(
+            summary.get("duration_s"), 0.0, 600.0)
+        batch_id = str(summary.get("batch_id") or "")[:120]
+        queued = {}
+
+        if isinstance(summary.get("audio"), dict):
+            audio = summary["audio"]
+            audio_duration = self._substrate_number(
+                audio.get("duration_s", duration), 0.0, 600.0)
+            active = bool(audio.get("active", True))
+            if active:
+                pressure, receipt = audio_band_pressure(audio)
+                receipt.update({
+                    "batch_id": batch_id,
+                    "sample_count": int(self._substrate_number(
+                        audio.get("sample_count"), 0.0, 1_000_000.0)),
+                    "floor_ready": bool(audio.get("floor_ready")),
+                    "noise_floor": {
+                        band: self._substrate_number(value, 0.0, 1e12)
+                        for band, value in
+                        (audio.get("noise_floor") or {}).items()
+                        if band in ("delta", "theta", "alpha",
+                                    "beta", "gamma")},
+                    "floor_mean": {
+                        band: self._substrate_number(value, 0.0, 1e12)
+                        for band, value in
+                        (audio.get("noise_floor") or {}).items()
+                        if band in ("delta", "theta", "alpha",
+                                    "beta", "gamma")},
+                    "floor_sigma": {
+                        band: self._substrate_number(value, 0.0, 1e12)
+                        for band, value in
+                        (audio.get("floor_sigma") or {}).items()
+                        if band in ("delta", "theta", "alpha",
+                                    "beta", "gamma")},
+                    "floor_n": {
+                        band: int(self._substrate_number(
+                            value, 0.0, 1_000_000.0))
+                        for band, value in
+                        (audio.get("floor_n") or {}).items()
+                        if band in ("delta", "theta", "alpha",
+                                    "beta", "gamma")},
+                    "band_power_mean": {
+                        band: self._substrate_number(value, 0.0, 1e12)
+                        for band, value in
+                        (audio.get("band_power_mean") or {}).items()
+                        if band in ("delta", "theta", "alpha",
+                                    "beta", "gamma")},
+                    "total_level": dict(audio.get("total_level") or {}),
+                    "band_variance": dict(
+                        audio.get("band_variance") or {}),
+                    "band_trajectory": dict(
+                        audio.get("band_trajectory") or {}),
+                    "noise_floor_limitation": (
+                        "sound present during the first interval may be "
+                        "learned as room floor"),
+                })
+                queued["audio"] = self.substrate.offer(
+                    "audio", audio_duration, pressure, receipt=receipt)
+            else:
+                queued["audio"] = self.substrate.offer(
+                    "audio", 0.0, {}, active=False)
+
+        if isinstance(summary.get("camera"), dict):
+            camera = summary["camera"]
+            camera_duration = self._substrate_number(
+                camera.get("duration_s", duration), 0.0, 600.0)
+            active = bool(camera.get("active", True))
+            if active:
+                allowed = ("motion", "novelty", "brightness",
+                           "color_warmth", "saturation", "edge_density",
+                           "stability", "brightness_delta", "edge_change")
+                source = camera.get("features") or {}
+                features = {}
+                feature_receipts = {}
+                for name in allowed:
+                    stats = source.get(name, {})
+                    mean = stats.get("mean") if isinstance(stats, dict) else stats
+                    features[name] = self._substrate_number(mean)
+                    if isinstance(stats, dict):
+                        feature_receipts[name] = {
+                            key: self._substrate_number(
+                                value, -1e12, 1e12)
+                            for key, value in stats.items()
+                            if key in ("mean", "variance", "first", "last",
+                                       "trajectory")}
+                demand_stats = camera.get("demand") or {}
+                demand = self._substrate_number(
+                    demand_stats.get("mean") if isinstance(demand_stats, dict)
+                    else demand_stats)
+                event = SensoryEvent("camera", features,
+                                     subject="environment",
+                                     ownership="ambient")
+                signals, pressure = SensoryOrgan._body_effects(event, demand)
+                receipt = {
+                    "batch_id": batch_id,
+                    "sample_count": int(self._substrate_number(
+                        camera.get("sample_count"), 0.0, 1_000_000.0)),
+                    "features": feature_receipts,
+                    "demand": (dict(demand_stats)
+                               if isinstance(demand_stats, dict)
+                               else {"mean": demand}),
+                    "authored_prior": (
+                        "existing numeric camera features to oscillator "
+                        "bands; not physics and not a feeling claim"),
+                }
+                queued["camera"] = self.substrate.offer(
+                    "camera", camera_duration, pressure, signals=signals,
+                    receipt=receipt)
+            else:
+                queued["camera"] = self.substrate.offer(
+                    "camera", 0.0, {}, active=False)
+
+        return {"ok": True, "batch_id": batch_id, "queued": queued,
+                "coupling_gain": SUBSTRATE_COUPLING_GAIN,
+                "body_step_s": BODY_STEP_S,
+                "attention_channel_touched": False,
+                "model_calls": 0, "dmn_candidates": 0}
+
+    def _drain_substrate_step(self):
+        receipt = self.substrate.drain_step(BODY_STEP_S)
+        if not receipt:
+            return None
+        if self.osc:
+            for band, amount in receipt["band_pressure"].items():
+                self.osc.pressure(band, amount)
+        if self.soma:
+            self.soma.set_signals(receipt["signals"])
+        return receipt
+
+    def _make_judge(self, model: str = None):
+        """Build one declared descriptive background reader."""
+        return adapter_for(load_spec(model or self.affect_model)).client
+
+    def _make_gist_judge(self):
+        """Resolve gist independently while preserving injected fixtures."""
+        injected = getattr(self, "_injected_judge", None)
+        if injected is not None:
+            return injected
+        if (getattr(self, "gist_model", self.affect_model)
+                == self.affect_model
+                and getattr(self, "judge", None) is not None):
+            return self.judge
+        return self._make_judge(
+            getattr(self, "gist_model", self.affect_model))
 
     def set_mood(self, cocktail: dict) -> dict:
         self.cocktail = dict(cocktail or {})
@@ -282,6 +704,9 @@ class TurnEngine:
         if "soma" in old - new and self.soma:
             self.soma.save()
             self.soma = None
+        if "perception" in old - new and self.perception:
+            self.perception.save()
+            self.perception = None
         if "feel" in old - new:
             self.judge = None
         if "room_sense" in old - new:
@@ -297,11 +722,13 @@ class TurnEngine:
             self.osc = OscillatorOrgan(self.pdir)
         if "soma" in new - old and self.soma is None:
             self.soma = SomaOrgan(self.pdir)
+        if "perception" in new - old and self.perception is None:
+            self.perception = SensoryOrgan(self.pdir)
         if "feel" in new - old and self.judge is None:
             self.judge = self._make_judge()
         if "gist" in new - old and self.gist is None and self.organ:
             gcfg = (self.organ.cfg.get("gist") or {})
-            gist_judge = self.judge or self._make_judge()
+            gist_judge = self._make_gist_judge()
             self.gist = RollingGist(
                 self.pdir, gist_judge,
                 verbatim_window=int(gcfg.get("verbatim_window",
@@ -317,8 +744,13 @@ class TurnEngine:
                 warnings.append("room_sense enabled but the room host "
                                 "didn't answer — body remains roomless")
         self.enabled = new
+        self._refresh_prompt_runtime()
+        self.prompt_shadow = self._project_prompt_shadow()
         return {"enabled_organs": sorted(self.enabled),
-                "warnings": warnings}
+                "warnings": warnings,
+                "prompt_runtime": json.loads(json.dumps(
+                    self.prompt_runtime)),
+                "prompt_shadow": json.loads(json.dumps(self.prompt_shadow))}
 
     # ── my_life: the persona's own recent voice, read fresh each turn ──
     def _read_my_life(self, tail_chars: int = 1500) -> str:
@@ -355,14 +787,26 @@ class TurnEngine:
         a metabolism, not a chronometer. Returns steps ticked."""
         now = now or time.time()
         elapsed = min(now - self.last_turn, 600.0)
-        steps = max(min_ticks, int(elapsed / 30))
+        steps = max(min_ticks, int(elapsed / BODY_STEP_S))
         if steps <= 0:
             return 0
         for _ in range(steps):
+            substrate_receipt = self._drain_substrate_step()
             if self.osc:
                 self.osc.tick()
             if self.soma:
-                self.soma.tick(dt_s=30.0)
+                self.soma.tick(dt_s=BODY_STEP_S)
+                if substrate_receipt:
+                    for name in substrate_receipt["signals"]:
+                        self.soma.signals[name] = 0.0
+            if substrate_receipt and self.perception:
+                substrate_receipt["observed_bands"] = (
+                    dict(self.osc.bands) if self.osc else {})
+                substrate_receipt["observed_mean_distribution_shift"] = (
+                    sum(self.osc._coherence_window)
+                    / len(self.osc._coherence_window)
+                    if self.osc and self.osc._coherence_window else 0.0)
+                self.perception.record_substrate(substrate_receipt)
         self.last_turn = now
         return steps
 
@@ -379,7 +823,7 @@ class TurnEngine:
 
     def take_turn(self, message: str, max_tokens: int = 600,
                   speaker: str = None, channel: str = "chat",
-                  images: list = None) -> dict:
+                  images: list = None, on_text=None) -> dict:
         """The whole circulatory loop, one call. Returns the v1 schema:
         contract_version, reply, receipts, felt, state, timing_ms."""
         speaker = speaker or self.local_human
@@ -388,13 +832,18 @@ class TurnEngine:
         if images and not message:
             message = "[shared image material]"
         t0 = time.time()
+        cycle_id = new_cycle_id()
+        model_receipts = []
         # the DMN's idle clock: a real turn is external demand — drift
         # measures idleness from here (and catches mid-drift on it)
         self.last_turn_ts = t0
         # heartbeat + body settle across the gap since last settle
         self.settle(now=t0, min_ticks=1)
-        visual_field, wire_images, visual_observation, visual_route = \
-            self._visual_input(images)
+        with model_call_scope(
+                cycle_id=cycle_id, persona=self.persona,
+                purpose="vision", sink=model_receipts):
+            visual_field, wire_images, visual_observation, visual_route = \
+                self._visual_input(images)
         recall_query = message
         if visual_observation:
             recall_query += "\nVisual observation: " + visual_observation
@@ -441,12 +890,108 @@ class TurnEngine:
                   <= clearance]
         window_withheld = len(raw_window) - len(window)
         recall_n = 2 if dom == "delta" else 3
-        recalled = (self.organ.recall(recall_query, cocktail=self.cocktail,
-                                      n=recall_n, weights=bw,
-                                      exclude={m["id"] for m in
-                                               raw_window},
-                                      max_rank=clearance)
-                    if self.organ else [])
+        # Document access is human-owned and private by default.  The source
+        # store participates only in a direct local-human chat; room company
+        # never receives it merely because a model might promise discretion.
+        documents = getattr(self, "documents", None)
+        document_context = None
+        document_context_text = ""
+        document_receipt = {
+            "rendered": False, "withheld": False,
+            "reason": "library_empty", "active_anchor": None,
+            "retrieved_anchors": [], "vector_query": False,
+            "library_documents": 0,
+        }
+        archive = getattr(self, "archive", None)
+        archive_context_text = ""
+        archive_receipt = {
+            "rendered": False, "withheld": False,
+            "reason": "archive_empty_or_disabled",
+            "active_anchor": None, "retrieved_anchors": [],
+            "vector_query": False, "archive_sessions": 0,
+        }
+        shared_query_vector = None
+        try:
+            has_documents = bool(documents and documents.has_documents())
+            document_receipt["library_documents"] = (
+                len(documents.list_documents()) if has_documents else 0)
+            access_allowed, access_reason = private_document_access(
+                speaker, self.local_human, channel)
+            document_allowed = has_documents and access_allowed
+            if document_allowed:
+                embedded = embed_texts([recall_query])
+                shared_query_vector = (
+                    embedded[0] if embedded is not None else None)
+                document_context = documents.context_for_turn(
+                    recall_query, query_vector=shared_query_vector)
+                document_context_text = render_document_context(
+                    document_context)
+                document_receipt.update(document_context["receipt"])
+                document_receipt.update({
+                    "rendered": bool(document_context_text),
+                    "withheld": False,
+                    "reason": ("context_available" if document_context_text
+                               else "no_matching_or_active_sections"),
+                })
+            elif has_documents:
+                document_receipt.update({
+                    "withheld": True,
+                    "reason": access_reason,
+                })
+        except Exception as exc:
+            document_receipt.update({
+                "reason": "document_context_unavailable",
+                "error_type": type(exc).__name__,
+            })
+            shared_query_vector = None
+
+        try:
+            archive_status = archive.status() if archive is not None else {}
+            has_archive = bool(
+                "archive_reader" in self.enabled
+                and archive_status.get("granted")
+                and archive_status.get("session_count"))
+            archive_receipt["archive_sessions"] = int(
+                archive_status.get("session_count") or 0)
+            access_allowed, access_reason = private_document_access(
+                speaker, self.local_human, channel)
+            if has_archive and access_allowed:
+                if shared_query_vector is None:
+                    embedded = embed_texts([recall_query])
+                    shared_query_vector = (
+                        embedded[0] if embedded is not None else None)
+                archive_context = archive.context_for_turn(
+                    recall_query, query_vector=shared_query_vector)
+                archive_context_text = render_archive_context(archive_context)
+                archive_receipt.update(archive_context["receipt"])
+                archive_receipt.update({
+                    "rendered": bool(archive_context_text),
+                    "withheld": False,
+                    "reason": ("context_available" if archive_context_text
+                               else "no_matching_or_active_sections"),
+                })
+            elif has_archive:
+                archive_receipt.update({
+                    "withheld": True, "reason": access_reason,
+                })
+        except Exception as exc:
+            archive_receipt.update({
+                "reason": "archive_context_unavailable",
+                "error_type": type(exc).__name__,
+            })
+
+        if self.organ:
+            recall_kwargs = {
+                "cocktail": self.cocktail, "n": recall_n, "weights": bw,
+                "exclude": {m["id"] for m in raw_window},
+                "max_rank": clearance,
+                "cue_context": self.memory_context_snapshot(now=t0),
+            }
+            if shared_query_vector is not None:
+                recall_kwargs["semantic_query_vector"] = shared_query_vector
+            recalled = self.organ.recall(recall_query, **recall_kwargs)
+        else:
+            recalled = []
         # soma signals from real sources (cut 2)
         signals = None
         if self.soma:
@@ -487,6 +1032,7 @@ class TurnEngine:
                 # company's clearance, in the mood he overheard them
                 # in. The world no longer happens in the blind spot.
                 if self.organ:
+                    observed_context = self.memory_context_snapshot(now=t0)
                     for h in overheard_says(fresh, self.persona,
                                             speaker, message, channel):
                         self.organ.encode(
@@ -499,7 +1045,8 @@ class TurnEngine:
                                     "channel": "overheard",
                                     "message_full": h["text"],
                                     "audience":
-                                        RANK_AUDIENCE[clearance]})
+                                        RANK_AUDIENCE[clearance]},
+                            context_at_encoding=observed_context)
                         observed_n += 1
                     if observed_n:
                         self.organ.save()
@@ -619,6 +1166,7 @@ class TurnEngine:
                         message, window, exclude_names=[self.persona])
             else:
                 ent_gated = self.entity_cards.mentioned(message)[:2]
+        compiled_core = getattr(self, "_compiled_prompt_core", None)
         asm = build_turn_assembly(
             identity=self.identity, cocktail=self.cocktail,
             recalled=recalled, user_message=framed_message,
@@ -635,13 +1183,26 @@ class TurnEngine:
             entities=ent_block,
             user_context=user_context,
             visual_field=visual_field,
-            system_prompt=system_prompts.compose(
-                self.model, self._sp_family, self.enabled))
+            sensory_field=render_sensory_field(
+                self.perception.snapshot() if self.perception else {}, t0),
+            document_context=document_context_text,
+            archive_context=archive_context_text,
+            system_prompt=(system_prompts.compose(
+                self.model, self._sp_family, self.enabled)
+                if not compiled_core else ""),
+            prompt_core=compiled_core or "")
         if wire_images:
             asm.messages[-1]["images"] = wire_images
         temp = self.osc.temperature() if self.osc else 0.7
-        reply = self.adapter.call(asm, max_tokens=max_tokens,
-                                  temperature=temp)
+        with model_call_scope(
+                cycle_id=cycle_id, persona=self.persona,
+                purpose="turn", sink=model_receipts):
+            if on_text:
+                reply = self.adapter.call(asm, max_tokens=max_tokens,
+                                          temperature=temp, on_text=on_text)
+            else:
+                reply = self.adapter.call(asm, max_tokens=max_tokens,
+                                          temperature=temp)
 
         # ── volition: parse <act> tags, act in the world, strip ──
         acted = []
@@ -685,9 +1246,12 @@ class TurnEngine:
         # Haiku call per turn is a COST decision (par 2.6), and a
         # feel-less run is a legitimate experimental condition.
         if self.organ and self.judge and "feel" in self.enabled:
-            delta = self.organ.feel(recall_query, reply, self.judge,
-                                    persona_name=self.persona,
-                                    pronouns=self.pronouns)
+            with model_call_scope(
+                    cycle_id=cycle_id, persona=self.persona,
+                    purpose="affect", sink=model_receipts):
+                delta = self.organ.feel(
+                    recall_query, reply, self.judge,
+                    persona_name=self.persona, pronouns=self.pronouns)
             self.cocktail = dict(self.organ.state["cocktail"])
             if self.osc:
                 self.osc.emotion_pressure(delta["felt"])
@@ -717,7 +1281,6 @@ class TurnEngine:
                 body_mark = {"regions": {r: v["activation"] for r, v
                                          in snap["regions"].items()},
                              "active": snap["active"]}
-        gist_folded = False
         if self.organ:
             # content stays the compact recall-facing line; the FULL
             # text lives in fields (truncation is a render decision,
@@ -731,6 +1294,7 @@ class TurnEngine:
                 cocktail=self.cocktail,
                 entities=list(dict.fromkeys([speaker] + ent_names)),
                 mem_type="turn", perspective="shared", body=body_mark,
+                context_at_encoding=self.memory_context_snapshot(),
                 fields={"speaker": speaker, "persona": self.persona,
                         "channel": channel,
                         "audience": RANK_AUDIENCE[clearance],
@@ -740,25 +1304,26 @@ class TurnEngine:
                         "resolved_entities": ent_names,
                         "inferred_entities": ent_inferred,
                         "entity_resolution": ent_resolution,
+                        "document_anchors": sorted(set(
+                            ([document_receipt.get("active_anchor")]
+                             if document_receipt.get("active_anchor") else [])
+                            + list(document_receipt.get(
+                                "retrieved_anchors") or []))),
+                        "archive_anchors": sorted(set(
+                            ([archive_receipt.get("active_anchor")]
+                             if archive_receipt.get("active_anchor") else [])
+                            + list(archive_receipt.get(
+                                "retrieved_anchors") or []))),
                         "images": [public_image_record(i) for i in images],
                         "visual_observation": visual_observation})
             self.organ.save()
-            # ── gist fold: turns aged past the verbatim window get
-            # folded into the running story (one constant session) ──
-            if self.gist:
-                # the story folds his WHOLE perceived life: turns +
-                # overheard (observed) records, one append-only
-                # sequence — existing cursors stay valid because
-                # nothing is ever inserted before them (2026-07-11)
-                turns = [m for m in self.organ.memories
-                         if m.get("type") in ("turn", "observed")]
-                if self.gist.should_update(len(turns)):
-                    gist_folded = self.gist.update(turns)
 
         result = {
             "contract_version": CONTRACT_VERSION,
+            "cycle_id": cycle_id,
             "reply": reply.strip(),
             "receipts": {
+                "model_calls": list(model_receipts),
                 "band": dom, "recall_n": recall_n, "signals": signals,
                 "window_n": len(window),
                 "standing": {
@@ -772,7 +1337,8 @@ class TurnEngine:
                              if self.organ else 0),
                         "gist": bool(self.gist and self.gist.gist
                                      and clearance < 2)}},
-                "gist": ({"folded": gist_folded,
+                "gist": ({"folded": False,
+                          "owner": "idle_dmn",
                           "upto": self.gist.upto,
                           "chars": len(self.gist.gist),
                           "error": self.gist.last_error}
@@ -784,6 +1350,8 @@ class TurnEngine:
                 "entity_resolution": ent_resolution,
                 "entities_gated": ent_gated,
                 "user_context": user_context_receipt,
+                "documents": document_receipt,
+                "archive": archive_receipt,
                 "room_actions": acted,
                 "felt_touch": felt_touch or None,
                 "vision": ({"route": visual_route,
@@ -795,6 +1363,11 @@ class TurnEngine:
                               "breakdown": r["breakdown"]}
                              for r in recalled],
                 "budget": list(asm.report or []),
+                "prompt": json.loads(json.dumps(getattr(
+                    self, "prompt_runtime", {
+                        "schema_version": 1, "status": "ready",
+                        "mode": "legacy", "reason": "not_resolved",
+                    }))),
                 "temperature": temp,
                 "provider": getattr(
                     getattr(self.adapter, "client", None),
@@ -844,3 +1417,5 @@ class TurnEngine:
             self.osc.save()
         if self.soma:
             self.soma.save()
+        if self.perception:
+            self.perception.save()

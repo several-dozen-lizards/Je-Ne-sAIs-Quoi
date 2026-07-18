@@ -30,6 +30,11 @@ sampling:
     mode: omit
 reasoning:
   effort: low
+wire:
+  chat_completions:
+    # OpenAI streamed responses otherwise omit their final usage object,
+    # leaving persona token and cache accounting blank.
+    include_stream_usage: true
 capabilities:
   tool_use: false
   vision: true

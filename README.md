@@ -56,6 +56,45 @@ more reliable visual transducer. GLM-4.6V-Flash is the free option, with the
 tradeoff that shared capacity may sometimes be unavailable. This recommendation
 is visible guidance, never an automatic or permanent provider choice.
 
+### Ambient camera and microphone
+
+Camera and microphone access is off until you activate each control in a
+persona's conversation. Continuous camera pixels, microphone waveforms, and
+audio spectra are analyzed inside the browser; they are not streamed to the
+JNSQ server. The local feature field decides when a change crosses the current
+rhythm-shaped attention boundary—there is no fixed capture interval.
+
+Activating the camera intentionally admits one opening frame so the persona can
+establish what is present. Later frames cross only when visual-change pressure
+reaches the live boundary. An admitted frame is stored inside that persona's
+gitignored `body/perception/images/` directory and sent through the visual
+model route you selected. If that route uses a remote provider, that admitted
+frame leaves your computer under that provider's terms. The live preview and
+frames below the boundary remain in the browser.
+
+Ambient microphone intake sends admitted acoustic feature vectors—such as
+level, onset, and spectral change—not raw audio. The separate spoken-turn
+checkbox is off by default. If you explicitly enable it, one bounded utterance
+may be sent to the configured transcription route; the default transcription
+route is local when its optional model is installed. Heard speech is attributed
+to the other person rather than poured into the persona's own emotional state.
+
+Reply speech is also off by default. If you enable **let replies use local
+voice**, the first output provider uses the browser/operating system speech
+service and follows the persona body's current continuous expression vector.
+It does not send reply text to a separate JNSQ TTS provider. Output starts,
+completions, failures, and interruptions are recorded locally without copying
+the spoken reply into that additional receipt. With the microphone active,
+human voice evidence can interrupt playback when it crosses the same live
+rhythm-shaped boundary; there is no fixed barge-in delay.
+
+For streaming-capable model providers, visible reply text reaches the
+conversation as it is generated. Local voice begins when the model emits a
+linguistic clause boundary rather than waiting for the complete response.
+
+Sensory observations and salience receipts become part of the persona's local
+history. Updates preserve that history, and public builds never contain it.
+
 Use `STOP_NEXUS.bat` for a clean shutdown.
 
 Setup never asks for an API key and never uploads personal information. Remote
@@ -93,6 +132,22 @@ The public header has three stable doors:
 - `.jnsq_local.json` identifies the human who owns this checkout.
 - `users/` holds that human's account data.
 - `personas/` holds model personas and their lived history.
+- Each persona's `body/writing_desk/` holds private seeds, versioned drafts,
+  project state, and content-free run receipts. It is preserved across updates
+  and excluded from public builds with the rest of the persona's interior.
+- When the optional Atelier organ is enabled, `body/atelier/` holds admitted
+  creative material, content-addressed SVG artifacts, and append-only receipts.
+  The Atelier uses an explicitly configured local model, has no publishing or
+  arbitrary-filesystem authority, and only returns an artifact through vision
+  when a human deliberately chooses **let them look**. Its entire lived output
+  is preserved across updates and excluded from public builds.
+- A human may keep imported conversation history under
+  `users/<owner>/archives/`. Immutable sources and derived search indexes stay
+  human-owned; each granted persona's position, bookmarks, encounters, and
+  content-free cost receipts stay separately under `body/archive_reader/`.
+  Conversation history is presented as documented source, never silently
+  converted into autobiographical memory. Both sides survive updates and are
+  excluded from public builds.
 - `.env` holds optional remote-provider API keys.
 - `room/room_world.json`, `logs/`, and `jnsq_running.json` are runtime state.
 

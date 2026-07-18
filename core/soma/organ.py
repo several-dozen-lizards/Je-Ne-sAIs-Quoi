@@ -14,6 +14,7 @@ State persists in <persona>/body/soma/. Persona-level sensation specs in
 <persona>/body/soma/sensations/ override shared ones by name."""
 import glob
 import json
+import math
 import os
 import time
 
@@ -56,15 +57,22 @@ class SomaOrgan:
         self.regions = st.get("regions") or {
             r: {"activation": 0.0, "valence": 0.0, "temperature": 0.0}
             for r in self.region_defs}
+        # One prior body sample makes the readout a trajectory without
+        # inventing a history that was never observed. Old schema-1 states
+        # legitimately begin with no previous sample.
+        self.previous_regions = st.get("previous_regions") or {}
         self.signals = st.get("signals", {})
         self.cooldowns = st.get("cooldowns", {})
         self.active = st.get("active", [])
         self._pending_patterns = []
+        self._pending_region_inputs = []
         self._osc_effects = {"band_pressure": {}, "coherence_suppress": 0.0}
 
     def save(self):
         with open(self.state_path, "w", encoding="utf-8") as f:
-            json.dump({"regions": self.regions, "signals": self.signals,
+            json.dump({"regions": self.regions,
+                       "previous_regions": self.previous_regions,
+                       "signals": self.signals,
                        "cooldowns": self.cooldowns, "active": self.active,
                        "updated": time.strftime("%Y-%m-%dT%H:%M:%S")},
                       f, indent=1)
@@ -83,6 +91,39 @@ class SomaOrgan:
     def set_signals(self, sig: dict):
         for k, v in (sig or {}).items():
             self.signal(k, v)
+
+    def sense_regions(self, regions: dict):
+        """Queue a measured regional input without naming an emotion.
+
+        Activation is 0..1; optional valence and temperature are -1..1.
+        Unknown regions and fields are ignored.  The next ordinary soma tick
+        composes the input with the existing field by saturating union.
+        """
+        admitted = {}
+        for name, values in (regions or {}).items():
+            if name not in self.regions or not isinstance(values, dict):
+                continue
+            reading = {}
+            if "activation" in values:
+                try:
+                    value = float(values["activation"])
+                except (TypeError, ValueError):
+                    value = float("nan")
+                if math.isfinite(value):
+                    reading["activation"] = max(0.0, min(1.0, value))
+            for field in ("valence", "temperature"):
+                if field in values:
+                    try:
+                        value = float(values[field])
+                    except (TypeError, ValueError):
+                        value = float("nan")
+                    if math.isfinite(value):
+                        reading[field] = max(-1.0, min(1.0, value))
+            if reading:
+                admitted[str(name)] = reading
+        if admitted:
+            self._pending_region_inputs.append(admitted)
+        return admitted
 
     # ── trigger machinery ─────────────────────────────────────────
     def _signal_value(self, key: str) -> float:
@@ -116,6 +157,8 @@ class SomaOrgan:
     # ── the pulse ─────────────────────────────────────────────────
     def tick(self, dt_s: float = 1.0, now: float = None):
         now = time.time() if now is None else now
+        self.previous_regions = {name: dict(reading)
+                                 for name, reading in self.regions.items()}
         # 1. decay toward neutral
         k = min(1.0, DECAY * dt_s)
         for r in self.regions.values():
@@ -135,6 +178,23 @@ class SomaOrgan:
                     r[f] = round(r[f] + (tgt - r[f]) * min(1.0, g), 4)
                 r["activation"] = round(r["activation"], 4)
         self._pending_patterns = []
+        # 2b. measured regional input composes without naming a feeling.
+        for regions in self._pending_region_inputs:
+            for region, values in regions.items():
+                reading = self.regions.get(region)
+                if reading is None:
+                    continue
+                incoming = values.get("activation", 0.0)
+                prior = reading["activation"]
+                combined = 1.0 - (1.0 - prior) * (1.0 - incoming)
+                reading["activation"] = round(combined, 4)
+                share = incoming / combined if combined > 0.0 else 0.0
+                for field in ("valence", "temperature"):
+                    if field in values:
+                        reading[field] = round(
+                            reading[field]
+                            + (values[field] - reading[field]) * share, 4)
+        self._pending_region_inputs = []
         # 3. evaluate sensation triggers against current signals
         for name, spec in self.specs.items():
             if self._trigger_fires(spec, now):
@@ -193,29 +253,44 @@ class SomaOrgan:
                 "signals": dict(self.signals)}
 
     def describe(self) -> str:
-        """Substrate -> language. Descriptive, never prescriptive."""
+        """Expose instrument readings; the language model describes them."""
         lit = sorted(((r, v) for r, v in self.regions.items()
                       if v["activation"] >= ACT_FLOOR),
                      key=lambda kv: -kv[1]["activation"])
-        if not lit and not self.active:
-            return "Body: quiet, settled, nothing in particular."
-        parts = []
-        for r, v in lit[:4]:
-            heat = ("warm" if v["temperature"] > 0.25 else
-                    "cool" if v["temperature"] < -0.25 else "neutral")
-            tone = ("pleasant" if v["valence"] > 0.25 else
-                    "uneasy" if v["valence"] < -0.25 else "ambiguous")
-            parts.append(f"{r}: lit {v['activation']:.2f}, {heat}, {tone}")
-        felt = []
+        lines = [
+            "Body instrument readings. Describe what this is like; "
+            "do not recite the readings."
+        ]
+        for name, reading in lit:
+            previous = self.previous_regions.get(name)
+            if previous is None:
+                movement = "previous unavailable"
+            else:
+                before = float(previous.get("activation", 0.0))
+                delta = round(reading["activation"] - before, 4)
+                direction = ("rising" if delta > 0 else
+                             "falling" if delta < 0 else "steady")
+                movement = (f"was {before:.2f}; delta {delta:+.2f}; "
+                            f"{direction}")
+            lines.append(
+                f"{name}: activation {reading['activation']:.2f} "
+                f"({movement}), valence {reading['valence']:+.2f}, "
+                f"temperature {reading['temperature']:+.2f}")
+        quiet = [name for name, reading in self.regions.items()
+                 if reading["activation"] < ACT_FLOOR]
+        lines.append("quiet: " + (", ".join(quiet) if quiet else "none"))
+
         now = time.time()
         for inst in self.active:
             spec = self.specs.get(inst["name"], {})
-            for stage in spec.get("stages", []):
+            stages = spec.get("stages", [])
+            for index, stage in enumerate(stages, 1):
                 s0 = inst["started"] + stage.get("delay_seconds", 0)
                 if s0 <= now < s0 + stage.get("duration_seconds", 0):
-                    if stage.get("felt"):
-                        felt.append(stage["felt"])
-        line = "Body: " + "; ".join(parts) if parts else "Body: stirring"
-        if felt:
-            line += ". Felt: " + " / ".join(felt)
-        return line + "."
+                    regions = ", ".join(stage.get("regions", {}).keys())
+                    lines.append(
+                        f"active: {inst['name']} (stage {index}/{len(stages)}; "
+                        f"{max(0.0, now - s0):.1f}s in; "
+                        f"regions {regions or 'none'})")
+                    break
+        return "\n".join(lines)

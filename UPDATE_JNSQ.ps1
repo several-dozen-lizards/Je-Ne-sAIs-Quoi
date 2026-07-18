@@ -15,6 +15,10 @@ $LocalManifestPath = Join-Path $Root "DISTRIBUTION_MANIFEST.json"
 $Runfile = Join-Path $Root "jnsq_running.json"
 $UpdateLog = Join-Path $Root "logs\update.log"
 $TempRoot = $null
+$RollbackRoot = $null
+$RollbackRecords = @()
+$PatchStarted = $false
+$ManifestExisted = $false
 
 function Write-Step([string]$Text) {
     Write-Host "  > $Text" -ForegroundColor Cyan
@@ -151,8 +155,8 @@ try {
         }
     }
 
-    $changed = 0
-    $removed = 0
+    $changePlan = @()
+    $removalPlan = @()
     $requirementsChanged = $false
     foreach ($property in Managed-Properties $packageManifest) {
         $relative = [string]$property.Name
@@ -163,10 +167,11 @@ try {
             (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant()
         } else { "" }
         if ($current -eq $expected) { continue }
-        $parent = Split-Path -Parent $destination
-        New-Item -ItemType Directory -Force -Path $parent | Out-Null
-        Copy-Item -LiteralPath $source -Destination $destination -Force
-        $changed += 1
+        $changePlan += [pscustomobject]@{
+            Relative = $relative
+            Source = $source
+            Destination = $destination
+        }
         if ($relative.Replace("\", "/").ToLowerInvariant() -eq "requirements.txt") {
             $requirementsChanged = $true
         }
@@ -177,32 +182,83 @@ try {
         if ($remoteNames.ContainsKey($relative.ToLowerInvariant())) { continue }
         $obsolete = Resolve-ManagedPath $Root $relative
         if (Test-Path -LiteralPath $obsolete -PathType Leaf) {
-            Remove-Item -LiteralPath $obsolete -Force
-            $removed += 1
+            $removalPlan += [pscustomobject]@{
+                Relative = $relative
+                Destination = $obsolete
+            }
         }
     }
 
-    Copy-Item -LiteralPath $packageManifestPath -Destination $LocalManifestPath -Force
-
     $venvPython = Join-Path $Root ".venv\Scripts\python.exe"
+    if ((Test-Path -LiteralPath $venvPython) -and $requirementsChanged) {
+        Write-Step "Installing newly required dependencies"
+        & $venvPython -m pip install --requirement `
+            (Join-Path $packageRoot.FullName "requirements.txt")
+        if ($LASTEXITCODE -ne 0) {
+            throw "Dependency update failed before patching."
+        }
+    }
+
+    $RollbackRoot = Join-Path $TempRoot "rollback"
+    New-Item -ItemType Directory -Path $RollbackRoot | Out-Null
+    $planned = @($changePlan) + @($removalPlan)
+    $seenRollback = @{}
+    foreach ($item in $planned) {
+        $key = $item.Relative.Replace("\", "/").ToLowerInvariant()
+        if ($seenRollback.ContainsKey($key)) { continue }
+        $seenRollback[$key] = $true
+        $existed = Test-Path -LiteralPath $item.Destination -PathType Leaf
+        if ($existed) {
+            $backup = Resolve-ManagedPath $RollbackRoot $item.Relative
+            $backupParent = Split-Path -Parent $backup
+            New-Item -ItemType Directory -Force -Path $backupParent | Out-Null
+            Copy-Item -LiteralPath $item.Destination -Destination $backup -Force
+        }
+        $RollbackRecords += [pscustomobject]@{
+            Relative = $item.Relative
+            Destination = $item.Destination
+            Existed = $existed
+        }
+    }
+    $ManifestExisted = Test-Path -LiteralPath $LocalManifestPath -PathType Leaf
+    if ($ManifestExisted) {
+        Copy-Item -LiteralPath $LocalManifestPath `
+            -Destination (Join-Path $RollbackRoot "DISTRIBUTION_MANIFEST.json") `
+            -Force
+    }
+
+    $PatchStarted = $true
+    foreach ($item in $changePlan) {
+        $parent = Split-Path -Parent $item.Destination
+        New-Item -ItemType Directory -Force -Path $parent | Out-Null
+        Copy-Item -LiteralPath $item.Source -Destination $item.Destination -Force
+    }
+    foreach ($item in $removalPlan) {
+        Remove-Item -LiteralPath $item.Destination -Force
+    }
+
     if (-not (Test-Path -LiteralPath $venvPython)) {
         Write-Step "Creating the missing local environment"
         & powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File `
             (Join-Path $Root "SETUP_JNSQ.ps1") -NoLaunch -SkipIdentity -NonInteractive
-        if ($LASTEXITCODE -ne 0) { throw "Environment setup failed after patching." }
-    } elseif ($requirementsChanged) {
-        Write-Step "Installing newly required dependencies"
-        & $venvPython -m pip install --requirement (Join-Path $Root "requirements.txt")
-        if ($LASTEXITCODE -ne 0) { throw "Dependency update failed after patching." }
+        if ($LASTEXITCODE -ne 0) {
+            throw "Environment setup failed after patching."
+        }
     }
 
-    if ($changed -gt 0) {
+    $changed = @($changePlan).Count
+    $removed = @($removalPlan).Count
+    if (($changed + $removed) -gt 0) {
         Write-Step "Checking patched source files"
         & $venvPython -m compileall -q (Join-Path $Root "adapters") `
             (Join-Path $Root "core") (Join-Path $Root "harness") `
             (Join-Path $Root "room") (Join-Path $Root "shell")
         if ($LASTEXITCODE -ne 0) { throw "Source validation failed after patching." }
     }
+
+    Copy-Item -LiteralPath $packageManifestPath `
+        -Destination $LocalManifestPath -Force
+    $PatchStarted = $false
 
     Write-Host ""
     Write-Host "  UPDATE COMPLETE" -ForegroundColor Green
@@ -214,6 +270,33 @@ try {
     exit 0
 } catch {
     $message = $_.Exception.Message
+    if ($PatchStarted -and $null -ne $RollbackRoot -and
+            (Test-Path -LiteralPath $RollbackRoot)) {
+        try {
+            Write-Step "Restoring the previous managed files"
+            foreach ($record in $RollbackRecords) {
+                if ($record.Existed) {
+                    $backup = Resolve-ManagedPath $RollbackRoot $record.Relative
+                    $parent = Split-Path -Parent $record.Destination
+                    New-Item -ItemType Directory -Force -Path $parent | Out-Null
+                    Copy-Item -LiteralPath $backup `
+                        -Destination $record.Destination -Force
+                } elseif (Test-Path -LiteralPath $record.Destination -PathType Leaf) {
+                    Remove-Item -LiteralPath $record.Destination -Force
+                }
+            }
+            $manifestBackup = Join-Path $RollbackRoot "DISTRIBUTION_MANIFEST.json"
+            if ($ManifestExisted) {
+                Copy-Item -LiteralPath $manifestBackup `
+                    -Destination $LocalManifestPath -Force
+            } elseif (Test-Path -LiteralPath $LocalManifestPath -PathType Leaf) {
+                Remove-Item -LiteralPath $LocalManifestPath -Force
+            }
+            $message = "$message Previous managed files were restored."
+        } catch {
+            $message = "$message Rollback also failed: $($_.Exception.Message)"
+        }
+    }
     Write-FailureReceipt $message
     Write-Host ""
     Write-Host "  UPDATE STOPPED" -ForegroundColor Red

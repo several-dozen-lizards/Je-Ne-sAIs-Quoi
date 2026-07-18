@@ -22,6 +22,8 @@ import json
 import math
 import os
 
+from core.dmn import SALIENCE_NORMAL
+
 DEFAULTS = {
     "tau_s": 240.0,           # speech-pressure decay (leak)
     "discharge_at": 0.5,      # base bar to self-initiate
@@ -81,7 +83,9 @@ class SocialPressure:
             elif k == "arrive":
                 self.pressure += self.p["arrive_weight"] * bond
 
-    def tick(self, now_s: float, dt_s: float):
+    def tick(self, now_s: float, dt_s: float, *,
+             action_readiness: float = SALIENCE_NORMAL,
+             hard_blocked: bool = False):
         self.pressure *= math.exp(-dt_s / self.p["tau_s"])
         self.habituation *= math.exp(-dt_s / self.p["habituation_tau_s"])
         self.turn_times = [t for t in self.turn_times if now_s - t < 3600]
@@ -90,7 +94,13 @@ class SocialPressure:
         if len(self.turn_times) >= int(self.p["hourly_cap"]):
             return None
         bar = self.p["discharge_at"] * (1.0 + self.habituation)
-        if self.pressure < bar or not self.pending:
+        readiness = max(0.0, min(1.0, float(action_readiness)))
+        if hard_blocked or readiness <= 0.0:
+            return None
+        # Existing normal readiness preserves the existing bar. Greater
+        # capacity strengthens the same social pull; recovery raises the bar.
+        effective_bar = bar * SALIENCE_NORMAL / readiness
+        if self.pressure < effective_bar or not self.pending:
             return None
         # discharge: deliver ALL unheard speech as one labeled message
         by = self.pending[0]["speaker"]

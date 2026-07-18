@@ -1,0 +1,41 @@
+# claude-opus-4-6 — user-added Anthropic API model, scaffolded by the factory 2026-07-15.
+# KEY LAW: ANTHROPIC_API_KEY lives in the ENVIRONMENT, never in this
+# file. Window/capabilities below are family defaults, NOT verified —
+# check the model card before budget-sensitive work.
+identity:
+  name: "claude-opus-4-6"
+  family: "anthropic"
+  base_model: "claude-opus-4-6"
+  provider: "anthropic_api"
+  endpoint: "claude-opus-4-6"
+  locality: "api"
+context:
+  window_tokens: 200000
+  practical_window_tokens: 170000
+  block_budgets: {}
+prompt_structure:
+  system_prompt: true
+  template: "anthropic_messages"
+  strict_alternation: true
+  prefill_supported: true
+  stop_sequences: []
+  prompt_cache: {enabled: true, ttl: "5m"}
+
+capabilities:
+  tool_use: true
+  vision: true
+  structured_output: "unknown"
+  streaming: true
+module_capability:
+  validated: []
+  saturates_on: []
+  ceiling_notes: "unknown — user-added; mapping this ceiling IS the experiment"
+runtime:
+  gpu_constraints: "none (API)"
+  cost: "API $/MTok"
+  latency_class: "unknown"
+quirks:
+  - "user-added via the factory; unverified — check the model card"
+harness:
+  last_mechanical_pass: null
+  fidelity_floor_results: {}

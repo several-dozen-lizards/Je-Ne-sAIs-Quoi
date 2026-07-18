@@ -130,6 +130,20 @@ def write_roster_mapping_scalar(persona_dir: str, section: str, key: str,
 
 def save_persona_avatar(persona_dir: str, data_url: str) -> dict:
     """Validate and atomically store an image under ``<persona>/ui``."""
+    result = save_local_avatar(os.path.join(persona_dir, "ui"), data_url)
+    relative = f"ui/{os.path.basename(result['path'])}"
+    write_roster_scalar(persona_dir, "avatar", relative)
+    return {**result, "relative": relative}
+
+
+def save_local_avatar(media_dir: str, data_url: str) -> dict:
+    """Validate and atomically store one local avatar in a chosen media dir.
+
+    This byte-level primitive deliberately knows nothing about model personas,
+    human accounts, or user personas.  Each caller persists the resulting
+    relative reference in its own identity record, keeping those identities
+    separate while giving them the same image safety boundary.
+    """
     match = _DATA_URL.match((data_url or "").strip())
     if not match:
         raise ValueError("avatar must be a base64 image upload")
@@ -152,27 +166,22 @@ def save_persona_avatar(persona_dir: str, data_url: str) -> dict:
     if detected_extension != expected_extension:
         raise ValueError("avatar file contents do not match its image type")
 
-    ui_dir = os.path.join(persona_dir, "ui")
-    os.makedirs(ui_dir, exist_ok=True)
+    os.makedirs(media_dir, exist_ok=True)
     filename = f"avatar.{detected_extension}"
-    path = os.path.join(ui_dir, filename)
+    path = os.path.join(media_dir, filename)
     temporary = path + ".tmp"
     with open(temporary, "wb") as handle:
         handle.write(payload)
     os.replace(temporary, path)
-    relative = f"ui/{filename}"
-    write_roster_scalar(persona_dir, "avatar", relative)
-
-    # A replacement may change format. Once the roster points to the new
-    # image, retire only obsolete avatar siblings created by this feature.
-    for old_name in os.listdir(ui_dir):
+    # A replacement may change format. Retire only obsolete avatar siblings
+    # created by this feature; no unrelated local media is touched.
+    for old_name in os.listdir(media_dir):
         if old_name.startswith("avatar.") and old_name != filename \
                 and not old_name.endswith(".tmp"):
-            old_path = os.path.join(ui_dir, old_name)
+            old_path = os.path.join(media_dir, old_name)
             if os.path.isfile(old_path):
                 os.remove(old_path)
-    return {"path": path, "relative": relative,
-            "mime": _EXTENSION_MIME[detected_extension]}
+    return {"path": path, "mime": _EXTENSION_MIME[detected_extension]}
 
 
 def load_persona_avatar(persona_dir: str) -> dict | None:
@@ -185,7 +194,15 @@ def load_persona_avatar(persona_dir: str) -> dict | None:
     relative = str(roster.get("avatar") or "").replace("\\", "/").strip()
     if not relative or os.path.isabs(relative):
         return None
-    root = os.path.realpath(persona_dir)
+    return load_local_avatar(persona_dir, relative)
+
+
+def load_local_avatar(root_dir: str, relative: str) -> dict | None:
+    """Resolve one relative local avatar while refusing path escapes."""
+    relative = str(relative or "").replace("\\", "/").strip()
+    if not relative or os.path.isabs(relative):
+        return None
+    root = os.path.realpath(root_dir)
     path = os.path.realpath(os.path.join(root, *relative.split("/")))
     try:
         if os.path.commonpath([root, path]) != root:

@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>JNSQ model-call observatory</title>
+  <style>
+    :root{color-scheme:dark;--bg:#121018;--panel:#1b1822;--ink:#f5f1fa;
+      --dim:#afa6ba;--line:#3b3446;--accent:#8bdbca;--accent2:#d7a7ff;
+      --danger:#ff8f9c;--warning:#f0c56d;font:15px/1.48 system-ui,sans-serif}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink)}
+    main{max-width:1200px;margin:auto;padding:1.25rem}
+    h1{font-size:1.45rem;margin:0}h2{font-size:1.05rem;margin:1.6rem 0 .65rem}
+    p{margin:.3rem 0;color:var(--dim)}button,select{font:inherit;color:var(--ink);
+      background:var(--panel);border:1px solid var(--line);border-radius:.45rem;
+      padding:.48rem .68rem}button{cursor:pointer}button:hover{border-color:var(--accent)}
+    button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+    .top{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+    .controls{display:flex;align-items:end;gap:.55rem;flex-wrap:wrap}
+    label{display:grid;gap:.18rem;color:var(--dim);font-size:.82rem}
+    .cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem;margin-top:1rem}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:.7rem;padding:.85rem}
+    .card span,.card strong,.card small{display:block}.card span{color:var(--dim);font-size:.78rem}
+    .card strong{font-size:1.5rem;font-weight:500}.card small{margin-top:.16rem}
+    .notice{margin-top:.8rem;padding:.68rem .8rem;border-left:3px solid var(--warning);
+      background:color-mix(in srgb,var(--warning) 10%,transparent);color:var(--ink)}
+    .notice.good{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+    .tables{display:grid;grid-template-columns:1.35fr 1fr;gap:1.2rem;align-items:start}
+    table{width:100%;border-collapse:collapse;font-size:.86rem}th,td{padding:.48rem .4rem;
+      text-align:left;border-bottom:1px solid var(--line);vertical-align:middle}
+    th{color:var(--dim);font-weight:500;font-size:.76rem}td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+    .bar-track{height:.42rem;background:color-mix(in srgb,var(--line) 70%,transparent);
+      min-width:6rem;border-radius:1rem;overflow:hidden}.bar-fill{height:100%;background:var(--accent);border-radius:inherit}
+    .table-wrap{overflow-x:auto}.flag{color:var(--warning)}.bad{color:var(--danger)}.muted{color:var(--dim)}
+    #recent td{white-space:nowrap}#recent td:first-child{white-space:normal}
+    .empty{color:var(--dim);padding:1rem 0}
+    @media(max-width:760px){.cards{grid-template-columns:1fr}.tables{grid-template-columns:1fr}
+      main{padding:.9rem}.top{display:grid}.controls{align-items:stretch}}
+  </style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <div><h1>Model-call observatory</h1>
+      <p>Where household model time and tokens flow. Prompts and replies never enter this view.</p></div>
+    <div class="controls">
+      <label>Time window
+        <select id="hours"><option value="24">Last 24 hours</option><option value="168">Last 7 days</option>
+          <option value="720">Last 30 days</option><option value="0">All retained receipts</option></select>
+      </label>
+      <button id="refresh" type="button">Refresh now</button>
+    </div>
+  </div>
+  <div class="cards" aria-live="polite">
+    <div class="card"><span>Model calls</span><strong id="calls">—</strong><small id="errors" class="muted"></small></div>
+    <div class="card"><span>Total model waiting time</span><strong id="time">—</strong><small class="muted">Overlapping calls are added, not wall-clock runtime</small></div>
+    <div class="card"><span>Measured tokens</span><strong id="tokens">—</strong><small id="tokenmix" class="muted"></small></div>
+  </div>
+  <div id="integrity" class="notice" role="status">Loading receipts…</div>
+
+  <div class="tables">
+    <section><h2>What the calls were for</h2><div class="table-wrap"><table>
+      <thead><tr><th>Purpose</th><th class="num">Calls</th><th class="num">Median</th><th>Share of model time</th><th class="num">Tokens</th></tr></thead>
+      <tbody id="purpose"></tbody></table></div></section>
+    <section><h2>Who used the models</h2><div class="table-wrap"><table>
+      <thead><tr><th>Persona</th><th class="num">Calls</th><th class="num">Model time</th><th class="num">Tokens</th><th class="num">Cache read</th></tr></thead>
+      <tbody id="persona"></tbody></table></div></section>
+  </div>
+
+  <section><h2>Models and routes</h2><div class="table-wrap"><table>
+    <thead><tr><th>Model endpoint</th><th class="num">Calls</th><th class="num">Median</th><th class="num">Input</th><th class="num">Output</th><th class="num">Reasoning</th><th class="num">Cache read</th><th class="num">Missing usage</th></tr></thead>
+    <tbody id="model"></tbody></table></div></section>
+
+  <section><h2>Most recent calls</h2><div class="table-wrap"><table id="recent">
+    <thead><tr><th>When</th><th>Persona</th><th>Purpose</th><th>Route</th><th class="num">Latency</th><th class="num">In / out</th><th>Result</th></tr></thead>
+    <tbody id="recentBody"></tbody></table></div></section>
+</main>
+<script>
+const $=id=>document.getElementById(id), nf=new Intl.NumberFormat(),
+  esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function syncTheme(){try{const s=getComputedStyle(parent.document.documentElement);
+  for(const [ours,theirs] of [["--bg","--bg"],["--panel","--panel"],["--ink","--ink"],["--dim","--dim"],["--line","--line"],["--accent","--accent"],["--accent2","--accent2"]]){
+    const value=s.getPropertyValue(theirs).trim();if(value)document.documentElement.style.setProperty(ours,value)}}catch(_){}}
+const duration=ms=>{if(ms==null)return "—";if(ms<1000)return `${Math.round(ms)} ms`;
+  const seconds=ms/1000;if(seconds<60)return `${seconds.toFixed(seconds<10?1:0)} s`;
+  if(seconds<3600)return `${Math.floor(seconds/60)}m ${Math.round(seconds%60)}s`;
+  return `${Math.floor(seconds/3600)}h ${Math.round((seconds%3600)/60)}m`};
+const totalTokens=r=>(r.input_tokens||0)+(r.output_tokens||0);
+function rows(id,items,render){$(id).innerHTML=items.length?items.map(render).join(""):
+  '<tr><td colspan="8" class="empty">No calls in this window.</td></tr>'}
+function render(data){const t=data.totals,total=(t.input_tokens||0)+(t.output_tokens||0);
+  $("calls").textContent=nf.format(t.calls);$("errors").textContent=t.errors?`${t.errors} failed · ${duration(t.error_ms)} interrupted/error time excluded`:"no failed calls";
+  $("time").textContent=duration(t.model_ms);$("tokens").textContent=nf.format(total);
+  $("tokenmix").textContent=`${nf.format(t.input_tokens)} in · ${nf.format(t.output_tokens)} out · ${nf.format(t.reasoning_tokens)} reasoning`;
+  const issues=[];if(data.integrity.malformed_lines)issues.push(`${data.integrity.malformed_lines} older malformed ledger line${data.integrity.malformed_lines===1?"":"s"} skipped`);
+  if(t.missing_usage)issues.push(`${t.missing_usage} call${t.missing_usage===1?"":"s"} missing token usage`);
+  if(t.length_finishes)issues.push(`${t.length_finishes} call${t.length_finishes===1?"":"s"} ended at its output ceiling`);
+  if(data.integrity.tail_truncated)issues.push("view is using the bounded recent tail of the ledger");
+  $("integrity").className="notice"+(issues.length?"":" good");$("integrity").textContent=issues.length?issues.join(" · "):"Ledger structure and usage coverage are clean in this window.";
+  const purposes=[...data.groups.purpose].sort((a,b)=>b.model_ms-a.model_ms),max=Math.max(1,...purposes.map(x=>x.model_ms));
+  rows("purpose",purposes,r=>`<tr><td>${esc(r.key)}</td><td class="num">${nf.format(r.calls)}</td><td class="num">${duration(r.median_ms)}</td><td><div class="bar-track" aria-label="${Math.round(r.model_ms/max*100)} percent of largest purpose"><div class="bar-fill" style="width:${r.model_ms/max*100}%"></div></div></td><td class="num">${nf.format(totalTokens(r))}</td></tr>`);
+  rows("persona",[...data.groups.persona].sort((a,b)=>b.model_ms-a.model_ms),r=>`<tr><td>${esc(r.key)}</td><td class="num">${nf.format(r.calls)}</td><td class="num">${duration(r.model_ms)}</td><td class="num">${nf.format(totalTokens(r))}</td><td class="num">${nf.format(r.cache_read_tokens)}</td></tr>`);
+  rows("model",[...data.groups.model].sort((a,b)=>b.model_ms-a.model_ms),r=>`<tr><td>${esc(r.key)}</td><td class="num">${nf.format(r.calls)}</td><td class="num">${duration(r.median_ms)}</td><td class="num">${nf.format(r.input_tokens)}</td><td class="num">${nf.format(r.output_tokens)}</td><td class="num">${nf.format(r.reasoning_tokens)}</td><td class="num">${nf.format(r.cache_read_tokens)}</td><td class="num ${r.missing_usage?'flag':''}">${nf.format(r.missing_usage)}</td></tr>`);
+  rows("recentBody",data.recent,r=>{const route=r.spec_name||r.model||"unknown",result=r.status!=="ok"?`<span class="bad">${esc(r.status)}</span>`:r.finish_reason==="length"?'<span class="flag">output ceiling</span>':esc(r.finish_reason||"ok");return `<tr><td>${esc(new Date(r.ts).toLocaleString())}</td><td>${esc(r.persona)}</td><td>${esc(r.purpose)}</td><td>${esc(route)}</td><td class="num">${duration(r.total_ms)}</td><td class="num">${r.input_tokens==null&&r.output_tokens==null?'<span class="flag">unmetered</span>':`${nf.format(r.input_tokens||0)} / ${nf.format(r.output_tokens||0)}`}</td><td>${result}</td></tr>`});
+}
+async function load(){const button=$("refresh");button.disabled=true;button.textContent="Reading…";
+  try{const response=await fetch(`/api/model-calls/summary?hours=${encodeURIComponent($("hours").value)}`,{cache:"no-store"});
+    const data=await response.json();if(!response.ok)throw new Error(data.error||response.statusText);render(data)}
+  catch(error){$("integrity").className="notice";$("integrity").textContent=`Could not read receipts: ${error.message}`}
+  finally{button.disabled=false;button.textContent="Refresh now"}}
+$("refresh").onclick=load;$("hours").onchange=load;syncTheme();load();
+</script>
+</body></html>

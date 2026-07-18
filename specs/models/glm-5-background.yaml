@@ -1,0 +1,53 @@
+# GLM-5's bounded utility route. It addresses the same provider endpoint as
+# glm-5.yaml, but declares Z.AI's supported direct-answer wire mode for compact
+# background work. It is deliberately absent from the conversational picker:
+# the ordinary glm-5 vessel and every one of its capabilities remain intact.
+identity:
+  name: "glm-5-background"
+  family: "openai_chat"
+  base_model: "glm-5"
+  provider: "openai_compat"
+  endpoint: "glm-5"
+  base_url: "https://api.z.ai/api/paas/v4"
+  api_key_env: "ZAI_API_KEY"
+  locality: "api"
+  catalog_visible: false
+context:
+  window_tokens: 200000
+  practical_window_tokens: 170000
+  block_budgets: {}
+prompt_structure:
+  system_prompt: true
+  template: "openai_messages"
+  strict_alternation: false
+  prefill_supported: false
+  stop_sequences: []
+sampling:
+  temperature:
+    mode: dynamic
+    min: 0.0
+    max: 1.0
+    precision: 2
+wire:
+  chat_completions:
+    thinking:
+      type: "disabled"
+capabilities:
+  tool_use: false
+  vision: false
+  structured_output: "unknown"
+  streaming: true
+module_capability:
+  validated: []
+  saturates_on: []
+  ceiling_notes: "Internal bounded-utility route; not a conversational vessel"
+runtime:
+  gpu_constraints: "server-side"
+  cost: "depends on Z.AI account pricing"
+  latency_class: "direct-answer background route"
+quirks:
+  - "hidden from the conversational catalog; loadable only by explicit purpose route"
+  - "thinking.type=disabled is a required provider wire declaration, not a fallback"
+harness:
+  last_mechanical_pass: null
+  fidelity_floor_results: {}

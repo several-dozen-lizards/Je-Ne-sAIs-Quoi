@@ -1,0 +1,19 @@
+schema_version: 1
+profile: structured_general_v1
+profile_revision: "2026-07-17-structured-general-canary-03"
+scope: shared
+
+# Candidate shared renderer. No model selects it in P1 and no live prompt uses
+# it. Later fidelity gates decide which model families may bind to it.
+layout:
+  newline: lf
+  vessel_heading: "[VESSEL]"
+  identity_heading: "[IDENTITY]"
+  capability_heading: "[CAPABILITY STATE]"
+  enabled_capabilities_template: "Enabled actionable capabilities: {capabilities}."
+  no_enabled_capabilities: "Enabled actionable capabilities: none. An unavailable capability cannot be invoked by a tag or by narrating an action."
+  organ_heading_template: "[CAPABILITY: {organ}]"
+  statement_separator_blank_lines: 1
+  section_separator_blank_lines: 1
+  terminal_newline: false
+  stable_prefix: true

@@ -33,7 +33,9 @@ def main():
     assert "personas().map" in shell and "jnsq.public.visible" in shell
     assert 'className="panel-resizer"' in shell
     assert "jnsq.public.widths" in shell and "wirePanelResizers" in shell
-    assert "data-icon" in shell and "changePersonaIcon" in shell
+    assert "data-icon" in shell and "openPersonaLook" in shell
+    assert 'id="lookDialog"' in shell and "speaker_colors" in shell
+    assert "/assets/hex_color.js" in shell
     assert "data-avatar" not in shell and "choosePersonaAvatar" not in shell
     assert 'class="home-heading">The household' in shell
     assert "data-switch" in shell and "switchPersona" in shell
@@ -49,9 +51,18 @@ def main():
     assert "Ollama · local" in shell and "LM Studio · local" in shell
     assert "The Nexus" in shell
     assert 'data-top-page="nexus"' in shell
-    assert shell.index("Household") < shell.index(">🌐 Nexus<") < shell.index("Settings")
+    assert shell.index("<span>Household</span>") < shell.index("<span>Chat</span>") < shell.index("<span>Settings</span>") < shell.index("<span>About</span>")
+    assert shell.count('class="nav-icon"') == 4
+    assert 'stroke="currentColor"' in shell
+    assert "function nexusIcon()" in shell and 'class="nexus-icon"' in shell
+    assert "🌍 The Nexus" not in shell
     assert "function openNexus()" in shell
     assert "/assets/jnsq_favicon.svg" in shell
+    assert "a local home for persistent AI personas" not in shell
+    assert "scrollbar-color:var(--mint)" in shell
+    assert "--panel2:color-mix(in srgb,var(--panel) 82%,var(--mint))" in shell
+    assert 'class="on" type="button" data-top-page="personas"' in shell
+    assert "background:color-mix(in srgb,var(--mint) 20%,var(--panel))" in shell
     cockpit = (ROOT / "shell" / "cockpit.html").read_text(encoding="utf-8")
     assert "JNSQ cockpit" not in cockpit and 'class="brand-mark"' not in cockpit
     assert "Conversation · Je Ne Sais Quoi" in cockpit
@@ -61,14 +72,88 @@ def main():
     assert "thought-label" not in cockpit
     assert "scrollConversationToBottom()" in cockpit
     assert "requestAnimationFrame" in cockpit
+    assert 'fetch("/api/turn/stream"' in cockpit
+    assert "res.body.getReader()" in cockpit
+    assert "const turnQueue = []" in cockpit
+    assert "turnQueue.push({text,sentImages})" in cockpit
+    assert "const item=turnQueue.shift()" in cockpit
+    assert "repaintQueuedTurns()" in cockpit
+    contract = (ROOT / "shell" / "contract.py").read_text(encoding="utf-8")
+    cockpit_server = (ROOT / "shell" / "cockpit.py").read_text(
+        encoding="utf-8")
+    assert '@app.post("/api/turn/stream")' in cockpit_server, (
+        "cockpit frontend requests /api/turn/stream but backend route is missing")
+    assert 'working_window(self.window_k, channel="chat")' in contract
+    assert "app.state.turn_lock.acquire()" in cockpit_server
+    assert "human_turn_arrived" in cockpit_server
+    assert 'id="atelier"' in cockpit
+    assert 'id="atelier-submit"' in cockpit
+    assert "function renderAtelier" in cockpit
+    assert "function perceiveAtelierArtifact" in cockpit
+    assert '@app.get("/api/atelier")' in cockpit_server
+    assert '@app.post("/api/atelier/seeds")' in cockpit_server
+    assert '@app.get("/api/atelier/artifacts/{artifact_id}")' in cockpit_server
+    assert '@app.post("/api/atelier/artifacts/{artifact_id}/perceive")' in cockpit_server
+    assert (ROOT / "core" / "atelier.py").is_file()
+    assert (ROOT / "shell" / "atelier_runtime.py").is_file()
+    assert (ROOT / "specs" / "organ_instructions" / "atelier.yaml").is_file()
     assert "CONFIG.persona_avatar" in cockpit
     assert 'id="column-resizer"' in cockpit
     assert 'id="bodyToggle"' in cockpit and 'id="receiptsToggle"' in cockpit
+    assert 'id="cockpit-main" class="inspector-collapsed"' in cockpit
+    assert 'class="panel collapsed" id="receipts-panel"' in cockpit
+    assert 'localStorage.getItem(key) !== "open"' in cockpit
+    assert "scrollbar-color:var(--accent)" in cockpit
+    assert cockpit.count('class="sensory-control"') == 3
+    assert "#composer .sensory-control" in cockpit
+    for font in ("display", "humanist", "rounded", "geometric"):
+        assert f'<option value="{font}">' in cockpit
+    assert "themeFontStack(tokens.font)" in cockpit
+    assert 'id="themeFontScale"' in cockpit and '"font_scale"' in cockpit
+    assert 'id="themeBackgroundFile"' in cockpit
+    assert 'id="themeBackgroundUpload"' in cockpit
+    assert 'id="themeBackgroundRemove"' in cockpit
+    assert '@app.post("/api/ui/conversation-background")' in cockpit_server
+    assert '@app.delete("/api/ui/conversation-background")' in cockpit_server
+    settings = (ROOT / "shell" / "settings.html").read_text(encoding="utf-8")
+    users = (ROOT / "shell" / "users.html").read_text(encoding="utf-8")
+    assert "scrollbar-color:var(--accent)" in settings
+    assert "scrollbar-color:var(--accent)" in users
+    assert settings.count('class="ui-icon"') == 6
+    assert '<span>Account &amp; privacy</span>' in settings
+    assert '<span>Updates</span>' in settings
+    assert 'class="ui-icon"' in users and "👤" not in users
+    assert '<option value="humanist">Atkinson Hyperlegible</option>' in settings
+    assert 'id="houseFontScale"' in settings and "--theme-glow-alpha" in settings
+    assert 'id="housePresetCreate"' in settings
+    assert 'id="housePresetUpdate"' in settings
+    assert 'id="housePresetDelete"' in settings
+    assert "themeFontStack(t.font)" in users
+    assert "saveAccountLook" in users and "uploadPersonaAvatar" in users
+    nexus = (ROOT / "room" / "viewer.html").read_text(encoding="utf-8")
+    assert 'id="nexusResizer"' in nexus
+    assert 'data-nexus-section="invite"' in nexus
+    assert 'data-nexus-section="present" open' in nexus
+    assert 'id="sidebarToggle"' in nexus and 'sidebarCollapsed' in nexus
+    assert 'Nexus appearance' in nexus and 'id="saveNexusAppearance"' in nexus
+    assert 'id="resetNexusAppearance"' in nexus
+    assert '/assets/hex_color.js' in nexus
+    assert 'class="speaker-choice"' in nexus
+    assert 'jnsq.nexus.presenceWidth' in nexus
+    assert 'class="speaker-mark"' in nexus
+    assert "function speakerProfile" in nexus
+    assert "function fallbackColor" in nexus
+    assert "avatar_url" in nexus and "--speaker-color" in nexus
+    assert '<header><div><h1>The Nexus</h1>' in nexus
+    assert 'jnsq_favicon.svg' not in nexus
+    assert "const fonts={system:" in nexus and "humanist:" in nexus
+    assert 't.font_scale' in nexus and '--theme-motion-duration' in nexus
     assert 'id="organScope"' in cockpit
     assert 'id="saveOrgans"' in cockpit
     assert 'JSON.stringify({enabled, scope})' in cockpit
     for name in ("favicon.ico", "jnsq_favicon.svg",
-                 "jnsq_icon_animated_128.apng", "favicon-180.png"):
+                 "jnsq_icon_animated_128.apng", "favicon-180.png",
+                 "hex_color.js"):
         assert (ROOT / "assets" / "jnsq" / name).is_file(), name
     assert (ROOT / "assets" / "jnsq" /
             "jnsq-venetian-mask-space.png").is_file()
@@ -85,6 +170,16 @@ def main():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "jnsq_favicon.svg" in readme
     assert "jnsq-venetian-mask-space.png" in readme
+    assert "Ambient camera and microphone" in readme
+    assert "body/perception/images/" in readme
+    assert "body/atelier/" in readme
+    assert "no publishing or" in readme
+    assert "spoken-turn" in readme and "checkbox is off by default" in readme
+    assert "Reply speech is also off by default" in readme
+    assert "browser/operating system speech" in readme
+    assert "no fixed barge-in delay" in readme
+    assert "linguistic clause boundary" in readme
+    assert "public builds never contain it" in readme
     installer = (ROOT / "INSTALL_JNSQ.bat").read_text(encoding="utf-8")
     setup = (ROOT / "SETUP_JNSQ.ps1").read_text(encoding="utf-8")
     assert "SETUP_JNSQ.ps1" in installer
@@ -93,12 +188,24 @@ def main():
     assert "pip\", \"install\", \"--requirement" in setup
     assert "Existing local owner found" in setup
     assert "Start Je Ne Sais Quoi now?" in setup
+    requirements = (ROOT / "requirements.txt").read_text(
+        encoding="utf-8").splitlines()
+    assert requirements.count("pydantic-ai-slim==2.8.0") == 1
     updater = (ROOT / "UPDATE_JNSQ.ps1").read_text(encoding="utf-8")
     update_launcher = (ROOT / "UPDATE_JNSQ.bat").read_text(encoding="utf-8")
     assert "UPDATE_JNSQ.ps1" in update_launcher
     assert "managed_files" in updater and "Get-FileHash" in updater
     assert "requirementsChanged" in updater
+    assert "Previous managed files were restored" in updater
+    assert updater.index("Checking patched source files") < updater.index(
+        "Copy-Item -LiteralPath $packageManifestPath")
     assert "local-life data" in updater
+    for relative in (
+            "harness/anthropic_events.py",
+            "harness/openai_compat_events.py",
+            "harness/model_call_receipts.py"):
+        assert (ROOT / relative).is_file(), \
+            f"public runtime transport is missing: {relative}"
     assert (ROOT / "VERSION").read_text(encoding="utf-8").strip()
     settings = (ROOT / "shell" / "settings.html").read_text(encoding="utf-8")
     for page in ("account", "appearance", "keys", "vision", "prompts",

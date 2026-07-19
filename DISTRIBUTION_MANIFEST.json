@@ -1,6 +1,6 @@
 {
   "format": 2,
-  "version": "0.7.1",
+  "version": "0.7.2",
   "files": 171,
   "contains_personal_data": false,
   "empty_local_roots": [
@@ -29,7 +29,7 @@
     "assets/jnsq/favicon-48.png": "cf166c9eac0682b9b8485e4e4aef239d1b0059d8f59b06fdd5e4e3bac4233b92",
     "assets/jnsq/favicon-512.png": "bacc3d316c9cb25150d5ae30d2843a39a29fb20cb3f08823526bb721cb6ca038",
     "assets/jnsq/favicon.ico": "61c3ebc695cc85a172ce95ca339b049bc3807b4d134638294f87261ba019b8c0",
-    "assets/jnsq/hex_color.js": "36e365ba40833f7f121ab1ed638941a77fbe2cf4e25a52307a9c1a7e883407d5",
+    "assets/jnsq/hex_color.js": "33ae270391d3b421ee600d8b83663b3532ceec851ba43dfb035ffcd809aa57fa",
     "assets/jnsq/jnsq-venetian-mask-space.png": "194309eba6c6cfb7ccba55ff1afcbbd9466f4e3b5b5de7e8dce6e5805e28a9a5",
     "assets/jnsq/jnsq_favicon.svg": "6db0fbefd9972c373bfa3586527e68e74723d77145b602c1d4664348c8b3dd61",
     "assets/jnsq/jnsq_favicon_glint.svg": "18d65b3c48edbf8e71089f61898c2b8693c6d91364f7d23e7cda269dbab7523d",
@@ -110,7 +110,7 @@
     "room/viewer.html": "ed561a4ced28046e4cfc10277d2a54f376453f2351300ff6b044f589867e5639",
     "SETUP_JNSQ.ps1": "63edf344db43d92e1b342ce7bb013be20730e687ddecf33b83ee0da2ea8868e2",
     "shell/__init__.py": "51a9a935ce8b9bc0977e2cfcd74db27fe52a47420a9131ac6b8aa8479f172b2a",
-    "shell/about.html": "25c2eff909dedd67719b6af9b7aafe09b9594bd507b4c700a2ec6343494ca274",
+    "shell/about.html": "5dc643e3f709889373dda7a0cc0f0a5d2555c04ba6777f9e31dc36806b57339a",
     "shell/agency_controller.py": "32cda12fc2b77e56e22e59cab65fbf59dc64dd70129d687f23be95b612930289",
     "shell/agency_runner.py": "932783c07b961e7e45941da3c5657ddc339594296f73f91b2c059bbe7d6f86c0",
     "shell/agency_runtime.py": "95ae7700daa637fc167aa6aea36989a6e2bb8b0243f6df59db4024012b8e103f",
@@ -180,6 +180,6 @@
     "tools/verify_atelier_kinetic.py": "c6397b4e7b0f6d0a5dc9271d19161933e819fc8535024fbd0934a5df9cf23266",
     "UPDATE_JNSQ.bat": "21c0ba7c15a43eb06bc6a317ee8cf5b6910c36a53bde7ec615ea6a673ef10bdc",
     "UPDATE_JNSQ.ps1": "eec5ab89dac0903ce95f4d540d7bf318972aef75a1b8f3100b323bf9b6bbe543",
-    "VERSION": "902311c7bb38fa1658ff403def6158ee7378fe9d6e2e284fa1c38735c31bd30b"
+    "VERSION": "d0176718bd214ce8474c06ed61c395ca113fdfc2acdd86d9aa9933b40d9b561e"
   }
 }

@@ -1,6 +1,6 @@
 {
   "format": 2,
-  "version": "0.7.3",
+  "version": "0.7.4",
   "files": 173,
   "contains_personal_data": false,
   "empty_local_roots": [
@@ -109,10 +109,10 @@
     "room/host.py": "8f484e7804f03a96cf71cfda2360ab1e68ca09fe575a5912f887e279e3de53fc",
     "room/layout.py": "2ef606fbc4b67b54ccd41cfc92cb1e32376a12e5986b506de4d939b0ab296bd5",
     "room/state.py": "2cb4c84d7580ec38619d6000d56ad75c6f68492e99244ca04a531e03ad5feb43",
-    "room/viewer.html": "ed561a4ced28046e4cfc10277d2a54f376453f2351300ff6b044f589867e5639",
+    "room/viewer.html": "e5d795ae30e5091414ab51e6ceeb7a0e6450231ad87ee6fd358f2f320c7e66aa",
     "SETUP_JNSQ.ps1": "63edf344db43d92e1b342ce7bb013be20730e687ddecf33b83ee0da2ea8868e2",
     "shell/__init__.py": "51a9a935ce8b9bc0977e2cfcd74db27fe52a47420a9131ac6b8aa8479f172b2a",
-    "shell/about.html": "9dc8bae470f3278814fb1ef45017bf2a9cb814bde9bde8c3dce768432c6af23c",
+    "shell/about.html": "0ba9a26527141e41ba19c2f4827fd316d2f41f80534be0f68889639b36d3151b",
     "shell/agency_controller.py": "32cda12fc2b77e56e22e59cab65fbf59dc64dd70129d687f23be95b612930289",
     "shell/agency_runner.py": "932783c07b961e7e45941da3c5657ddc339594296f73f91b2c059bbe7d6f86c0",
     "shell/agency_runtime.py": "95ae7700daa637fc167aa6aea36989a6e2bb8b0243f6df59db4024012b8e103f",
@@ -182,6 +182,6 @@
     "tools/verify_atelier_kinetic.py": "c6397b4e7b0f6d0a5dc9271d19161933e819fc8535024fbd0934a5df9cf23266",
     "UPDATE_JNSQ.bat": "21c0ba7c15a43eb06bc6a317ee8cf5b6910c36a53bde7ec615ea6a673ef10bdc",
     "UPDATE_JNSQ.ps1": "eec5ab89dac0903ce95f4d540d7bf318972aef75a1b8f3100b323bf9b6bbe543",
-    "VERSION": "9c788a838dc1f6bfd80fa39757a95f94260071c35011c9a05301da1c73507657"
+    "VERSION": "786aebf3f673c87c5f643e65953ffd9b336284b41b28d54c7aeee806fcdd8ea4"
   }
 }

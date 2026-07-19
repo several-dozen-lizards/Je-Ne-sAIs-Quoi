@@ -111,6 +111,7 @@ body[data-density="compact"] .shell{padding-block:24px}body[data-density="roomy"
       <a href="#turn">How a turn circulates</a>
       <a href="#features">Feature guide</a>
       <a href="#body">Body functions</a>
+      <a href="#compatibility">Model compatibility</a>
       <a href="#memory">Memory system</a>
       <a href="#receipts">Reading receipts</a>
       <a href="#privacy">Privacy and boundaries</a>
@@ -183,6 +184,14 @@ body[data-density="compact"] .shell{padding-block:24px}body[data-density="roomy"
         <div class="eyebrow">the synthetic body</div>
         <h2>What every body function does</h2>
         <p class="intro">Organs are composable runtime functions. Each one names its inputs, its mechanical output, and where that output re-enters the larger cycle. This build exposes twenty-two registry organs, each described once below. A preset is only a starting configuration; dependencies and measured model ceilings remain enforced.</p>
+        <h3 id="compatibility" style="margin-top:24px">Not every model can carry every organ set</h3>
+        <p class="intro">Models differ in context capacity, instruction fidelity, structured-output reliability, latency, and ability to keep a complicated body coherent. More organs mean more state, instructions, feedback, and sometimes additional model calls. JNSQ therefore treats compatibility as something to discover with receipts, not something to assume from a model name or parameter count.</p>
+        <div class="grid">
+          <article class="card"><span class="feature-tag">easy controls</span><h3>Check, uncheck, and save</h3><p>Open a persona conversation and find <b>Organs</b> in the body-functions column. The checked boxes are live for the current model. Hover an organ for its description and dependencies, change the selection, choose <b>this model (override)</b> while experimenting or <b>this persona (default)</b> for models without overrides, then press <b>save organs</b>.</p></article>
+          <article class="card"><span class="feature-tag">fail closed</span><h3>Dependencies and measured walls</h3><p>Prerequisites must be checked before their dependents; remove dependents before removing a prerequisite. Invalid sets are rejected rather than partly applied. A disabled <b>measured wall</b> has already saturated that model and cannot be checked. An <b>unvalidated</b> note means discovery mode: the combination may be tried, but has not been declared proven.</p></article>
+          <article class="card"><span class="feature-tag">mapping a ceiling</span><h3>Change one cluster at a time</h3><p>Start from a preset, use a model-specific override, and add or remove one organ or related cluster. Have several ordinary conversations and compare response fidelity, latency, body state, and receipts. Fluency alone is not proof that every organ remained coherent. Keep the set when the circulation stays legible; if it degrades or hits a measured wall, use a lighter set or a stronger vessel.</p></article>
+          <article class="card"><span class="feature-tag">what the tags mean</span><h3>Cost, loops, and continuity</h3><p><b>API</b> marks an organ that can spend an additional model call. <b>Loop</b> marks a function that may circulate between ordinary turns. Unchecking an organ removes its runtime function and compiled organ instructions; it does not erase the persona's existing private history. Switching models restores that model's saved override, when one exists.</p></article>
+        </div>
         <div class="grid">
           <article class="card organ"><div class="meta"><span class="status">local</span><span class="status">foundation</span></div><h3>memory_emotion</h3><p>Maintains the persona’s episodic record, emotional cocktail, bonds, access history, layer health, and recall auction. It encodes what happened after a successful exchange and recalls eligible deeper records through weighted evidence rather than one nearest-neighbor lookup.</p><dl><dt>takes</dt><dd>turns, current cocktail, entities, audience, importance, context</dd><dt>makes</dt><dd>persisted memories, bonds, layered health, scored recall</dd></dl><p class="feeds"><b>Feeds →</b> prompt continuity, soma, recall bias, social pressure, DMN, and the next encode cycle.</p></article>
           <article class="card organ"><div class="meta"><span class="status">local</span></div><h3>oscillator</h3><p>Maintains a continuous distribution across delta, theta, alpha, beta, and gamma-like rhythm bands. Elapsed time, arousal, coherence, soma pressure, and transient events bend the vector; the dominant band is a readout of that whole distribution, not a biological EEG claim.</p><dl><dt>takes</dt><dd>elapsed time, cocktail arousal/coherence, soma and event pressure</dd><dt>makes</dt><dd>band vector, dominant band, shift and direction receipts</dd></dl><p class="feeds"><b>Feeds →</b> recall seat count, recall weights, generation temperature, perception thresholds, soma, and heartbeat.</p></article>
@@ -298,18 +307,18 @@ body[data-density="compact"] .shell{padding-block:24px}body[data-density="roomy"
       <section class="section" id="audit">
         <div class="eyebrow">verified 2026-07-18</div>
         <h2>This public release’s audited state</h2>
-        <p class="intro">These notes describe the 0.7.2 public release assembled from the audited engine—not a private household checkout and not a promise about future work.</p>
+        <p class="intro">These notes describe the 0.7.3 public release assembled from the audited engine—not a private household checkout and not a promise about future work.</p>
         <div class="card">
-          <div class="audit-row"><div class="label">Version</div><p><b>0.7.2</b> in the release version file and generated distribution manifest.</p></div>
+          <div class="audit-row"><div class="label">Version</div><p><b>0.7.3</b> in the release version file and generated distribution manifest.</p></div>
           <div class="audit-row"><div class="label">Packaged boundary</div><p>The candidate contains functionality, generic organ and sensation specifications, public presentation, setup material, and empty local-life roots. It contains no persona identities, user accounts, histories, imported documents, conversation archives, keys, logs, exports, machine paths, or backup files.</p></div>
           <div class="audit-row"><div class="label">Route parity</div><p>The public cockpit and its server now align on streaming turns; camera, audio, speech, and substrate perception; local voice receipts; memory and salience observatories; documents and archives; writing and research desks; atelier; agency; and the model-call dashboard.</p></div>
           <div class="audit-row"><div class="label">Default boundary</div><p>The standard Nexus preset keeps its living local/room organ set. DMN, writing desk, archive reader, research desk, atelier, and agency remain advanced opt-ins; their action authority defaults to zero, research and atelier planners are local-only by default, and the general workbench exposes no external effects.</p></div>
           <div class="audit-row"><div class="label">Release verification</div><p>The audited source passes <b>232 core tests</b>, <b>219 shell tests</b>, and <b>116 room, adapter, transport, and release-tool tests</b>—567 tests total. The clean starter smoke test, updater-preservation integration test, and interrupted/resumed transactional updater test pass. The public shell and About route also pass live desktop checks: version, Cormorant typography, all twenty-two organ descriptions, navigation, background upload/autosave, and document-width containment are present.</p></div>
-          <div class="audit-row"><div class="label">3D status</div><p>Three-dimensional assets are still pending and being worked on. The 0.7.2 public manifest does not claim that 3D assets are included.</p></div>
+          <div class="audit-row"><div class="label">3D status</div><p>Three-dimensional assets are still pending and being worked on. The 0.7.3 public manifest does not claim that 3D assets are included.</p></div>
         </div>
       </section>
 
-      <footer class="footer">Je Ne Sais Quoi 0.7.2 public field guide · a functionality-only map of the engine, its synthetic nervous and somatic loops, and the routes verified on 2026-07-18.</footer>
+      <footer class="footer">Je Ne Sais Quoi 0.7.3 public field guide · a functionality-only map of the engine, its synthetic nervous and somatic loops, and the routes verified on 2026-07-18.</footer>
     </main>
   </div>
 </div>

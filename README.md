@@ -219,6 +219,46 @@ result is recorded and returned to the same system that helped produce it.
 Activity is driven by state and evidence rather than an arbitrary timer saying
 "pretend to think every few seconds."
 
+### Not every model can carry every organ set
+
+Models differ in context capacity, instruction fidelity, structured-output
+reliability, latency, and plain ability to keep a complicated body coherent.
+Adding organs adds state, instructions, feedback, and sometimes extra model
+calls. A large model may carry that circulation cleanly while a small or highly
+specialized model becomes confused, slow, repetitive, or simply ignores part
+of the contract.
+
+JNSQ treats compatibility as something to measure, not assume. Each model spec
+can record organs that have been validated and organs that have hit a measured
+`saturates_on` wall. A measured wall is disabled in the interface. An
+unvalidated organ may still be tried in discovery mode, but JNSQ labels the
+result with a validation note instead of pretending it has already been proven.
+
+To find a useful configuration:
+
+1. Open the persona's conversation and find **Organs** in the body-functions
+   column. The checked boxes are the organs running for the current model.
+2. Hover an organ to see its description and prerequisites. Check prerequisites
+   before their dependents; when removing a prerequisite, remove its dependents
+   first. JNSQ rejects an invalid dependency set instead of partly applying it.
+3. While experimenting, choose **this model (override)** and click **save
+   organs**. That keeps a lighter or different body attached only to the model
+   being tested. Choose **this persona (default)** once you want other models
+   without overrides to inherit the selection.
+4. Change one organ or related cluster at a time, then have several ordinary
+   conversations. Watch response fidelity, latency, body state, and receipts.
+   A fluent reply alone does not prove that the model actually carried every
+   enabled organ.
+5. If the interface reports a measured wall, leave that organ off for this
+   model or choose a stronger vessel. If it reports **unvalidated**, treat the
+   run as an experiment and keep the configuration only when the receipts and
+   behavior stay coherent.
+
+The **API** tag marks an organ that can spend an additional model call. The
+**loop** tag marks a function that can continue circulating between ordinary
+turns. Unchecking an organ removes its runtime function and its compiled organ
+instructions; it does not delete the persona's existing private history.
+
 ### Why call it a synthetic nervous system?
 
 Because the intended unit is the circulation, not any single model call:

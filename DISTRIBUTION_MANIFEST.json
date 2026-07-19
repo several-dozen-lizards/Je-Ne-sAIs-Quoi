@@ -1,6 +1,6 @@
 {
   "format": 2,
-  "version": "0.7.2",
+  "version": "0.7.3",
   "files": 171,
   "contains_personal_data": false,
   "empty_local_roots": [
@@ -101,7 +101,7 @@
     "harness/spec_loader.py": "5f283b86d5fa5c61b05c2622243b8810b5d1d2cbc31602bf2dde834910dfa9d9",
     "INSTALL_ATELIER_GPU.bat": "49c105417e2ae9d12a16e67e7547e54e52e2c6b3a474966177ead09f40f344f1",
     "INSTALL_JNSQ.bat": "0cc6e306cd124acb5346f20fbc9cd5023b0db3c89f19c4ba91e7550f55e21ffd",
-    "README.md": "3381766af8514fd55cbd7d1f947578043b384a0210733f225c0c3e10e5fad0e2",
+    "README.md": "294a5880f0fbdc72b0b52c9248994251c3948f471baaeb278c385b43e991edbe",
     "requirements.txt": "5a9c6bcfb00d574dedc8ffccf4842c527b801dbd47fe2eb52c613cfbbb00d079",
     "room/__init__.py": "7095f6cbb0b61f7374669ec93cce972dd6d3c4a45d18cba7f0eb5ba85932f62d",
     "room/host.py": "8f484e7804f03a96cf71cfda2360ab1e68ca09fe575a5912f887e279e3de53fc",
@@ -110,7 +110,7 @@
     "room/viewer.html": "ed561a4ced28046e4cfc10277d2a54f376453f2351300ff6b044f589867e5639",
     "SETUP_JNSQ.ps1": "63edf344db43d92e1b342ce7bb013be20730e687ddecf33b83ee0da2ea8868e2",
     "shell/__init__.py": "51a9a935ce8b9bc0977e2cfcd74db27fe52a47420a9131ac6b8aa8479f172b2a",
-    "shell/about.html": "5dc643e3f709889373dda7a0cc0f0a5d2555c04ba6777f9e31dc36806b57339a",
+    "shell/about.html": "9dc8bae470f3278814fb1ef45017bf2a9cb814bde9bde8c3dce768432c6af23c",
     "shell/agency_controller.py": "32cda12fc2b77e56e22e59cab65fbf59dc64dd70129d687f23be95b612930289",
     "shell/agency_runner.py": "932783c07b961e7e45941da3c5657ddc339594296f73f91b2c059bbe7d6f86c0",
     "shell/agency_runtime.py": "95ae7700daa637fc167aa6aea36989a6e2bb8b0243f6df59db4024012b8e103f",
@@ -180,6 +180,6 @@
     "tools/verify_atelier_kinetic.py": "c6397b4e7b0f6d0a5dc9271d19161933e819fc8535024fbd0934a5df9cf23266",
     "UPDATE_JNSQ.bat": "21c0ba7c15a43eb06bc6a317ee8cf5b6910c36a53bde7ec615ea6a673ef10bdc",
     "UPDATE_JNSQ.ps1": "eec5ab89dac0903ce95f4d540d7bf318972aef75a1b8f3100b323bf9b6bbe543",
-    "VERSION": "d0176718bd214ce8474c06ed61c395ca113fdfc2acdd86d9aa9933b40d9b561e"
+    "VERSION": "9c788a838dc1f6bfd80fa39757a95f94260071c35011c9a05301da1c73507657"
   }
 }

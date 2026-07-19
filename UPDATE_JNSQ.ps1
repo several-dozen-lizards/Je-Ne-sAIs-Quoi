@@ -15,6 +15,14 @@ $LocalManifestPath = Join-Path $Root "DISTRIBUTION_MANIFEST.json"
 $Runfile = Join-Path $Root "jnsq_running.json"
 $UpdateLog = Join-Path $Root "logs\update.log"
 $TempRoot = $null
+$LocalLifeRoots = @("users", "personas", "people", "logs", "exports", ".venv", ".git")
+$PrivateRuntimeNames = @(
+    ".env", ".jnsq_local.json", "jnsq_running.json", "room_world.json",
+    "household_theme.json", "nexus_theme.json", "custom_presets.json",
+    "conversation_background.json", "conversation_area_background.json",
+    "nexus_background.json", "conversation_background.bin",
+    "conversation_area_background.bin", "nexus_background.bin"
+)
 $RollbackRoot = $null
 $RollbackRecords = @()
 $PatchStarted = $false
@@ -53,12 +61,10 @@ function Resolve-ManagedPath([string]$Base, [string]$Relative) {
     if ([IO.Path]::IsPathRooted($Relative) -or $parts -contains "..") {
         throw "The update manifest contains an unsafe path: $Relative"
     }
-    $localRoots = @("users", "personas", "people", "logs", "exports", ".venv", ".git")
-    if ($parts.Count -and $parts[0].ToLowerInvariant() -in $localRoots) {
+    if ($parts.Count -and $parts[0].ToLowerInvariant() -in $LocalLifeRoots) {
         throw "The update manifest tried to manage local-life data: $Relative"
     }
-    $privateNames = @(".env", ".jnsq_local.json", "jnsq_running.json", "room_world.json")
-    if ($parts.Count -and $parts[-1].ToLowerInvariant() -in $privateNames) {
+    if ($parts.Count -and $parts[-1].ToLowerInvariant() -in $PrivateRuntimeNames) {
         throw "The update manifest tried to manage a private runtime file: $Relative"
     }
     $baseFull = [IO.Path]::GetFullPath($Base).TrimEnd("\") + "\"
@@ -180,6 +186,16 @@ try {
     foreach ($property in Managed-Properties $localManifest) {
         $relative = [string]$property.Name
         if ($remoteNames.ContainsKey($relative.ToLowerInvariant())) { continue }
+        # Old manifests may have accidentally claimed a path that newer
+        # releases correctly classify as local/private. Never interpret that
+        # correction as permission to delete the user's file.
+        $portable = $relative.Replace("\", "/")
+        $parts = @($portable.Split("/") | Where-Object { $_ -ne "" })
+        if ($parts.Count -and
+                ($parts[0].ToLowerInvariant() -in $LocalLifeRoots -or
+                 $parts[-1].ToLowerInvariant() -in $PrivateRuntimeNames)) {
+            continue
+        }
         $obsolete = Resolve-ManagedPath $Root $relative
         if (Test-Path -LiteralPath $obsolete -PathType Leaf) {
             $removalPlan += [pscustomobject]@{

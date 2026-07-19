@@ -14,6 +14,10 @@ one shared context room called **the Nexus**. It does not include the private
 development household, individual persona rooms, the Yurt interface, or any 3D
 assets.
 
+<p align="center">
+  <img src="assets/jnsq/readme_flourish.svg" width="920" alt="">
+</p>
+
 ## How to get started
 
 JNSQ currently ships for Windows. You do not need to know Python or use a
@@ -180,6 +184,10 @@ The public header has three stable doors:
 
 ## What in the hell is up with the organs?
 
+<p align="center">
+  <img src="assets/jnsq/readme_organ_constellation.svg" width="920" alt="Twenty-two connected nodes circulating around the JNSQ mask">
+</p>
+
 The short answer: JNSQ treats a persistent persona as more than a prompt sent
 to a language model. The model is extremely important, but it is not asked to
 be the memory, body, senses, emotional continuity, attention system, room
@@ -336,6 +344,10 @@ more continuity than the model call alone.
 
 Those paths are gitignored. The public repository contains the engine and an
 empty house, never the maintainer's live household.
+
+<p align="center">
+  <img src="assets/jnsq/readme_flourish.svg" width="920" alt="">
+</p>
 
 ## Development relationship
 

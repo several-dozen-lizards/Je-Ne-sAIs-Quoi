@@ -142,12 +142,26 @@ class OllamaAsyncTransport:
                         input_tokens = int(payload.get(
                             "prompt_eval_count") or 0)
                         output_tokens = int(payload.get("eval_count") or 0)
+                        # Ollama reports nanosecond-native phase timings on the
+                        # terminal frame.  Preserve those content-free receipts
+                        # so local autonomous work is measurable beside paid
+                        # provider calls instead of appearing to take 0 ms.
+                        total_ms = float(payload.get("total_duration") or 0) / 1e6
+                        prompt_ms = float(
+                            payload.get("prompt_eval_duration") or 0) / 1e6
+                        gen_ms = float(payload.get("eval_duration") or 0) / 1e6
+                        load_ms = float(payload.get("load_duration") or 0) / 1e6
                         seq += 1
                         event = ModelEvent.completed(
                             seq, str(payload.get("done_reason") or "stop"), {
                                 "input_tokens": input_tokens,
                                 "output_tokens": output_tokens,
                                 "total_tokens": input_tokens + output_tokens,
+                                "total_ms": total_ms,
+                                "provider_ms": total_ms,
+                                "prompt_ms": prompt_ms,
+                                "gen_ms": gen_ms,
+                                "load_ms": load_ms,
                             })
                         completed = True
                         self._terminal(event)

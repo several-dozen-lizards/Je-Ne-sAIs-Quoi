@@ -68,11 +68,11 @@
   </div>
 
   <section><h2>Models and routes</h2><div class="table-wrap"><table>
-    <thead><tr><th>Model endpoint</th><th class="num">Calls</th><th class="num">Median</th><th class="num">Input</th><th class="num">Output</th><th class="num">Reasoning</th><th class="num">Cache read</th><th class="num">Missing usage</th></tr></thead>
+    <thead><tr><th>Model endpoint</th><th class="num">Calls</th><th class="num">Median</th><th class="num">Prompt work</th><th class="num">Generation</th><th class="num">Model load</th><th class="num">Input</th><th class="num">Output</th><th class="num">Reasoning</th><th class="num">Cache read</th><th class="num">Missing usage</th></tr></thead>
     <tbody id="model"></tbody></table></div></section>
 
   <section><h2>Most recent calls</h2><div class="table-wrap"><table id="recent">
-    <thead><tr><th>When</th><th>Persona</th><th>Purpose</th><th>Route</th><th class="num">Latency</th><th class="num">In / out</th><th>Result</th></tr></thead>
+    <thead><tr><th>When</th><th>Persona</th><th>Purpose</th><th>Route</th><th class="num">Latency</th><th class="num">Prompt / generate / load</th><th class="num">In / out</th><th>Result</th></tr></thead>
     <tbody id="recentBody"></tbody></table></div></section>
 </main>
 <script>
@@ -86,6 +86,8 @@ const duration=ms=>{if(ms==null)return "—";if(ms<1000)return `${Math.round(ms)
   if(seconds<3600)return `${Math.floor(seconds/60)}m ${Math.round(seconds%60)}s`;
   return `${Math.floor(seconds/3600)}h ${Math.round((seconds%3600)/60)}m`};
 const totalTokens=r=>(r.input_tokens||0)+(r.output_tokens||0);
+const phaseSplit=r=>r.prompt_ms==null&&r.gen_ms==null&&r.load_ms==null?"â€”":
+  `${duration(r.prompt_ms)} / ${duration(r.gen_ms)} / ${duration(r.load_ms)}`;
 function rows(id,items,render){$(id).innerHTML=items.length?items.map(render).join(""):
   '<tr><td colspan="8" class="empty">No calls in this window.</td></tr>'}
 function render(data){const t=data.totals,total=(t.input_tokens||0)+(t.output_tokens||0);
@@ -100,8 +102,8 @@ function render(data){const t=data.totals,total=(t.input_tokens||0)+(t.output_to
   const purposes=[...data.groups.purpose].sort((a,b)=>b.model_ms-a.model_ms),max=Math.max(1,...purposes.map(x=>x.model_ms));
   rows("purpose",purposes,r=>`<tr><td>${esc(r.key)}</td><td class="num">${nf.format(r.calls)}</td><td class="num">${duration(r.median_ms)}</td><td><div class="bar-track" aria-label="${Math.round(r.model_ms/max*100)} percent of largest purpose"><div class="bar-fill" style="width:${r.model_ms/max*100}%"></div></div></td><td class="num">${nf.format(totalTokens(r))}</td></tr>`);
   rows("persona",[...data.groups.persona].sort((a,b)=>b.model_ms-a.model_ms),r=>`<tr><td>${esc(r.key)}</td><td class="num">${nf.format(r.calls)}</td><td class="num">${duration(r.model_ms)}</td><td class="num">${nf.format(totalTokens(r))}</td><td class="num">${nf.format(r.cache_read_tokens)}</td></tr>`);
-  rows("model",[...data.groups.model].sort((a,b)=>b.model_ms-a.model_ms),r=>`<tr><td>${esc(r.key)}</td><td class="num">${nf.format(r.calls)}</td><td class="num">${duration(r.median_ms)}</td><td class="num">${nf.format(r.input_tokens)}</td><td class="num">${nf.format(r.output_tokens)}</td><td class="num">${nf.format(r.reasoning_tokens)}</td><td class="num">${nf.format(r.cache_read_tokens)}</td><td class="num ${r.missing_usage?'flag':''}">${nf.format(r.missing_usage)}</td></tr>`);
-  rows("recentBody",data.recent,r=>{const route=r.spec_name||r.model||"unknown",result=r.status!=="ok"?`<span class="bad">${esc(r.status)}</span>`:r.finish_reason==="length"?'<span class="flag">output ceiling</span>':esc(r.finish_reason||"ok");return `<tr><td>${esc(new Date(r.ts).toLocaleString())}</td><td>${esc(r.persona)}</td><td>${esc(r.purpose)}</td><td>${esc(route)}</td><td class="num">${duration(r.total_ms)}</td><td class="num">${r.input_tokens==null&&r.output_tokens==null?'<span class="flag">unmetered</span>':`${nf.format(r.input_tokens||0)} / ${nf.format(r.output_tokens||0)}`}</td><td>${result}</td></tr>`});
+  rows("model",[...data.groups.model].sort((a,b)=>b.model_ms-a.model_ms),r=>`<tr><td>${esc(r.key)}</td><td class="num">${nf.format(r.calls)}</td><td class="num">${duration(r.median_ms)}</td><td class="num">${duration(r.prompt_ms)}</td><td class="num">${duration(r.gen_ms)}</td><td class="num">${duration(r.load_ms)}</td><td class="num">${nf.format(r.input_tokens)}</td><td class="num">${nf.format(r.output_tokens)}</td><td class="num">${nf.format(r.reasoning_tokens)}</td><td class="num">${nf.format(r.cache_read_tokens)}</td><td class="num ${r.missing_usage?'flag':''}">${nf.format(r.missing_usage)}</td></tr>`);
+  rows("recentBody",data.recent,r=>{const route=r.spec_name||r.model||"unknown",result=r.status!=="ok"?`<span class="bad">${esc(r.status)}</span>`:r.finish_reason==="length"?'<span class="flag">output ceiling</span>':esc(r.finish_reason||"ok");return `<tr><td>${esc(new Date(r.ts).toLocaleString())}</td><td>${esc(r.persona)}</td><td>${esc(r.purpose)}</td><td>${esc(route)}</td><td class="num">${duration(r.total_ms)}</td><td class="num">${phaseSplit(r)}</td><td class="num">${r.input_tokens==null&&r.output_tokens==null?'<span class="flag">unmetered</span>':`${nf.format(r.input_tokens||0)} / ${nf.format(r.output_tokens||0)}`}</td><td>${result}</td></tr>`});
 }
 async function load(){const button=$("refresh");button.disabled=true;button.textContent="Reading…";
   try{const response=await fetch(`/api/model-calls/summary?hours=${encodeURIComponent($("hours").value)}`,{cache:"no-store"});

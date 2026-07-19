@@ -286,13 +286,15 @@ COLOR_KEYS = {"bg", "panel", "line", "ink", "dim", "accent",
 ENUMS = {
     "background": {"none", "grid", "scales", "aurora", "stars", "paper",
                    "image"},
+    "conversation_area_background": {"none", "image"},
     "font": {"system", "serif", "display", "mono", "humanist",
              "rounded", "geometric"},
     "density": {"compact", "cozy", "roomy"},
 }
 NUMBERS = {"radius": (0, 28), "font_scale": (0.8, 1.35),
            "glow": (0.0, 1.0), "motion": (0.0, 1.0),
-           "background_opacity": (0.0, 1.0)}
+           "background_opacity": (0.0, 1.0),
+           "conversation_area_opacity": (0.0, 1.0)}
 HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
 
 
@@ -303,6 +305,14 @@ def _merge(base: dict, overlay: dict) -> dict:
             out[key] = _merge(out[key], value)
         else:
             out[key] = deepcopy(value)
+    return out
+
+
+def _with_defaults(tokens: dict) -> dict:
+    out = deepcopy(tokens or {})
+    out.setdefault("background_opacity", 0.32)
+    out.setdefault("conversation_area_background", "none")
+    out.setdefault("conversation_area_opacity", 0.28)
     return out
 
 
@@ -482,15 +492,14 @@ def resolve_theme(repo: str, persona: str = None, model: str = None) -> dict:
     tokens = deepcopy(presets[preset]["tokens"])
     for layer in layers:
         tokens = _merge(tokens, layer.get("tokens") or {})
-    tokens.setdefault("background_opacity", 0.32)
-    tokens = _clean_tokens(tokens)
+    tokens = _clean_tokens(_with_defaults(tokens))
     return {
         "preset": preset,
         "tokens": tokens,
         "layers": {"household": household, "persona": persona_patch,
                    "model": model_patch},
         "presets": {key: value["label"] for key, value in presets.items()},
-        "preset_tokens": {key: deepcopy(value["tokens"])
+        "preset_tokens": {key: _with_defaults(value["tokens"])
                           for key, value in presets.items()},
         "custom_presets": sorted(_custom_presets(repo)),
         "persona": persona, "model": model,
@@ -520,14 +529,15 @@ def resolve_nexus_theme(repo: str) -> dict:
     nexus_tokens = {key: value for key, value in
                     (nexus.get("tokens") or {}).items()
                     if key not in NEXUS_PROTECTED_TOKENS}
-    tokens = _clean_tokens(_merge(tokens, nexus_tokens))
+    tokens = _merge(tokens, nexus_tokens)
+    tokens = _clean_tokens(_with_defaults(tokens))
     return {
         "preset": preset,
         "tokens": tokens,
         "layers": {"household": household["layers"]["household"],
                    "nexus": nexus},
         "presets": {key: value["label"] for key, value in presets.items()},
-        "preset_tokens": {key: deepcopy(value["tokens"])
+        "preset_tokens": {key: _with_defaults(value["tokens"])
                           for key, value in presets.items()},
         "custom_presets": sorted(_custom_presets(repo)),
         "surface": "nexus",

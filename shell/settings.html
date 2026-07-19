@@ -296,15 +296,17 @@ async function loadTheme(note=""){try{themeDoc=await request("/api/ui/theme");pr
 for(const [id,key] of Object.entries(CONTROLS))$(id).oninput=()=>{if(!preview)return;preview[key]=controlValue(id);dirty.add(key);applyTheme(preview)};
 $("housePreset").onchange=event=>{if(!themeDoc)return;preview=clone(themeDoc.preset_tokens[event.target.value]);presetDirty=true;dirty.clear();
   $("housePresetName").value=themeDoc.presets[event.target.value]||"";fillAppearance(preview);applyTheme(preview);updatePresetActions();$("houseThemeNote").textContent="Previewing preset — save to keep it."};
-async function saveTheme(reset=false){const button=$(reset?"houseThemeReset":"houseThemeSave");button.disabled=true;
+async function saveTheme(reset=false,note=""){const button=$(reset?"houseThemeReset":"houseThemeSave");button.disabled=true;
   try{const tokens={};for(const key of dirty)tokens[key]=preview[key];const patch={};if(dirty.size)patch.tokens=tokens;
     if(presetDirty)patch.preset=$("housePreset").value;await request("/api/ui/theme",{method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({patch,reset,replace:presetDirty})});await loadTheme(reset?"Household layer reset.":"Household appearance saved.");
-    parent.postMessage({type:"jnsq-theme-refresh"},"*")}catch(error){$("houseThemeNote").textContent=error.message}finally{button.disabled=false}}
+      body:JSON.stringify({patch,reset,replace:presetDirty})});await loadTheme(note||(reset?"Household layer reset.":"Household appearance saved."));
+    parent.postMessage({type:"jnsq-theme-refresh"},"*");return true}catch(error){$("houseThemeNote").textContent=error.message;return false}finally{button.disabled=false}}
 $("houseThemeSave").onclick=()=>saveTheme(false);$("houseThemeReset").onclick=()=>saveTheme(true);
 $("houseBackgroundUpload").onclick=async()=>{const file=$("houseBackgroundFile").files?.[0];if(!file){$("houseThemeNote").textContent="Choose an image first.";return}
   const button=$("houseBackgroundUpload");button.disabled=true;try{const result=await request("/api/ui/conversation-background",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({data_url:await fileDataUrl(file)})});
-    applyBackgroundMedia(result);preview.background="image";dirty.add("background");fillAppearance(preview);applyTheme(preview);$("houseThemeNote").textContent="Background uploaded locally. Save household appearance to keep image mode."}
+    applyBackgroundMedia(result);preview.background="image";dirty.add("background");fillAppearance(preview);applyTheme(preview);
+    const saved=await saveTheme(false,"Background uploaded and household appearance saved.");
+    if(!saved)$("houseThemeNote").textContent="Background uploaded, but household appearance did not save. Use Save to retry."}
   catch(error){$("houseThemeNote").textContent=error.message}finally{button.disabled=false}};
 $("houseBackgroundRemove").onclick=async()=>{try{await request("/api/ui/conversation-background",{method:"DELETE"});applyBackgroundMedia(null);
   if(preview?.background==="image"){preview.background="none";dirty.add("background");fillAppearance(preview);applyTheme(preview)}

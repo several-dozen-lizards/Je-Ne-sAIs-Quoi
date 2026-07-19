@@ -1,4 +1,4 @@
-"""Machine-local conversation background storage.
+"""Machine-local solo-chat background storage.
 
 The file is deliberately separate from theme JSON: opacity and selection are
 theme tokens, while the potentially large private image remains one local
@@ -15,16 +15,24 @@ import tempfile
 
 MAX_BYTES = 12 * 1024 * 1024
 ALLOWED = {"image/png", "image/jpeg", "image/webp", "image/gif"}
+KINDS = {
+    "outer": "conversation_background",
+    "conversation_area": "conversation_area_background",
+    "nexus": "nexus_background",
+}
 
 
-def _paths(repo: str):
+def _paths(repo: str, kind: str = "outer"):
+    stem = KINDS.get(kind)
+    if not stem:
+        raise ValueError("unknown background image kind")
     root = os.path.join(repo, "shell", "ui")
-    return (os.path.join(root, "conversation_background.bin"),
-            os.path.join(root, "conversation_background.json"))
+    return (os.path.join(root, stem + ".bin"),
+            os.path.join(root, stem + ".json"))
 
 
-def load_conversation_background(repo: str):
-    image_path, meta_path = _paths(repo)
+def load_background(repo: str, kind: str):
+    image_path, meta_path = _paths(repo, kind)
     try:
         with open(meta_path, encoding="utf-8") as f:
             meta = json.load(f)
@@ -37,7 +45,7 @@ def load_conversation_background(repo: str):
         return None
 
 
-def save_conversation_background(repo: str, data_url: str):
+def save_background(repo: str, kind: str, data_url: str):
     if not isinstance(data_url, str) or not data_url.startswith("data:"):
         raise ValueError("background must be an image data URL")
     header, sep, encoded = data_url.partition(",")
@@ -60,14 +68,14 @@ def save_conversation_background(repo: str, data_url: str):
     }
     if not signatures[mime]:
         raise ValueError("background bytes do not match the declared image type")
-    image_path, meta_path = _paths(repo)
+    image_path, meta_path = _paths(repo, kind)
     os.makedirs(os.path.dirname(image_path), exist_ok=True)
     revision = hashlib.sha256(raw).hexdigest()[:16]
     for path, payload, binary in (
             (image_path, raw, True),
             (meta_path, json.dumps({"mime": mime, "revision": revision},
                                    indent=2) + "\n", False)):
-        fd, tmp = tempfile.mkstemp(prefix=".conversation-background-",
+        fd, tmp = tempfile.mkstemp(prefix=f".{KINDS[kind]}-",
                                    dir=os.path.dirname(path))
         try:
             mode = "wb" if binary else "w"
@@ -77,13 +85,51 @@ def save_conversation_background(repo: str, data_url: str):
         finally:
             if os.path.exists(tmp):
                 os.unlink(tmp)
-    return load_conversation_background(repo)
+    return load_background(repo, kind)
 
 
-def delete_conversation_background(repo: str) -> bool:
+def delete_background(repo: str, kind: str) -> bool:
     removed = False
-    for path in _paths(repo):
+    for path in _paths(repo, kind):
         if os.path.exists(path):
             os.unlink(path)
             removed = True
     return removed
+
+
+def load_conversation_background(repo: str):
+    """Backward-compatible name for the outer solo-chat wallpaper."""
+    return load_background(repo, "outer")
+
+
+def save_conversation_background(repo: str, data_url: str):
+    return save_background(repo, "outer", data_url)
+
+
+def delete_conversation_background(repo: str) -> bool:
+    return delete_background(repo, "outer")
+
+
+def load_conversation_area_background(repo: str):
+    return load_background(repo, "conversation_area")
+
+
+def save_conversation_area_background(repo: str, data_url: str):
+    return save_background(repo, "conversation_area", data_url)
+
+
+def delete_conversation_area_background(repo: str) -> bool:
+    return delete_background(repo, "conversation_area")
+
+
+def load_nexus_background(repo: str):
+    """Load the Nexus-only wallpaper without touching household media."""
+    return load_background(repo, "nexus")
+
+
+def save_nexus_background(repo: str, data_url: str):
+    return save_background(repo, "nexus", data_url)
+
+
+def delete_nexus_background(repo: str) -> bool:
+    return delete_background(repo, "nexus")

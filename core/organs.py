@@ -89,6 +89,11 @@ REGISTRY = {o.organ_id: o for o in (
              "genuine DMN boundary, compete in the shared field, and become "
              "one local private reading whose lived consequence returns to "
              "the field without rewriting history or transplanting memory"),
+    OrganDef("document_reader", ("dmn",),
+             "human-owned private documents may become optional exact-section "
+             "candidates at a genuine DMN boundary; one local reading may "
+             "continue, search the private shelf, bookmark, or make a cited "
+             "report whose consequence returns to the shared field"),
     OrganDef("research_desk", ("dmn",),
              "self-formed or human-offered interests may compete through the "
              "shared field; a local planner may take one bounded step through "

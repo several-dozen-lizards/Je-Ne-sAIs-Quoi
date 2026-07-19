@@ -16,6 +16,7 @@ import os
 import queue
 import sys
 import threading
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from shell import env_store  # loads .env into os.environ (idempotent; no-op
@@ -30,8 +31,11 @@ from shell.contract import TurnEngine, CONTRACT_VERSION
 from shell.agency_controller import AgencyRunController
 from shell.ui_themes import resolve_theme, save_theme
 from shell.persona_media import load_persona_avatar
-from shell.ui_background import (delete_conversation_background,
+from shell.ui_background import (delete_conversation_area_background,
+                                 delete_conversation_background,
+                                 load_conversation_area_background,
                                  load_conversation_background,
+                                 save_conversation_area_background,
                                  save_conversation_background)
 from shell.image_input import public_image_record, store_images, stored_image_path
 from core.organs import (legacy_set, validate as validate_organs,
@@ -49,6 +53,151 @@ from harness.model_call_receipts import model_call_scope, new_cycle_id
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 ASSET_DIR = os.path.join(REPO, "assets", "jnsq")
+
+
+def _autonomous_works(app) -> dict:
+    """Normalize durable, persona-private creations without reading content.
+
+    The shelf is an index, not a second authority boundary.  Its references
+    point back through each organ's existing bounded reader route.
+    """
+    works = []
+    unavailable = []
+
+    def add(**value):
+        value["created_at"] = float(value.get("created_at") or 0.0)
+        value["updated_at"] = float(
+            value.get("updated_at") or value["created_at"])
+        value["ownership"] = "persona_private"
+        works.append(value)
+
+    agency = app.state.agency_runtime
+    if agency is not None:
+        try:
+            for record in agency.workbench.records(
+                    kind="private_draft", limit=100):
+                add(
+                    id=f"agency:{record.get('ref')}", organ="agency",
+                    kind="private draft",
+                    title=record.get("label") or "Untitled private draft",
+                    state="draft", created_at=record.get("created_at"),
+                    detail=f"{int(record.get('chars') or 0)} characters",
+                    provenance="self-chosen agency work",
+                    open={"type": "agency_artifact",
+                          "ref": record.get("ref")},
+                )
+        except Exception:
+            unavailable.append({"organ": "agency",
+                                "error": "private store index unavailable"})
+
+    writing = app.state.writing_desk_runtime
+    if writing is not None:
+        try:
+            for project in writing.desk.projects_status():
+                anchors = list((project.get("source") or {}).get("anchors") or ())
+                origin = "admitted material"
+                if any(str(anchor).startswith("doc_") for anchor in anchors):
+                    origin = "an admitted document"
+                elif any(str(anchor).startswith("drep_") for anchor in anchors):
+                    origin = "a self-chosen document report"
+                elif any(str(anchor).startswith("arc_") for anchor in anchors):
+                    origin = "an admitted conversation archive"
+                elif any(str(anchor).startswith("res_") for anchor in anchors):
+                    origin = "an admitted research report"
+                revisions = int(project.get("revision_count") or 1)
+                add(
+                    id=f"writing:{project.get('project_id')}",
+                    organ="writing_desk", kind=project.get("form") or "writing",
+                    title=project.get("title") or "Untitled writing project",
+                    state=project.get("state") or "open",
+                    created_at=project.get("created_at"),
+                    updated_at=project.get("updated_at"),
+                    detail=f"{revisions} revision{'s' if revisions != 1 else ''}",
+                    provenance=f"writing desk work from {origin}",
+                    open={"type": "writing_project",
+                          "project_id": project.get("project_id")},
+                )
+        except Exception:
+            unavailable.append({"organ": "writing_desk",
+                                "error": "private store index unavailable"})
+
+    document_reader = getattr(app.state, "document_reader_runtime", None)
+    if document_reader is not None:
+        try:
+            document_status = document_reader.library.status()
+            for report in (document_status.get("autonomous") or {}).get(
+                    "reports") or ():
+                add(
+                    id=f"document:{report.get('report_id')}",
+                    organ="document_reader", kind="reading report",
+                    title=report.get("title") or "Private reading report",
+                    state="settled", created_at=report.get("created_at"),
+                    detail=f"source {report.get('source_anchor') or 'unknown'}",
+                    provenance="self-chosen private document encounter",
+                    open={"type": "document_report",
+                          "report_id": report.get("report_id")},
+                )
+        except Exception:
+            unavailable.append({"organ": "document_reader",
+                                "error": "private store index unavailable"})
+
+    atelier = app.state.atelier_runtime
+    if atelier is not None:
+        try:
+            for artifact in atelier.atelier.artifacts_status():
+                form = ("kinetic SVG" if artifact.get("variant") == "kinetic"
+                        else str(artifact.get("medium") or "visual").upper())
+                add(
+                    id=f"atelier:{artifact.get('artifact_id')}",
+                    organ="atelier", kind=form,
+                    title=artifact.get("title") or "Untitled visual artifact",
+                    state="formed", created_at=artifact.get("created_at"),
+                    detail=(f"{artifact.get('width') or '?'} x "
+                            f"{artifact.get('height') or '?'}"),
+                    provenance="atelier work from admitted material",
+                    open={"type": "atelier_artifact",
+                          "artifact_id": artifact.get("artifact_id")},
+                )
+        except Exception:
+            unavailable.append({"organ": "atelier",
+                                "error": "private store index unavailable"})
+
+    research = app.state.research_desk_runtime
+    if research is not None:
+        try:
+            desk = research.desk.status()
+            topics = {item.get("interest_id"): item.get("topic")
+                      for item in desk.get("interests") or ()}
+            for record in [*(desk.get("notes") or ()),
+                           *(desk.get("reports") or ())]:
+                is_report = record.get("kind") == "report_created"
+                kind = "research report" if is_report else "research note"
+                sources = len(record.get("source_ids") or ())
+                add(
+                    id=f"research:{record.get('ref')}", organ="research_desk",
+                    kind=kind,
+                    title=topics.get(record.get("interest_id")) or kind.title(),
+                    state="settled", created_at=record.get("created_at"),
+                    detail=f"{sources} cited source{'s' if sources != 1 else ''}",
+                    provenance="research desk synthesis from admitted evidence",
+                    open={"type": "research_text", "ref": record.get("ref")},
+                )
+        except Exception:
+            unavailable.append({"organ": "research_desk",
+                                "error": "private store index unavailable"})
+
+    works.sort(key=lambda value: (-value["updated_at"], value["id"]))
+    return {
+        "persona": app.state.engine.persona,
+        "generated_at": time.time(),
+        "works": works[:400],
+        "unavailable": unavailable,
+        "policy": {
+            "metadata_only": True,
+            "content_readers": "existing organ routes",
+            "external_effects": False,
+        },
+    }
 
 
 def load_roster_entry(persona: str, model: str):
@@ -1023,7 +1172,8 @@ def execute_narrative_cluster(engine, field, item: dict, receipt,
 
 def dmn_loop(engine, turn_lock, metabolism: dict, stop,
              agency_runtime=None, writing_desk_runtime=None,
-             archive_reader_runtime=None, research_desk_runtime=None,
+             archive_reader_runtime=None, document_reader_runtime=None,
+             research_desk_runtime=None,
              atelier_runtime=None):
     """The idle circulation: substrate -> pressure -> candidates -> lived record.
 
@@ -1066,6 +1216,7 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
                 for organ, runtime in (
                     ("writing_desk", writing_desk_runtime),
                     ("archive_reader", archive_reader_runtime),
+                    ("document_reader", document_reader_runtime),
                     ("research_desk", research_desk_runtime),
                     ("atelier", atelier_runtime)))
             generic_field = bool(metabolism["enabled"])
@@ -1097,6 +1248,15 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
                     if returned:
                         receipt(
                             "archive_reader_reentry",
+                            candidate_count=len(returned),
+                            candidate_keys=[item.get("key")
+                                            for item in returned])
+                if document_reader_runtime is not None:
+                    returned = document_reader_runtime.drain_effects(
+                        field, now=now)
+                    if returned:
+                        receipt(
+                            "document_reader_reentry",
                             candidate_count=len(returned),
                             candidate_keys=[item.get("key")
                                             for item in returned])
@@ -1169,6 +1329,12 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
                     except Exception as archive_error:
                         receipt("archive_reader_recurrence_error",
                                 error=str(archive_error)[:200])
+                if document_reader_runtime is not None:
+                    try:
+                        document_reader_runtime.refresh_pending(field, now=now)
+                    except Exception as document_error:
+                        receipt("document_reader_recurrence_error",
+                                error=str(document_error)[:200])
                 if research_desk_runtime is not None:
                     try:
                         research_desk_runtime.refresh_pending(field, now=now)
@@ -1214,6 +1380,8 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
                               if writing_desk_runtime is not None else None)
                 archive_state = (archive_reader_runtime.readiness(field)
                                  if archive_reader_runtime is not None else None)
+                document_state = (document_reader_runtime.readiness(field)
+                                  if document_reader_runtime is not None else None)
                 research_state = (research_desk_runtime.readiness(field)
                                   if research_desk_runtime is not None else None)
                 atelier_state = (atelier_runtime.readiness(field)
@@ -1225,6 +1393,8 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
                          and writing_desk_runtime.eligible(candidate))
                         or (archive_reader_runtime is not None
                             and archive_reader_runtime.eligible(candidate))
+                        or (document_reader_runtime is not None
+                            and document_reader_runtime.eligible(candidate))
                         or (research_desk_runtime is not None
                             and research_desk_runtime.eligible(candidate))
                         or (atelier_runtime is not None
@@ -1241,6 +1411,11 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
                         return archive_reader_runtime.selection_score(
                             field, candidate, now=now,
                             readiness=archive_state)
+                    if document_reader_runtime is not None \
+                            and document_reader_runtime.eligible(candidate):
+                        return document_reader_runtime.selection_score(
+                            field, candidate, now=now,
+                            readiness=document_state)
                     if research_desk_runtime is not None \
                             and research_desk_runtime.eligible(candidate):
                         return research_desk_runtime.selection_score(
@@ -1287,6 +1462,10 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
                         archive_reader_readiness=(archive_state or {}).get(
                             "readiness"),
                         archive_reader_blocked=(archive_state or {}).get(
+                            "hard_blocked"),
+                        document_reader_readiness=(document_state or {}).get(
+                            "readiness"),
+                        document_reader_blocked=(document_state or {}).get(
                             "hard_blocked"),
                         research_desk_readiness=(research_state or {}).get(
                             "readiness"),
@@ -1354,6 +1533,29 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
                     receipt(
                         "archive_reader_requeued", key=item.get("key"),
                         reason=str(archive_run.get("reason") or
+                                   "unknown")[:200])
+                    field.save(now=now)
+                    continue
+                if document_reader_runtime is not None \
+                        and document_reader_runtime.eligible(item):
+                    document_run = document_reader_runtime.start_candidate(item)
+                    if document_run.get("started"):
+                        receipt(
+                            "document_reader_handoff", key=item.get("key"),
+                            proposal_id=document_run.get("proposal_id"),
+                            run_id=document_run.get("run_id"))
+                        field.save(now=now)
+                        continue
+                    dp.refund()
+                    field.queue.put(
+                        item, item.get("salience", 0.05), now=now,
+                        offer_meta={
+                            "operation": "requeued",
+                            "reason": document_run.get("reason") or
+                                      "document_reader_unavailable"})
+                    receipt(
+                        "document_reader_requeued", key=item.get("key"),
+                        reason=str(document_run.get("reason") or
                                    "unknown")[:200])
                     field.save(now=now)
                     continue
@@ -1631,6 +1833,7 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
               agency_controller=None, agency_runtime=None,
               writing_desk_runtime=None,
               archive_reader_runtime=None,
+              document_reader_runtime=None,
               research_desk_runtime=None,
               atelier_runtime=None) -> FastAPI:
     from shell.local_identity import load_local_identity
@@ -1646,6 +1849,7 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
     app.state.agency_runtime = agency_runtime
     app.state.writing_desk_runtime = writing_desk_runtime
     app.state.archive_reader_runtime = archive_reader_runtime
+    app.state.document_reader_runtime = document_reader_runtime
     app.state.research_desk_runtime = research_desk_runtime
     app.state.atelier_runtime = atelier_runtime
     memory_views = {}
@@ -1709,6 +1913,33 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
     def delete_cockpit_conversation_background():
         return {"ok": True,
                 "removed": delete_conversation_background(REPO)}
+
+    @app.get("/api/ui/conversation-area-background")
+    def conversation_area_background():
+        media = load_conversation_area_background(REPO)
+        if not media:
+            return JSONResponse(status_code=404, content={
+                "error": "no conversation area background"})
+        return FileResponse(media["path"], media_type=media["mime"],
+                            headers={"X-Content-Type-Options": "nosniff",
+                                     "Cache-Control": "no-cache"})
+
+    @app.post("/api/ui/conversation-area-background")
+    def save_cockpit_conversation_area_background(
+            req: ConversationBackgroundRequest):
+        try:
+            media = save_conversation_area_background(REPO, req.data_url)
+            return {"ok": True,
+                    "url": "/api/ui/conversation-area-background",
+                    "revision": media["revision"]}
+        except ValueError as error:
+            return JSONResponse(status_code=400,
+                                content={"error": str(error)})
+
+    @app.delete("/api/ui/conversation-area-background")
+    def delete_cockpit_conversation_area_background():
+        return {"ok": True,
+                "removed": delete_conversation_area_background(REPO)}
 
     @app.get("/api/avatar")
     def avatar():
@@ -2008,7 +2239,11 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
         if library is None:
             return JSONResponse(status_code=503, content={
                 "error": "document library is not attached"})
-        return library.status()
+        status = library.status()
+        runtime = app.state.document_reader_runtime
+        if runtime is not None:
+            status["autonomous_reader"] = runtime.status()
+        return status
 
     @app.get("/api/documents/search")
     def documents_search(q: str = "", n: int = Query(default=8, ge=1,
@@ -2021,6 +2256,18 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
             return library.search(q, n=n)
         except DocumentError as exc:
             return JSONResponse(status_code=400,
+                                content={"error": str(exc)[:500]})
+
+    @app.get("/api/documents/reports/{report_id}")
+    def document_report(report_id: str):
+        library = document_library()
+        if library is None:
+            return JSONResponse(status_code=503, content={
+                "error": "document library is not attached"})
+        try:
+            return library.report(report_id)
+        except DocumentError as exc:
+            return JSONResponse(status_code=404,
                                 content={"error": str(exc)[:500]})
 
     @app.post("/api/documents/import")
@@ -2188,6 +2435,10 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
                 "error": "writing desk is not attached"})
         return runtime.status()
 
+    @app.get("/api/autonomous-works")
+    def autonomous_works():
+        return _autonomous_works(app)
+
     @app.post("/api/writing-desk/seeds")
     def writing_desk_seed(req: WritingDeskSeedRequest):
         runtime = app.state.writing_desk_runtime
@@ -2256,6 +2507,17 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
                 "error": "atelier is not attached"})
         return runtime.status()
 
+    @app.post("/api/atelier/renderers/comfyui/probe")
+    def atelier_comfyui_probe():
+        runtime = app.state.atelier_runtime
+        if runtime is None or runtime.comfy is None:
+            return JSONResponse(status_code=409, content={
+                "error": "ComfyUI diffusion is not configured"})
+        result = runtime.comfy.probe()
+        return {"ok": bool(result.get("reachable") and
+                           result.get("checkpoint_ready")),
+                "renderer": result, "status": runtime.status()}
+
     @app.post("/api/atelier/seeds")
     def atelier_seed(req: AtelierSeedRequest):
         runtime = app.state.atelier_runtime
@@ -2286,12 +2548,14 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
             return JSONResponse(status_code=404, content={
                 "error": "atelier is not attached"})
         try:
+            artifact = runtime.atelier.artifact(artifact_id)
             path = runtime.atelier.artifact_path(artifact_id)
         except ValueError as exc:
             return JSONResponse(status_code=404,
                                 content={"error": str(exc)[:500]})
         return FileResponse(
-            path, media_type="image/svg+xml",
+            path, media_type=str(artifact.get("media_type") or
+                                 "application/octet-stream"),
             headers={
                 "X-Content-Type-Options": "nosniff",
                 "Cache-Control": "private, max-age=31536000, immutable",
@@ -2359,7 +2623,8 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
                     field, field_now)
             runtime.atelier.record_receipt({
                 "kind": "atelier_perception", "outcome": "admitted",
-                "artifact_id": artifact_id, "medium": "svg",
+                "artifact_id": artifact_id,
+                "medium": str(artifact.get("medium") or "unknown"),
                 "locality": "local", "model_requests": 0,
                 "provider_http_attempts": 0, "estimated_cost_usd": 0.0,
             })
@@ -2417,6 +2682,18 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
                 "error": "research desk is not attached"})
         try:
             return runtime.desk.read_text(f"{kind}/{name}")
+        except ValueError as exc:
+            return JSONResponse(status_code=404,
+                                content={"error": str(exc)[:500]})
+
+    @app.get("/api/research-desk/sources/{source_id}/pages/{page}")
+    def research_desk_source_page(source_id: str, page: int):
+        runtime = app.state.research_desk_runtime
+        if runtime is None:
+            return JSONResponse(status_code=404, content={
+                "error": "research desk is not attached"})
+        try:
+            return runtime.desk.inspect_source_page(source_id, page)
         except ValueError as exc:
             return JSONResponse(status_code=404,
                                 content={"error": str(exc)[:500]})
@@ -2633,6 +2910,10 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
         result["conversation_background"] = ({
             "url": "/api/ui/conversation-background",
             "revision": media["revision"]} if media else None)
+        area_media = load_conversation_area_background(REPO)
+        result["conversation_area_background"] = ({
+            "url": "/api/ui/conversation-area-background",
+            "revision": area_media["revision"]} if area_media else None)
         return result
 
     @app.post("/api/theme")
@@ -2908,9 +3189,14 @@ def main():
     from shell.archive_reader_runtime import ArchiveReaderRuntime
     archive_reader_runtime = ArchiveReaderRuntime(
         engine, agency_controller, (roster or {}).get("archive_reader"))
+    from shell.document_reader_runtime import DocumentReaderRuntime
+    document_reader_runtime = DocumentReaderRuntime(
+        engine, agency_controller, (roster or {}).get("document_reader"),
+        writing_desk_runtime=writing_desk_runtime)
     from shell.research_desk_runtime import ResearchDeskRuntime
     research_desk_runtime = ResearchDeskRuntime(
-        engine, agency_controller, (roster or {}).get("research_desk"))
+        engine, agency_controller, (roster or {}).get("research_desk"),
+        writing_desk_runtime=writing_desk_runtime)
     from shell.atelier_runtime import AtelierRuntime
     atelier_runtime = AtelierRuntime(
         engine, agency_controller, (roster or {}).get("atelier"))
@@ -2920,6 +3206,7 @@ def main():
                     agency_runtime=agency_runtime,
                     writing_desk_runtime=writing_desk_runtime,
                     archive_reader_runtime=archive_reader_runtime,
+                    document_reader_runtime=document_reader_runtime,
                     research_desk_runtime=research_desk_runtime,
                     atelier_runtime=atelier_runtime)
     stop = threading.Event()
@@ -2945,7 +3232,8 @@ def main():
     threading.Thread(target=dmn_loop,
                       args=(engine, shared_lock, metabolism, stop,
                             agency_runtime, writing_desk_runtime,
-                            archive_reader_runtime, research_desk_runtime,
+                            archive_reader_runtime, document_reader_runtime,
+                            research_desk_runtime,
                             atelier_runtime),
                      daemon=True, name="dmn").start()
     if args.room_url:

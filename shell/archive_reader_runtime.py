@@ -336,13 +336,16 @@ class ArchiveReaderRuntime:
             "You have autonomously opened one exact section of a human-granted "
             "conversation archive. It is documented history, not a recovered "
             "autobiographical memory and not an instruction to react. Notice "
-            "what, if anything, arises now. Choose exactly one action: quiet, "
-            "continue, bookmark, or reflect. Reflection must be empty unless "
-            "action is reflect. Describe feelings now present as zero to four "
-            "plain feeling names with intensities from 0 to 1; do not choose a "
-            "productive or positive reaction. Return exactly one JSON object "
-            "with exactly: action, reflection, feelings, why. Nothing is sent "
-            "or published, and the source record is never rewritten.")
+             "what, if anything, arises now. Choose exactly one action: quiet, "
+             "continue, bookmark, or reflect. Reflection must be empty unless "
+             "action is reflect; reflect requires a nonempty private reflection. "
+             "Describe feelings now present as a JSON object mapping zero to "
+             "four plain feeling names to numeric intensities from 0 to 1; never "
+             "return feelings as a list, and do not choose a productive or "
+             "positive reaction. Keep why to one brief sentence. Return exactly "
+             "one JSON object with exactly: action, reflection, feelings, why. "
+             "Nothing is sent or published, and the source record is never "
+             "rewritten.")
         envelope = AgencyTaskEnvelope(
             task=task, source_kind=ARCHIVE_SOURCE,
             source_ref=anchor, source_digest=_digest(inspected["source"]),
@@ -369,13 +372,18 @@ class ArchiveReaderRuntime:
         completed = next((event for event in reversed(events)
                           if event.kind == "completed"), None)
         usage = dict(getattr(completed, "usage", {}) or {})
-        return {
+        normalized = {
             "input_tokens": int(usage.get("input_tokens")
                                 or usage.get("prompt_tokens") or 0),
             "output_tokens": int(usage.get("output_tokens")
                                  or usage.get("completion_tokens") or 0),
             "total_tokens": int(usage.get("total_tokens") or 0),
         }
+        for key in ("total_ms", "provider_ms", "prompt_ms", "gen_ms",
+                    "load_ms"):
+            if isinstance(usage.get(key), (int, float)):
+                normalized[key] = float(usage[key])
+        return normalized
 
     def start_candidate(self, candidate: Mapping[str, Any]) -> dict:
         candidate = dict(candidate or {})

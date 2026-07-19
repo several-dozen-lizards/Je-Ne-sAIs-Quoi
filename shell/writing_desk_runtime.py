@@ -236,16 +236,26 @@ class WritingDeskRuntime:
         }
 
     def _offer_seed(self, field, record: Mapping[str, Any], *, now: float):
+        ownership = str(record.get("ownership") or "human_admitted")
+        if ownership == "persona_chosen_research_handoff":
+            description = (
+                f"A self-chosen cited research handoff named "
+                f"{record.get('label') or 'untitled'} is waiting on the desk.")
+            relationship = .3
+        else:
+            description = (
+                f"Human-admitted writing material named "
+                f"{record.get('label') or 'untitled'} is waiting on the desk.")
+            relationship = 1.0
         candidate = field.offer_cognitive_event(
             "writing_desk_seed",
-            f"Human-admitted writing material named "
-            f"{record.get('label') or 'untitled'} is waiting on the desk.",
+            description,
             {"novelty": 1.0, "affect_change": 0.0,
-             "body_intensity": 0.0, "relationship": 1.0,
+             "body_intensity": 0.0, "relationship": relationship,
              "unresolved": 1.0},
             key=f"writing_desk_seed:{record['seed_id']}", now=now,
             raw_ref=record.get("source_digest"),
-            ownership="human_admitted",
+            ownership=ownership,
             receipts=[record.get("source_digest")])
         candidate.update({
             "seed_id": record["seed_id"],
@@ -288,7 +298,8 @@ class WritingDeskRuntime:
         return offered
 
     def admit_seed(self, field, label: str, *, content: str = "",
-                   anchors=(), now: float = None) -> dict:
+                   anchors=(), now: float = None,
+                   ownership: str = "human_admitted") -> dict:
         now = time.time() if now is None else float(now)
         # Validate every anchor against this human-owned library before the
         # reference is admitted.  No source text is copied into the seed.
@@ -296,7 +307,7 @@ class WritingDeskRuntime:
         for anchor in anchors:
             self._inspect_anchor(anchor, maximum=1)
         record = self.desk.admit_seed(
-            label, content=content, anchors=anchors)
+            label, content=content, anchors=anchors, ownership=ownership)
         candidate = self._offer_seed(field, record, now=now)
         field.save(now=now)
         self._emit(
@@ -304,6 +315,7 @@ class WritingDeskRuntime:
             candidate_key=candidate.get("key"),
             content_chars=record.get("chars", 0),
             anchor_count=len(record.get("anchors") or []),
+            ownership=record.get("ownership"),
             duplicate=record.get("duplicate", False))
         return {"record": record, "candidate": candidate}
 
@@ -312,11 +324,19 @@ class WritingDeskRuntime:
         if str(anchor).startswith("doc_"):
             return self.engine.documents.inspect_anchor(
                 anchor, maximum=maximum)
+        if str(anchor).startswith("drep_"):
+            return self.engine.documents.inspect_report_anchor(
+                anchor, maximum=maximum)
         if str(anchor).startswith("arc_"):
             archive = getattr(self.engine, "archive", None)
             if archive is None:
                 raise ValueError("conversation archive is not attached")
             return archive.inspect_anchor(anchor, maximum=maximum)
+        if str(anchor).startswith("res_"):
+            research = getattr(self.engine, "research_desk", None)
+            if research is None:
+                raise ValueError("research desk is not attached")
+            return research.inspect_anchor(anchor, maximum=maximum)
         raise ValueError("writing desk source anchor is invalid")
 
     def resume_project(self, field, project_id: str, *, now: float = None):
@@ -415,13 +435,18 @@ class WritingDeskRuntime:
         completed = next((event for event in reversed(events)
                           if event.kind == "completed"), None)
         usage = dict(getattr(completed, "usage", {}) or {})
-        return {
+        normalized = {
             "input_tokens": int(usage.get("input_tokens")
                                 or usage.get("prompt_tokens") or 0),
             "output_tokens": int(usage.get("output_tokens")
                                  or usage.get("completion_tokens") or 0),
             "total_tokens": int(usage.get("total_tokens") or 0),
         }
+        for key in ("total_ms", "provider_ms", "prompt_ms", "gen_ms",
+                    "load_ms"):
+            if isinstance(usage.get(key), (int, float)):
+                normalized[key] = float(usage[key])
+        return normalized
 
     def _commit(self, context, candidate, proposal, project, source):
         action = proposal["action"]

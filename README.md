@@ -41,6 +41,29 @@ owner or their personas.
    model carrying them. The mask always returns home; open conversations wait
    in compact tabs across the top of the workspace.
 
+### Optional local image generation
+
+Personas with the Atelier organ may create inert SVG, host-compiled kinetic SVG,
+trusted Canvas scenes, or locally diffused PNG artifacts after admitted material wins their ordinary
+attention field. Kinetic SVG starts from the same inert SVG wall: the model may
+only name safe element IDs and normalized motion vectors, while JNSQ compiles
+bounded, body-coupled, closed cycles. It never admits model-authored JavaScript
+or animation markup. Canvas uses a versioned data-only scene graph: models may
+describe bounded shapes, paths, text, deterministic particles, and normalized
+motion, but only trusted JNSQ code calls the Canvas API or schedules frames. To
+install the optional NVIDIA renderer, double-click `INSTALL_ATELIER_GPU.bat`.
+The pinned installer downloads the official ComfyUI portable runtime and the
+SDXL Base 1.0 checkpoint, verifies both SHA-256 digests, and places them under
+the gitignored `local_services/` directory. This is a roughly 9 GB download.
+
+ComfyUI binds to loopback only and starts with online API nodes disabled. No
+Comfy account or cloud key is used. The renderer shares the Nexus lifecycle:
+when JNSQ owns the process, clean household shutdown stops it too. The Atelier
+strips ComfyUI workflow, prompt, EXIF, and text metadata from a generated PNG
+before committing its immutable private artifact. SDXL Base 1.0 is distributed
+under the CreativeML Open RAIL++-M license; review its use restrictions before
+enabling the renderer for other people.
+
 In a conversation, drop images directly onto the message field or use the
 paperclip. Vision-capable active models receive the pixels themselves. For a
 text-only active model, **Settings â†’ Visual input** lets you choose a separate
@@ -136,10 +159,16 @@ The public header has three stable doors:
   project state, and content-free run receipts. It is preserved across updates
   and excluded from public builds with the rest of the persona's interior.
 - When the optional Atelier organ is enabled, `body/atelier/` holds admitted
-  creative material, content-addressed SVG artifacts, and append-only receipts.
+  creative material, content-addressed static/kinetic SVG, Canvas, procedural
+  audio-score, and PNG artifacts,
+  and append-only receipts.
   The Atelier uses an explicitly configured local model, has no publishing or
-  arbitrary-filesystem authority, and only returns an artifact through vision
-  when a human deliberately chooses **let them look**. Its entire lived output
+  arbitrary-filesystem authority. Visual work only returns through vision
+  when a human deliberately chooses **let them look**. For kinetic work this
+  freezes the frame that is actually present and returns that frame through
+  vision. Procedural audio is a versioned data-only score: the host owns all
+  synthesis and gain ceilings, sound never autoplays, and playback or WAV
+  download requires a deliberate browser gesture. Its entire lived output
   is preserved across updates and excluded from public builds.
 - A human may keep imported conversation history under
   `users/<owner>/archives/`. Immutable sources and derived search indexes stay

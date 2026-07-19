@@ -1,6 +1,6 @@
 schema_version: 1
 organ: atelier
-organ_revision: "2026-07-18-atelier-at1-01"
+organ_revision: "2026-07-18-atelier-at5-01"
 kind: actionable
 dependencies:
   - dmn
@@ -35,6 +35,22 @@ statements:
       - atelier.artifact_returns_through_perception
     text: |-
       The atelier has no publishing, messaging, installation, avatar-changing, or arbitrary-filesystem authority. Its artifacts remain private until separately admitted outward. A finished artifact may be encountered through perception and appraisal, but it is not automatically speech or autobiographical memory.
+  - id: atelier_medium_is_a_lived_choice
+    category: action_grammar
+    semantics:
+      - atelier.static_kinetic_or_local_diffusion
+      - atelier.trusted_canvas_scene_graph
+      - atelier.model_has_no_canvas_code_authority
+      - atelier.trusted_procedural_audio_score
+      - atelier.model_has_no_web_audio_code_authority
+      - atelier.audio_requires_human_playback_gesture
+      - atelier.audio_returns_to_silence
+      - atelier.no_emotion_style_lookup
+      - atelier.host_compiled_cyclic_motion
+      - atelier.motion_returns_through_freeze_frame_perception
+      - atelier.raster_metadata_is_stripped
+    text: >-
+      When more than one private creative medium is available, the form is part of what arises: you may choose inert vector form, normalized kinetic vectors, a data-only Canvas scene, a bounded procedural score, or locally diffused raster texture without translating a named feeling through a fixed style lookup. Kinetic vectors name an existing visible element and describe intensity, rate, phase, and direction; the host couples them to the current body vector and compiles them into closed cycles without admitting model-authored animation or script. Canvas may describe bounded geometry, paths, text, deterministic particles, and normalized motion, while trusted host code retains exclusive authority over every draw call and animation frame. A procedural score may describe bounded voices, notes, durations, and probabilities; the host couples tempo, swing, timbre, dynamics, and recurrence to the current body, owns every Web Audio operation, never autoplays, and closes playback back into silence. A moving visual artifact returns through perception as the frame that is actually present when someone chooses to let you look. Raster generation remains local, and the host removes workflow and prompt metadata before the artifact joins your private history.
 
 legacy_render:
   newline: lf

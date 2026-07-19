@@ -13,7 +13,8 @@ MAX_READ_BYTES = 8 * 1024 * 1024
 
 _RECENT_FIELDS = (
     "ts", "persona", "purpose", "provider", "model", "spec_name",
-    "status", "total_ms", "first_token_ms", "input_tokens",
+    "status", "total_ms", "provider_ms", "prompt_ms", "gen_ms", "load_ms",
+    "first_token_ms", "input_tokens",
     "output_tokens", "reasoning_tokens", "cache_read_tokens",
     "cache_write_tokens", "finish_reason", "thinking_type", "attempts",
 )
@@ -82,10 +83,20 @@ def _aggregate(records):
                        if record.get("status") != "ok"
                        and isinstance(record.get("total_ms"), (int, float))]
     durations = sorted(_number(record, "total_ms") for record in measured)
+
+    def measured_sum(key):
+        values = [_number(record, key) for record in measured
+                  if isinstance(record.get(key), (int, float))]
+        return round(sum(values), 3) if values else None
+
     return {
         "calls": calls,
         "errors": errors,
         "model_ms": round(sum(durations), 3),
+        "provider_ms": measured_sum("provider_ms"),
+        "prompt_ms": measured_sum("prompt_ms"),
+        "gen_ms": measured_sum("gen_ms"),
+        "load_ms": measured_sum("load_ms"),
         "error_ms": round(sum(
             _number(record, "total_ms") for record in failed_measured), 3),
         "median_ms": round(

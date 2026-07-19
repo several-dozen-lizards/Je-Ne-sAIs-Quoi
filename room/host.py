@@ -35,7 +35,10 @@ mimetypes.add_type("application/wasm", ".wasm")
 from room.layout import build_world, build_persona_den
 from room.state import CONTRACT_VERSION
 from shell.persona_media import load_persona_avatar
-from shell.ui_background import load_conversation_background
+from shell.ui_background import (delete_nexus_background,
+                                 load_conversation_background,
+                                 load_nexus_background,
+                                 save_nexus_background)
 from shell.ui_themes import resolve_nexus_theme, resolve_theme, save_nexus_theme
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -182,6 +185,10 @@ class ThemeRequest(BaseModel):
     replace: bool = False
 
 
+class ConversationBackgroundRequest(BaseModel):
+    data_url: str
+
+
 class PersonReq(BaseModel):
     display_name: str
     kind: str = "human"          # human | user | ai
@@ -310,40 +317,61 @@ def build_app() -> FastAPI:
             return f.read().replace("/*CONFIG*/", json.dumps(
                 load_local_identity(REPO)))
 
-    @app.get("/api/ui/theme")
-    def nexus_ui_theme():
-        result = resolve_nexus_theme(REPO)
-        media = load_conversation_background(REPO)
+    def _nexus_background_for(result: dict):
+        nexus_tokens = ((result.get("layers") or {}).get("nexus") or {}).get(
+            "tokens") or {}
+        nexus_owns_image = nexus_tokens.get("background") == "image"
+        media = load_nexus_background(REPO) if nexus_owns_image else None
+        source = "nexus" if media else "household"
+        media = media or load_conversation_background(REPO)
+        return media, source
+
+    def _with_nexus_background(result: dict):
+        media, source = _nexus_background_for(result)
         result["conversation_background"] = ({
             "url": "/api/ui/conversation-background",
             "revision": media["revision"],
+            "source": source,
         } if media else None)
         return result
+
+    @app.get("/api/ui/theme")
+    def nexus_ui_theme():
+        return _with_nexus_background(resolve_nexus_theme(REPO))
 
     @app.post("/api/ui/theme")
     def set_nexus_ui_theme(req: ThemeRequest):
         try:
             result = save_nexus_theme(REPO, req.patch, reset=req.reset,
                                       replace=req.replace)
-            media = load_conversation_background(REPO)
-            result["conversation_background"] = ({
-                "url": "/api/ui/conversation-background",
-                "revision": media["revision"],
-            } if media else None)
-            return result
+            return _with_nexus_background(result)
         except ValueError as error:
             return JSONResponse(status_code=400,
                                 content={"error": str(error)})
 
     @app.get("/api/ui/conversation-background")
     def nexus_ui_background():
-        media = load_conversation_background(REPO)
+        media, _source = _nexus_background_for(resolve_nexus_theme(REPO))
         if not media:
             return JSONResponse(status_code=404,
                                 content={"error": "no conversation background"})
         return FileResponse(media["path"], media_type=media["mime"],
                             headers={"X-Content-Type-Options": "nosniff",
                                      "Cache-Control": "no-cache"})
+
+    @app.post("/api/ui/conversation-background")
+    def nexus_ui_background_save(req: ConversationBackgroundRequest):
+        try:
+            media = save_nexus_background(REPO, req.data_url)
+            return {"ok": True, "url": "/api/ui/conversation-background",
+                    "revision": media["revision"], "source": "nexus"}
+        except ValueError as error:
+            return JSONResponse(status_code=400,
+                                content={"error": str(error)})
+
+    @app.delete("/api/ui/conversation-background")
+    def nexus_ui_background_delete():
+        return {"ok": True, "removed": delete_nexus_background(REPO)}
 
     @app.get("/api/world")
     def world_view():

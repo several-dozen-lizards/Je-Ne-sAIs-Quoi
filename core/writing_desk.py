@@ -25,8 +25,11 @@ MAX_REVISION_CHARS = AGENCY_TASK_BUDGET * 20
 MAX_READ_CHARS = AGENCY_TASK_BUDGET * 8
 MAX_LABEL_CHARS = AGENCY_SOURCE_BUDGET
 RESOLUTIONS = frozenset({"paused", "completed", "abandoned"})
+SEED_OWNERSHIPS = frozenset({"human_admitted",
+                             "persona_chosen_research_handoff"})
 ANCHOR_RE = re.compile(
-    r"^(?:doc_[0-9a-f]{16}|arc_[0-9a-f]{16})#[1-9][0-9]*$")
+    r"^(?:(?:doc_|arc_)[0-9a-f]{16}#[1-9][0-9]*|"
+    r"res_[0-9a-f]{16}#1)$")
 PROJECT_RE = re.compile(r"^project_[0-9a-f]{16}$")
 
 
@@ -61,7 +64,7 @@ def _anchors(values) -> list[str]:
     for raw in values or ():
         value = str(raw or "").strip()
         if not ANCHOR_RE.fullmatch(value):
-            raise ValueError("writing desk document/archive anchor is invalid")
+            raise ValueError("writing desk source anchor is invalid")
         if value not in found:
             found.append(value)
     return found
@@ -142,17 +145,21 @@ class WritingDesk:
         return path
 
     def admit_seed(self, label: str, *, content: str = "",
-                   anchors=()) -> dict:
-        """Admit human-owned material without starting autonomous work."""
+                   anchors=(), ownership: str = "human_admitted") -> dict:
+        """Admit bounded material without starting autonomous work."""
         label = _bounded(label, name="writing desk seed label",
                          maximum=MAX_LABEL_CHARS)
         content = _bounded(content, name="writing desk seed content",
                            maximum=MAX_SEED_CHARS, allow_empty=True)
         anchors = _anchors(anchors)
+        ownership = str(ownership or "").strip()
+        if ownership not in SEED_OWNERSHIPS:
+            raise ValueError("writing desk seed ownership is invalid")
         if not content and not anchors:
             raise ValueError(
-                "writing desk seed needs text or a document/archive anchor")
-        source_digest = _digest({"content": content, "anchors": anchors})
+                "writing desk seed needs text or an exact source anchor")
+        source_digest = _digest({"content": content, "anchors": anchors,
+                                 "ownership": ownership})
         seed_id = f"seed_{source_digest}"
         with self._lock:
             existing = next((record for record in self.records(
@@ -178,7 +185,7 @@ class WritingDesk:
                 "chars": len(content),
                 "sha256": content_sha,
                 "source_digest": source_digest,
-                "ownership": "human_admitted",
+                "ownership": ownership,
                 "created_at": float(self.now_fn()),
             })
             return {**record, "duplicate": False}

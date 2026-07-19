@@ -6,6 +6,7 @@ import json
 import hashlib
 import os
 from pathlib import Path
+import re
 import sys
 import tempfile
 from unittest import mock
@@ -13,6 +14,8 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[1]
 os.chdir(ROOT)
 sys.path.insert(0, str(ROOT))
+
+from core.organs import REGISTRY
 
 
 def main():
@@ -63,6 +66,16 @@ def main():
     assert "--panel2:color-mix(in srgb,var(--panel) 82%,var(--mint))" in shell
     assert 'class="on" type="button" data-top-page="personas"' in shell
     assert "background:color-mix(in srgb,var(--mint) 20%,var(--panel))" in shell
+    about = (ROOT / "shell" / "about.html").read_text(encoding="utf-8")
+    about_organs = re.findall(
+        r'<article class="card organ".*?<h3>([^<]+)</h3>', about,
+        flags=re.DOTALL)
+    assert len(about_organs) == len(set(about_organs)), (
+        f"About guide has duplicate organ cards: {about_organs}")
+    assert set(about_organs) == set(REGISTRY), (
+        "About guide organ cards do not match the runtime registry: "
+        f"about={sorted(about_organs)} registry={sorted(REGISTRY)}")
+    assert "local SVG/PNG" in about and "authority 0 by default" in about
     cockpit = (ROOT / "shell" / "cockpit.html").read_text(encoding="utf-8")
     assert "JNSQ cockpit" not in cockpit and 'class="brand-mark"' not in cockpit
     assert "Conversation · Je Ne Sais Quoi" in cockpit
@@ -88,14 +101,40 @@ def main():
     assert "human_turn_arrived" in cockpit_server
     assert 'id="atelier"' in cockpit
     assert 'id="atelier-submit"' in cockpit
+    assert 'id="autonomous-works"' in cockpit
+    assert 'id="autonomous-works-filter"' in cockpit
+    assert "refreshAutonomousWorks" in cockpit
+    assert cockpit.count("const saved=await saveAppearance(false);") == 2
+    settings = (ROOT / "shell" / "settings.html").read_text(encoding="utf-8")
+    assert ('const saved=await saveTheme(false,'
+            '"Background uploaded and household appearance saved.");'
+            in settings)
     assert "function renderAtelier" in cockpit
     assert "function perceiveAtelierArtifact" in cockpit
+    assert 'artifact.variant==="kinetic"' in cockpit
+    assert "function drawAtelierCanvas" in cockpit
+    assert "function mountAtelierCanvas" in cockpit
+    assert "new IntersectionObserver" in cockpit
+    assert "new MutationObserver" in cockpit
+    assert "function renderAtelierAudioBuffer" in cockpit
+    assert "function mountAtelierAudio" in cockpit
+    assert "new OfflineAudioContext" in cockpit
+    assert "stopAtelierAudioPlayers(\"page hidden\")" in cockpit
+    assert "Sound never autoplays" in cockpit
     assert '@app.get("/api/atelier")' in cockpit_server
+    assert '@app.get("/api/autonomous-works")' in cockpit_server
     assert '@app.post("/api/atelier/seeds")' in cockpit_server
     assert '@app.get("/api/atelier/artifacts/{artifact_id}")' in cockpit_server
     assert '@app.post("/api/atelier/artifacts/{artifact_id}/perceive")' in cockpit_server
+    assert '"medium": str(artifact.get("medium") or "unknown")' in cockpit_server
+    assert '@app.post("/api/atelier/renderers/comfyui/probe")' in cockpit_server
     assert (ROOT / "core" / "atelier.py").is_file()
     assert (ROOT / "shell" / "atelier_runtime.py").is_file()
+    assert (ROOT / "shell" / "comfyui_client.py").is_file()
+    assert (ROOT / "shell" / "comfyui_service.py").is_file()
+    assert (ROOT / "tools" / "verify_atelier_kinetic.py").is_file()
+    assert (ROOT / "tools" / "verify_atelier_canvas.py").is_file()
+    assert (ROOT / "tools" / "verify_atelier_audio.py").is_file()
     assert (ROOT / "specs" / "organ_instructions" / "atelier.yaml").is_file()
     assert "CONFIG.persona_avatar" in cockpit
     assert 'id="column-resizer"' in cockpit
@@ -115,6 +154,12 @@ def main():
     assert 'id="themeBackgroundRemove"' in cockpit
     assert '@app.post("/api/ui/conversation-background")' in cockpit_server
     assert '@app.delete("/api/ui/conversation-background")' in cockpit_server
+    assert 'id="conversation-area-background"' in cockpit
+    assert 'id="themeConversationAreaFile"' in cockpit
+    assert 'id="themeConversationAreaUpload"' in cockpit
+    assert 'id="themeConversationAreaRemove"' in cockpit
+    assert '@app.post("/api/ui/conversation-area-background")' in cockpit_server
+    assert '@app.delete("/api/ui/conversation-area-background")' in cockpit_server
     settings = (ROOT / "shell" / "settings.html").read_text(encoding="utf-8")
     users = (ROOT / "shell" / "users.html").read_text(encoding="utf-8")
     assert "scrollbar-color:var(--accent)" in settings
@@ -137,6 +182,13 @@ def main():
     assert 'id="sidebarToggle"' in nexus and 'sidebarCollapsed' in nexus
     assert 'Nexus appearance' in nexus and 'id="saveNexusAppearance"' in nexus
     assert 'id="resetNexusAppearance"' in nexus
+    assert 'id="nexusBackgroundFile"' in nexus
+    assert 'id="nexusBackgroundUpload"' in nexus
+    assert 'id="nexusBackgroundRemove"' in nexus
+    assert 'Image uploaded and Nexus appearance saved.' in nexus
+    room_host = (ROOT / "room" / "host.py").read_text(encoding="utf-8")
+    assert '@app.post("/api/ui/conversation-background")' in room_host
+    assert '@app.delete("/api/ui/conversation-background")' in room_host
     assert '/assets/hex_color.js' in nexus
     assert 'class="speaker-choice"' in nexus
     assert 'jnsq.nexus.presenceWidth' in nexus
@@ -174,6 +226,22 @@ def main():
     assert "body/perception/images/" in readme
     assert "body/atelier/" in readme
     assert "no publishing or" in readme
+    assert "INSTALL_ATELIER_GPU.bat" in readme
+    assert "host-compiled kinetic SVG" in readme
+    assert "normalized motion vectors" in readme
+    assert "trusted Canvas scenes" in readme
+    assert "versioned data-only scene graph" in readme
+    assert "procedural audio" in readme.casefold()
+    assert "sound never autoplays" in readme.casefold()
+    assert "online API nodes disabled" in readme
+    assert (ROOT / "INSTALL_ATELIER_GPU.bat").is_file()
+    assert (ROOT / "START_ATELIER_GPU.bat").is_file()
+    assert (ROOT / "STOP_ATELIER_GPU.bat").is_file()
+    gpu_installer = (ROOT / "tools" / "install_atelier_gpu.ps1").read_text(
+        encoding="utf-8")
+    assert "v0.28.0" in gpu_installer
+    assert "797183fe6165b96a1800793cdc2110e4c62c45e8775647a7166fe8c6290e2fd9" in gpu_installer
+    assert "31e35c80fc4829d14f90153f4c74cd59c90b779f6afe05a74cd6120b893f7e5b" in gpu_installer
     assert "spoken-turn" in readme and "checkbox is off by default" in readme
     assert "Reply speech is also off by default" in readme
     assert "browser/operating system speech" in readme
@@ -191,6 +259,7 @@ def main():
     requirements = (ROOT / "requirements.txt").read_text(
         encoding="utf-8").splitlines()
     assert requirements.count("pydantic-ai-slim==2.8.0") == 1
+    assert requirements.count("websocket-client==1.9.0") == 1
     updater = (ROOT / "UPDATE_JNSQ.ps1").read_text(encoding="utf-8")
     update_launcher = (ROOT / "UPDATE_JNSQ.bat").read_text(encoding="utf-8")
     assert "UPDATE_JNSQ.ps1" in update_launcher

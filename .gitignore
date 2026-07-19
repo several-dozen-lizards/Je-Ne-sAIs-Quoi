@@ -24,3 +24,4 @@ logs/
 jnsq_running.json
 room/room_world.json*
 scratch/
+local_services/

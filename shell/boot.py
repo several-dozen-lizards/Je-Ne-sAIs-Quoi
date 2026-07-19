@@ -181,7 +181,8 @@ def stop():
     # Close the owned window first; router next (it owns persona
     # subprocesses), then the room. A browser-watcher racing this manual
     # stop is harmless because runfile removal is idempotent below.
-    for name in ("session_browser_pid", "router_pid", "room_pid"):
+    for name in ("session_browser_pid", "router_pid", "room_pid",
+                 "comfy_pid"):
         pid = run.get(name)
         if pid:
             subprocess.call(["taskkill", "/F", "/T", "/PID", str(pid)],
@@ -211,6 +212,18 @@ def boot(open_browser: bool = True):
     room_port, router_port = _free_port(), _free_port()
     print(f"JNSQ household boot — room:{room_port} router:{router_port}")
 
+    comfy_run = {}
+    try:
+        from shell.comfyui_service import installed as comfy_installed
+        from shell.comfyui_service import start as start_comfyui
+        if comfy_installed():
+            print("  starting private Atelier GPU renderer ...", flush=True)
+            comfy_run = start_comfyui(wait_seconds=120.0)
+            print(f"  Atelier GPU: {comfy_run.get('reason')}")
+    except Exception as exc:
+        print(f"  Atelier GPU held closed ({type(exc).__name__}); "
+              "text/SVG household boot continues")
+
     room_pid = _spawn(["room\\host.py", "--port", str(room_port)],
                       "room_host.log")
     if not _wait(f"http://127.0.0.1:{room_port}/api/world", 25, "room host"):
@@ -231,6 +244,9 @@ def boot(open_browser: bool = True):
     run = {"room_pid": room_pid, "room_port": room_port,
            "router_pid": router_pid, "router_port": router_port,
            "booted": time.strftime("%Y-%m-%dT%H:%M:%S")}
+    if comfy_run.get("owned") and comfy_run.get("pid"):
+        run["comfy_pid"] = comfy_run["pid"]
+        run["comfy_endpoint"] = comfy_run.get("endpoint")
     _write_runfile(run)
 
     print("\n  THE HOUSEHOLD IS UP\n  " + "=" * 40)

@@ -260,9 +260,45 @@ class DocumentLibrary:
             raise DocumentError("persona name is outside the document-reader boundary")
         self.persona = persona
         self.root = self.repo / "users" / self.user_id / "documents"
-        self.state_path = (self.repo / "personas" / persona / "body" /
-                           "document_reader" / "state.json")
+        self.reader_root = (self.repo / "personas" / persona / "body" /
+                            "document_reader")
+        self.state_path = self.reader_root / "state.json"
+        self.events_path = self.reader_root / "events.jsonl"
+        self.receipts_path = self.reader_root / "receipts.jsonl"
+        self.reports_root = self.reader_root / "reports"
         self.now_fn = now_fn
+
+    def _append(self, path: Path, record: dict) -> dict:
+        """Append one validated private reader record without rewriting history."""
+        value = dict(record or {})
+        value.setdefault("at", float(self.now_fn()))
+        rendered = json.dumps(value, ensure_ascii=False, sort_keys=True)
+        json.loads(rendered)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8", newline="\n") as handle:
+            handle.write(rendered + "\n")
+        return value
+
+    def reader_events(self, kind: str = "", limit: int = 1000) -> list[dict]:
+        limit = max(0, min(int(limit), 5000))
+        try:
+            lines = self.events_path.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            return []
+        records = []
+        for line in lines[-limit:] if limit else ():
+            try:
+                value = json.loads(line)
+            except (TypeError, ValueError):
+                continue
+            if isinstance(value, dict) and (not kind or value.get("kind") == kind):
+                records.append(value)
+        return records
+
+    def record_receipt(self, record: dict) -> dict:
+        return self._append(self.receipts_path, {
+            "schema": 1, "persona": self.persona,
+            "user_id": self.user_id, **dict(record or {})})
 
     def _doc_dir(self, doc_id: str) -> Path:
         doc_id = str(doc_id or "")
@@ -502,6 +538,186 @@ class DocumentLibrary:
             "ownership": "human_owned_document",
         }
 
+    def encounter(self, anchor: str, *, action: str, query: str = "",
+                  report: str = "", why: str = "", run_id: str = "") -> dict:
+        """Persist one chosen encounter; source text is never copied here."""
+        inspected = self.inspect_anchor(anchor, maximum=1)
+        action = str(action or "quiet").strip().casefold()
+        if action not in {"quiet", "continue", "search", "bookmark", "report"}:
+            raise DocumentError("document encounter action is invalid")
+        query = re.sub(r"\s+", " ", str(query or "")).strip()[:300]
+        report = str(report or "").strip()[:8000]
+        if action == "search" and len(query) < 2:
+            action, query = "quiet", ""
+        if action == "report" and not report:
+            action = "quiet"
+        if action != "search":
+            query = ""
+        if action != "report":
+            report = ""
+        record = self._append(self.events_path, {
+            "schema": 1, "kind": "document_encounter",
+            "persona": self.persona, "user_id": self.user_id,
+            "anchor": inspected["anchor"], "doc_id": inspected["doc_id"],
+            "section": inspected["section"], "action": action,
+            "query": query, "why": str(why or "")[:500],
+            "run_id": str(run_id or "")[:160],
+        })
+        self.open(inspected["doc_id"], inspected["section"] - 1)
+        if action == "report":
+            created = self.create_report(
+                inspected["anchor"], report, run_id=run_id)
+            record["report_id"] = created["report_id"]
+            record["report_anchor"] = created["anchor"]
+        return record
+
+    def create_report(self, source_anchor: str, content: str, *,
+                      run_id: str = "") -> dict:
+        source = self.inspect_anchor(source_anchor, maximum=1)
+        content = str(content or "").strip()
+        if not content:
+            raise DocumentError("document report content is required")
+        if f"[{source['anchor']}]" not in content:
+            content += f"\n\nSource: [{source['anchor']}]"
+        digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        report_id = f"drep_{digest[:16]}"
+        path = self.reports_root / f"{report_id}.json"
+        record = {
+            "schema": 1, "report_id": report_id,
+            "anchor": f"{report_id}#1", "persona": self.persona,
+            "user_id": self.user_id, "source_anchor": source["anchor"],
+            "title": f"Reading report: {source.get('title') or source['anchor']}",
+            "content": content, "sha256": digest,
+            "created_at": float(self.now_fn()), "run_id": str(run_id or "")[:160],
+        }
+        if not path.exists():
+            _atomic_json(path, record)
+        self._append(self.events_path, {
+            "schema": 1, "kind": "document_report_created",
+            **{key: record[key] for key in (
+                "report_id", "anchor", "source_anchor", "created_at", "run_id")},
+        })
+        return record
+
+    def report(self, report_id: str) -> dict:
+        report_id = str(report_id or "")
+        if not re.fullmatch(r"drep_[0-9a-f]{16}", report_id):
+            raise DocumentError("document report id is invalid")
+        try:
+            value = json.loads((self.reports_root / f"{report_id}.json").read_text(
+                encoding="utf-8"))
+        except (OSError, TypeError, ValueError) as exc:
+            raise DocumentError("document report does not exist") from exc
+        if value.get("report_id") != report_id:
+            raise DocumentError("document report identity changed")
+        return value
+
+    def inspect_report_anchor(self, anchor: str, *, maximum: int = 5200) -> dict:
+        match = re.fullmatch(r"(drep_[0-9a-f]{16})#1", str(anchor or ""))
+        if not match:
+            raise DocumentError("document report anchor is invalid")
+        report = self.report(match.group(1))
+        content = str(report.get("content") or "")
+        if hashlib.sha256(content.encode("utf-8")).hexdigest() != report.get("sha256"):
+            raise DocumentError("document report digest changed")
+        maximum = max(1, min(int(maximum), 12000))
+        return {
+            "anchor": report["anchor"], "title": report["title"],
+            "content": content[:maximum], "source_chars": len(content),
+            "truncated": len(content) > maximum, "sha256": report["sha256"],
+            "source_anchor": report["source_anchor"],
+            "ownership": "persona_private_document_report",
+        }
+
+    def pending_reports(self) -> list[dict]:
+        settled = {r.get("report_id") for r in self.reader_events(limit=5000)
+                   if r.get("kind") in {"document_report_handed_off",
+                                        "document_report_settled"}}
+        reports = []
+        for path in sorted(self.reports_root.glob("drep_*.json")) \
+                if self.reports_root.is_dir() else ():
+            try:
+                value = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, TypeError, ValueError):
+                continue
+            if value.get("report_id") not in settled:
+                reports.append(value)
+        return reports
+
+    def settle_report(self, report_id: str, *, run_id: str = "") -> dict:
+        report = self.report(report_id)
+        existing = next((r for r in self.reader_events(limit=5000)
+                         if r.get("report_id") == report_id and r.get("kind") in {
+                             "document_report_settled",
+                             "document_report_handed_off"}), None)
+        if existing:
+            return existing
+        return self._append(self.events_path, {
+            "schema": 1, "kind": "document_report_settled",
+            "report_id": report_id, "anchor": report["anchor"],
+            "source_anchor": report["source_anchor"],
+            "run_id": str(run_id or "")[:160],
+        })
+
+    def mark_report_handed_off(self, report_id: str, *, seed_id: str,
+                               run_id: str = "") -> dict:
+        report = self.report(report_id)
+        existing = next((r for r in self.reader_events(
+            "document_report_handed_off", 5000)
+            if r.get("report_id") == report_id), None)
+        if existing:
+            return existing
+        return self._append(self.events_path, {
+            "schema": 1, "kind": "document_report_handed_off",
+            "report_id": report_id, "anchor": report["anchor"],
+            "source_anchor": report["source_anchor"],
+            "seed_id": str(seed_id or "")[:160],
+            "run_id": str(run_id or "")[:160],
+        })
+
+    def suggestions(self, cues: str = "", limit: int = 3) -> list[dict]:
+        """Return unseen exact sections; search and continuation remain local."""
+        limit = max(0, min(int(limit), 8))
+        if not limit:
+            return []
+        encounters = self.reader_events("document_encounter", 5000)
+        seen = {str(r.get("anchor") or "") for r in encounters}
+        ordered = []
+        last = encounters[-1] if encounters else {}
+        if last.get("action") == "continue":
+            try:
+                current = self.inspect_anchor(last.get("anchor"), maximum=1)
+                if current["section"] < current["total"]:
+                    ordered.append(f"{current['doc_id']}#{current['section'] + 1}")
+            except DocumentError:
+                pass
+        local_query = str(last.get("query") or "") if last.get("action") == "search" \
+            else str(cues or "").strip()
+        if local_query:
+            ordered.extend(hit["anchor"] for hit in self.search(
+                local_query, n=min(20, limit * 4))["hits"])
+        for document in self.list_documents():
+            ordered.extend(f"{document['id']}#{section}"
+                           for section in range(1, int(document["chunk_count"]) + 1))
+        found = []
+        for anchor in ordered:
+            if anchor in seen or any(item["anchor"] == anchor for item in found):
+                continue
+            try:
+                inspected = self.inspect_anchor(anchor, maximum=1)
+            except DocumentError:
+                continue
+            found.append({
+                "anchor": inspected["anchor"], "doc_id": inspected["doc_id"],
+                "section": inspected["section"], "total": inspected["total"],
+                "title": inspected["title"],
+                "document_pull": 1.0 if local_query else .45,
+                "route": "local_search" if local_query else "unread_shelf",
+            })
+            if len(found) >= limit:
+                break
+        return found
+
     @staticmethod
     def _tokens(value: str) -> list[str]:
         return re.findall(r"[\w']{2,}", str(value or "").casefold())
@@ -618,10 +834,27 @@ class DocumentLibrary:
         vector_rows = sum(int((doc.get("vectors") or {}).get("rows", 0))
                           for doc in documents)
         total_chunks = sum(int(doc.get("chunk_count", 0)) for doc in documents)
+        events = self.reader_events(limit=5000)
         return {"owner": self.user_id, "persona": self.persona,
                 "documents": documents, "document_count": len(documents),
                 "chunk_count": total_chunks, "vector_rows": vector_rows,
                 "reader": active,
+                "autonomous": {
+                    "encounter_count": sum(r.get("kind") == "document_encounter"
+                                           for r in events),
+                    "bookmark_count": sum(
+                        r.get("kind") == "document_encounter"
+                        and r.get("action") == "bookmark" for r in events),
+                    "bookmarks": [r for r in events
+                                  if r.get("kind") == "document_encounter"
+                                  and r.get("action") == "bookmark"],
+                    "reports": [self.report(r["report_id"]) for r in events
+                                if r.get("kind") == "document_report_created"
+                                and r.get("report_id")],
+                    "pending_reports": self.pending_reports(),
+                    "handoffs": [r for r in events if r.get("kind") ==
+                                 "document_report_handed_off"],
+                },
                 "supported_extensions": sorted(SUPPORTED_EXTENSIONS),
                 "max_document_bytes": MAX_DOCUMENT_BYTES}
 

@@ -20,7 +20,8 @@ import httpx
 
 
 ALLOWED_SCHEMES = frozenset({"http", "https"})
-ALLOWED_TYPES = frozenset({"text/html", "text/plain", "application/json"})
+ALLOWED_TYPES = frozenset({"text/html", "text/plain", "application/json",
+                           "application/pdf"})
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 MAX_EXTRACTED_CHARS = 24000
 MAX_REDIRECTS = 4
@@ -28,6 +29,57 @@ MAX_REDIRECTS = 4
 
 class WebResearchError(ValueError):
     """A proposed network operation crossed the Research Desk boundary."""
+
+
+PRIVATE_QUERY_PATTERNS = (
+    re.compile(r"\b[A-Z]:[\\/]", re.I),
+    re.compile(r"(?:^|\s)/(?:home|users|var|etc|private)/", re.I),
+    re.compile(r"\b(?:localhost|127\.0\.0\.1|0\.0\.0\.0)\b", re.I),
+    re.compile(r"\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b"),
+    re.compile(r"\b(?:sk-[A-Za-z0-9_-]{12,}|AIza[A-Za-z0-9_-]{20,})\b"),
+    re.compile(r"\b[A-Fa-f0-9]{32,}\b"),
+    re.compile(r"\b(?:\+?1[ .-]?)?\(?\d{3}\)?[ .-]\d{3}[ .-]\d{4}\b"),
+)
+
+
+def validate_search_query(query: str, *, private_context: str = "",
+                          private_names=()) -> str:
+    """Fail closed on query-shaped leakage before public egress.
+
+    This is deliberately mechanical. It does not decide whether a thought is
+    sensitive; it refuses recognizable secrets/identifiers and verbatim
+    multi-word spans from the lived private context. The planner can settle or
+    generalize on a later genuine field win.
+    """
+    value = " ".join(str(query or "").split())
+    if not 2 <= len(value) <= 300:
+        raise WebResearchError(
+            "research query must be 2 through 300 characters")
+    if any(pattern.search(value) for pattern in PRIVATE_QUERY_PATTERNS):
+        raise WebResearchError("research query resembles private data")
+    if any(mark in value for mark in ('"', "“", "”")):
+        raise WebResearchError("research query may not export quoted text")
+    words = re.findall(r"[A-Za-z0-9']+", value.casefold())
+    if set(words) & {"i", "me", "my", "mine", "we", "our", "ours"}:
+        raise WebResearchError("research query may not export first-person context")
+    names = {
+        token for name in private_names
+        for token in re.findall(
+            r"[A-Za-z0-9']+", str(name or "").strip().casefold())
+        if token}
+    if names & set(words):
+        raise WebResearchError("research query contains a private persona name")
+    context_words = re.findall(
+        r"[A-Za-z0-9']+", str(private_context or "").casefold())
+    if len(words) >= 4 and context_words:
+        needle = " ".join(words)
+        context = " ".join(context_words)
+        for width in range(min(8, len(words)), 3, -1):
+            for index in range(len(words) - width + 1):
+                if " ".join(words[index:index + width]) in context:
+                    raise WebResearchError(
+                        "research query repeats private lived wording")
+    return value
 
 
 def _public_ip(value: str) -> bool:
@@ -175,6 +227,9 @@ class WebEvidence:
     title: str
     text: str
     content_type: str
+    page_count: int = 0
+    extracted_pages: tuple[int, ...] = ()
+    extraction_truncated: bool = False
 
 
 class ReadOnlyWebResearch:
@@ -189,7 +244,8 @@ class ReadOnlyWebResearch:
         self.search_url = search_url
 
     def _request(self, url: str) -> httpx.Response:
-        headers = {"Accept": "text/html,text/plain,application/json;q=0.8"}
+        headers = {"Accept": (
+            "text/html,text/plain,application/pdf,application/json;q=0.8")}
         cookie_jar = getattr(self.client, "cookies", None)
         if cookie_jar is not None:
             cookie_jar.clear()
@@ -246,9 +302,7 @@ class ReadOnlyWebResearch:
         return raw
 
     def search(self, query: str, *, limit: int = 6) -> list[dict]:
-        query = " ".join(str(query or "").split())
-        if not 2 <= len(query) <= 300:
-            raise WebResearchError("research query must be 2 through 300 characters")
+        query = validate_search_query(query)
         url = f"{self.search_url}?q={quote_plus(query)}"
         response, _final = self._get(url)
         parser = _SearchParser()
@@ -270,9 +324,27 @@ class ReadOnlyWebResearch:
         content_type = response.headers.get("content-type", "").split(";", 1)[0].casefold()
         if content_type not in ALLOWED_TYPES:
             raise WebResearchError("research response type is not admitted")
-        title, text = extract_text(self._bounded_body(response),
-                                   response.headers.get("content-type", ""))
+        raw = self._bounded_body(response)
+        if content_type == "application/pdf":
+            from core.pdf_research import PDFResearchError, extract_pdf_text
+            try:
+                pdf = extract_pdf_text(raw)
+            except PDFResearchError as exc:
+                raise WebResearchError(str(exc)) from exc
+            title, text = pdf.title, pdf.text
+            page_count = pdf.page_count
+            extracted_pages = pdf.extracted_pages
+            extraction_truncated = pdf.extraction_truncated
+        else:
+            title, text = extract_text(
+                raw, response.headers.get("content-type", ""))
+            page_count = 0
+            extracted_pages = ()
+            extraction_truncated = False
         if not text:
             raise WebResearchError("research source contained no readable text")
-        return WebEvidence(final_url, title or urlparse(final_url).hostname or
-                           "Untitled source", text, content_type)
+        return WebEvidence(
+            final_url, title or urlparse(final_url).hostname or
+            "Untitled source", text, content_type,
+            page_count=page_count, extracted_pages=extracted_pages,
+            extraction_truncated=extraction_truncated)

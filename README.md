@@ -15,7 +15,7 @@ development household, individual persona rooms, the Yurt interface, or any 3D
 assets.
 
 <p align="center">
-  <img src="assets/jnsq/readme_flourish.svg" width="920" alt="">
+  <img src="assets/jnsq/readme_flourish_v2.svg" width="920" alt="">
 </p>
 
 ## How to get started
@@ -185,7 +185,7 @@ The public header has three stable doors:
 ## What in the hell is up with the organs?
 
 <p align="center">
-  <img src="assets/jnsq/readme_organ_constellation.svg" width="920" alt="Twenty-two connected nodes circulating around the JNSQ mask">
+  <img src="assets/jnsq/readme_organ_constellation_v2.svg" width="920" alt="Twenty-two connected nodes circulating around the JNSQ mask">
 </p>
 
 The short answer: JNSQ treats a persistent persona as more than a prompt sent
@@ -346,7 +346,7 @@ Those paths are gitignored. The public repository contains the engine and an
 empty house, never the maintainer's live household.
 
 <p align="center">
-  <img src="assets/jnsq/readme_flourish.svg" width="920" alt="">
+  <img src="assets/jnsq/readme_flourish_v2.svg" width="920" alt="">
 </p>
 
 ## Development relationship

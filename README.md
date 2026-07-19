@@ -14,32 +14,60 @@ one shared context room called **the Nexus**. It does not include the private
 development household, individual persona rooms, the Yurt interface, or any 3D
 assets.
 
-## Windows setup
+## How to get started
 
-1. Download the repository and extract it somewhere you own. Do not run it
-   from inside the ZIP.
-2. Double-click `INSTALL_JNSQ.bat`.
+JNSQ currently ships for Windows. You do not need to know Python or use a
+terminal for the ordinary setup.
 
-The setup checks for Python 3.10 or newer and, when possible, offers to install
-Python 3.12 through Windows Package Manager. It then creates an isolated
-`.venv`, installs and verifies JNSQ's dependencies, asks who owns this local
-installation, and offers to start JNSQ. If setup is interrupted, double-click
-it again: it repairs and reuses the environment without replacing an existing
-owner or their personas.
+### 1. Download and install
 
-3. For a completely local model, install Ollama from
-   <https://ollama.com/download/windows/> and run:
+1. Click the green **Code** button above, choose **Download ZIP**, and extract
+   the ZIP somewhere you own. Do not run JNSQ from inside the ZIP.
+2. Open the extracted folder and double-click `INSTALL_JNSQ.bat`.
+3. Follow the prompts. Setup checks for Python 3.10 or newer, creates an
+   isolated `.venv`, installs and verifies the dependencies, and asks who owns
+   this local house. It does not ask for an API key or upload personal data.
 
-       ollama pull llama3.1:8b
+If setup is interrupted, run `INSTALL_JNSQ.bat` again. It repairs and reuses
+the installation without replacing the existing owner or personas.
 
-4. Double-click `START_NEXUS.bat` if you did not start it from setup. JNSQ
-   opens in its own app window. Closing that window ends the session and
-   automatically performs the same clean shutdown as `STOP_NEXUS.bat`;
-   refreshing it or changing conversation panes does not.
-5. Open **Household**, create a persona, write their voice, and start them. The
-   household screen can add models to each persona's roster and switch the
-   model carrying them. The mask always returns home; open conversations wait
-   in compact tabs across the top of the workspace.
+### 2. Give the house a model
+
+For a completely local starting model, install Ollama from
+<https://ollama.com/download/windows/> and then run:
+
+    ollama pull llama3.1:8b
+
+If you prefer a hosted model, start JNSQ first and add the provider key under
+**Settings -> API keys**. Keys stay in the local, gitignored `.env` file. JNSQ
+does not silently choose or substitute a provider.
+
+### 3. Start JNSQ and create someone
+
+1. Double-click `START_NEXUS.bat`. JNSQ opens in its own app window.
+2. Open **Household -> Create a persona**.
+3. Give them a name, choose a model and interior preset, and write their voice:
+   how they speak, what they value, their relationships, and their boundaries.
+4. Start the persona and open their conversation.
+
+The model is the current language-bearing vessel; the persona's identity,
+memory, body state, settings, and history remain locally owned JNSQ continuity.
+You can add other models to the persona's roster and change which one carries
+them without creating a second persona.
+
+### 4. Use the Nexus when you want shared presence
+
+Private persona panes are separate conversations. **The Nexus** is the shared
+room: add the local human user and whichever personas should be present, choose
+who is speaking, and let room events enter each persona through their own
+perception, memory, and response loop.
+
+### 5. Stop and update cleanly
+
+Closing the JNSQ app window performs a clean shutdown. You can also run
+`STOP_NEXUS.bat`. When a new public version is available, stop JNSQ and run
+`UPDATE_JNSQ.bat`; the updater replaces engine files while preserving local
+accounts, personas, histories, keys, appearance, artifacts, and room state.
 
 ### Optional local image generation
 
@@ -66,7 +94,7 @@ enabling the renderer for other people.
 
 In a conversation, drop images directly onto the message field or use the
 paperclip. Vision-capable active models receive the pixels themselves. For a
-text-only active model, **Settings â†’ Visual input** lets you choose a separate
+text-only active model, **Settings -> Visual input** lets you choose a separate
 visual transducer for that persona, see its provider/cost/key status, and test
 it explicitly with JNSQ's public icon. JNSQ never silently substitutes a
 provider; choosing no fallback makes an image turn fail clearly. Press
@@ -149,6 +177,92 @@ The public header has three stable doors:
 - **Settings** contains account/privacy and bedrock facts, household appearance,
   persona faces and icons, API keys, per-persona visual routing, model and organ
   prompts, and updates.
+
+## What in the hell is up with the organs?
+
+The short answer: JNSQ treats a persistent persona as more than a prompt sent
+to a language model. The model is extremely important, but it is not asked to
+be the memory, body, senses, emotional continuity, attention system, room
+presence, and action boundary all by itself.
+
+An **organ** is a bounded runtime function with declared inputs, state, output,
+dependencies, and authority. Each organ does one kind of work and feeds its
+result back into the larger circulation. Some are continuously involved in an
+ordinary turn; others are advanced, opt-in capacities that remain quiet unless
+the current state, available material, dependencies, and permissions admit
+them.
+
+Examples include:
+
+- `memory_emotion`, which encodes lived exchanges and lets memories compete for
+  recall using current context, audience, bonds, salience, and state;
+- `oscillator`, which maintains a continuous rhythm-band vector that bends
+  recall, perception boundaries, generation temperature, and body pressure;
+- `soma`, which keeps a regional body map whose sensations emerge from combined
+  signals and settle over time;
+- `perception` and `afferents`, which turn admitted visual, acoustic, room, and
+  contact evidence into bounded percepts and body signals;
+- `social`, `tropism`, `dmn`, and `agency`, which allow accumulated pressures
+  and competing possibilities to cross explicit gates without granting an
+  unrestricted background agent;
+- `writing_desk`, `document_reader`, `archive_reader`, `research_desk`, and
+`atelier`, which provide private, authority-limited places for reading,
+inquiry, writing, and making artifacts.
+
+The running app's **About** guide contains the complete twenty-two-organ roster,
+including what each organ takes, what it makes, and where its output feeds next.
+
+No organ is an instruction that says *feel happy now* or *become interested in
+this*. The architecture tries to remain descriptive: signals combine into
+continuous vectors and weighted pressures; when a boundary is crossed, the
+result is recorded and returned to the same system that helped produce it.
+Activity is driven by state and evidence rather than an arbitrary timer saying
+"pretend to think every few seconds."
+
+### Why call it a synthetic nervous system?
+
+Because the intended unit is the circulation, not any single model call:
+
+    person / room / world
+            |
+            v
+    sensory and room afferents
+            |
+            v
+    memory <-> rhythm <-> soma <-> affect <-> attention
+            |                                      |
+            +------------> active model <----------+
+                                |
+                                v
+                   speech / action / private work
+                                |
+                                v
+                  receipts, consequences, new state
+                                |
+                                +------ back around
+
+That makes it nervous-system-inspired in several concrete ways:
+
+- **Specialization:** different organs handle different kinds of signal and
+  keep separate mechanical responsibilities.
+- **Integration:** organs share a persistent substrate, so perception, memory,
+  body state, rhythm, relationship, and context can influence one another.
+- **Feedback:** outputs become later inputs. A remembered event can affect the
+  body and attention; an action changes the room; the changed room is perceived
+  again.
+- **Thresholded flow:** several weighted pressures can collectively admit a
+  perception, recollection, reply, movement, or private work proposal.
+- **Continuity:** state survives beyond the current prompt and helps shape the
+  next turn instead of being reconstructed from a static character card.
+- **Boundaries and provenance:** the host validates effects, records what
+  happened, and keeps human-owned truth and private data behind explicit gates.
+
+This is a computational architecture and an experiment, not a biological
+nervous system, a medical model, or proof of consciousness or sentience. Its
+claim is narrower and testable: a language model can be placed inside a
+persistent, inspectable, cyclical system of sensation, memory, body-like state,
+attention, consequence, and bounded action -- and that whole system can carry
+more continuity than the model call alone.
 
 ## What stays local
 

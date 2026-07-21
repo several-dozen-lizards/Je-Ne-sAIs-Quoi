@@ -22,6 +22,8 @@ people/
 exports/
 logs/
 jnsq_running.json
+.jnsq_boot.lock
 room/room_world.json*
+room/conversations.jsonl*
 scratch/
 local_services/

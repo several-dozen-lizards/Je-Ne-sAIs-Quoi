@@ -76,10 +76,11 @@ table{width:100%;border-collapse:collapse;margin-top:12px;font-size:.8rem}th,td{
   border:1px solid var(--line);border-radius:var(--radius);background:var(--bg)}
 .version{font:1.5rem Consolas,monospace;color:var(--accent2);margin:.4rem 0}.error{color:var(--warn)}
 .vision-route{display:grid;grid-template-columns:minmax(150px,.7fr) minmax(250px,1.4fr);gap:14px;align-items:start}
-.vision-route .route-controls{display:grid;gap:8px}.vision-route .route-status{font-size:.78rem;line-height:1.55}
+.voice-route{display:grid;grid-template-columns:minmax(150px,.7fr) minmax(250px,1.4fr);gap:14px;align-items:start}
+.vision-route .route-controls,.voice-route .route-controls{display:grid;gap:8px}.vision-route .route-status{font-size:.78rem;line-height:1.55}
 .model-facts{color:var(--dim);font-size:.72rem}.available{color:var(--good)}.unavailable{color:var(--warn)}
 @media(max-width:720px){.shell{padding:15px}.face{grid-template-columns:38px 1fr}.face>*{grid-column:auto}
-  .face input[type=file],.face .status{grid-column:1/-1}table{display:block;overflow:auto}.vision-route{grid-template-columns:1fr}}
+  .face input[type=file],.face .status{grid-column:1/-1}table{display:block;overflow:auto}.vision-route,.voice-route{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -92,6 +93,7 @@ table{width:100%;border-collapse:collapse;margin-top:12px;font-size:.8rem}th,td{
     <button class="btn tab" data-page="appearance"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 1.1 3.4L16.5 7.5l-3.4 1.1L12 12l-1.1-3.4-3.4-1.1 3.4-1.1zM18.5 13l.7 2.3 2.3.7-2.3.7-.7 2.3-.7-2.3-2.3-.7 2.3-.7zM6 14l.8 2.7 2.7.8-2.7.8L6 21l-.8-2.7-2.7-.8 2.7-.8z"/></svg><span>Appearance</span></button>
     <button class="btn tab" data-page="keys"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="9" r="4"/><path d="m11 12 9 9M16 17l2-2M18 19l2-2"/></svg><span>API keys</span></button>
     <button class="btn tab" data-page="vision"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6z"/><circle cx="12" cy="12" r="2.8"/></svg><span>Visual input</span></button>
+    <button class="btn tab" data-page="voice"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6"/></svg><span>Voice output</span></button>
     <button class="btn tab" data-page="prompts"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 6.5a4 4 0 0 0-5-5l2.2 2.2-2.8 2.8-2.2-2.2a4 4 0 0 0 5 5L20 17.6 17.6 20z"/></svg><span>System prompts</span></button>
     <button class="btn tab" data-page="updates"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m13.5 2-7 11H12l-1.5 9 7-11H12z"/></svg><span>Updates</span></button>
   </nav>
@@ -170,6 +172,17 @@ table{width:100%;border-collapse:collapse;margin-top:12px;font-size:.8rem}th,td{
     <div id="visionRoutes"></div>
   </section>
 
+  <section class="page" id="page-voice">
+    <h2>Voice output</h2>
+    <p class="note">Choose each persona's speaking vessel independently. Browser-native speech stays on this
+      computer. A named browser voice is used when available; if it disappears, JNSQ reports the fallback
+      to the browser default. Changes apply immediately and never alter the persona's expression state.</p>
+    <div class="card"><h3>Interchangeable provider seam</h3><p class="note">Disabled and Browser native are
+      live now. Local and hosted synthesis engines can join the same provider contract later without changing
+      persona identity, expression formulas, or content-free playback receipts.</p></div>
+    <div id="voiceRoutes"></div>
+  </section>
+
   <section class="page" id="page-prompts">
     <h2>System prompts</h2><p class="note">Operational framing belongs to the model vessel; persona identity
       belongs to that persona's voice. Changes apply at the model's next Start.</p>
@@ -185,7 +198,7 @@ table{width:100%;border-collapse:collapse;margin-top:12px;font-size:.8rem}th,td{
     <h2>Updates</h2><div class="card"><div class="note">Installed public version</div>
       <div class="version" id="currentVersion">checking…</div>
       <p class="note">Checking is read-only. To install an available patch, stop JNSQ and double-click
-        <b>UPDATE_JNSQ.bat</b> in the JNSQ folder. The updater fingerprints engine files and leaves
+        <b id="updaterName">the platform updater</b> in the JNSQ folder. The updater fingerprints engine files and leaves
         local accounts, personas, memories, histories, keys, and the existing environment outside its reach.</p>
       <div class="actions"><button class="btn go" id="checkUpdate">Check GitHub</button>
         <span class="note" id="updateNote"></span></div></div>
@@ -203,6 +216,7 @@ const clone=value=>JSON.parse(JSON.stringify(value));
 let personas={},models=[],themeDoc=null,preview=null,presetDirty=false,currentPage="account";
 const dirty=new Set(),iconNotices={};
 const visionNotices={};
+const voiceNotices={};
 const CONTROLS={houseBackground:"background",houseFont:"font",houseFontScale:"font_scale",houseDensity:"density",houseBg:"bg",
   housePanel:"panel",houseInk:"ink",houseAccent:"accent",houseAccent2:"accent2",houseRadius:"radius",
   houseGlow:"glow",houseBackgroundOpacity:"background_opacity",houseReactive:"reactive"};
@@ -367,6 +381,30 @@ async function testVisionRoute(id,button){const selected=document.querySelector(
   const note=document.querySelector(`[data-vision-note="${CSS.escape(id)}"]`);if(note)note.textContent=visionNotices[id];
   try{const result=await request(`/api/models/${encodeURIComponent(model)}/vision/test`,{method:"POST"});visionNotices[id]=`PASS · ${result.observation}`}
   catch(error){visionNotices[id]=`FAILED · ${error.message}`}finally{renderVisionRoutes()}}
+function browserVoices(){return (window.speechSynthesis?.getVoices?.()||[]).slice().sort((a,b)=>a.name.localeCompare(b.name))}
+function renderVoiceRoutes(){const box=$("voiceRoutes"),voices=browserVoices();
+  const entries=Object.entries(personas).filter(([,p])=>p.kind==="model_persona").sort();
+  if(!entries.length){box.innerHTML='<div class="card note">No model personas yet.</div>';return}
+  box.innerHTML=entries.map(([id,p])=>{const config=p.voice_output||{provider:"browser-native",voice:""};
+    const configured=config.voice||"",found=!configured||voices.some(voice=>voice.name===configured);
+    const voiceOptions=['<option value="">Browser default</option>',...voices.map(voice=>
+      `<option value="${esc(voice.name)}" ${voice.name===configured?"selected":""}>${esc(voice.name)} · ${esc(voice.lang)}${voice.localService?" · local":""}</option>`)].join("");
+    const fallback=!found?`Configured voice “${esc(configured)}” is unavailable here; playback will use the browser default.`:
+      config.provider==="disabled"?"This persona is quiet.":`Speech stays in this browser through ${esc(configured||"its default voice")}.`;
+    return `<div class="card voice-route"><div><h3>${esc(p.display_name||id)}</h3><div class="note">${fallback}</div></div>
+      <div class="route-controls"><div class="grid"><label>Provider<select data-voice-provider="${esc(id)}"><option value="disabled" ${config.provider==="disabled"?"selected":""}>Disabled</option><option value="browser-native" ${config.provider!=="disabled"?"selected":""}>Browser native · local</option></select></label>
+      <label>Voice<select data-voice-name="${esc(id)}" ${config.provider==="disabled"?"disabled":""}>${voiceOptions}</select></label></div>
+      <div class="actions"><button class="btn go" data-save-voice="${esc(id)}">Save voice</button><span class="note" data-voice-note="${esc(id)}">${esc(voiceNotices[id]||"")}</span></div></div></div>`}).join("");
+  box.querySelectorAll("[data-voice-provider]").forEach(select=>select.onchange=()=>{const voice=box.querySelector(`[data-voice-name="${CSS.escape(select.dataset.voiceProvider)}"]`);voice.disabled=select.value==="disabled"});
+  box.querySelectorAll("[data-save-voice]").forEach(button=>button.onclick=()=>saveVoiceRoute(button.dataset.saveVoice,button))}
+async function loadVoice(){try{personas=await request("/api/personas");renderVoiceRoutes()}
+  catch(error){$("voiceRoutes").innerHTML=`<div class="card error">${esc(error.message)}</div>`}}
+async function saveVoiceRoute(id,button){const provider=document.querySelector(`[data-voice-provider="${CSS.escape(id)}"]`).value;
+  const voice=document.querySelector(`[data-voice-name="${CSS.escape(id)}"]`).value;button.disabled=true;
+  try{const result=await request(`/api/personas/${encodeURIComponent(id)}/voice-output`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({provider,voice})});
+    voiceNotices[id]=result.restart_required?"Saved; restart required.":"Saved; the next utterance uses this choice.";await loadVoice()}
+  catch(error){voiceNotices[id]=error.message;renderVoiceRoutes()}finally{button.disabled=false}}
+if("speechSynthesis" in window)window.speechSynthesis.addEventListener("voiceschanged",()=>{if(currentPage==="voice")renderVoiceRoutes()});
 async function loadPrompts(){try{const data=await request("/api/models"),select=$("spmodel"),previous=select.value;
   select.innerHTML=(data.models||[]).map(model=>`<option value="${esc(model.name)}">${model.locality==="local"?"💻":"☁️"} ${esc(model.name)}</option>`).join("");
   if([...select.options].some(o=>o.value===previous))select.value=previous;select.onchange=()=>selectModel(select.value);
@@ -391,14 +429,15 @@ async function saveOrgan(model,organ){const text=document.querySelector(`[data-o
     {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text})});$("spnote").textContent=result.reverted?`${organ} reverted.`:`${organ} saved for ${model}.`;loadOrgans(model)}
   catch(error){$("spnote").textContent=error.message}}
 $("spgo").onclick=savePrompt;
-async function loadVersion(){try{const data=await request("/api/version");$("currentVersion").textContent=data.version;
+let updaterName="the platform updater";
+async function loadVersion(){try{const data=await request("/api/version");$("currentVersion").textContent=data.version;updaterName=data.updater_name||updaterName;$("updaterName").textContent=updaterName;
   if(!data.updater)$("updateNote").textContent="This build predates the updater."}catch(error){$("currentVersion").textContent="unknown"}}
 $("checkUpdate").onclick=async()=>{const button=$("checkUpdate");button.disabled=true;$("updateNote").textContent="Checking…";
-  try{const data=await request("/api/version/check");$("updateNote").textContent=data.update_available?`Version ${data.latest} is available. Stop JNSQ, then run UPDATE_JNSQ.bat.`:`Version ${data.version} is current.`}
+  try{const data=await request("/api/version/check");$("updateNote").textContent=data.update_available?`Version ${data.latest} is available. Stop JNSQ, then run ${updaterName}.`:`Version ${data.version} is current.`}
   catch(error){$("updateNote").textContent=error.message}finally{button.disabled=false}};
 function showPage(page){currentPage=page;document.querySelectorAll(".tab").forEach(tab=>tab.classList.toggle("on",tab.dataset.page===page));
   document.querySelectorAll(".page").forEach(section=>section.classList.toggle("on",section.id===`page-${page}`));
-  if(page==="keys")loadKeys();if(page==="vision")loadVision();if(page==="prompts")loadPrompts();if(page==="updates")loadVersion()}
+  if(page==="keys")loadKeys();if(page==="vision")loadVision();if(page==="voice")loadVoice();if(page==="prompts")loadPrompts();if(page==="updates")loadVersion()}
 document.querySelectorAll(".tab").forEach(tab=>tab.onclick=()=>showPage(tab.dataset.page));
 async function init(){try{const [personaData,modelData]=await Promise.all([request("/api/personas"),request("/api/models")]);personas=personaData;models=modelData.models||[]}catch(_){}await loadTheme();loadVersion();showPage(currentPage)}
 init();

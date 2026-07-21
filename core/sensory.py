@@ -189,17 +189,28 @@ class SensoryOrgan:
         return signals, {k: round(v, 5) for k, v in bands.items()}
 
     def ingest(self, event: SensoryEvent, bands=None, coherence=1.0,
-               occupied=False):
+               occupied=False, modulation=None):
         previous = self.state["modalities"].get(event.modality, {})
         policy = self.policy(bands, coherence, occupied)
         demand = self._demand(event, previous)
+        altered = dict(modulation or {})
+        sensory_gain = _clamp(altered.get("sensory_gain", 0.0))
+        cross_modal = _clamp(
+            altered.get("cross_modal_permeability", 0.0))
+        conductance = 1.0 + 0.42 * sensory_gain + 0.20 * cross_modal
+        policy = {**policy,
+                  "permeability": round(_clamp(
+                      policy["permeability"] * conductance), 4),
+                  "threshold": round(_clamp(
+                      policy["threshold"] / conductance, .18, .92), 4)}
         edge_pressure = event.features.get("admission_pressure", 0.0)
         pressure = max(edge_pressure, demand * policy["permeability"])
         admitted = pressure >= policy["threshold"]
         signals, band_pressure = self._body_effects(event, demand)
         record = {**asdict(event), "demand": round(demand, 4),
                   "pressure": round(pressure, 4), "policy": policy,
-                  "admitted": admitted, "band_pressure": band_pressure}
+                  "admitted": admitted, "band_pressure": band_pressure,
+                  "altered_conductance": round(conductance, 6)}
         # A new raw crossing must not erase the last completed semantic
         # observation while its own transducer is still working.  Raw state
         # and what the pathway has actually resolved are two phases of one

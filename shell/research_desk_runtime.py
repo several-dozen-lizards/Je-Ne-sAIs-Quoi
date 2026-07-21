@@ -187,6 +187,8 @@ class ResearchDeskRuntime:
 
     def capability(self):
         enabled = "research_desk" in getattr(self.engine, "enabled", set())
+        volitional_offer = "offer_research" in getattr(
+            self.engine, "_volitional_actions", {})
         try:
             spec = self._load_spec()
             identity = dict(spec.get("identity") or {})
@@ -203,13 +205,16 @@ class ResearchDeskRuntime:
             return {"usable": usable, "reason": reason,
                     "model": self.config.model, "locality": locality,
                     "provider": identity.get("provider"),
-                    "event_bridge": event_bridge, "paid_fallbacks": 0,
+                    "event_bridge": event_bridge,
+                    "volitional_offer": volitional_offer,
+                    "paid_fallbacks": 0,
                     "web_boundary": "public read-only HTTP(S)"}
         except Exception as exc:
             return {"usable": False,
                     "reason": f"research model unavailable: {type(exc).__name__}",
                     "model": self.config.model, "locality": "unknown",
                     "provider": None, "event_bridge": False,
+                    "volitional_offer": volitional_offer,
                     "paid_fallbacks": 0,
                     "web_boundary": "public read-only HTTP(S)"}
 
@@ -276,6 +281,7 @@ class ResearchDeskRuntime:
             receipts=[interest["interest_id"]])
         candidate.update({"interest_id": interest["interest_id"],
                           "research_topic": interest["topic"],
+                          "origin": interest.get("origin"),
                           "satiety_key": f"research_interest:{interest['interest_id']}"})
         return candidate
 
@@ -397,9 +403,10 @@ class ResearchDeskRuntime:
                        candidate_keys=[item.get("key") for item in offered])
         return offered
 
-    def admit_interest(self, field, topic, *, now=None):
+    def admit_interest(self, field, topic, *, now=None,
+                       origin="human_offered"):
         now = time.time() if now is None else float(now)
-        record = self.desk.create_interest(topic, origin="human_offered")
+        record = self.desk.create_interest(topic, origin=origin)
         candidate = self._offer_interest(field, record, now=now)
         field.save(now=now)
         return {"record": record, "candidate": candidate}
@@ -545,10 +552,43 @@ class ResearchDeskRuntime:
                 normalized[key] = float(usage[key])
         return normalized
 
+    def _candidate_current(self, candidate):
+        candidate = dict(candidate or {})
+        source = str(candidate.get("source") or "")
+        if source == "research_cue":
+            return not self.desk.cue_is_settled(candidate.get("cue_digest"))
+        if source == "research_interest":
+            try:
+                return self.desk.interest(
+                    candidate.get("interest_id")).get("state") == "open"
+            except ValueError:
+                return False
+        if source == "research_source":
+            source_id = candidate.get("source_id")
+            return source_id in {
+                value.get("source_id") for value in self.desk.unread_sources()}
+        if source == "research_report":
+            report_id = candidate.get("report_id")
+            return report_id in {
+                value.get("report_id") for value in self.desk.pending_reports()}
+        if source == "research_synthesis":
+            try:
+                expected = list(candidate.get("research_source_ids") or ())
+                sources = self.desk.comparison_sources(
+                    candidate.get("interest_id"), max(2, len(expected)))
+            except ValueError:
+                return False
+            current = [value.get("source_id") for value in sources]
+            return current == expected and _digest(current) == \
+                candidate.get("research_source_set_digest")
+        return False
+
     def start_candidate(self, candidate):
         candidate = dict(candidate or {})
         if not self.eligible(candidate):
             return {"started": False, "reason": "not_eligible"}
+        if not self._candidate_current(candidate):
+            return {"started": False, "reason": "stale_candidate"}
         readiness = self.readiness(getattr(self.engine, "idle_metabolism", None))
         if readiness.get("hard_blocked"):
             return {"started": False, "reason": "state_blocked",

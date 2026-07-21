@@ -34,6 +34,7 @@ mimetypes.add_type("application/wasm", ".wasm")
 
 from room.layout import build_world, build_persona_den
 from room.state import CONTRACT_VERSION
+from core.conversation_ledger import ConversationLedger
 from shell.persona_media import load_persona_avatar
 from shell.ui_background import (delete_nexus_background,
                                  load_conversation_background,
@@ -87,7 +88,7 @@ def _save_world(app):
     import json
     seed = getattr(app.state, "seed_ids", {})
     d = {"where": dict(app.state.where),
-         "rooms": {rid: {"members": {m: list(p) for m, p
+         "rooms": {rid: {"members": {m: mem.snapshot() for m, mem
                                      in r.members.items()},
                          "seq": r._seq,
                          "events": list(r.events)[-200:],
@@ -116,11 +117,29 @@ def _load_world(app):
             room = app.state.rooms.get(rid)
             if not room:
                 continue
-            room.members = {m: room._clamp_inside(list(p)) for m, p
-                            in saved.get("members", {}).items()}
-            # clamp-on-restore: legacy saves (rect era) may hold
-            # positions outside the yurt wall; the door law applies
-            # to history too.
+            # members: room-2 records restore whole; legacy saves
+            # (bare [x, y] lists) restore position and default the
+            # heading toward the center — the same tolerance idiom
+            # as objects below. Clamp-on-restore: legacy saves may
+            # hold positions outside the yurt wall; the door law
+            # applies to history too.
+            from room.state import Member, heading_toward
+            room.members = {}
+            for m, rec in saved.get("members", {}).items():
+                if isinstance(rec, dict):
+                    mpos = room._clamp_inside(list(
+                        rec.get("position_m", [0.0, 0.0])))
+                    room.members[m] = Member(m, mpos, float(
+                        rec.get("heading_deg",
+                                heading_toward(mpos, [0.0, 0.0]))),
+                        rec.get("face"),
+                        rec.get("posture", "standing"),
+                        rec.get("gaze_yaw_deg", 0.0),
+                        rec.get("gaze_pitch_deg", 0.0))
+                elif isinstance(rec, list) and len(rec) == 2:
+                    mpos = room._clamp_inside(list(rec))
+                    room.members[m] = Member(
+                        m, mpos, heading_toward(mpos, [0.0, 0.0]))
             room._seq = saved.get("seq", 0)
             room.events.clear()
             room.events.extend(saved.get("events", []))
@@ -204,10 +223,22 @@ class TravelReq(BaseModel):
 
 class ActionReq(BaseModel):
     member: str
-    action: str            # move_to | contact | say | write | read
+    action: str            # move_to | contact | say | write | read | express
     object: str = None
     text: str = None
     force_n: float = 5.0
+    face: dict = None      # express: the visible-surface packet
+    to: list = None        # walk: [x, y] meters, anywhere inside
+    conversation_id: str = None
+
+
+class AvatarVisionFrameReq(BaseModel):
+    member: str
+    data_url: str
+    pose_revision: int
+    cause: str = "scene_change"
+    novelty: float = 1.0
+    optical_pose: dict = None
 
 
 class ObjectMoveReq(BaseModel):
@@ -234,11 +265,14 @@ class ObjectUpdateReq(BaseModel):
     y_off_m: float = None  # vertical lift, meters (the lever)
     description: str = None
     texture: str = None
+    capability: str = None  # affordance stamp: 'sitting' etc.
+                            # (20260720: sitting made these consumed)
     by: str = "Re"
 
 
 def build_app() -> FastAPI:
     app = FastAPI(title="JNSQ room host", version=CONTRACT_VERSION)
+    app.state.avatar_vision = {}
     jnsq_assets = os.path.join(REPO, "assets", "jnsq")
     if os.path.isdir(jnsq_assets):
         app.mount("/assets", StaticFiles(directory=jnsq_assets),
@@ -251,6 +285,10 @@ def build_app() -> FastAPI:
     # creation (the curator's, or someday the household's own)
     app.state.seed_ids = {rid: set(r.objects.keys())
                           for rid, r in app.state.rooms.items()}
+    app.state.conversation_ledger = ConversationLedger(
+        os.path.join(os.path.dirname(os.path.abspath(STATE_FILE)),
+                     "conversations.jsonl"),
+        owner="nexus", scope="room")
     # A persona roster declares a den; world boot closes that declaration
     # into geography. New personas therefore never point at a missing room.
     pdir = os.path.join(REPO, "personas")
@@ -282,6 +320,17 @@ def build_app() -> FastAPI:
             app.state.seed_ids[rid] = set(den.objects)
     if _load_world(app):
         print("[room host] world state restored from disk")
+    for rid, room in app.state.rooms.items():
+        for event in room.events:
+            if event.get("kind") != "say":
+                continue
+            app.state.conversation_ledger.snapshot(
+                conversation_id=f"room:{rid}:{event.get('seq')}",
+                channel="room", speaker=event.get("member", ""),
+                message=(event.get("data") or {}).get("text", ""),
+                reply="", timestamp=str(event.get("t") or ""),
+                source="room_event_backfill",
+                fields={"room_id": rid, "room_seq": event.get("seq")})
 
     def _room_of(member: str):
         rid = app.state.where.get(member)
@@ -392,12 +441,14 @@ def build_app() -> FastAPI:
         return room.snapshot()
 
     @app.get("/api/rooms/{rid}/events")
-    def room_events(rid: str, since: int = 0):
+    def room_events(rid: str, since: int = 0, surface: int = 0):
         room = app.state.rooms.get(rid)
         if not room:
             return JSONResponse(status_code=404,
                                 content={"error": f"no room '{rid}'"})
-        return {"events": room.events_since(since)}
+        # surface=1 opts into body-surface deltas (faces) -- windows
+        # that render bodies want them; logs and perception don't.
+        return {"events": room.events_since(since, bool(surface))}
 
     @app.get("/api/rooms/{rid}/events/wait")
     def room_events_wait(rid: str, since: int = 0,
@@ -413,6 +464,37 @@ def build_app() -> FastAPI:
                                 content={"error": f"no room '{rid}'"})
         events = room.wait_for_events(since, timeout)
         return {"events": events, "last_seq": room._seq}
+
+    @app.post("/api/rooms/{rid}/vision/frame")
+    def avatar_vision_frame(rid: str, req: AvatarVisionFrameReq):
+        room = app.state.rooms.get(rid)
+        if room is None or req.member not in room.members:
+            return JSONResponse(status_code=404,
+                                content={"error": "observer is not in room"})
+        if not req.data_url.startswith("data:image/png;base64,"):
+            return JSONResponse(status_code=400,
+                                content={"error": "POV frame must be PNG data"})
+        if len(req.data_url) > 2_000_000:
+            return JSONResponse(status_code=413,
+                                content={"error": "POV frame is too large"})
+        key = (rid, req.member.casefold())
+        previous = app.state.avatar_vision.get(key) or {}
+        revision = int(previous.get("revision", 0)) + 1
+        record = {"revision": revision, "member": req.member,
+                  "pose_revision": int(req.pose_revision),
+                  "cause": str(req.cause)[:80],
+                  "novelty": max(0.0, min(1.0, float(req.novelty))),
+                  "optical_pose": dict(req.optical_pose or {}),
+                  "data_url": req.data_url}
+        app.state.avatar_vision[key] = record
+        return {"ok": True, "revision": revision}
+
+    @app.get("/api/rooms/{rid}/vision/{member}")
+    def avatar_vision_latest(rid: str, member: str, since: int = 0):
+        record = app.state.avatar_vision.get((rid, member.casefold()))
+        if not record or int(record["revision"]) <= int(since):
+            return {"frame": None, "revision": int(since)}
+        return {"frame": record, "revision": record["revision"]}
 
     @app.get("/api/personas")
     def personas():
@@ -661,8 +743,43 @@ def build_app() -> FastAPI:
             return room.contact(req.member, req.object, req.force_n)
 
         if req.action == "say":
-            room.emit(req.member, "say", {"text": req.text or ""})
-            return {"ok": True}
+            # speech + the orienting reflex live in the world model
+            cid = app.state.conversation_ledger.admit(
+                conversation_id=req.conversation_id or "",
+                channel="room", speaker=req.member,
+                message=req.text or "", source="nexus_speech")
+            try:
+                room.say(req.member, req.text or "")
+            except BaseException as error:
+                app.state.conversation_ledger.fail(cid, error)
+                raise
+            terminal = app.state.conversation_ledger.complete(
+                cid, reply="", receipts={"room_id": room.id,
+                                          "room_seq": room._seq})
+            return {"ok": True, "conversation": {
+                "id": cid, "status": "saved",
+                "record_id": terminal.get("record_id", "")}}
+
+        if req.action == "express":
+            # body-surface update: the face, never the feelings
+            return room.set_face(req.member, req.face or {})
+
+        if req.action == "sit":
+            # affordance-gated: chairs carry capability='sitting'
+            return room.sit(req.member, req.object or None)
+
+        if req.action == "stand":
+            return room.stand(req.member)
+
+        if req.action == "walk":
+            # free walking: the room is a place, not a menu
+            return room.walk(req.member, req.to or [])
+
+        if req.action == "look_at":
+            return room.look_at(req.member, req.object)
+
+        if req.action == "turn_toward":
+            return room.turn_toward(req.member, req.object)
 
         if req.action == "write":
             obj = room.objects.get(req.object)
@@ -814,7 +931,7 @@ def build_app() -> FastAPI:
             return JSONResponse(status_code=400, content={
                 "error": "y_off_m must be -1.0..3.0"})
         for f in ("name", "kind", "size_m", "rot_deg",
-                  "y_off_m", "description", "texture"):
+                  "y_off_m", "description", "texture", "capability"):
             v = getattr(req, f)
             if v is not None:
                 setattr(obj, f, v.strip() if isinstance(v, str) else v)

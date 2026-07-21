@@ -40,6 +40,9 @@ REGISTRY = {o.organ_id: o for o in (
              "band rhythm; heartbeat ticks across the gaps"),
     OrganDef("soma", (),
              "body map + declarative sensation specs"),
+    OrganDef("altered_state", ("memory_emotion", "oscillator", "soma"),
+             "event-circulated altered-state metabolism: profile vectors "
+             "bend body, rhythm, and recall while affect remains descriptive"),
     OrganDef("perception", (),
              "adaptive camera/audio exteroception: persistent modality "
              "fields, provenance, rhythm-shaped admission, and raw "
@@ -54,7 +57,7 @@ REGISTRY = {o.organ_id: o for o in (
     OrganDef("room_sense", (),
              "room client + POV perception filter (percepts in)"),
     OrganDef("room_actions", ("room_sense",),
-             "<act> grammar: volitional move/contact/say (actions out)"),
+             "<act> grammar: volitional move/sit/stand/contact/say (actions out)"),
     OrganDef("afferents", ("room_sense", "soma"),
              "contact percepts -> transient soma signals (touch lands)"),
     OrganDef("tropism", ("room_sense",),
@@ -80,6 +83,11 @@ REGISTRY = {o.organ_id: o for o in (
              "circulate into generated private thoughts. Gating is "
              "free; discharge spends the roster's idle_model and may "
              "fold the lived result into gist", loop=True),
+    OrganDef("intention_loom", ("dmn",),
+             "possibility cues and self-owned intentions compete through "
+             "the DMN; one local append-only movement may form, reframe, "
+             "pause, satisfy, or release continuity without starting a "
+             "project or gaining outward authority"),
     OrganDef("writing_desk", ("dmn",),
              "private append-only writing projects compete through the DMN; "
              "admitted material and open projects may become one local, "
@@ -100,7 +108,8 @@ REGISTRY = {o.organ_id: o for o in (
              "an isolated read-only public-web boundary and return cited "
              "private evidence, notes, or reports to the same circulation"),
     OrganDef("atelier", ("dmn",),
-             "human-admitted creative material may compete through the shared "
+             "human-admitted or self-offered creative material may compete "
+             "through the shared "
              "field and become one host-validated private artifact whose lived "
              "consequence returns to the same circulation"),
     OrganDef("agency", ("dmn",),

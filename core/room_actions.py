@@ -5,10 +5,18 @@ Walking is an event — you act, then the world answers, next turn).
 
 Grammar (tiny, fine-tune-inheritable):
   <act>move_to OBJECT</act>
+  <act>look_at OBJECT_OR_PERSON</act>
+  <act>turn_toward OBJECT_OR_PERSON</act>
+  <act>sit OBJECT</act>
+  <act>stand</act>
   <act>contact OBJECT</act>
   <act>read OBJECT</act>
   <act>travel ROOM</act>
   <act>write OBJECT :: free text to write</act>
+  <act>offer_intention LABEL :: possibility to offer</act>
+  <act>offer_writing LABEL :: material to offer</act>
+  <act>offer_research TOPIC</act>
+  <act>offer_atelier LABEL :: material to offer</act>
 
 Pure module: parse + strip only. Execution lives with the RoomClient
 caller. Unknown verbs parse as {"verb": "?", ...} and execute as errors —
@@ -16,7 +24,10 @@ the world refuses, the refusal is a percept, that's honest too."""
 import re
 
 ACT_RE = re.compile(r"<act>(.*?)</act>", re.DOTALL)
-VERBS = {"move_to", "contact", "read", "travel", "write"}
+VERBS = {"move_to", "look_at", "turn_toward", "sit", "stand", "contact", "read", "travel", "write", "say",
+         "offer_intention", "offer_writing", "offer_research",
+         "offer_atelier", "approve_altered_state", "decline_altered_state",
+         "defer_altered_state", "end_altered_state"}
 
 
 def parse_actions(reply: str) -> list:
@@ -43,6 +54,20 @@ def strip_actions(reply: str) -> str:
     """Remove act tags; collapse the whitespace they leave behind."""
     s = ACT_RE.sub("", reply or "")
     return re.sub(r"[ \t]*\n{3,}", "\n\n", s).strip()
+
+
+def strip_action_verbs(reply: str, verbs) -> str:
+    """Remove only the selected persona-action tags from visible language."""
+    selected = set(verbs or ())
+
+    def replace(match):
+        parsed = parse_actions(match.group(0))
+        if parsed and parsed[0].get("verb") in selected:
+            return ""
+        return match.group(0)
+
+    rendered = ACT_RE.sub(replace, reply or "")
+    return re.sub(r"[ \t]*\n{3,}", "\n\n", rendered).strip()
 
 
 def visible_reply(reply: str, spoken_indexes=()) -> str:

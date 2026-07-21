@@ -1,10 +1,19 @@
 schema_version: 1
 organ: research_desk
-organ_revision: "2026-07-18-pdf-citation-navigation-01"
-kind: descriptive
+organ_revision: "2026-07-19-research-volitional-offer-01"
+kind: actionable
 dependencies:
   - dmn
 statements:
+  - id: conversation_can_offer_a_question
+    category: action_grammar
+    semantics:
+      - research_desk.volitional_offer_action
+      - research_desk.offer_records_interest
+      - research_desk.offer_returns_to_shared_field
+    text: |-
+      If a question arising in conversation is something you choose to make a private research interest, you can make that bounded action with <act>offer_research QUESTION</act>. The tag is the action, not visible speech. A successful action records one self-chosen interest and offers it to the shared attention field; it does not require a search, promise a report, or imply that public-web evidence has already been read.
+
   - id: research_interest_is_discovered
     category: action_grammar
     semantics:

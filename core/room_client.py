@@ -18,6 +18,7 @@ class RoomClient:
         self.timeout = timeout_s
         self.room_id = None
         self.last_seq = 0
+        self.last_vision_revision = 0
 
     def _req(self, path: str, body: dict = None):
         url = self.base + path
@@ -105,5 +106,54 @@ class RoomClient:
     def read(self, obj):
         return self.act("read", obj)
 
-    def say(self, text):
-        return self.act("say", text=text)
+    def say(self, text, conversation_id=None):
+        body = {"member": self.member, "action": "say", "text": text}
+        if conversation_id:
+            body["conversation_id"] = conversation_id
+        return self._req("/api/act", body)
+
+    def express(self, face: dict):
+        """Publish the visible face (body SURFACE, never insides --
+        the caller's distiller already chose what shows)."""
+        return self._req("/api/act", {"member": self.member,
+                                      "action": "express",
+                                      "face": face or {}})
+
+    def sit(self, obj=None):
+        """Sit on an object (needs the 'sitting' affordance and
+        reach) or, with no object, on the floor where you stand."""
+        if obj:
+            return self.act("sit", obj)
+        return self._req("/api/act", {"member": self.member,
+                                      "action": "sit"})
+
+    def stand(self):
+        return self._req("/api/act", {"member": self.member,
+                                      "action": "stand"})
+
+    def walk(self, x: float, y: float):
+        """Walk anywhere: raw meters, center-origin. The room is a
+        place, not a menu of destinations."""
+        return self._req("/api/act", {"member": self.member,
+                                      "action": "walk",
+                                      "to": [float(x), float(y)]})
+
+    def look_at(self, target: str):
+        return self.act("look_at", target)
+
+    def turn_toward(self, target: str):
+        return self.act("turn_toward", target)
+
+    def fresh_vision_frame(self) -> dict:
+        """Return this body's newest private optical frame once."""
+        if not self.room_id:
+            return {}
+        result = self._req(
+            f"/api/rooms/{self.room_id}/vision/{self.member}"
+            f"?since={self.last_vision_revision}")
+        frame = result.get("frame") or {}
+        return frame
+
+    def acknowledge_vision_frame(self, revision: int) -> None:
+        self.last_vision_revision = max(self.last_vision_revision,
+                                        int(revision or 0))

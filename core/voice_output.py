@@ -13,6 +13,24 @@ from typing import Mapping
 
 
 OUTPUT_EVENTS = frozenset({"started", "completed", "interrupted", "failed"})
+OUTPUT_PROVIDERS = frozenset({"disabled", "browser-native"})
+
+
+def normalize_output_config(value: Mapping | None) -> dict:
+    """Return the portable, provider-neutral voice selection.
+
+    Unknown providers fail quiet instead of silently sending speech through a
+    different vessel.  ``voice`` is a provider-owned identifier; blank means
+    that provider's default voice.
+    """
+    raw = dict(value or {})
+    provider = str(raw.get("provider") or "browser-native").strip()
+    if provider not in OUTPUT_PROVIDERS:
+        provider = "disabled"
+    voice = str(raw.get("voice") or "").strip()
+    if len(voice) > 160 or any(char in voice for char in "\r\n"):
+        voice = ""
+    return {"provider": provider, "voice": voice}
 
 
 def _clamp(value: float, low: float, high: float) -> float:

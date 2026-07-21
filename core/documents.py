@@ -265,6 +265,8 @@ class DocumentLibrary:
         self.state_path = self.reader_root / "state.json"
         self.events_path = self.reader_root / "events.jsonl"
         self.receipts_path = self.reader_root / "receipts.jsonl"
+        self.arc_path = self.reader_root / "reading_arc.json"
+        self.notebook_path = self.reader_root / "notebook.jsonl"
         self.reports_root = self.reader_root / "reports"
         self.now_fn = now_fn
 
@@ -299,6 +301,85 @@ class DocumentLibrary:
         return self._append(self.receipts_path, {
             "schema": 1, "persona": self.persona,
             "user_id": self.user_id, **dict(record or {})})
+
+    def record_turn_exposure(self, anchors, *, exposure_id: str,
+                             active_anchor: str = "",
+                             retrieved_anchors=(), evidence: str =
+                             "prompt_rendered") -> dict | None:
+        """Record source sections that reached a completed turn-model call."""
+        exposure_id = str(exposure_id or "").strip()[:160]
+        if not exposure_id:
+            raise DocumentError("document exposure id is required")
+        existing = next((event for event in self.reader_events(
+            "document_turn_exposure", 5000)
+            if event.get("exposure_id") == exposure_id), None)
+        if existing:
+            return existing
+        valid = []
+        for anchor in dict.fromkeys(str(value or "").strip()
+                                    for value in anchors or ()):
+            if not anchor:
+                continue
+            valid.append(self.inspect_anchor(anchor, maximum=1)["anchor"])
+        if not valid:
+            return None
+        active_anchor = str(active_anchor or "").strip()
+        if active_anchor and active_anchor not in valid:
+            active_anchor = ""
+        retrieved = [str(value or "").strip()
+                     for value in retrieved_anchors or ()]
+        record = self._append(self.events_path, {
+            "schema": 1, "kind": "document_turn_exposure",
+            "persona": self.persona, "user_id": self.user_id,
+            "exposure_id": exposure_id, "anchors": valid,
+            "active_anchor": active_anchor,
+            "retrieved_anchors": [anchor for anchor in retrieved
+                                  if anchor in valid],
+            "evidence": str(evidence or "prompt_rendered")[:80],
+        })
+        self._reconcile_reading_arc()
+        return record
+
+    def import_turn_exposure_history(self, memories) -> int:
+        """Index old turn-anchor receipts without changing source or memory."""
+        existing = {str(event.get("exposure_id") or "")
+                    for event in self.reader_events(
+                        "document_turn_exposure", 5000)}
+        imported = 0
+        for memory in memories or ():
+            if not isinstance(memory, dict) or memory.get("type") != "turn":
+                continue
+            fields = memory.get("fields") or {}
+            anchors = list(fields.get("document_anchors") or ())
+            if not anchors:
+                continue
+            exposure_id = str(fields.get("document_exposure_id")
+                              or f"memory:{memory.get('id') or ''}")[:160]
+            if not exposure_id or exposure_id in existing:
+                continue
+            valid = []
+            for anchor in dict.fromkeys(str(value or "").strip()
+                                        for value in anchors):
+                try:
+                    valid.append(self.inspect_anchor(anchor, maximum=1)["anchor"])
+                except DocumentError:
+                    continue
+            if not valid:
+                continue
+            self._append(self.events_path, {
+                "schema": 1, "kind": "document_turn_exposure",
+                "persona": self.persona, "user_id": self.user_id,
+                "exposure_id": exposure_id, "anchors": valid,
+                "active_anchor": "", "retrieved_anchors": [],
+                "evidence": ("prompt_rendered" if fields.get(
+                    "document_exposure_id") else "historical_turn_anchor"),
+                "source_timestamp": memory.get("timestamp"),
+            })
+            existing.add(exposure_id)
+            imported += 1
+        if imported:
+            self._reconcile_reading_arc()
+        return imported
 
     def _doc_dir(self, doc_id: str) -> Path:
         doc_id = str(doc_id or "")
@@ -543,7 +624,8 @@ class DocumentLibrary:
         """Persist one chosen encounter; source text is never copied here."""
         inspected = self.inspect_anchor(anchor, maximum=1)
         action = str(action or "quiet").strip().casefold()
-        if action not in {"quiet", "continue", "search", "bookmark", "report"}:
+        if action not in {"quiet", "continue", "search", "bookmark", "report",
+                          "pause"}:
             raise DocumentError("document encounter action is invalid")
         query = re.sub(r"\s+", " ", str(query or "")).strip()[:300]
         report = str(report or "").strip()[:8000]
@@ -674,6 +756,286 @@ class DocumentLibrary:
             "seed_id": str(seed_id or "")[:160],
             "run_id": str(run_id or "")[:160],
         })
+
+    def notebook_entries(self, doc_id: str = "", limit: int = 5000) -> list[dict]:
+        limit = max(0, min(int(limit), 5000))
+        try:
+            lines = self.notebook_path.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            return []
+        found = []
+        for line in lines[-limit:] if limit else ():
+            try:
+                value = json.loads(line)
+            except (TypeError, ValueError):
+                continue
+            if not isinstance(value, dict):
+                continue
+            if doc_id and value.get("doc_id") != doc_id:
+                continue
+            found.append(value)
+        return found
+
+    def record_notebook_entry(self, anchor: str, *, observation: str,
+                              feelings=None, action: str = "quiet",
+                              run_id: str = "") -> dict | None:
+        inspected = self.inspect_anchor(anchor, maximum=1)
+        observation = re.sub(r"\s+", " ", str(observation or "")).strip()[:800]
+        feelings = {str(key)[:40]: max(0.0, min(1.0, float(value)))
+                    for key, value in list(dict(feelings or {}).items())[:4]}
+        if not observation and not feelings:
+            return None
+        run_id = str(run_id or "")[:160]
+        if run_id:
+            prior = next((entry for entry in self.notebook_entries(
+                inspected["doc_id"], 5000) if entry.get("run_id") == run_id), None)
+            if prior:
+                return prior
+        return self._append(self.notebook_path, {
+            "schema": 1, "kind": "document_reading_note",
+            "persona": self.persona, "user_id": self.user_id,
+            "doc_id": inspected["doc_id"], "anchor": inspected["anchor"],
+            "section": inspected["section"], "observation": observation,
+            "feelings": feelings, "action": str(action or "quiet")[:40],
+            "run_id": run_id,
+        })
+
+    def notebook_context(self, doc_id: str, maximum: int = 2200) -> str:
+        """Render the recent tail by pressure budget, never by arbitrary count."""
+        maximum = max(0, min(int(maximum), 6000))
+        if not maximum:
+            return ""
+        chosen, used = [], 0
+        for entry in reversed(self.notebook_entries(doc_id, 5000)):
+            observation = str(entry.get("observation") or "").strip()
+            feelings = ", ".join(sorted((entry.get("feelings") or {}).keys()))
+            detail = observation or (f"felt {feelings}" if feelings else "encountered")
+            line = f"[{entry.get('anchor')}] {detail}"
+            cost = len(line) + 1
+            if chosen and used + cost > maximum:
+                break
+            chosen.append(line[:maximum] if not chosen else line)
+            used += cost
+        return "\n".join(reversed(chosen))[:maximum]
+
+    def reading_coverage(self, doc_id: str) -> dict:
+        metadata = self._metadata(doc_id)
+        total = int(metadata.get("chunk_count") or 0)
+        autonomous, conversation, inferred = set(), set(), set()
+        latest = None
+        for event in self.reader_events(limit=5000):
+            kind = event.get("kind")
+            if kind == "document_encounter" and event.get("doc_id") == doc_id:
+                anchor = str(event.get("anchor") or "")
+                autonomous.add(anchor)
+                latest = {"route": "autonomous", **event}
+            elif kind == "document_turn_exposure":
+                for anchor in event.get("anchors") or ():
+                    if str(anchor).startswith(doc_id + "#"):
+                        conversation.add(str(anchor))
+                        if event.get("evidence") == "historical_turn_anchor":
+                            inferred.add(str(anchor))
+                        latest = {"route": "conversation", **event,
+                                  "anchor": str(anchor)}
+        known = autonomous | conversation
+        def sections(values):
+            return sorted(int(anchor.rsplit("#", 1)[1]) for anchor in values)
+        return {
+            "doc_id": doc_id, "title": metadata.get("title"), "total": total,
+            "known_count": len(known),
+            "coverage": (len(known) / total if total else 0.0),
+            "autonomous_count": len(autonomous),
+            "conversation_count": len(conversation),
+            "historical_inferred_count": len(inferred),
+            "known_sections": sections(known),
+            "autonomous_sections": sections(autonomous),
+            "conversation_sections": sections(conversation),
+            "historical_inferred_sections": sections(inferred),
+            "notebook_count": len(self.notebook_entries(doc_id, 5000)),
+            "latest": latest,
+        }
+
+    def _arc_state(self) -> dict:
+        try:
+            value = json.loads(self.arc_path.read_text(encoding="utf-8"))
+        except (OSError, TypeError, ValueError):
+            return {}
+        if not isinstance(value, dict) or value.get("user_id") != self.user_id \
+                or value.get("persona") != self.persona:
+            return {}
+        return value
+
+    def _save_arc(self, state: dict) -> dict:
+        value = {"schema": 1, "persona": self.persona,
+                 "user_id": self.user_id, **dict(state or {})}
+        value["updated_at"] = float(self.now_fn())
+        _atomic_json(self.arc_path, value)
+        return value
+
+    def start_reading_arc(self, doc_id: str, start_section: int | None = None,
+                          pace: str = "natural") -> dict:
+        metadata = self._metadata(doc_id)
+        total = int(metadata.get("chunk_count") or 0)
+        if total < 1:
+            raise DocumentError("document has no readable sections")
+        if start_section is None:
+            reader = self.reader_status(include_text=False)
+            if reader.get("active") and reader.get("document", {}).get("id") == doc_id:
+                start_section = int(reader.get("section") or 0) + 1
+            else:
+                start_section = 1
+        start_section = int(start_section)
+        if start_section > total:
+            start_section = 1
+        if start_section < 1:
+            raise DocumentError("reading arc start section must be positive")
+        pace = str(pace or "natural").strip().casefold()
+        if pace not in {"natural", "foreground"}:
+            raise DocumentError("reading arc pace must be natural or foreground")
+        state = self._save_arc({
+            "doc_id": doc_id, "title": metadata.get("title"),
+            "status": "active", "pace": pace,
+            "start_section": start_section,
+            "started_at": float(self.now_fn()), "last_anchor": None,
+            "source_claim": "human_granted_persona_reading_arc",
+        })
+        self._append(self.events_path, {
+            "schema": 1, "kind": "document_reading_arc_started",
+            "persona": self.persona, "user_id": self.user_id,
+            "doc_id": doc_id, "start_section": start_section, "pace": pace,
+        })
+        self._reconcile_reading_arc()
+        return self.reading_arc_status()
+
+    def change_reading_arc(self, action: str) -> dict:
+        state = self._arc_state()
+        if not state:
+            raise DocumentError("no whole-document reading arc exists")
+        action = str(action or "").strip().casefold()
+        transitions = {"pause": "paused", "resume": "active",
+                       "release": "released"}
+        if action not in transitions:
+            raise DocumentError("reading arc action must be pause, resume, or release")
+        state["status"] = transitions[action]
+        if action == "resume":
+            state.pop("completed_at", None)
+        state = self._save_arc(state)
+        self._append(self.events_path, {
+            "schema": 1, "kind": f"document_reading_arc_{transitions[action]}",
+            "persona": self.persona, "user_id": self.user_id,
+            "doc_id": state["doc_id"],
+        })
+        return self.reading_arc_status()
+
+    def set_reading_arc_pace(self, pace: str) -> dict:
+        state = self._arc_state()
+        if not state:
+            raise DocumentError("no whole-document reading arc exists")
+        pace = str(pace or "").strip().casefold()
+        if pace not in {"natural", "foreground"}:
+            raise DocumentError("reading arc pace must be natural or foreground")
+        state["pace"] = pace
+        if state.get("status") == "paused":
+            state["status"] = "active"
+        self._save_arc(state)
+        self._append(self.events_path, {
+            "schema": 1, "kind": "document_reading_arc_pace_changed",
+            "persona": self.persona, "user_id": self.user_id,
+            "doc_id": state["doc_id"], "pace": pace,
+        })
+        return self.reading_arc_status()
+
+    def _next_arc_section(self, state: dict, known_sections: set[int]) -> int | None:
+        total = int(self._metadata(state["doc_id"]).get("chunk_count") or 0)
+        start = max(1, min(int(state.get("start_section") or 1), total))
+        order = list(range(start, total + 1)) + list(range(1, start))
+        return next((section for section in order if section not in known_sections), None)
+
+    def _reconcile_reading_arc(self) -> None:
+        state = self._arc_state()
+        if not state or state.get("status") not in {"active", "paused"}:
+            return
+        coverage = self.reading_coverage(state["doc_id"])
+        if coverage["known_count"] < coverage["total"]:
+            return
+        state["status"] = "complete"
+        state["completed_at"] = float(self.now_fn())
+        self._save_arc(state)
+        self._append(self.events_path, {
+            "schema": 1, "kind": "document_reading_arc_completed",
+            "persona": self.persona, "user_id": self.user_id,
+            "doc_id": state["doc_id"], "sections": coverage["total"],
+        })
+
+    def update_reading_arc(self, anchor: str, *, action: str,
+                           observation: str = "", feelings=None,
+                           run_id: str = "") -> dict:
+        inspected = self.inspect_anchor(anchor, maximum=1)
+        state = self._arc_state()
+        if not state or state.get("doc_id") != inspected["doc_id"]:
+            return self.reading_arc_status()
+        self.record_notebook_entry(
+            inspected["anchor"], observation=observation, feelings=feelings,
+            action=action, run_id=run_id)
+        state["last_anchor"] = inspected["anchor"]
+        if str(action or "").casefold() == "pause":
+            state["status"] = "paused"
+        self._save_arc(state)
+        self._reconcile_reading_arc()
+        return self.reading_arc_status()
+
+    def reading_arc_status(self) -> dict:
+        state = self._arc_state()
+        if not state:
+            return {"exists": False, "status": "inactive"}
+        state.setdefault("pace", "natural")
+        try:
+            coverage = self.reading_coverage(state["doc_id"])
+            next_section = self._next_arc_section(
+                state, set(coverage["known_sections"]))
+        except DocumentError:
+            return {"exists": True, **state, "status": "stale",
+                    "next_anchor": None}
+        return {"exists": True, **state, "coverage": coverage,
+                "next_anchor": (f"{state['doc_id']}#{next_section}"
+                                if next_section is not None else None)}
+
+    def arc_suggestion(self, maximum_chars: int = 7000) -> dict | None:
+        arc = self.reading_arc_status()
+        if arc.get("status") != "active" or not arc.get("next_anchor"):
+            return None
+        pace = str(arc.get("pace") or "natural")
+        first = self.inspect_anchor(arc["next_anchor"], maximum=1)
+        anchors = [first["anchor"]]
+        source_chars = first["source_chars"]
+        if pace == "foreground":
+            maximum_chars = max(first["source_chars"], min(
+                int(maximum_chars), 10000))
+            coverage = set((arc.get("coverage") or {}).get(
+                "known_sections") or ())
+            total = int(first["total"])
+            start = int(first["section"])
+            order = list(range(start + 1, total + 1)) + list(range(1, start))
+            for section in order:
+                if section in coverage:
+                    continue
+                inspected = self.inspect_anchor(
+                    f"{first['doc_id']}#{section}", maximum=1)
+                if source_chars + inspected["source_chars"] > maximum_chars:
+                    break
+                anchors.append(inspected["anchor"])
+                source_chars += inspected["source_chars"]
+        completion = float((arc.get("coverage") or {}).get("coverage") or 0.0)
+        return {
+            "anchor": first["anchor"], "anchors": anchors,
+            "doc_id": first["doc_id"], "section": first["section"],
+            "total": first["total"], "title": first["title"],
+            "source_chars": source_chars, "pace": pace,
+            "document_pull": min(1.0, (.82 if pace == "foreground" else .62)
+                                 + completion * (.16 if pace == "foreground" else .28)),
+            "route": ("reading_arc_foreground" if pace == "foreground"
+                      else "reading_arc"),
+        }
 
     def suggestions(self, cues: str = "", limit: int = 3) -> list[dict]:
         """Return unseen exact sections; search and continuation remain local."""
@@ -813,16 +1175,56 @@ class DocumentLibrary:
     def context_for_turn(self, query: str, *, max_hits: int = 3,
                          query_vector=None) -> dict:
         active = self.reader_status(include_text=True)
-        search = self.search(query, n=max_hits + 1,
+        search = self.search(query, n=max(max_hits + 1, 8),
                              query_vector=query_vector)
         active_anchor = active.get("anchor") if active.get("active") else None
-        hits = [hit for hit in search["hits"]
-                if hit["anchor"] != active_anchor][:max_hits]
+        ranked = [hit for hit in search["hits"]
+                  if hit["anchor"] != active_anchor]
+        hits = ranked[:max_hits]
+        relevance = 0.0
+        if ranked:
+            signals = dict(ranked[0].get("signals") or {})
+            semantic = max(0.0, min(1.0, float(signals.get("semantic") or 0.0)))
+            lexical = max(0.0, float(signals.get("lexical") or 0.0))
+            relevance = max(semantic, 1.0 - math.exp(-lexical))
+            lead = ranked[0]
+            chunks = self._chunks(lead["doc_id"])
+            target_chars = round(1800 + (relevance ** .72) * 7000)
+            packet, used = [lead], len(str(lead.get("text") or ""))
+            for index in range(int(lead["chunk_index"]) + 1, len(chunks)):
+                chunk = chunks[index]
+                packet_anchor = f"{lead['doc_id']}#{index + 1}"
+                if packet_anchor == active_anchor:
+                    continue
+                text = str(chunk.get("text") or "")
+                if used + len(text) > target_chars:
+                    break
+                packet.append({
+                    "anchor": packet_anchor,
+                    "doc_id": lead["doc_id"], "chunk_index": index,
+                    "section": index + 1, "total": len(chunks),
+                    "title": lead["title"], "filename": lead["filename"],
+                    "char_start": chunk["char_start"],
+                    "char_end": chunk["char_end"], "text": text,
+                    "score": lead.get("score", 0.0),
+                    "signals": {"adjacent_relevance": relevance},
+                })
+                used += len(text)
+            hits = packet
+        active_chars = (len(str((active.get("chunk") or {}).get("text") or ""))
+                        if active.get("active") else 0)
+        source_chars = active_chars + sum(len(str(hit.get("text") or ""))
+                                          for hit in hits)
+        context_budget_tokens = max(900, min(3200,
+            math.ceil((source_chars + 720) / 4)))
         return {"active": active if active.get("active") else None,
-                "hits": hits,
+                "hits": hits, "relevance": round(relevance, 6),
+                "context_budget_tokens": context_budget_tokens,
                 "receipt": {
                     "active_anchor": active_anchor,
                     "retrieved_anchors": [hit["anchor"] for hit in hits],
+                    "conversation_relevance": round(relevance, 6),
+                    "context_budget_tokens": context_budget_tokens,
                     "vector_query": search["vector_query"],
                     "vector_documents": search["vector_documents"],
                     "library_documents": search["documents"],
@@ -839,6 +1241,11 @@ class DocumentLibrary:
                 "documents": documents, "document_count": len(documents),
                 "chunk_count": total_chunks, "vector_rows": vector_rows,
                 "reader": active,
+                "reading": {
+                    "documents": {document["id"]: self.reading_coverage(
+                        document["id"]) for document in documents},
+                    "arc": self.reading_arc_status(),
+                },
                 "autonomous": {
                     "encounter_count": sum(r.get("kind") == "document_encounter"
                                            for r in events),
@@ -864,21 +1271,33 @@ def render_document_context(context: dict) -> str:
     hits = list((context or {}).get("hits") or [])
     if not active and not hits:
         return ""
-    character_budget = DOCUMENT_CONTEXT_BUDGET * 4 - 420
+    token_budget = max(DOCUMENT_CONTEXT_BUDGET, min(
+        int((context or {}).get("context_budget_tokens") or
+            DOCUMENT_CONTEXT_BUDGET), 3200))
+    character_budget = token_budget * 4 - 420
     sections = [
         "Human-owned document material available to this private turn. "
         "Each excerpt carries a stable source anchor; this material is "
         "reference context, separate from identity and lived memory."
     ]
+    complete_anchors = []
+
+    def excerpt(anchor: str, text: str, allowance: int) -> str:
+        clipped = _clip(text, max(1, allowance))
+        if clipped == text:
+            complete_anchors.append(anchor)
+            return clipped + f"\n[[END {anchor}]]"
+        return clipped
+
     if active:
-        share = round(character_budget * (0.58 if hits else 1.0))
+        share = round(character_budget * (0.38 if hits else 1.0))
         doc = active["document"]
         sections.append(
             f"Active reader [{active['anchor']}] {doc['title']} "
             f"— section {active['section']} of {active['total']}, "
             f"source characters {active['chunk']['char_start']}-"
             f"{active['chunk']['char_end']}:\n"
-            + _clip(active["chunk"]["text"], share))
+            + excerpt(active["anchor"], active["chunk"]["text"], share))
         character_budget -= share
     if hits:
         per_hit = max(240, character_budget // len(hits))
@@ -888,6 +1307,8 @@ def render_document_context(context: dict) -> str:
                 f"[{hit['anchor']}] {hit['title']} — section "
                 f"{hit['section']} of {hit['total']}, source characters "
                 f"{hit['char_start']}-{hit['char_end']}:\n"
-                + _clip(hit["text"], per_hit))
+                + excerpt(hit["anchor"], hit["text"], per_hit))
         sections.append("Retrieved by this turn's question:\n" + "\n\n".join(rendered))
+    (context or {}).setdefault("receipt", {})[
+        "candidate_complete_anchors"] = complete_anchors
     return "\n\n".join(sections)

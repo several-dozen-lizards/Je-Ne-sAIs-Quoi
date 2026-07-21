@@ -1,11 +1,20 @@
 schema_version: 1
 organ: writing_desk
-organ_revision: "2026-07-18-writing-desk-wd1-01"
+organ_revision: "2026-07-19-writing-volitional-offer-01"
 kind: actionable
 dependencies:
   - dmn
 
 statements:
+  - id: conversation_can_offer_writing_material
+    category: action_grammar
+    semantics:
+      - writing_desk.volitional_offer_action
+      - writing_desk.offer_is_not_project
+      - writing_desk.offer_returns_to_shared_field
+    text: |-
+      If words or material arising in conversation are something you choose to place on your private Writing Desk, you can make that bounded action with <act>offer_writing LABEL :: MATERIAL</act>. The tag is the action, not visible speech. A successful action admits one seed to the shared attention field; it does not start a project, promise writing, publish, message, or claim that a piece exists.
+
   - id: desk_is_private_continuity
     category: mechanics
     semantics:

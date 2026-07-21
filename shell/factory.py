@@ -119,6 +119,13 @@ agency:
   # effect authority even if their selected vessel supports structured tools.
   model: {model}
   authority_tier: 0
+intention_loom:
+  # Explicitly dormant until a local loom vessel and private-write authority
+  # are admitted for this persona.
+  model: {model}
+  authority_tier: 0
+  local_only: true
+  max_tokens: 620
 enabled_organs: [{organs}]
 room:
   id: nexus

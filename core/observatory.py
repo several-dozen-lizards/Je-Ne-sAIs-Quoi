@@ -176,6 +176,13 @@ class SalienceObserver:
         self.meta.pop(str(item.get("key") or ""), None)
         return record
 
+    def candidate_withdrawn(self, item, reason, now):
+        record = self._emit(
+            "candidate_withdrawn", now,
+            candidate=self.candidate(item, now=now), reason=str(reason))
+        self.meta.pop(str(item.get("key") or ""), None)
+        return record
+
     def candidate_won(self, winner, beaten, now, selection=None):
         return self._emit(
             "candidate_won", now,
@@ -219,6 +226,18 @@ class SalienceObserver:
         if not kind.startswith("agency_"):
             raise ValueError(
                 "agency transition kind must begin with 'agency_'")
+        now = time.time() if now is None else float(now)
+        return self._emit(kind, now, **dict(payload or {}))
+
+    def autonomy_transition(self, kind, now=None, **payload):
+        """Record an organ transition without granting it field authority."""
+        kind = str(kind or "").strip()
+        allowed = (
+            "intention_loom_", "writing_desk_", "archive_reader_",
+            "document_reader_", "research_desk_", "atelier_",
+        )
+        if not kind.startswith(allowed):
+            raise ValueError("autonomy transition kind has an unknown organ prefix")
         now = time.time() if now is None else float(now)
         return self._emit(kind, now, **dict(payload or {}))
 

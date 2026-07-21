@@ -23,6 +23,7 @@ class Block:
     priority: int = 5          # 1 = drop first, 10 = never drop
     budget: int = 0            # 0 = no per-block cap
     stable: bool = False       # stable -> cache-friendly position (API models)
+    keep_tail: bool = False    # chronological blocks retain the newest edge
 
     def tokens(self) -> int:
         return est_tokens(self.content)
@@ -34,16 +35,24 @@ class PromptAssembly:
     messages: list = field(default_factory=list)   # [{"role","content"}...]
     report: list = field(default_factory=list)     # human-readable budget actions
 
-    def add(self, name, content, priority=5, budget=0, stable=False):
-        self.blocks.append(Block(name, content, priority, budget, stable))
+    def add(self, name, content, priority=5, budget=0, stable=False,
+            keep_tail=False):
+        self.blocks.append(Block(
+            name, content, priority, budget, stable, keep_tail))
 
     def enforce_budgets(self, practical_window: int, reply_reserve: int = 800):
         """Apply per-block caps, then drop volatile low-priority blocks to fit."""
         for b in self.blocks:
             if b.budget and b.tokens() > b.budget:
                 keep_chars = b.budget * 4
-                b.content = (b.content[:keep_chars]
-                             + f"\n[...truncated at {b.budget} tok budget]")
+                if b.keep_tail:
+                    marker = (f"[...earlier content truncated at "
+                              f"{b.budget} tok budget]\n")
+                    remaining = max(0, keep_chars - len(marker))
+                    b.content = marker + b.content[-remaining:]
+                else:
+                    b.content = (b.content[:keep_chars]
+                                 + f"\n[...truncated at {b.budget} tok budget]")
                 self.report.append(f"TRUNCATED block '{b.name}' to {b.budget} tok")
 
         def total():

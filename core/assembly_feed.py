@@ -136,7 +136,12 @@ def render_memories(recalled: list) -> str:
             ground.append(f"- {mem['content']}")
         else:
             feel = ", ".join(mem.get("emotion_tags", [])) or "neutral"
-            ambient.append(f"- {mem['content']} (felt: {feel})")
+            confidence = r.get("epistemic_confidence")
+            calibration = (f"; retrieval confidence {confidence:.2f}"
+                           if isinstance(confidence, (int, float))
+                           and confidence < .95 else "")
+            ambient.append(
+                f"- {mem['content']} (felt: {feel}{calibration})")
     out = []
     if ground:
         out.append("Things you know to be true — ground truth, "
@@ -157,10 +162,14 @@ def build_turn_assembly(*, identity: str, cocktail: dict,
                         floor: bool = False,
                          entities: str = "",
                          user_context: str = "",
+                         user_persona_context: str = "",
                          visual_field: str = "",
                          sensory_field: str = "",
+                         perceptual_appearance: str = "",
                          document_context: str = "",
+                         document_budget: int = 900,
                          archive_context: str = "",
+                         experiential_context: str = "",
                          system_prompt: str = "",
                          prompt_core: str = "") -> PromptAssembly:
     asm = PromptAssembly()
@@ -188,18 +197,34 @@ def build_turn_assembly(*, identity: str, cocktail: dict,
         # current company has filtered it, and sits above recalled memory:
         # a user's declaration outranks the model's inference about her.
         asm.add("user_bedrock", user_context, priority=9, budget=500)
+    if user_persona_context:
+        # Explicit RP identity is user-authored context, not model-persona
+        # memory or inferred truth.
+        asm.add("user_persona", user_persona_context,
+                priority=9, budget=500)
     if visual_field:
         asm.add("visual_field", visual_field, priority=9, budget=420)
     if sensory_field:
         asm.add("external_sensory_field", sensory_field,
                 priority=9, budget=520)
+    if perceptual_appearance:
+        # Raw sensory evidence retains its own higher-priority block.  This
+        # separate seat describes endogenous/top-down appearance conditions
+        # without laundering them into an external observation.
+        asm.add("perceptual_appearance", perceptual_appearance,
+                priority=8, budget=260)
     asm.add("emotional_state", render_emotional_state(cocktail),
             priority=8, budget=120)
     # continuity stack: just-now (perception) > gist (story) sit ABOVE
     # surfaced memories (recall) — the nearer past outranks the deeper
     if window:
         asm.add("just_now", render_just_now(window, persona),
-                priority=9, budget=800)
+                priority=9, budget=800, keep_tail=True)
+    if experiential_context:
+        # Read-only joins over existing persona-private ledgers.  This is
+        # evidence of availability/choice/action, not a second memory store.
+        asm.add("experiential_continuity", experiential_context,
+                priority=8, budget=1200)
     if gist:
         asm.add("story_so_far", render_gist(gist), priority=6, budget=450)
     if body:
@@ -218,7 +243,7 @@ def build_turn_assembly(*, identity: str, cocktail: dict,
         # memory.  It gets its own auditable seat, after immediate perception
         # and lookup truth but above the lower-confidence recall auction.
         asm.add("document_library", document_context,
-                priority=7, budget=900)
+                priority=7, budget=max(900, min(int(document_budget), 3200)))
     if archive_context:
         # Documented prior-wrapper history remains source evidence, never a
         # silent autobiographical-memory transplant. Its separate seat keeps

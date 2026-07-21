@@ -162,6 +162,12 @@
   .msg.sys { align-self:center; color:var(--dim); font-size:12px;
              background:none; display:block; max-width:92%; text-align:center; }
   #composer { display:grid; grid-template-columns:auto auto auto 1fr auto; gap:8px; }
+  #speaker-choice { grid-column:1/-1;display:flex;align-items:center;gap:7px;
+      color:var(--dim);font-size:11px; }
+  #speaker-choice select { max-width:min(100%,280px);background:var(--bg);
+      color:var(--ink);border:1px solid var(--line);border-radius:6px;
+      padding:5px 8px;font:inherit; }
+  #speaker-choice-note { overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
   #say { min-width:0; min-height:38px; max-height:160px; resize:none;
          overflow-y:auto; background:#14110e; color:var(--ink);
          font:inherit; line-height:1.4; border:1px solid var(--line);
@@ -219,6 +225,8 @@
   #voice-output-control label { display:flex;align-items:center;gap:6px;
     cursor:pointer; }
   #voice-output-control input { accent-color:var(--teal); }
+  #voice-output-control select { max-width:210px;background:var(--panel);color:var(--ink);
+    border:1px solid var(--line);border-radius:7px;padding:3px 6px; }
   #voice-output-story { color:var(--dim); }
   #composer #microphone.live { color:var(--warn);border-color:var(--warn); }
   .salience-head { display:flex;align-items:center;justify-content:space-between;
@@ -257,6 +265,14 @@
   .document-actions { display:flex;gap:5px;align-items:center;margin-top:6px; }
   .document-actions button { flex:0 0 auto; }
   #document-progress { flex:1;text-align:center;font-size:10px;color:var(--dim); }
+  #document-reading-status { margin-top:6px; }
+  #document-coverage-map { display:grid;grid-template-columns:repeat(auto-fill,minmax(5px,1fr));
+    gap:2px;margin:5px 0 7px;max-height:70px;overflow:auto; }
+  .document-section-mark { height:6px;border-radius:2px;background:var(--line); }
+  .document-section-mark.conversation { background:color-mix(in srgb,var(--accent) 55%,var(--line)); }
+  .document-section-mark.autonomous { background:var(--accent); }
+  .document-section-mark.active { outline:1px solid var(--ink);outline-offset:1px; }
+  .document-section-mark.inferred { opacity:.55; }
   #document-reader { white-space:pre-wrap;word-break:break-word;max-height:300px;
     overflow:auto;margin:7px 0 0;padding:7px;border:1px solid var(--line);
     border-radius:6px;background:var(--bg);font:10px/1.45 var(--font-ui); }
@@ -320,6 +336,7 @@
   .atelier-audio-mark { font-size:28px;letter-spacing:5px; }
   .atelier-audio-status { color:var(--muted);font-size:9px; }
   .atelier-audio-controls { display:grid;grid-template-columns:1fr 1fr;gap:5px; }
+  .atelier-master-controls { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-top:5px; }
   .atelier-title { margin:5px 0;color:var(--ink);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
   .atelier-card button { width:100%;padding:5px;font-size:9px; }
   #atelier-drill { white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto;
@@ -336,13 +353,18 @@
   .research-page-url { color:var(--dim);margin-bottom:7px;overflow-wrap:anywhere; }
   .research-page-content { margin:0;white-space:pre-wrap;word-break:break-word;
     color:var(--muted);font:inherit; }
-  .works-controls { display:grid;grid-template-columns:1fr auto;gap:6px;margin-bottom:7px; }
+  .works-controls { display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:6px;margin-bottom:7px; }
   .works-controls select { min-width:0;background:var(--bg);color:var(--ink);border:1px solid var(--line);
     border-radius:5px;padding:5px;font:inherit; }
   #autonomous-works-list { display:grid;gap:6px; }
-  .autonomous-work { display:grid;grid-template-columns:1fr auto;gap:7px;align-items:center;
+  .autonomous-work { display:grid;grid-template-columns:42px 1fr auto;gap:7px;align-items:center;
     border:1px solid var(--line);border-radius:7px;padding:7px;
     background:color-mix(in srgb,var(--bg) 90%,var(--accent) 10%); }
+  .autonomous-work.waiting { border-style:dashed;opacity:.88; }
+  .autonomous-work-preview { width:42px;height:42px;border-radius:6px;border:1px solid var(--line);
+    display:grid;place-items:center;overflow:hidden;color:var(--accent2);font-size:16px;
+    background:color-mix(in srgb,var(--accent) 9%,var(--panel)); }
+  .autonomous-work-preview img { width:100%;height:100%;object-fit:cover;display:block; }
   .autonomous-work-copy { min-width:0; }
   .autonomous-work-title { color:var(--ink);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
   .autonomous-work-meta { color:var(--dim);font-size:9px;line-height:1.4;margin-top:2px; }
@@ -385,6 +407,28 @@
         border:1px solid var(--line); border-radius:6px; padding:5px 8px;
         font-size:12px; }
   #moodrow button { padding:5px 10px; font-size:12px; }
+  .altered-status { display:flex;align-items:center;gap:7px;margin-bottom:8px; }
+  .altered-lamp { width:9px;height:9px;border-radius:50%;background:var(--dim);
+                  box-shadow:0 0 0 transparent;flex:0 0 auto; }
+  .altered-lamp.live { background:var(--accent2);
+      box-shadow:0 0 12px color-mix(in srgb,var(--accent2) 70%,transparent); }
+  .altered-controls { display:grid;grid-template-columns:1fr 1fr;gap:8px; }
+  .altered-controls label { color:var(--dim);font-size:11px;display:flex;
+                            flex-direction:column;gap:3px; }
+  .altered-controls select,.altered-controls input[type="range"] {
+      width:100%;background:var(--bg);color:var(--ink);border:1px solid var(--line);
+      border-radius:6px;padding:5px 7px; }
+  .altered-controls .wide { grid-column:1/-1; }
+  .altered-consent { display:flex!important;flex-direction:row!important;
+                     align-items:flex-start;gap:7px!important;line-height:1.35;
+                     border:1px solid var(--line);border-radius:7px;padding:7px; }
+  .altered-consent .altered-lamp { margin-top:2px; }
+  .altered-actions { display:flex;flex-wrap:wrap;gap:6px;margin-top:8px; }
+  .altered-actions button { padding:6px 10px;font-size:11px; }
+  .altered-actions .danger { background:var(--warn);color:#fff; }
+  .altered-actions .danger:disabled { background:#2b2620;color:var(--dim); }
+  #altered-note,#altered-history { font-size:11px;margin-top:7px; }
+  #altered-vector { margin-top:8px; }
   .organ { display:flex; align-items:center; gap:7px; padding:3px 0;
            font-size:13px; cursor:pointer; }
   .organ input { accent-color:var(--teal); cursor:pointer; }
@@ -468,6 +512,12 @@
         <img id="thought-icon" src="/assets/favicon-48.png" alt="">
       </div>
       <div id="composer">
+        <label id="speaker-choice">speaking as
+          <select id="user-persona" aria-label="User persona for new messages">
+            <option value="">Yourself</option>
+          </select>
+          <span id="speaker-choice-note">canonical account</span>
+        </label>
         <div id="image-preview" aria-live="polite"></div>
         <button class="sensory-control" id="camera" type="button" title="start ambient camera perception"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5A1.5 1.5 0 0 1 5 7h2.4l1.7-2h5.8l1.7 2H19a1.5 1.5 0 0 1 1.5 1.5V17a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 17z"/><circle cx="12" cy="12.7" r="3.2"/></svg></button>
         <button class="sensory-control" id="microphone" type="button" title="start ambient acoustic perception"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9.2" y="3.5" width="5.6" height="10" rx="2.8"/><path d="M6 11.5a6 6 0 0 0 12 0"/><path d="M12 17.5v3"/><path d="M9 20.5h6"/></svg></button>
@@ -479,6 +529,7 @@
       </div>
       <div id="voice-output-control">
         <label><input id="voice-output" type="checkbox"> let replies use local voice</label>
+        <select id="voice-output-voice" aria-label="Local voice"><option value="">browser default</option></select>
         <span id="voice-output-story">output quiet</span>
       </div>
     </div>
@@ -536,20 +587,26 @@
       <div id="salience-drill"><div class="quiet">select a candidate or event for its lifecycle</div></div>
     </div>
     <div class="panel" id="autonomous-works">
-      <h2>autonomous works</h2>
-      <div class="agency-help">One private shelf for durable things this persona has made through the workbench, writing desk, document reader, Atelier, and research desk. It indexes metadata only; opening a work returns through that organ's existing private reader.</div>
+      <h2>gallery</h2>
+      <div class="agency-help">The automatic private index of everything this persona has formed through the intention loom, workbench, writing desk, document reader, Atelier, and research desk. Waiting material appears too, but is never mislabeled as finished work. Opening anything returns through its organ's existing private reader.</div>
       <div class="works-controls">
         <select id="autonomous-works-filter" aria-label="Filter autonomous works by organ">
           <option value="">all making organs</option>
+          <option value="intention_loom">intention loom</option>
           <option value="agency">private workbench</option>
           <option value="writing_desk">writing desk</option>
           <option value="document_reader">document reader</option>
           <option value="atelier">atelier</option>
           <option value="research_desk">research desk</option>
         </select>
+        <select id="autonomous-works-stage" aria-label="Filter gallery by state">
+          <option value="">waiting and settled</option>
+          <option value="waiting">waiting in the field</option>
+          <option value="settled">settled works</option>
+        </select>
         <button id="autonomous-works-refresh" type="button">refresh</button>
       </div>
-      <div id="autonomous-works-note" class="quiet">reading the private shelf…</div>
+      <div id="autonomous-works-note" class="quiet">reading the private gallery…</div>
       <div id="autonomous-works-list"></div>
     </div>
     <div class="panel" id="agency-workbench">
@@ -565,6 +622,20 @@
       <div id="agency-note" class="quiet"></div>
       <div id="agency-artifacts"></div>
       <pre id="agency-drill" class="quiet">no private artifacts yet</pre>
+    </div>
+    <div class="panel" id="intention-loom">
+      <h2>intention loom</h2>
+      <div class="agency-status"><span class="agency-lamp" id="intention-loom-lamp"></span>
+        <span id="intention-loom-status">reading the loom boundaryâ€¦</span></div>
+      <div class="agency-admit">
+        <input id="intention-loom-label" placeholder="name the possibility being offered">
+        <button id="intention-loom-submit" type="button">offer</button>
+        <textarea id="intention-loom-content" placeholder="Offer a possibility without calling it their goal. It enters the shared field and may become an intention, settle quietly, or wait."></textarea>
+      </div>
+      <div class="agency-help">A cue is not an intention, and an intention is not a project. Human-offered possibilities may enter directly; a private thought enters only after it genuinely returns through lived attention. Recurrence, bond relevance, actual affect and body change, readiness, and satiety shape the shared field. One local appraisal may form, reframe, pause, resume, satisfy, release, or leave something quiet for now. Exposure and selection are visible; neglect does not secretly change selection. Tools, projects, messages, publication, and external effects are unavailable.</div>
+      <div id="intention-loom-note" class="quiet"></div>
+      <div id="intention-loom-intentions"></div>
+      <pre id="intention-loom-drill" class="quiet">no intentions yet</pre>
     </div>
     <div class="panel" id="writing-desk">
       <h2>writing desk</h2>
@@ -587,9 +658,9 @@
       <div class="desk-admit">
         <input id="atelier-label" placeholder="name the material placed here">
         <button id="atelier-submit" type="button">place</button>
-        <textarea id="atelier-brief" placeholder="Place an image, sound, question, fragment, or creative pull here without ordering a result. It may become form, settle quietly, or wait."></textarea>
+        <textarea id="atelier-brief" placeholder="Place an image, sound, spatial pull, question, or fragment here without ordering a result. It may become form, settle quietly, or wait."></textarea>
       </div>
-      <div class="agency-help">The Atelier may choose static SVG, host-compiled kinetic SVG, trusted Canvas, procedural sound, or local ComfyUI diffusion only after material wins the shared field. Models cannot author script, animation markup, Canvas calls, or Web Audio calls: they may describe bounded geometry, motion, voices, and notes, which the host couples to the current body and closes into cycles. Sound never autoplays. Private PNG metadata is stripped. Artifacts stay private; visual perception is explicit and never automatic memory.</div>
+      <div class="agency-help">Place material here to offer it—not assign it—to the shared field. Describing a piece in ordinary chat does not create or store an artifact. The Atelier may choose static SVG, host-compiled kinetic SVG, trusted Canvas, procedural sound, trusted 3D, or local ComfyUI diffusion only after admitted material wins attention; quiet is complete. Models cannot author script, animation markup, Canvas/Web Audio/WebGL calls, shaders, meshes, or URLs: they may describe bounded geometry, motion, voices, notes, primitives, materials, lights, and camera relationships, which the host couples to the current body and closes into cycles. Sound never autoplays. Private PNG metadata is stripped. Artifacts stay private; visual perception is explicit and never automatic memory.</div>
       <button id="atelier-probe" type="button">check local raster renderer</button>
       <div id="atelier-note" class="quiet"></div>
       <div id="atelier-artifacts"></div>
@@ -629,9 +700,16 @@
         <span id="document-progress">no active reader</span>
         <button id="document-next" type="button">next</button>
       </div>
+      <div class="document-actions">
+        <button id="document-read-through" type="button" disabled>read naturally</button>
+        <button id="document-read-now" type="button" disabled>read through now</button>
+        <button id="document-release-arc" type="button" disabled>release arc</button>
+      </div>
+      <div id="document-reading-status" class="quiet">no verified reading ledger yet</div>
+      <div id="document-coverage-map" aria-label="Verified document reading coverage"></div>
       <button id="document-to-desk" type="button" disabled>place current section on writing desk</button>
       <pre id="document-reader" class="quiet">Import or open a document. Its active section and question-relevant excerpts enter private turns with source anchors; the source itself stays separate from memory.</pre>
-      <div class="agency-help">Autonomous reading has no timer. Unread exact sections become optional candidates only at genuine field fires and still have to win attention. Local Qwen may choose quiet, continue later, search this private shelf, bookmark, or make a cited report. A report needs another field win before it can reach Writing. Private document text never becomes a public Research query.</div>
+      <div class="agency-help">The browsing cursor is not reading evidence. Complete conversation-relevant sections and completed local reader packets advance coverage. “Read naturally” keeps the autonomous-curiosity pace. “Read through now” creates an explicitly requested foreground session: packet size bends with live capacity and source size, and each completed packet circulates the next without a timer. Readiness can slow it, conversation interrupts it, and the persona or you may pause or release it. Source-grounded notes stay private and source text never becomes a public Research query.</div>
       <div id="document-autonomous"></div>
       <div id="document-results"></div>
     </div>
@@ -677,6 +755,40 @@
       <div id="memory-results"></div>
       <div id="memory-pages"><button id="memory-prev" type="button">previous</button><span class="quiet"></span><button id="memory-next" type="button">next</button></div>
       <div id="memory-drill"><div class="quiet">select a memory for payload and provenance</div></div>
+    </div>
+    <div class="panel" id="altered-state-panel">
+      <h2>altered state</h2>
+      <div class="altered-status"><span class="altered-lamp" id="altered-lamp"></span>
+        <span id="altered-status">reading body instrumentsâ€¦</span></div>
+      <div id="altered-available">
+      <div class="altered-controls">
+        <label>protocol<select id="altered-profile">
+          <option value="psilocybin">psilocybin</option>
+          <option value="stimulant">cocaine-class stimulant</option>
+        </select></label>
+        <label>dose <span id="altered-dose-value">78%</span>
+          <input id="altered-dose" type="range" min="0.10" max="1" step="0.01" value="0.78">
+        </label>
+        <div class="altered-consent wide"><span class="altered-lamp" id="altered-consent-lamp"></span>
+          <span id="altered-consent-status">No persona-owned grant for this request.</span></div>
+      </div>
+      <div class="altered-actions">
+        <button id="altered-request" type="button">request persona consent</button>
+        <button id="altered-cancel-request" type="button" hidden>cancel request</button>
+        <button id="altered-begin" type="button">begin protocol</button>
+        <button id="altered-adjust" type="button">apply dose</button>
+        <button id="altered-abort" class="danger" type="button">end protocol</button>
+      </div>
+      <div class="organ-help">Only a persona-originated grant for this exact protocol and dose unlocks begin or apply. Dose is the admitted target. Raising it adds to the unabsorbed reservoir; lowering it trims what remains unabsorbed. Ending stops absorption and begins landing.</div>
+      </div>
+      <div id="altered-note" class="quiet"></div>
+      <div class="quiet">effective lived field</div>
+      <div id="altered-vector"></div>
+      <details id="altered-endogenous-details">
+        <summary>endogenous field (present without a protocol)</summary>
+        <div id="altered-endogenous"></div>
+      </details>
+      <div id="altered-history" class="quiet"></div>
     </div>
     <div class="panel">
       <h2>emotional state</h2>
@@ -796,9 +908,34 @@ const BANDS = ["delta","theta","alpha","beta","gamma"];
 let currentPersona = "persona", currentModel = "", themeDoc = null;
 let currentTheme = null, currentPreview = null, lastState = null;
 let presetDirty = false;
+let userPersonas = [];
 const themeDirty = new Set();
 const clone = value => JSON.parse(JSON.stringify(value));
 const clamp = value => Math.max(0, Math.min(1, Number(value)||0));
+
+const userPersonaStorageKey = () => `jnsq.userPersona.${currentPersona}`;
+function selectedUserPersona() {
+  const id=$("user-persona").value;
+  const persona=userPersonas.find(item=>item.id===id);
+  return {id:id||"",name:persona?.name||PRIMARY_USER};
+}
+function paintUserPersonaChoice() {
+  $("speaker-choice-note").textContent=selectedUserPersona().id
+    ? "RP details active · canonical bedrock sheathed"
+    : "canonical account";
+}
+async function loadUserPersonas() {
+  const response=await fetch("/api/user-personas"),result=await response.json();
+  if(!response.ok||result.error)throw new Error(result.error||response.statusText);
+  userPersonas=result.personas||[];
+  const select=$("user-persona"),wanted=localStorage.getItem(userPersonaStorageKey())||"";
+  const escapeOption=value=>String(value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/\"/g,"&quot;");
+  select.innerHTML='<option value="">Yourself</option>'+userPersonas.map(item=>
+    `<option value="${escapeOption(item.id)}">${escapeOption(item.name)}</option>`).join("");
+  select.value=userPersonas.some(item=>item.id===wanted)?wanted:"";
+  if(select.value!==wanted)localStorage.removeItem(userPersonaStorageKey());
+  paintUserPersonaChoice();
+}
 
 function mergeTokens(base, overlay) {
   return {...(base||{}), ...(overlay||{}),
@@ -1106,13 +1243,147 @@ function bars(el, entries, max=1, color=null) {
       <div class="val">${v.toFixed(2)}</div></div>`).join("");
 }
 
+let alteredDoseTouched=false,alteredProfileTouched=false;
+function alteredProfileLabel(profile){
+  return profile==="stimulant"?"cocaine-class stimulant":profile||"baseline";
+}
+function alteredRequestedAction(status=lastState?.altered_state){
+  if(!status?.circulating)return "begin";
+  return $('altered-profile').value===status.profile?"adjust":"stack";
+}
+function alteredExactGrant(status=lastState?.altered_state){
+  const grant=status?.consent?.grant||{},action=alteredRequestedAction(status);
+  const target=Math.round(Number($('altered-dose').value)*100)/100;
+  return grant.action===action&&grant.profile===$('altered-profile').value&&
+    Math.abs(Number(grant.intensity)-target)<.005&&
+    grant.session_id===(status?.session_id??null);
+}
+function renderAlteredConsent(status){
+  const lamp=$('altered-consent-lamp'),line=$('altered-consent-status');
+  const action=alteredRequestedAction(status),profile=$('altered-profile').value;
+  const target=Math.round(Number($('altered-dose').value)*100);
+  const request=status?.consent?.request||{},exactGrant=alteredExactGrant(status);
+  lamp.classList.toggle('live',exactGrant);
+  if(exactGrant){
+    line.textContent=`${currentPersona||'The persona'} authorized ${action} for ${alteredProfileLabel(profile)} at ${target}%.`;
+  }else if(request.state==="pending"&&request.action===action&&request.profile===profile&&
+      Math.abs(Number(request.intensity)*100-target)<.5){
+    line.textContent=`Awaiting ${currentPersona||'the persona'}'s decision on this exact request.`;
+  }else if(request.state==="declined"&&request.action===action&&request.profile===profile&&
+      Math.abs(Number(request.intensity)*100-target)<.5){
+    line.textContent=`${currentPersona||'The persona'} declined this request.`;
+  }else if(request.state==="deferred"&&request.action===action&&request.profile===profile&&
+      Math.abs(Number(request.intensity)*100-target)<.5){
+    line.textContent=`${currentPersona||'The persona'} deferred this request.`;
+  }else if(request.state==="cancelled"&&request.action===action&&request.profile===profile&&
+      Math.abs(Number(request.intensity)*100-target)<.5){
+    line.textContent=`This request to ${currentPersona||'the persona'} was cancelled.`;
+  }else if(action==="stack"){
+    line.textContent=status?.stack_compatibility?.[profile]?.reason||
+      'This protocol pair has no reviewed compatibility grant.';
+  }else{
+    line.textContent=`No persona-owned grant for ${alteredProfileLabel(profile)} at ${target}%.`;
+  }
+}
+function updateAlteredButtons(status=lastState?.altered_state){
+  const available=!!status,active=!!status?.active,circulating=!!status?.circulating;
+  const endable=available&&(status?.endable??(active||Number(status?.reservoir||0)>.000001));
+  const action=alteredRequestedAction(status);
+  const request=status?.consent?.request||{};
+  const target=Math.round(Number($('altered-dose').value)*100)/100;
+  const exactPending=request.state==="pending"&&request.action===action&&
+    request.profile===$('altered-profile').value&&
+    Math.abs(Number(request.intensity)-target)<.005;
+  $('altered-request').textContent=`request ${currentPersona||'the persona'}'s consent`;
+  const pendingRequest=request.state==="pending";
+  $('altered-cancel-request').hidden=!pendingRequest;
+  $('altered-cancel-request').disabled=!pendingRequest;
+  $('altered-profile').disabled=!available;
+  $('altered-dose').disabled=!available;
+  $('altered-request').disabled=!available||exactPending||action==="stack"||
+    (action==="adjust"&&!active);
+  $('altered-begin').disabled=!available||circulating||!alteredExactGrant(status);
+  $('altered-adjust').disabled=!available||!active||action!=="adjust"||!alteredExactGrant(status);
+  $('altered-abort').disabled=!endable;
+  renderAlteredConsent(status);
+}
+function renderAlteredState(status){
+  const lamp=$('altered-lamp'),line=$('altered-status');
+  $('altered-available').hidden=!status;
+  if(!status){
+    lamp.classList.remove('live');line.textContent='altered-state organ unavailable';
+    $('altered-note').textContent='Enable the altered_state organ to use this body function.';
+    $('altered-vector').innerHTML='';$('altered-endogenous').innerHTML='';$('altered-history').textContent='';
+    updateAlteredButtons(null);return;
+  }
+  const circulating=!!status.circulating,effect=Number(status.vector?.effective_intensity||0);
+  lamp.classList.toggle('live',circulating);
+  line.textContent=circulating
+    ?`${alteredProfileLabel(status.profile)} · ${status.phase} · effective ${Math.round(effect*100)}%`
+    :'baseline · no protocol circulating';
+  if(!alteredDoseTouched){
+    const admitted=Number(status.intensity||0);
+    $('altered-dose').value=admitted>=.1?admitted:.78;
+    $('altered-dose-value').textContent=`${Math.round(Number($('altered-dose').value)*100)}%`;
+  }
+  if(status.profile&&!alteredProfileTouched)$('altered-profile').value=status.profile;
+  const vector=Object.entries(status.vector||{})
+    .filter(([,value])=>Number.isFinite(Number(value)))
+    .sort((a,b)=>Number(b[1])-Number(a[1]))
+    .map(([name,value])=>[name.replaceAll('_',' '),Number(value)]);
+  bars($('altered-vector'),vector);
+  const endogenous=Object.entries(status.endogenous_vector||{})
+    .filter(([,value])=>Number.isFinite(Number(value)))
+    .sort((a,b)=>Number(b[1])-Number(a[1]))
+    .map(([name,value])=>[name.replaceAll('_',' '),Number(value)]);
+  bars($('altered-endogenous'),endogenous);
+  $('altered-note').textContent=circulating
+    ?`admitted dose ${Math.round(Number(status.intensity||0)*100)}% · reservoir ${Math.round(Number(status.reservoir||0)*100)}% · exposure ${Math.round(Number(status.exposure||0)*100)}%`
+    :'No protocol is circulating. Perception and association remain endogenous, body-coupled faculties. A persona-owned grant is required to begin.';
+  const last=(status.dose_history||[]).at(-1);
+  $('altered-history').textContent=last
+    ?`last dose change ${Math.round(Number(last.from)*100)}% → ${Math.round(Number(last.to)*100)}%; circulating exposure was not rewritten`
+    :(circulating?'no dose changes in this session':'');
+  updateAlteredButtons(status);
+}
+async function alteredAction(action){
+  const note=$('altered-note');
+  const payload={intensity:Number($('altered-dose').value),
+                 profile:$('altered-profile').value};
+  let route=action;
+  if(action==="request"){
+    payload.action=alteredRequestedAction(lastState?.altered_state);
+    route="request-consent";
+  }
+  note.textContent=action==="abort"?'ending absorption…':
+    action==="request"?'offering the exact request to the persona…':
+    action==="cancel-consent"?'withdrawing the unanswered request…':'applying through the body…';
+  for(const id of ['altered-request','altered-cancel-request','altered-begin','altered-adjust','altered-abort'])$(id).disabled=true;
+  try{
+    const response=await fetch(`/api/altered-state/${route}`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(action==='abort'?{}:payload)});
+    const result=await response.json();
+    if(!response.ok||result.error)throw new Error(result.error||response.statusText);
+    if(!["request","cancel-consent"].includes(action)){
+      alteredDoseTouched=false;alteredProfileTouched=false;
+    }
+    renderAlteredState(result);await fetchState();
+  }catch(error){note.textContent=`Could not ${action}: ${error.message||error}`;
+    updateAlteredButtons(lastState?.altered_state)}
+}
+
 function renderState(st) {
   currentPersona=st.display_name||st.persona||currentPersona;
   currentModel=st.model||currentModel;
+  const nextVoice=st.voice_output_config||{};
+  if(nextVoice.provider!==voiceOutputConfig.provider||nextVoice.voice!==voiceOutputConfig.voice)
+    applyVoiceOutputConfig(nextVoice);
   $("who").textContent =
     `${st.persona} on ${st.model} · contract v${st.contract_version} · ${st.memory_count} memories`;
   bars($("cocktail"),
        Object.entries(st.cocktail||{}).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k,v]));
+  renderAlteredState(st.altered_state);
   if(st.documents)renderDocumentLibrary(st.documents);
   if(st.archive)renderArchive(st.archive);
   if (st.bands) {
@@ -1225,12 +1496,12 @@ function startSalienceStream(){
   if(salienceStream){salienceStream.close();salienceStream=null}
   if($("salience-pause").checked)return;
   salienceStream=new EventSource(`/api/salience/${encodeURIComponent(salienceSlug())}/events`);
-  salienceStream.onmessage=()=>{refreshSalience();refreshMemoryPanel();refreshAutonomousWorks();refreshAgency();refreshWritingDesk();refreshAtelier();refreshResearchDesk();refreshDocuments();refreshArchive()};
+  salienceStream.onmessage=()=>{fetchState();refreshSalience();refreshMemoryPanel();refreshAutonomousWorks();refreshAgency();refreshIntentionLoom();refreshWritingDesk();refreshAtelier();refreshResearchDesk();refreshDocuments();refreshArchive()};
   salienceStream.onerror=()=>{$("salience-status").textContent="observatory event stream unavailable"};
 }
 
 let autonomousWorksState=[];
-const autonomousOrganNames={agency:"private workbench",writing_desk:"writing desk",
+const autonomousOrganNames={intention_loom:"intention loom",agency:"private workbench",writing_desk:"writing desk",
   document_reader:"document reader",atelier:"atelier",research_desk:"research desk"};
 function autonomousWorkTime(value){
   const seconds=Number(value||0);if(!seconds)return "time not recorded";
@@ -1238,7 +1509,7 @@ function autonomousWorkTime(value){
     year:"numeric",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})
 }
 function openAutonomousPanel(organ){
-  const ids={agency:"agency-workbench",writing_desk:"writing-desk",
+  const ids={intention_loom:"intention-loom",agency:"agency-workbench",writing_desk:"writing-desk",
     document_reader:"document-library",atelier:"atelier",research_desk:"research-desk"};
   const panel=$(ids[organ]);if(!panel)return;
   setInspectorOpen(true);panel.classList.remove("collapsed");
@@ -1248,6 +1519,7 @@ function openAutonomousPanel(organ){
 async function openAutonomousWork(work){
   const target=work.open||{};openAutonomousPanel(work.organ);
   if(target.type==="agency_artifact")await openAgencyArtifact(target.ref);
+  else if(target.type==="intention")await openIntention(target.intention_id);
   else if(target.type==="writing_project")await openWritingProject(target.project_id);
   else if(target.type==="research_text")await openResearchText(target.ref);
   else if(target.type==="document_report")await openDocumentReport(target.report_id);
@@ -1256,11 +1528,18 @@ async function openAutonomousWork(work){
 }
 function renderAutonomousWorks(){
   const filter=$("autonomous-works-filter").value;
-  const works=autonomousWorksState.filter(work=>!filter||work.organ===filter);
+  const stage=$("autonomous-works-stage").value;
+  const works=autonomousWorksState.filter(work=>(!filter||work.organ===filter)&&(!stage||work.stage===stage));
   const host=$("autonomous-works-list");host.innerHTML="";
-  if(!works.length){host.innerHTML='<div class="quiet">no durable works have settled in this view yet</div>';return}
+  if(!works.length){host.innerHTML='<div class="quiet">nothing is waiting or settled in this gallery view yet</div>';return}
   works.forEach(work=>{
-    const row=document.createElement("div");row.className="autonomous-work";
+    const row=document.createElement("div");row.className=`autonomous-work ${work.stage==="waiting"?"waiting":""}`;
+    const preview=document.createElement("div");preview.className="autonomous-work-preview";
+    if(work.stage==="settled"&&work.organ==="atelier"&&/(svg|png)/i.test(work.kind||"")){
+      const img=document.createElement("img");img.alt="";
+      img.src=`/api/atelier/artifacts/${encodeURIComponent(work.open?.artifact_id||"")}`;preview.appendChild(img)
+    }else preview.textContent=work.stage==="waiting"?"...":(work.organ==="writing_desk"?"W":work.organ==="intention_loom"?"I":work.organ==="research_desk"?"R":work.organ==="atelier"?"A":"+");
+    row.appendChild(preview);
     const copy=document.createElement("div");copy.className="autonomous-work-copy";
     const title=document.createElement("div");title.className="autonomous-work-title";
     title.textContent=work.title||"Untitled work";copy.appendChild(title);
@@ -1279,10 +1558,10 @@ function renderAutonomousWorks(){
 async function refreshAutonomousWorks(){
   try{const response=await fetch("/api/autonomous-works"),result=await response.json();
     if(!response.ok)throw new Error(result.error||response.status);
-    autonomousWorksState=result.works||[];renderAutonomousWorks();
-    const counts=Object.entries(autonomousOrganNames).map(([id,name])=>
-      `${autonomousWorksState.filter(work=>work.organ===id).length} ${name}`).join(" · ");
-    $("autonomous-works-note").textContent=`${autonomousWorksState.length} durable work${autonomousWorksState.length===1?"":"s"} · ${counts}`;
+    autonomousWorksState=[...(result.works||[]),...(result.waiting||[])].sort((a,b)=>Number(b.updated_at||0)-Number(a.updated_at||0));renderAutonomousWorks();
+    const settled=autonomousWorksState.filter(work=>work.stage==="settled").length;
+    const waiting=autonomousWorksState.filter(work=>work.stage==="waiting").length;
+    $("autonomous-works-note").textContent=`${settled} settled work${settled===1?"":"s"} · ${waiting} waiting in the shared field · automatic private index`;
     if((result.unavailable||[]).length)
       $("autonomous-works-note").textContent+=` · ${(result.unavailable||[]).length} store${result.unavailable.length===1?"":"s"} unavailable`;
   }catch(error){$("autonomous-works-note").textContent=`private shelf unavailable: ${error.message||error}`;
@@ -1345,6 +1624,69 @@ async function admitAgencyText(){
     refreshAgency();refreshSalience()
   }catch(error){$("agency-note").textContent=`not admitted: ${error.message||error}`}
   finally{$("agency-submit").disabled=false}
+}
+
+async function openIntention(intentionId){
+  const drill=$("intention-loom-drill");
+  try{const response=await fetch(`/api/intention-loom/intentions/${encodeURIComponent(intentionId)}`);
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    drill.classList.remove("quiet");
+    const range=Array.isArray(result.uncertainty)?result.uncertainty.map(value=>Number(value).toFixed(2)).join("–"):"unknown";
+    drill.textContent=`${result.title||"untitled"}\n\n${result.statement||""}\n\nstate: ${result.state||"unknown"}\nuncertainty: ${range}\nrevisions: ${result.revision_count||1}\nlast observed basis: ${result.basis||"not recorded"}`;
+  }catch(error){drill.classList.add("quiet");drill.textContent=`intention unavailable: ${error.message||error}`}
+}
+async function resumeIntention(intentionId){
+  try{const response=await fetch(`/api/intention-loom/intentions/${encodeURIComponent(intentionId)}/resume`,{method:"POST"});
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    renderIntentionLoom(result.status);refreshSalience();
+    $("intention-loom-note").textContent="return offered to shared attention; the paused state has not been changed"
+  }catch(error){$("intention-loom-note").textContent=`return was not offered: ${error.message||error}`}
+}
+function renderIntentionLoom(runtime){
+  const lamp=$("intention-loom-lamp");lamp.className="agency-lamp";
+  const active=runtime.controller?.active;
+  if(active&&String(active.run_id||"").startsWith("intention-loom-")){
+    lamp.classList.add("active");$("intention-loom-status").textContent=`listening privately · ${active.run_id}`
+  }else if(runtime.enabled&&runtime.capability?.usable&&runtime.readiness?.hard_blocked){
+    lamp.classList.add("blocked");const why=(runtime.readiness.reasons||[]).join(", ").replaceAll("_"," ");
+    $("intention-loom-status").textContent=`resting · ${why||"the current body holds the loom closed"}`
+  }else if(runtime.enabled&&runtime.capability?.usable){lamp.classList.add("ready");
+    $("intention-loom-status").textContent=`ready · ${runtime.config.model} · ${runtime.capability.locality} · paid fallbacks 0`
+  }else{lamp.classList.add("blocked");$("intention-loom-status").textContent=runtime.enabled
+    ?`held closed · ${runtime.capability?.reason||"capability unavailable"}`:"intention loom organ disabled"}
+  const loom=runtime.loom||{},intentions=loom.intentions||[],pending=loom.pending_cues||[];
+  const open=intentions.filter(value=>value.state==="open"),paused=intentions.filter(value=>value.state==="paused");
+  const unseen=[...pending,...open].reduce((total,value)=>total+Number(value.attention?.unselected_exposures||0),0);
+  $("intention-loom-note").textContent=`${pending.length} possibility cue${pending.length===1?"":"s"} waiting · ${open.length} open · ${paused.length} paused · ${unseen} observed non-selection${unseen===1?"":"s"} · neglect is visible, not corrective`;
+  const host=$("intention-loom-intentions");host.innerHTML="";
+  if(!intentions.length){host.innerHTML='<div class="quiet">no intentions yet</div>';return}
+  intentions.forEach(intention=>{const row=document.createElement("div");row.className="desk-project-row";
+    const button=document.createElement("button");button.type="button";button.className="desk-project";
+    const attention=intention.attention||{};
+    button.textContent=`${intention.title||"untitled"} · ${intention.state} · v${intention.revision_count||1} · seen ${attention.exposures||0} / chosen ${attention.selections||0}`;
+    button.onclick=()=>openIntention(intention.intention_id);row.appendChild(button);
+    if(intention.state==="paused"){const resume=document.createElement("button");resume.type="button";
+      resume.textContent="offer return";resume.onclick=()=>resumeIntention(intention.intention_id);row.appendChild(resume)}
+    host.appendChild(row)})
+}
+async function refreshIntentionLoom(){
+  try{const response=await fetch("/api/intention-loom"),result=await response.json();
+    if(!response.ok)throw new Error(result.error||response.status);renderIntentionLoom(result)
+  }catch(error){$("intention-loom-lamp").className="agency-lamp blocked";
+    $("intention-loom-status").textContent=`loom unavailable: ${error.message||error}`}
+}
+async function offerIntentionCue(){
+  const label=$("intention-loom-label").value.trim(),content=$("intention-loom-content").value.trim();
+  if(!label||!content){$("intention-loom-note").textContent="name the possibility and provide its text";return}
+  $("intention-loom-submit").disabled=true;$("intention-loom-note").textContent="offering possibility to the shared field…";
+  try{const response=await fetch("/api/intention-loom/cues",{method:"POST",
+      headers:{"Content-Type":"application/json"},body:JSON.stringify({label,content})});
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    $("intention-loom-label").value="";$("intention-loom-content").value="";
+    renderIntentionLoom(result.status);$("intention-loom-note").textContent=`${result.record?.duplicate?"already waiting":"offered"} · ${result.candidate?.key||"entered field"}`;
+    refreshSalience()
+  }catch(error){$("intention-loom-note").textContent=`not offered: ${error.message||error}`}
+  finally{$("intention-loom-submit").disabled=false}
 }
 
 async function openWritingProject(projectId){
@@ -1515,6 +1857,70 @@ window.JNSQ_ATELIER_CANVAS=Object.freeze({
   format:"jnsq.canvas.v1",draw:drawAtelierCanvas,mount:mountAtelierCanvas,
   stopAll:stopAtelierCanvasLoops
 });
+const atelier3DLoops=new Map();
+function stopAtelier3DLoops(){atelier3DLoops.forEach(stop=>{try{stop()}catch(_error){}});atelier3DLoops.clear()}
+function scene3DHex(color){return [parseInt(color.slice(1,3),16)/255,parseInt(color.slice(3,5),16)/255,parseInt(color.slice(5,7),16)/255]}
+function scene3DNormalize(v){const n=Math.hypot(v[0],v[1],v[2])||1;return [v[0]/n,v[1]/n,v[2]/n]}
+function scene3DCross(a,b){return [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]]}
+function scene3DDot(a,b){return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]}
+function scene3DMultiply(a,b){const out=new Float32Array(16);for(let c=0;c<4;c++)for(let r=0;r<4;r++)for(let k=0;k<4;k++)out[c*4+r]+=a[k*4+r]*b[c*4+k];return out}
+function scene3DIdentity(){return new Float32Array([1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1])}
+function scene3DTranslate(x,y,z){const m=scene3DIdentity();m[12]=x;m[13]=y;m[14]=z;return m}
+function scene3DScale(x,y,z){const m=scene3DIdentity();m[0]=x;m[5]=y;m[10]=z;return m}
+function scene3DRotateX(a){const c=Math.cos(a),s=Math.sin(a);return new Float32Array([1,0,0,0,0,c,s,0,0,-s,c,0,0,0,0,1])}
+function scene3DRotateY(a){const c=Math.cos(a),s=Math.sin(a);return new Float32Array([c,0,-s,0,0,1,0,0,s,0,c,0,0,0,0,1])}
+function scene3DRotateZ(a){const c=Math.cos(a),s=Math.sin(a);return new Float32Array([c,s,0,0,-s,c,0,0,0,0,1,0,0,0,0,1])}
+function scene3DMatrixBoundary(){const matrices=[scene3DIdentity(),scene3DTranslate(1,2,3),scene3DScale(1,2,3),scene3DRotateX(.3),scene3DRotateY(.3),scene3DRotateZ(.3)];if(matrices.some(matrix=>matrix.length!==16||Array.from(matrix).some(value=>!Number.isFinite(value))))throw new Error("trusted 3D matrix boundary failed")}
+scene3DMatrixBoundary();
+function scene3DMatrixBoundary(){const matrices=[scene3DIdentity(),scene3DTranslate(1,2,3),scene3DScale(1,2,3),scene3DRotateX(.3),scene3DRotateY(.3),scene3DRotateZ(.3)];if(matrices.some(matrix=>matrix.length!==16||Array.from(matrix).some(value=>!Number.isFinite(value))))throw new Error("trusted 3D matrix boundary failed")}
+scene3DMatrixBoundary();
+function scene3DPerspective(fov,aspect,near=.05,far=50){const f=1/Math.tan(fov/2),q=1/(near-far);return new Float32Array([f/aspect,0,0,0,0,f,0,0,0,0,(far+near)*q,-1,0,0,2*far*near*q,0])}
+function scene3DLookAt(eye,target){const z=scene3DNormalize([eye[0]-target[0],eye[1]-target[1],eye[2]-target[2]]),x=scene3DNormalize(scene3DCross([0,1,0],z)),y=scene3DCross(z,x);return new Float32Array([x[0],y[0],z[0],0,x[1],y[1],z[1],0,x[2],y[2],z[2],0,-scene3DDot(x,eye),-scene3DDot(y,eye),-scene3DDot(z,eye),1])}
+function scene3DMesh(kind){
+  const positions=[],normals=[],indices=[];
+  if(kind==="plane"){
+    positions.push(-.5,-.5,0,.5,-.5,0,.5,.5,0,-.5,.5,0);for(let i=0;i<4;i++)normals.push(0,0,1);indices.push(0,1,2,0,2,3)
+  }else if(kind==="box"){
+    const faces=[[[0,0,1],[-.5,-.5,.5],[.5,-.5,.5],[.5,.5,.5],[-.5,.5,.5]],[[0,0,-1],[.5,-.5,-.5],[-.5,-.5,-.5],[-.5,.5,-.5],[.5,.5,-.5]],[[1,0,0],[.5,-.5,.5],[.5,-.5,-.5],[.5,.5,-.5],[.5,.5,.5]],[[-1,0,0],[-.5,-.5,-.5],[-.5,-.5,.5],[-.5,.5,.5],[-.5,.5,-.5]],[[0,1,0],[-.5,.5,.5],[.5,.5,.5],[.5,.5,-.5],[-.5,.5,-.5]],[[0,-1,0],[-.5,-.5,-.5],[.5,-.5,-.5],[.5,-.5,.5],[-.5,-.5,.5]]];
+    faces.forEach(face=>{const base=positions.length/3;for(let i=1;i<5;i++){positions.push(...face[i]);normals.push(...face[0])}indices.push(base,base+1,base+2,base,base+2,base+3)})
+  }else if(kind==="sphere"){
+    const lat=12,lon=18;for(let y=0;y<=lat;y++){const v=y/lat,theta=v*Math.PI;for(let x=0;x<=lon;x++){const u=x/lon,phi=u*Math.PI*2,n=[Math.sin(theta)*Math.cos(phi),Math.cos(theta),Math.sin(theta)*Math.sin(phi)];positions.push(n[0]*.5,n[1]*.5,n[2]*.5);normals.push(...n)}}
+    for(let y=0;y<lat;y++)for(let x=0;x<lon;x++){const a=y*(lon+1)+x,b=a+lon+1;indices.push(a,b,a+1,b,b+1,a+1)}
+  }else if(kind==="torus"){
+    const radial=24,tubular=12,major=.34,tube=.16;for(let j=0;j<=tubular;j++){const v=j/tubular*Math.PI*2;for(let i=0;i<=radial;i++){const u=i/radial*Math.PI*2,cv=Math.cos(v),sv=Math.sin(v),cu=Math.cos(u),su=Math.sin(u),n=[cu*cv,su*cv,sv];positions.push((major+tube*cv)*cu,(major+tube*cv)*su,tube*sv);normals.push(...n)}}
+    for(let j=0;j<tubular;j++)for(let i=0;i<radial;i++){const a=j*(radial+1)+i,b=a+radial+1;indices.push(a,b,a+1,b,b+1,a+1)}
+  }else throw new Error("3D primitive refused");
+  return {positions:new Float32Array(positions),normals:new Float32Array(normals),indices:new Uint16Array(indices)}
+}
+function scene3DShader(gl,type,source){const shader=gl.createShader(type);gl.shaderSource(shader,source);gl.compileShader(shader);if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS))throw new Error(`trusted 3D shader failed: ${gl.getShaderInfoLog(shader)}`);return shader}
+function scene3DProgram(gl){
+  const vertex=`attribute vec3 aPosition;attribute vec3 aNormal;uniform mat4 uModel;uniform mat4 uViewProjection;varying vec3 vWorld;varying vec3 vNormal;void main(){vec4 world=uModel*vec4(aPosition,1.0);vWorld=world.xyz;vNormal=normalize(mat3(uModel)*aNormal);gl_Position=uViewProjection*world;}`;
+  const fragment=`precision mediump float;varying vec3 vWorld;varying vec3 vNormal;uniform vec3 uCamera;uniform vec3 uColor;uniform float uRoughness;uniform float uMetallic;uniform float uOpacity;uniform float uAmbient;uniform int uLightCount;uniform vec3 uLightPosition[3];uniform vec3 uLightColor[3];uniform float uLightIntensity[3];void main(){vec3 n=normalize(vNormal);vec3 viewDir=normalize(uCamera-vWorld);vec3 color=uColor*uAmbient;for(int i=0;i<3;i++){if(i>=uLightCount)continue;vec3 delta=uLightPosition[i]-vWorld;float distanceAttenuation=1.0/(1.0+0.08*dot(delta,delta));vec3 lightDir=normalize(delta);float diffuse=max(dot(n,lightDir),0.0);vec3 halfDir=normalize(lightDir+viewDir);float shine=mix(8.0,72.0,1.0-uRoughness);float spec=pow(max(dot(n,halfDir),0.0),shine)*mix(0.18,0.92,uMetallic);color+=(uColor*diffuse+vec3(spec))*uLightColor[i]*uLightIntensity[i]*distanceAttenuation;}gl_FragColor=vec4(pow(max(color,vec3(0.0)),vec3(0.82)),uOpacity);}`;
+  const program=gl.createProgram();gl.attachShader(program,scene3DShader(gl,gl.VERTEX_SHADER,vertex));gl.attachShader(program,scene3DShader(gl,gl.FRAGMENT_SHADER,fragment));gl.linkProgram(program);if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw new Error(`trusted 3D program failed: ${gl.getProgramInfoLog(program)}`);return program
+}
+function scene3DMotion(scene,target,time){
+  const state={x:0,y:0,z:0,rx:0,ry:0,rz:0,scale:1,opacity:1};(scene.motions||[]).filter(motion=>motion.target===target).forEach(motion=>{
+    const angle=Math.PI*2*(time/Math.max(.001,Number(motion.period_seconds)||1)+Number(motion.phase||0)),wave=Math.sin(angle),c=Math.cos(angle),a=Number(motion.amplitude)||0,x=Number(motion.axis_x)||0,y=Number(motion.axis_y)||0,z=Number(motion.axis_z)||0;
+    if(motion.channel==="translate"){state.x+=a*x*wave;state.y+=a*y*wave;state.z+=a*z*wave}
+    else if(motion.channel==="orbit"){state.x+=a*(x*c-z*wave);state.y+=a*y*wave;state.z+=a*(z*c+x*wave)}
+    else if(motion.channel==="rotate"){state.rx+=a*x*wave;state.ry+=a*y*wave;state.rz+=a*z*wave}
+    else if(motion.channel==="scale")state.scale*=Math.max(.1,1+a*wave);
+    else if(motion.channel==="opacity")state.opacity*=Math.max(.05,1-a*Math.abs(wave))
+  });return state
+}
+function createScene3DRenderer(canvas,scene){
+  const gl=canvas.getContext("webgl",{alpha:false,antialias:true,preserveDrawingBuffer:true});if(!gl)throw new Error("WebGL is unavailable");
+  const program=scene3DProgram(gl),attributes={position:gl.getAttribLocation(program,"aPosition"),normal:gl.getAttribLocation(program,"aNormal")},uniform=name=>gl.getUniformLocation(program,name),uniforms={model:uniform("uModel"),vp:uniform("uViewProjection"),camera:uniform("uCamera"),color:uniform("uColor"),roughness:uniform("uRoughness"),metallic:uniform("uMetallic"),opacity:uniform("uOpacity"),ambient:uniform("uAmbient"),lightCount:uniform("uLightCount"),lightPosition:uniform("uLightPosition[0]"),lightColor:uniform("uLightColor[0]"),lightIntensity:uniform("uLightIntensity[0]")};
+  const meshes=new Map();for(const kind of new Set(scene.objects.map(object=>object.kind))){const mesh=scene3DMesh(kind),position=gl.createBuffer(),normal=gl.createBuffer(),index=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,position);gl.bufferData(gl.ARRAY_BUFFER,mesh.positions,gl.STATIC_DRAW);gl.bindBuffer(gl.ARRAY_BUFFER,normal);gl.bufferData(gl.ARRAY_BUFFER,mesh.normals,gl.STATIC_DRAW);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,index);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,mesh.indices,gl.STATIC_DRAW);meshes.set(kind,{position,normal,index,count:mesh.indices.length})}
+  const eye=[scene.camera.x,scene.camera.y,scene.camera.z],target=[scene.camera.target_x,scene.camera.target_y,scene.camera.target_z],view=scene3DLookAt(eye,target),projection=scene3DPerspective(scene.camera.fov*Math.PI/180,canvas.width/canvas.height),vp=scene3DMultiply(projection,view),lightPositions=new Float32Array(9),lightColors=new Float32Array(9),lightIntensity=new Float32Array(3);scene.lights.forEach((light,index)=>{lightPositions.set([light.x,light.y,light.z],index*3);lightColors.set(scene3DHex(light.color),index*3);lightIntensity[index]=light.intensity});
+  gl.useProgram(program);gl.enable(gl.DEPTH_TEST);gl.disable(gl.CULL_FACE);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.uniformMatrix4fv(uniforms.vp,false,vp);gl.uniform3fv(uniforms.camera,new Float32Array(eye));gl.uniform1f(uniforms.ambient,scene.ambient);gl.uniform1i(uniforms.lightCount,scene.lights.length);gl.uniform3fv(uniforms.lightPosition,lightPositions);gl.uniform3fv(uniforms.lightColor,lightColors);gl.uniform1fv(uniforms.lightIntensity,lightIntensity);
+  const bg=scene3DHex(scene.background);return time=>{gl.viewport(0,0,canvas.width,canvas.height);gl.clearColor(bg[0],bg[1],bg[2],1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);scene.objects.forEach(object=>{const motion=scene3DMotion(scene,object.id,time),mesh=meshes.get(object.kind);let model=scene3DTranslate(object.x+motion.x,object.y+motion.y,object.z+motion.z);model=scene3DMultiply(model,scene3DRotateX(object.rotation_x*Math.PI+motion.rx));model=scene3DMultiply(model,scene3DRotateY(object.rotation_y*Math.PI+motion.ry));model=scene3DMultiply(model,scene3DRotateZ(object.rotation_z*Math.PI+motion.rz));model=scene3DMultiply(model,scene3DScale(object.scale_x*motion.scale,object.scale_y*motion.scale,object.scale_z*motion.scale));gl.uniformMatrix4fv(uniforms.model,false,model);gl.uniform3fv(uniforms.color,new Float32Array(scene3DHex(object.color)));gl.uniform1f(uniforms.roughness,object.roughness);gl.uniform1f(uniforms.metallic,object.metallic);gl.uniform1f(uniforms.opacity,object.opacity*motion.opacity);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.position);gl.enableVertexAttribArray(attributes.position);gl.vertexAttribPointer(attributes.position,3,gl.FLOAT,false,0,0);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.normal);gl.enableVertexAttribArray(attributes.normal);gl.vertexAttribPointer(attributes.normal,3,gl.FLOAT,false,0,0);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,mesh.index);gl.drawElements(gl.TRIANGLES,mesh.count,gl.UNSIGNED_SHORT,0)});canvas.dataset.webglError=String(gl.getError())}
+}
+async function mountAtelier3D(artifact,canvas){
+  const response=await fetch(`/api/atelier/artifacts/${encodeURIComponent(artifact.artifact_id)}`),scene=await response.json();if(!response.ok)throw new Error(scene.error||response.status);if(scene.format!=="jnsq.scene3d.v1"||!Array.isArray(scene.objects)||!Array.isArray(scene.lights)||!Array.isArray(scene.motions))throw new Error("3D scene format refused");
+  canvas.width=scene.width;canvas.height=scene.height;canvas.style.aspectRatio=`${scene.width}/${scene.height}`;canvas.setAttribute("aria-label",artifact.title||"private trusted 3D artifact");const draw=createScene3DRenderer(canvas,scene);let frame=0,visible=true,stopped=false;const reduced=()=>window.matchMedia("(prefers-reduced-motion: reduce)").matches||document.body.dataset.reducedMotion==="true";const still=()=>draw(0);const schedule=()=>{if(stopped)return;if(reduced()){if(frame){cancelAnimationFrame(frame);frame=0}still();return}if(visible&&!frame)frame=requestAnimationFrame(tick)};const tick=now=>{frame=0;if(stopped||!visible)return;draw(now/1000);schedule()};const intersection=new IntersectionObserver(entries=>{visible=Boolean(entries[0]?.isIntersecting);if(!visible&&frame){cancelAnimationFrame(frame);frame=0}else schedule()},{threshold:.01}),mutation=new MutationObserver(schedule),media=window.matchMedia("(prefers-reduced-motion: reduce)");media.addEventListener("change",schedule);mutation.observe(document.body,{attributes:true,attributeFilter:["data-reduced-motion"]});still();intersection.observe(canvas);schedule();const stop=()=>{stopped=true;if(frame)cancelAnimationFrame(frame);intersection.disconnect();mutation.disconnect();media.removeEventListener("change",schedule)};atelier3DLoops.set(artifact.artifact_id,stop);return canvas
+}
+window.JNSQ_ATELIER_3D=Object.freeze({format:"jnsq.scene3d.v1",mount:mountAtelier3D,stopAll:stopAtelier3DLoops});
 const atelierAudioBuffers=new Map(),atelierAudioPlayers=new Map();
 let atelierAudioContext=null;
 function atelierAudioNoise(seed,eventIndex,cycleIndex){
@@ -1606,6 +2012,123 @@ window.JNSQ_ATELIER_AUDIO=Object.freeze({
   format:"jnsq.score.v1",load:loadAtelierAudio,render:renderAtelierAudioBuffer,
   stopAll:stopAtelierAudioPlayers
 });
+const atelierCompositionPlayers=new Map(),atelierCompositionMounts=new Map();
+function stopAtelierCompositions(reason="returned to silence"){
+  atelierCompositionPlayers.forEach(stop=>{try{stop(reason)}catch(_error){}});atelierCompositionPlayers.clear()
+}
+function clearAtelierCompositionMounts(){
+  atelierCompositionMounts.forEach(sources=>sources.forEach(source=>{try{source.dispose()}catch(_error){}}));atelierCompositionMounts.clear()
+}
+async function atelierBoundBytes(artifactId,expectedSha){
+  const response=await fetch(`/api/atelier/artifacts/${encodeURIComponent(artifactId)}`),bytes=await response.arrayBuffer();
+  if(!response.ok)throw new Error(`source ${artifactId} refused (${response.status})`);
+  if(!window.crypto?.subtle)throw new Error("browser content-hash boundary unavailable");
+  const digest=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",bytes))).map(value=>value.toString(16).padStart(2,"0")).join("");
+  if(digest!==String(expectedSha||"").toLowerCase())throw new Error(`source ${artifactId} changed after composition`);
+  return {bytes,type:response.headers.get("content-type")||"application/octet-stream"}
+}
+function validateAtelierComposition(graph){
+  const timeline=graph?.timeline,tracks=graph?.tracks;
+  if(graph?.format!=="jnsq.composition.v1"||!Array.isArray(tracks)||tracks.length<2||tracks.length>12)throw new Error("composition graph format refused");
+  if(!Number.isFinite(timeline?.loop_seconds)||timeline.loop_seconds<=0||timeline.loop_seconds>80||!Number.isFinite(timeline?.return_seconds)||timeline.return_seconds<=0||timeline.return_seconds>480||!Number.isInteger(timeline?.return_cycles)||timeline.return_cycles<2||timeline.return_cycles>6)throw new Error("composition timeline boundary refused");
+  const ids=new Set();tracks.forEach(track=>{const start=Number(track.start_seconds),duration=Number(track.duration_seconds);
+    if(ids.has(track.artifact_id)||track.medium==="composition"||!Number.isFinite(start)||!Number.isFinite(duration)||start<0||duration<=0||start+duration>timeline.loop_seconds+.002)throw new Error("composition track boundary refused");ids.add(track.artifact_id)});
+  return graph
+}
+async function loadAtelierCompositionSource(track){
+  const {bytes,type}=await atelierBoundBytes(track.artifact_id,track.sha256),text=new TextDecoder().decode(bytes);
+  if(track.medium==="canvas"){
+    const scene=JSON.parse(text);if(scene.format!=="jnsq.canvas.v1"||!Array.isArray(scene.nodes)||!Array.isArray(scene.motions))throw new Error("composition Canvas source refused");
+    const canvas=document.createElement("canvas");canvas.width=scene.width;canvas.height=scene.height;
+    return {track,canvas,draw:time=>drawAtelierCanvas(canvas,scene,time),rawBytes:bytes,type,dispose:()=>{}}
+  }
+  if(track.medium==="scene3d"){
+    const scene=JSON.parse(text);if(scene.format!=="jnsq.scene3d.v1"||!Array.isArray(scene.objects)||!Array.isArray(scene.lights)||!Array.isArray(scene.motions))throw new Error("composition 3D source refused");
+    const canvas=document.createElement("canvas");canvas.width=scene.width;canvas.height=scene.height;
+    return {track,canvas,draw:createScene3DRenderer(canvas,scene),rawBytes:bytes,type,dispose:()=>{}}
+  }
+  if(track.medium==="audio"){
+    const score=validateAtelierScore(JSON.parse(text));return {track,score,buffer:await renderAtelierAudioBuffer(score),rawBytes:bytes,type,dispose:()=>{}}
+  }
+  if(!["svg","png","webp"].includes(track.medium))throw new Error(`composition medium ${track.medium} refused`);
+  const url=URL.createObjectURL(new Blob([bytes],{type})),image=new Image();
+  await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=()=>reject(new Error(`composition image ${track.artifact_id} refused`));image.src=url});
+  return {track,canvas:image,draw:()=>{},rawBytes:bytes,type,dispose:()=>URL.revokeObjectURL(url)}
+}
+function drawAtelierComposition(canvas,graph,sources,elapsed){
+  const context=canvas.getContext("2d"),cycle=((Math.max(0,elapsed)%graph.timeline.loop_seconds)+graph.timeline.loop_seconds)%graph.timeline.loop_seconds;
+  context.globalAlpha=1;context.globalCompositeOperation="source-over";context.fillStyle=graph.background;context.fillRect(0,0,canvas.width,canvas.height);
+  sources.filter(source=>source.track.family!=="audio").forEach(source=>{const track=source.track;
+    if(cycle+1e-6<track.start_seconds||cycle>=track.start_seconds+track.duration_seconds)return;
+    const local=cycle-track.start_seconds+track.phase_seconds;source.draw(local);context.save();context.globalAlpha=Math.max(0,Math.min(1,Number(track.opacity)||0));context.drawImage(source.canvas,0,0,canvas.width,canvas.height);context.restore()});
+  canvas.dataset.compositionTime=elapsed.toFixed(4);canvas.dataset.compositionCycle=cycle.toFixed(4)
+}
+function saveAtelierMaster(blob,name){
+  const url=URL.createObjectURL(blob),link=document.createElement("a");link.href=url;link.download=name;link.click();requestAnimationFrame(()=>URL.revokeObjectURL(url))
+}
+async function saveAtelierCompositionPng(artifact,canvas,button,status){
+  button.disabled=true;status.textContent="encoding the present composite frame…";
+  try{const blob=await new Promise((resolve,reject)=>canvas.toBlob(value=>value?resolve(value):reject(new Error("PNG encoder returned no bytes")),"image/png"));
+    saveAtelierMaster(blob,`${artifact.artifact_id}_frame.png`);status.textContent=`PNG master offered · ${(blob.size/1024).toFixed(1)} KiB · current frame`
+  }catch(error){status.textContent=`PNG master refused: ${error.message||error}`}finally{button.disabled=false}
+}
+async function renderAtelierCompositionMix(graph,sources){
+  const audio=sources.filter(source=>source.track.family==="audio");if(!audio.length)throw new Error("this composition has no audio tracks");
+  const sampleRate=Math.max(...audio.map(source=>source.buffer.sampleRate));if(sampleRate<16000||sampleRate>48000)throw new Error("master sample rate boundary refused");
+  const frames=Math.ceil(graph.timeline.return_seconds*sampleRate);if(frames>16000000)throw new Error("composition master exceeds the offline render boundary");
+  const context=new OfflineAudioContext(2,frames,sampleRate),master=context.createGain();master.gain.value=1;master.connect(context.destination);
+  for(let cycle=0;cycle<graph.timeline.return_cycles;cycle++)for(const source of audio){const track=source.track,node=context.createBufferSource(),gain=context.createGain();node.buffer=source.buffer;node.loop=true;node.loopStart=0;node.loopEnd=source.buffer.duration;gain.gain.value=Math.max(0,Math.min(.72,Number(track.gain)||0));node.connect(gain);gain.connect(master);node.start(cycle*graph.timeline.loop_seconds+track.start_seconds,track.phase_seconds%source.buffer.duration,track.duration_seconds)}
+  return context.startRendering()
+}
+async function saveAtelierCompositionWav(artifact,graph,sources,button,status){
+  button.disabled=true;status.textContent="mixing the finite return offline…";
+  try{const buffer=await renderAtelierCompositionMix(graph,sources),bytes=atelierAudioWav(buffer),blob=new Blob([bytes],{type:"audio/wav"});saveAtelierMaster(blob,`${artifact.artifact_id}_master.wav`);status.textContent=`WAV master offered · ${(blob.size/1048576).toFixed(2)} MiB · ${buffer.duration.toFixed(1)}s`
+  }catch(error){status.textContent=`WAV master refused: ${error.message||error}`}finally{button.disabled=false}
+}
+function atelierCanonicalJson(value){
+  if(Array.isArray(value))return `[${value.map(atelierCanonicalJson).join(",")}]`;
+  if(value&&typeof value==="object")return `{${Object.keys(value).sort().map(key=>`${JSON.stringify(key)}:${atelierCanonicalJson(value[key])}`).join(",")}}`;
+  return JSON.stringify(value)
+}
+const atelierZipCrcTable=(()=>{const table=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=(c&1)?0xedb88320^(c>>>1):c>>>1;table[n]=c>>>0}return table})();
+function atelierZipCrc32(bytes){let crc=0xffffffff;for(const value of bytes)crc=atelierZipCrcTable[(crc^value)&255]^(crc>>>8);return (crc^0xffffffff)>>>0}
+function atelierZipStore(entries){
+  const encoder=new TextEncoder(),locals=[],centrals=[];let offset=0,centralSize=0;
+  for(const entry of entries){const name=encoder.encode(entry.name),data=entry.data instanceof Uint8Array?entry.data:new Uint8Array(entry.data),crc=atelierZipCrc32(data),local=new Uint8Array(30+name.length+data.length),lv=new DataView(local.buffer);lv.setUint32(0,0x04034b50,true);lv.setUint16(4,20,true);lv.setUint16(6,0,true);lv.setUint16(8,0,true);lv.setUint16(10,0,true);lv.setUint16(12,33,true);lv.setUint32(14,crc,true);lv.setUint32(18,data.length,true);lv.setUint32(22,data.length,true);lv.setUint16(26,name.length,true);lv.setUint16(28,0,true);local.set(name,30);local.set(data,30+name.length);locals.push(local);
+    const central=new Uint8Array(46+name.length),cv=new DataView(central.buffer);cv.setUint32(0,0x02014b50,true);cv.setUint16(4,20,true);cv.setUint16(6,20,true);cv.setUint16(8,0,true);cv.setUint16(10,0,true);cv.setUint16(12,0,true);cv.setUint16(14,33,true);cv.setUint32(16,crc,true);cv.setUint32(20,data.length,true);cv.setUint32(24,data.length,true);cv.setUint16(28,name.length,true);cv.setUint16(30,0,true);cv.setUint16(32,0,true);cv.setUint16(34,0,true);cv.setUint16(36,0,true);cv.setUint32(38,0,true);cv.setUint32(42,offset,true);central.set(name,46);centrals.push(central);centralSize+=central.length;offset+=local.length}
+  const end=new Uint8Array(22),view=new DataView(end.buffer);view.setUint32(0,0x06054b50,true);view.setUint16(4,0,true);view.setUint16(6,0,true);view.setUint16(8,entries.length,true);view.setUint16(10,entries.length,true);view.setUint32(12,centralSize,true);view.setUint32(16,offset,true);view.setUint16(20,0,true);return new Blob([...locals,...centrals,end],{type:"application/vnd.jnsq.bundle+zip"})
+}
+function atelierCompositionSourcePath(track){const extension=track.medium==="svg"?"svg":track.medium==="png"?"png":track.medium==="webp"?"webp":"json";return `sources/${track.artifact_id}.${extension}`}
+async function saveAtelierCompositionBundle(artifact,graph,graphBytes,sources,button,status){
+  button.disabled=true;status.textContent="binding the provenance bundle…";
+  try{const manifest={format:"jnsq.bundle.v1",artifact:{artifact_id:artifact.artifact_id,medium:"composition",sha256:artifact.sha256,title:artifact.title||""},composition:{format:graph.format,path:`composition/${artifact.artifact_id}.json`,sha256:artifact.sha256},policy:{autoplay:false,external_references:false,nested_compositions:false,user_initiated:true},sources:graph.tracks.map(track=>({artifact_id:track.artifact_id,family:track.family,medium:track.medium,path:atelierCompositionSourcePath(track),sha256:track.sha256,variant:track.variant})),timeline:graph.timeline},manifestBytes=new TextEncoder().encode(atelierCanonicalJson(manifest)+"\n"),entries=[{name:"manifest.json",data:manifestBytes},{name:manifest.composition.path,data:new Uint8Array(graphBytes)},...sources.map(source=>({name:atelierCompositionSourcePath(source.track),data:new Uint8Array(source.rawBytes)}))],total=entries.reduce((sum,entry)=>sum+entry.data.length,0);if(total>96*1024*1024)throw new Error("composition bundle exceeds the 96 MiB boundary");const blob=atelierZipStore(entries);saveAtelierMaster(blob,`${artifact.artifact_id}.jnsq`);status.textContent=`JNSQ bundle offered · ${entries.length} hash-bound entries · ${(blob.size/1048576).toFixed(2)} MiB`
+  }catch(error){status.textContent=`bundle refused: ${error.message||error}`}finally{button.disabled=false}
+}
+async function playAtelierComposition(artifact,graph,sources,canvas,button,status){
+  if(atelierCompositionPlayers.has(artifact.artifact_id)){atelierCompositionPlayers.get(artifact.artifact_id)("stopped by you");return}
+  stopAtelierCompositions("another composition took the field");stopAtelierAudioPlayers("a composition took the field");button.disabled=true;status.textContent="joining the shared clockâ€¦";
+  try{const AudioContextClass=window.AudioContext||window.webkitAudioContext;if(!AudioContextClass)throw new Error("Web Audio clock is unavailable");
+    if(!atelierAudioContext||atelierAudioContext.state==="closed")atelierAudioContext=new AudioContextClass();await atelierAudioContext.resume();
+    const start=atelierAudioContext.currentTime+.06,scheduled=[];let frame=0,finished=false;
+    const stop=reason=>{if(finished)return;finished=true;if(frame)cancelAnimationFrame(frame);scheduled.forEach(source=>{try{source.stop()}catch(_error){}});atelierCompositionPlayers.delete(artifact.artifact_id);button.textContent="play composition";status.textContent=reason};
+    for(let cycle=0;cycle<graph.timeline.return_cycles;cycle++)for(const source of sources.filter(item=>item.track.family==="audio")){
+      const track=source.track,node=atelierAudioContext.createBufferSource(),gain=atelierAudioContext.createGain();node.buffer=source.buffer;node.loop=true;node.loopStart=0;node.loopEnd=source.buffer.duration;gain.gain.value=Math.max(0,Math.min(.72,Number(track.gain)||0));node.connect(gain);gain.connect(atelierAudioContext.destination);
+      node.start(start+cycle*graph.timeline.loop_seconds+track.start_seconds,track.phase_seconds%source.buffer.duration,track.duration_seconds);scheduled.push(node)
+    }
+    const reduced=()=>window.matchMedia("(prefers-reduced-motion: reduce)").matches||document.body.dataset.reducedMotion==="true";
+    const tick=()=>{if(finished)return;const elapsed=atelierAudioContext.currentTime-start;if(elapsed>=graph.timeline.return_seconds){drawAtelierComposition(canvas,graph,sources,0);stop("returned to silence");return}drawAtelierComposition(canvas,graph,sources,reduced()?0:Math.max(0,elapsed));frame=requestAnimationFrame(tick)};
+    atelierCompositionPlayers.set(artifact.artifact_id,stop);button.textContent="stop composition";status.textContent=`playing ${graph.timeline.return_cycles} shared cycles · ${Number(graph.timeline.return_seconds).toFixed(1)}s return`;frame=requestAnimationFrame(tick)
+  }catch(error){status.textContent=`composition refused: ${error.message||error}`}finally{button.disabled=false}
+}
+async function mountAtelierComposition(artifact,canvas,play,status){
+  play.disabled=true;status.textContent="binding source hashesâ€¦";const bound=await atelierBoundBytes(artifact.artifact_id,artifact.sha256),graph=validateAtelierComposition(JSON.parse(new TextDecoder().decode(bound.bytes)));
+  canvas.width=graph.width;canvas.height=graph.height;canvas.style.aspectRatio=`${graph.width}/${graph.height}`;canvas.setAttribute("aria-label",artifact.title||"private cross-medium composition");
+  const sources=[];try{for(const track of graph.tracks)sources.push(await loadAtelierCompositionSource(track))}catch(error){sources.forEach(source=>{try{source.dispose()}catch(_error){}});throw error}drawAtelierComposition(canvas,graph,sources,0);atelierCompositionMounts.set(artifact.artifact_id,sources);play.disabled=false;status.textContent=`ready · ${graph.tracks.length} hash-bound tracks · no autoplay`;
+  play.onclick=()=>playAtelierComposition(artifact,graph,sources,canvas,play,status);return {graph,sources,graphBytes:bound.bytes}
+}
+document.addEventListener("visibilitychange",()=>{if(document.hidden)stopAtelierCompositions("page hidden")});
+window.addEventListener("pagehide",()=>{stopAtelierCompositions("page left");clearAtelierCompositionMounts()});
+window.JNSQ_ATELIER_COMPOSITION=Object.freeze({format:"jnsq.composition.v1",mount:mountAtelierComposition,draw:drawAtelierComposition,stopAll:stopAtelierCompositions});
 function renderAtelier(runtime){
   const lamp=$("atelier-lamp");lamp.className="agency-lamp";
   const active=runtime.controller?.active;
@@ -1618,7 +2141,7 @@ function renderAtelier(runtime){
     const media=(runtime.capability.media||["svg"]).map(x=>String(x).toUpperCase()).join("/");
     const probe=runtime.capability.diffusion?.last_probe;
     const raster=runtime.capability.diffusion?.enabled
-      ?(probe?(probe.checkpoint_ready?"GPU ready":probe.reason):"GPU unchecked")
+      ?(probe?(runtime.capability.diffusion.usable?"raster ready":`raster unavailable: ${probe.reason||"renderer did not answer"}`):"raster unchecked")
       :"raster disabled";
     $("atelier-status").textContent=`ready · ${runtime.config.model} · ${media} · ${raster} · paid fallbacks 0`
   }else{lamp.classList.add("blocked");$("atelier-status").textContent=runtime.enabled
@@ -1626,15 +2149,15 @@ function renderAtelier(runtime){
   const state=runtime.atelier||{},artifacts=state.artifacts||[],pending=state.pending_seeds||[];
   const receipts=state.receipts||[],last=receipts.length?receipts[receipts.length-1]:null;
   $("atelier-note").textContent=`${pending.length} material${pending.length===1?"":"s"} waiting · ${artifacts.length} private artifact${artifacts.length===1?"":"s"}${last?` · last ${last.outcome||last.kind} · $${Number(last.estimated_cost_usd||0).toFixed(4)}`:""}`;
-  stopAtelierCanvasLoops();stopAtelierAudioPlayers("gallery refreshed");const host=$("atelier-artifacts");host.innerHTML="";
+  stopAtelierCanvasLoops();stopAtelier3DLoops();stopAtelierAudioPlayers("gallery refreshed");stopAtelierCompositions("gallery refreshed");clearAtelierCompositionMounts();const host=$("atelier-artifacts");host.innerHTML="";
   if(!artifacts.length){host.innerHTML='<div class="quiet">no creative artifacts have taken form yet</div>';return}
   artifacts.slice(0,12).forEach(artifact=>{
     const card=document.createElement("div");card.className="atelier-card";
-    const isAudio=artifact.medium==="audio",visual=document.createElement(isAudio?"div":artifact.medium==="canvas"?"canvas":"img");
+    const isAudio=artifact.medium==="audio",isScene3D=artifact.medium==="scene3d",isComposition=artifact.medium==="composition",visual=document.createElement(isAudio?"div":(artifact.medium==="canvas"||isScene3D||isComposition)?"canvas":"img");
     if(isAudio){visual.className="atelier-audio";visual.setAttribute("role","group");visual.setAttribute("aria-label",artifact.title||"private procedural audio artifact");
       const mark=document.createElement("div");mark.className="atelier-audio-mark";mark.textContent="∿ ◇ ∿";visual.appendChild(mark);
       const soundStatus=document.createElement("div");soundStatus.className="atelier-audio-status";soundStatus.textContent="score waiting";visual.appendChild(soundStatus)
-    }else if(artifact.medium!=="canvas"){
+    }else if(artifact.medium!=="canvas"&&!isScene3D&&!isComposition){
       visual.src=`/api/atelier/artifacts/${encodeURIComponent(artifact.artifact_id)}`;
       visual.alt=artifact.title||`private ${artifact.medium||"visual"} artifact`;visual.loading="lazy"
     }
@@ -1646,6 +2169,10 @@ function renderAtelier(runtime){
       ?`kinetic SVG · ${artifact.motion_count||0} cycle${artifact.motion_count===1?"":"s"}`
       :artifact.variant==="procedural_audio"
       ?`procedural audio · ${artifact.voice_count||0} voices · ${artifact.event_count||0} notes · ${Number(artifact.return_seconds||0).toFixed(1)}s return`
+      :artifact.variant==="trusted_3d"
+      ?`trusted 3D · ${artifact.object_count||0} objects · ${artifact.triangle_count||0} triangles · ${artifact.motion_count||0} cycles`
+      :artifact.variant==="cross_medium"
+      ?`composition · ${artifact.track_count||0} tracks · ${artifact.family_count||0} families · ${Number(artifact.return_seconds||0).toFixed(1)}s return`
       :String(artifact.medium||"visual").toUpperCase();
     title.textContent=isAudio?`${artifact.title||"untitled"} · ${form}`:`${artifact.title||"untitled"} · ${form} · ${artifact.width||"?"}×${artifact.height||"?"}`;
     card.appendChild(title);
@@ -1656,13 +2183,28 @@ function renderAtelier(runtime){
       const soundStatus=visual.querySelector(".atelier-audio-status");mountAtelierAudio(artifact,play,save,soundStatus).catch(error=>{
         play.disabled=true;save.disabled=true;soundStatus.textContent=`sound refused: ${error.message||error}`});host.appendChild(card);return
     }
+    if(isComposition){
+      const status=document.createElement("div");status.className="atelier-audio-status";status.textContent="composition waiting";
+      const controls=document.createElement("div");controls.className="atelier-audio-controls";
+      const play=document.createElement("button");play.type="button";play.textContent="play composition";
+      const perceive=document.createElement("button");perceive.type="button";perceive.textContent="freeze composite frame + let them look";perceive.disabled=true;
+      perceive.onclick=()=>perceiveAtelierArtifact(artifact,visual,perceive);controls.append(play,perceive);card.append(status,controls);
+      const masters=document.createElement("div");masters.className="atelier-master-controls";
+      const png=document.createElement("button");png.type="button";png.textContent="save frame PNG";png.disabled=true;
+      const wav=document.createElement("button");wav.type="button";wav.textContent="mix master WAV";wav.disabled=true;
+      const bundle=document.createElement("button");bundle.type="button";bundle.textContent="save .jnsq bundle";bundle.disabled=true;masters.append(png,wav,bundle);card.appendChild(masters);
+      mountAtelierComposition(artifact,visual,play,status).then(({graph,sources,graphBytes})=>{perceive.disabled=false;png.disabled=false;bundle.disabled=false;wav.disabled=!sources.some(source=>source.track.family==="audio");png.onclick=()=>saveAtelierCompositionPng(artifact,visual,png,status);wav.onclick=()=>saveAtelierCompositionWav(artifact,graph,sources,wav,status);bundle.onclick=()=>saveAtelierCompositionBundle(artifact,graph,graphBytes,sources,bundle,status)}).catch(error=>{play.disabled=true;perceive.disabled=true;png.disabled=true;wav.disabled=true;bundle.disabled=true;status.textContent=`composition refused: ${error.message||error}`});host.appendChild(card);return
+    }
     const perceive=document.createElement("button");perceive.type="button";
-    const moving=artifact.variant==="kinetic"||(artifact.variant==="canvas"&&artifact.motion_count>0);
+    const moving=artifact.variant==="kinetic"||((artifact.variant==="canvas"||artifact.variant==="trusted_3d")&&artifact.motion_count>0);
     perceive.textContent=moving?"freeze this frame + let them look":"let them look";
     perceive.onclick=()=>perceiveAtelierArtifact(artifact,visual,perceive);
     if(artifact.medium==="canvas"){
       perceive.disabled=true;mountAtelierCanvas(artifact,visual).then(()=>{perceive.disabled=false}).catch(error=>{
         perceive.disabled=true;$("atelier-drill").textContent=`Canvas artifact refused: ${error.message||error}`})
+    }else if(isScene3D){
+      perceive.disabled=true;mountAtelier3D(artifact,visual).then(()=>{perceive.disabled=false}).catch(error=>{
+        perceive.disabled=true;$("atelier-drill").textContent=`3D artifact refused: ${error.message||error}`})
     }
     card.appendChild(perceive);host.appendChild(card)
   })
@@ -1826,20 +2368,56 @@ function renderDocumentReader(reader){
     return;
   }
   pre.classList.remove("quiet");pre.textContent=reader.chunk?.text||"";
-  progress.textContent=`${reader.document?.title||reader.document?.filename||"document"} · ${reader.anchor} · ${Math.round((reader.progress||0)*100)}%`;
+  progress.textContent=`BROWSING CURSOR · ${reader.document?.title||reader.document?.filename||"document"} · ${reader.anchor} · ${Math.round((reader.progress||0)*100)}%`;
   $("document-previous").disabled=!reader.has_previous;
   $("document-next").disabled=!reader.has_next;
   $("document-to-desk").disabled=false;
   $("document-select").value=reader.document?.id||"";
+}
+function renderDocumentReading(status){
+  const reading=status.reading||{},arc=reading.arc||{},runtime=status.autonomous_reader||{};
+  const docId=status.reader?.document?.id||$("document-select").value||status.documents?.[0]?.id;
+  const coverage=(reading.documents||{})[docId]||{};
+  const known=new Set(coverage.known_sections||[]),conversation=new Set(coverage.conversation_sections||[]);
+  const autonomous=new Set(coverage.autonomous_sections||[]),inferred=new Set(coverage.historical_inferred_sections||[]);
+  const activeSection=status.reader?.document?.id===docId?Number(status.reader?.section||0):0;
+  const map=$("document-coverage-map");map.innerHTML="";
+  for(let section=1;section<=Number(coverage.total||0);section++){
+    const mark=document.createElement("span");mark.className="document-section-mark";
+    if(conversation.has(section))mark.classList.add("conversation");
+    if(autonomous.has(section))mark.classList.add("autonomous");
+    if(inferred.has(section))mark.classList.add("inferred");
+    if(section===activeSection)mark.classList.add("active");
+    mark.title=`section ${section} · ${autonomous.has(section)?"autonomous receipt":conversation.has(section)?(inferred.has(section)?"historical turn anchor":"completed conversation exposure"):"unread"}`;
+    map.appendChild(mark)
+  }
+  const percent=Math.round(Number(coverage.coverage||0)*1000)/10;
+  const latest=coverage.latest||{},activeRead=runtime.active_read;
+  const lines=[];
+  if(activeRead?.anchor){const activeAnchors=activeRead.anchors||[activeRead.anchor];lines.push(`READING NOW · ${activeAnchors[0]}${activeAnchors.length>1?` → ${activeAnchors.at(-1)} · ${activeAnchors.length} complete sections`:""} · ${activeRead.pace||"natural"}`)}
+  lines.push(`VERIFIED COVERAGE · ${coverage.known_count||0}/${coverage.total||0} · ${percent}% · ${coverage.autonomous_count||0} autonomous · ${coverage.conversation_count||0} conversation · ${coverage.notebook_count||0} notebook notes`);
+  if(latest.anchor)lines.push(`LAST ACTUALLY READ · ${latest.anchor} · ${latest.route||latest.evidence||"reader"}${coverage.historical_inferred_count?` · ${coverage.historical_inferred_count} older turn anchors marked historical`:""}`);
+  if(arc.exists)lines.push(`READING ARC · ${String(arc.status||"inactive").toUpperCase()} · ${String(arc.pace||"natural").toUpperCase()}${arc.next_anchor?` · next ${arc.next_anchor}`:""}${arc.last_anchor?` · last ${arc.last_anchor}`:""}`);
+  $("document-reading-status").textContent=lines.join("\n");
+  const through=$("document-read-through"),nowButton=$("document-read-now"),release=$("document-release-arc");
+  const sameArc=arc.exists&&arc.doc_id===docId;
+  if(sameArc&&arc.status==="active"){through.textContent="pause reading";through.dataset.action="pause";through.disabled=false}
+  else if(sameArc&&arc.status==="paused"){through.textContent="resume reading";through.dataset.action="resume";through.disabled=false}
+  else if(sameArc&&arc.status==="complete"){through.textContent="reading complete";through.dataset.action="";through.disabled=true}
+  else{through.textContent="read naturally";through.dataset.action="start";through.dataset.pace="natural";through.disabled=!docId}
+  if(sameArc&&arc.status==="active"&&arc.pace==="foreground"){nowButton.textContent="foreground reading active";nowButton.dataset.action="";nowButton.disabled=true}
+  else if(sameArc&&["active","paused"].includes(arc.status)){nowButton.textContent="read through now";nowButton.dataset.action="foreground";nowButton.disabled=false}
+  else{nowButton.textContent="read through now";nowButton.dataset.action="start";nowButton.disabled=!docId}
+  release.disabled=!(sameArc&&["active","paused"].includes(arc.status));
 }
 function renderDocumentLibrary(status){
   documentLibraryState=status;const select=$("document-select"),prior=select.value;
   select.innerHTML="";
   if(!(status.documents||[]).length){
     const option=document.createElement("option");option.value="";option.textContent="no documents imported";select.appendChild(option);
-  }else (status.documents||[]).forEach(document=>{
-    const option=document.createElement("option");option.value=document.id;
-    option.textContent=`${document.title||document.filename} · ${document.chunk_count} sections`;
+  }else (status.documents||[]).forEach(libraryDocument=>{
+    const option=document.createElement("option");option.value=libraryDocument.id;
+    option.textContent=`${libraryDocument.title||libraryDocument.filename} · ${libraryDocument.chunk_count} sections`;
     select.appendChild(option);
   });
   const active=status.reader?.document?.id;
@@ -1873,6 +2451,7 @@ function renderDocumentLibrary(status){
     button.textContent=`bookmark · ${mark.anchor}`;
     button.onclick=()=>openDocument(docId,Math.max(0,Number(section)-1));history.appendChild(button)});
   renderDocumentReader(status.reader);
+  renderDocumentReading(status);
 }
 async function openDocumentReport(reportId){
   const pre=$("document-reader");
@@ -1907,15 +2486,25 @@ async function openDocument(docId,position=0){
   try{const response=await fetch(`/api/documents/${encodeURIComponent(docId)}/open`,{method:"POST",
       headers:{"Content-Type":"application/json"},body:JSON.stringify({position})});
     const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
-    renderDocumentReader(result.reader);if(documentLibraryState)documentLibraryState.reader=result.reader
+    renderDocumentReader(result.reader);if(documentLibraryState){documentLibraryState.reader=result.reader;renderDocumentReading(documentLibraryState)}
   }catch(error){$("document-status").textContent=`reader did not move: ${error.message||error}`}
 }
 async function navigateDocument(action){
   try{const response=await fetch("/api/documents/reader/navigate",{method:"POST",
       headers:{"Content-Type":"application/json"},body:JSON.stringify({action})});
     const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
-    renderDocumentReader(result.reader);if(documentLibraryState)documentLibraryState.reader=result.reader
+    renderDocumentReader(result.reader);if(documentLibraryState){documentLibraryState.reader=result.reader;renderDocumentReading(documentLibraryState)}
   }catch(error){$("document-status").textContent=`reader did not move: ${error.message||error}`}
+}
+async function changeDocumentReadingArc(action,pace="natural"){
+  const docId=$("document-select").value||documentLibraryState?.reader?.document?.id;if(!docId)return;
+  const button=$("document-read-through");button.disabled=true;
+  try{const response=await fetch(`/api/documents/${encodeURIComponent(docId)}/reading-arc`,{method:"POST",
+      headers:{"Content-Type":"application/json"},body:JSON.stringify({action,pace})});
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    renderDocumentLibrary(result.status);refreshSalience()
+  }catch(error){$("document-reading-status").textContent=`reading arc did not change: ${error.message||error}`}
+  finally{if(documentLibraryState)renderDocumentReading(documentLibraryState)}
 }
 async function searchDocuments(){
   const query=$("document-search").value.trim(),host=$("document-results");host.innerHTML="";
@@ -2355,10 +2944,13 @@ function stopSubstrateMirrorIfIdle(){
 }
 
 const voiceOutputProviders={
+  disabled:{available:()=>false,speak:()=>null,cancel:()=>{}},
   "browser-native":{
     available:()=>"speechSynthesis" in window&&"SpeechSynthesisUtterance" in window,
-    speak:(text,policy,hooks)=>{
+    speak:(text,policy,hooks,config={})=>{
       const utterance=new SpeechSynthesisUtterance(text);
+      const selected=window.speechSynthesis.getVoices().find(v=>v.name===config.voice);
+      if(selected)utterance.voice=selected;
       utterance.rate=Number(policy.rate||1);utterance.pitch=Number(policy.pitch||1);
       utterance.volume=Number(policy.volume||1);
       utterance.onstart=hooks.start;utterance.onend=hooks.end;utterance.onerror=hooks.error;
@@ -2366,26 +2958,45 @@ const voiceOutputProviders={
     cancel:()=>window.speechSynthesis.cancel()
   }
 };
-const activeVoiceOutputProvider="browser-native";
+let voiceOutputConfig={provider:"browser-native",voice:""};
+const activeVoiceOutputProvider=()=>voiceOutputConfig.provider;
+function refreshBrowserVoices(){const select=$("voice-output-voice"),prior=voiceOutputConfig.voice;
+  const voices=window.speechSynthesis?.getVoices?.()||[];select.textContent="";
+  const base=document.createElement("option");base.value="";base.textContent="browser default";select.append(base);
+  for(const voice of voices.sort((a,b)=>a.name.localeCompare(b.name))){const option=document.createElement("option");
+    option.value=voice.name;option.textContent=`${voice.name} · ${voice.lang}${voice.localService?" · local":""}`;select.append(option)}
+  select.value=[...select.options].some(option=>option.value===prior)?prior:""}
+function applyVoiceOutputConfig(config={}){voiceOutputConfig={provider:config.provider||"browser-native",voice:config.voice||""};
+  $("voice-output").checked=voiceOutputConfig.provider!=="disabled";refreshBrowserVoices();
+  $("voice-output-voice").disabled=voiceOutputConfig.provider==="disabled";
+  if(voiceOutputConfig.voice&&!$("voice-output-voice").value)
+    voiceOutputStatus(`configured voice “${voiceOutputConfig.voice}” is unavailable · browser default will answer`)}
+async function saveVoiceOutputConfig(){const provider=$("voice-output").checked?"browser-native":"disabled";
+  const voice=$("voice-output-voice").value;try{const response=await fetch("/api/voice/config",{method:"POST",
+    headers:{"Content-Type":"application/json"},body:JSON.stringify({provider,voice})});const result=await response.json();
+    if(!response.ok||result.error)throw new Error(result.error||response.statusText);applyVoiceOutputConfig(result.voice_output_config);
+    voiceOutputStatus(provider==="disabled"?"output disabled":`local voice ready · ${voice||"browser default"}`)
+  }catch(error){voiceOutputStatus(`voice choice did not save · ${error.message||error}`)}}
+if("speechSynthesis" in window){window.speechSynthesis.onvoiceschanged=refreshBrowserVoices}
 function voiceOutputStatus(text){$("voice-output-story").textContent=text}
 function postVoiceOutputReceipt(event,reason="",evidence={}){
   const policy=lastState?.voice_output||{};
   fetch("/api/voice/output",{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({event,provider:activeVoiceOutputProvider,reason,policy,evidence})
+    body:JSON.stringify({event,provider:activeVoiceOutputProvider(),reason,policy,evidence})
   }).catch(()=>{})
 }
 function stopVoiceOutput(reason="output stopped",evidence={}){
   if(!voiceOutputSpeaking&&!voiceOutputSession)return;
   const hadStarted=voiceOutputSpeaking;
   voiceOutputGeneration++;voiceOutputSpeaking=false;voiceOutputSession=null;
-  voiceOutputProviders[activeVoiceOutputProvider].cancel();
+  voiceOutputProviders[activeVoiceOutputProvider()]?.cancel();
   outputInterruptPressure=0;outputLastVoiceDemand=0;
   voiceOutputStatus(reason);
   if(hadStarted)postVoiceOutputReceipt("interrupted",reason,evidence)
 }
 function speakVoiceOutput(text){
   if(!$("voice-output").checked||!String(text||"").trim())return;
-  const provider=voiceOutputProviders[activeVoiceOutputProvider];
+  const provider=voiceOutputProviders[activeVoiceOutputProvider()];
   if(!provider.available()){voiceOutputStatus("local voice is unavailable in this browser");return}
   if(voiceOutputSpeaking)stopVoiceOutput("superseded by a new reply");
   const generation=++voiceOutputGeneration,policy=lastState?.voice_output||{};
@@ -2401,11 +3012,11 @@ function speakVoiceOutput(text){
     error:event=>{if(generation!==voiceOutputGeneration)return;
       voiceOutputSpeaking=false;voiceOutputStatus(`output failed Â· ${event.error||"unknown"}`);
       postVoiceOutputReceipt("failed",String(event.error||"unknown"))}
-  })
+  },voiceOutputConfig)
 }
 function beginStreamingVoiceOutput(requestedAt=performance.now()){
   if(!$("voice-output").checked)return null;
-  const provider=voiceOutputProviders[activeVoiceOutputProvider];
+  const provider=voiceOutputProviders[activeVoiceOutputProvider()];
   if(!provider.available()){voiceOutputStatus("local voice is unavailable in this browser");return null}
   if(voiceOutputSpeaking||voiceOutputSession)stopVoiceOutput("superseded by a new reply");
   const generation=++voiceOutputGeneration,policy=lastState?.voice_output||{};
@@ -2419,7 +3030,7 @@ function queueStreamingVoiceClause(text){
   const session=voiceOutputSession,clause=String(text||"").trim();
   if(!session||!clause)return;
   session.queued++;
-  voiceOutputProviders[activeVoiceOutputProvider].speak(clause,session.policy,{
+  voiceOutputProviders[activeVoiceOutputProvider()].speak(clause,session.policy,{
     start:()=>{if(session.generation!==voiceOutputGeneration)return;
       voiceOutputSpeaking=true;
       if(!session.started){session.started=true;postVoiceOutputReceipt("started","",{
@@ -2435,7 +3046,7 @@ function queueStreamingVoiceClause(text){
       voiceOutputSpeaking=false;voiceOutputSession=null;
       voiceOutputStatus(`output failed Â· ${event.error||"unknown"}`);
       postVoiceOutputReceipt("failed",String(event.error||"unknown"))}
-  })
+  },voiceOutputConfig)
 }
 function feedStreamingVoiceOutput(text,{final=false}={}){
   const session=voiceOutputSession;if(!session)return;
@@ -2841,15 +3452,17 @@ async function finishSpeechCapture(features,reason){
     const speechFeatures={...features,onset:capture.peakOnset,voiced_ratio:voicedRatio,
       segment_evidence:clamp(capture.evidence/Math.max(.001,duration))};
     const data_url=await blobDataUrl(encodeMonoWav(capture.chunks,audioContext.sampleRate));
+    const speakingAs=selectedUserPersona();
     audioStatus(`Speech ${reason}; transcribing locally…`);
     const response=await fetch("/api/perception/speech",{method:"POST",
       headers:{"Content-Type":"application/json"},body:JSON.stringify({
         data_url,mime_type:"audio/wav",features:speechFeatures,
-        pressure:sensoryPolicy().threshold,speaker:PRIMARY_USER,auto_turn:true})});
+        pressure:sensoryPolicy().threshold,speaker:PRIMARY_USER,auto_turn:true,
+        user_persona:speakingAs.id})});
     const result=await response.json();
     if(!response.ok)throw new Error(result.error||`speech perception ${response.status}`);
     const heard=result.transcript?.text||"";
-    if(result.turn&&heard){addMsg("user",heard,PRIMARY_USER);
+    if(result.turn&&heard){addMsg("user",heard,speakingAs.name);
       renderTurnResult(result.turn,heard);audioStatus(`Heard and answered: ${heard}`)}
     else if(heard)audioStatus(result.queued
       ? `Heard, held as ambient speech: ${heard}`
@@ -2946,14 +3559,16 @@ async function sendTurn() {
   if ((!text && !pendingImages.length) || $("send").disabled) return;
   stopVoiceOutput("interrupted Â· new typed turn");
   const sentImages=pendingImages.slice();
+  const speakingAs=selectedUserPersona();
   pendingImages=[];renderPendingImages();
   $("say").value = ""; resizeComposer(); $("send").disabled = true;
-  addMsg("user", text||"shared image material", PRIMARY_USER, sentImages);
+  addMsg("user", text||"shared image material", speakingAs.name, sentImages);
   setThinking(true);
   try {
     const res = await fetch("/api/turn", {method:"POST",
       headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({message:text,images:sentImages})});
+      body: JSON.stringify({message:text,images:sentImages,
+        user_persona:speakingAs.id})});
     const r = await res.json();
     if (r.error) { pendingImages=sentImages;renderPendingImages();
       addMsg("sys", "⚠ " + r.error); return; }
@@ -2981,7 +3596,7 @@ function updateTurnQueueUI() {
 
 function repaintQueuedTurns() {
   turnQueue.forEach(item=>addMsg("user",item.text||"shared image material",
-    PRIMARY_USER,item.sentImages));
+    item.speakingAs.name,item.sentImages));
 }
 
 function sendTurnStream() {
@@ -2989,9 +3604,10 @@ function sendTurnStream() {
   if(!text&&!pendingImages.length)return;
   stopVoiceOutput("interrupted Â· new typed turn");
   const sentImages=pendingImages.slice();pendingImages=[];renderPendingImages();
+  const speakingAs=selectedUserPersona();
   $("say").value="";resizeComposer();
-  addMsg("user",text||"shared image material",PRIMARY_USER,sentImages);
-  turnQueue.push({text,sentImages});updateTurnQueueUI();
+  addMsg("user",text||"shared image material",speakingAs.name,sentImages);
+  turnQueue.push({text,sentImages,speakingAs});updateTurnQueueUI();
   drainTurnQueue();
 }
 
@@ -3009,12 +3625,13 @@ async function drainTurnQueue() {
   }
 }
 
-async function runQueuedTurn({text,sentImages}) {
+async function runQueuedTurn({text,sentImages,speakingAs}) {
   const turnStarted=performance.now();
   try{
     const res=await fetch("/api/turn/stream",{method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({message:text,images:sentImages})});
+      body:JSON.stringify({message:text,images:sentImages,
+        user_persona:speakingAs.id})});
     if(!res.ok){const failed=await res.json();throw new Error(failed.error||res.status)}
     if(!res.body)throw new Error("streaming response body unavailable");
     const decoder=new TextDecoder(),reader=res.body.getReader();
@@ -3036,7 +3653,11 @@ async function runQueuedTurn({text,sentImages}) {
         }else if(event.type==="final"){
           feedStreamingVoiceOutput("",{final:true});
           renderTurnResult(event.result,text,true);repaintQueuedTurns();finished=true
-        }else if(event.type==="error")throw new Error(event.error||"turn failed")
+        }else if(event.type==="error"){
+          const saved=event.conversation&&event.conversation.status==="failed_saved"
+            ?` (saved as ${event.conversation.id})`:"";
+          throw new Error((event.error||"turn failed")+saved)
+        }
       }
       if(chunk.done&&!finished)throw new Error("turn stream ended before its final receipt")
     }
@@ -3050,6 +3671,10 @@ function renderTurnResult(r,text,voiceAlreadyQueued=false){
   const persisted=(r.state.conversation_window||[]).some(t=>
     t.message===text&&t.reply===r.reply);
   renderState(r.state);
+  refreshIntentionLoom();
+  refreshWritingDesk();
+  refreshResearchDesk();
+  refreshAtelier();
   if(!persisted){addMsg("persona",r.reply,personaLabel());
     if(r.felt&&r.felt.why)addMsg("sys","felt: "+r.felt.why)}
   if(!voiceAlreadyQueued)speakVoiceOutput(r.reply);
@@ -3060,6 +3685,8 @@ function renderTurnResult(r,text,voiceAlreadyQueued=false){
     · temp ${r.receipts.temperature} · ${r.timing_ms}ms</div>`+
     (r.receipts.recalled||[]).map(m=>`<div class="mem">↳ ${m.score.toFixed(2)} — ${m.content}</div>`).join("")+
     (r.receipts.budget||[]).map(b=>`<div class="mem">⚖ ${b}</div>`).join("");
+  if(r.receipts.conversation&&r.receipts.conversation.status==="saved")
+    rc.innerHTML+=`<div class="mem">saved conversation Â· ${r.receipts.conversation.id}</div>`;
   const box=$("receipts");if(box.firstChild&&box.firstChild.className==="quiet")box.innerHTML="";
   box.prepend(rc);
 }
@@ -3107,11 +3734,11 @@ $("voice-turns").onchange=()=>{
     if(audioWatching)audioStatus("Microphone live for ambient hearing; spoken segments stay out of conversation.")}
   else if(audioWatching)audioStatus("Voice channel open; rhythm-admitted utterances may enter conversation.");
 };
-$("voice-output").onchange=()=>{
+$("voice-output").onchange=async()=>{
   if(!$("voice-output").checked)stopVoiceOutput("output disabled");
-  else voiceOutputStatus(voiceOutputProviders[activeVoiceOutputProvider].available()
-    ?"local voice ready":"local voice is unavailable in this browser")
+  await saveVoiceOutputConfig()
 };
+$("voice-output-voice").onchange=saveVoiceOutputConfig;
 $("salience-pause").onchange=()=>{
   if($("salience-pause").checked){if(salienceStream)salienceStream.close();salienceStream=null;
     $("salience-status").textContent="observatory display paused"}
@@ -3121,8 +3748,12 @@ $("salience-filter").onchange=refreshSalience;
 $("document-import").onclick=()=>$('document-picker').click();
 $("document-picker").onchange=async event=>{await importDocument(event.target.files?.[0]);event.target.value=""};
 $("document-open").onclick=()=>openDocument($("document-select").value,0);
+$("document-select").onchange=()=>{if(documentLibraryState)renderDocumentReading(documentLibraryState)};
 $("document-previous").onclick=()=>navigateDocument("previous");
 $("document-next").onclick=()=>navigateDocument("next");
+$("document-read-through").onclick=()=>changeDocumentReadingArc($("document-read-through").dataset.action||"start",$("document-read-through").dataset.pace||"natural");
+$("document-read-now").onclick=()=>{const button=$("document-read-now");const action=button.dataset.action;if(action)changeDocumentReadingArc(action,"foreground")};
+$("document-release-arc").onclick=()=>changeDocumentReadingArc("release");
 $("document-search-button").onclick=searchDocuments;
 $("document-search").addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();searchDocuments()}});
 $("document-to-desk").onclick=()=>admitWritingDesk("document");
@@ -3140,17 +3771,32 @@ $("archive-to-desk").onclick=()=>admitWritingDesk("archive");
 $("memory-prev").onclick=()=>{if(memoryPage>1){memoryPage--;refreshMemoryPanel()}};
 $("memory-next").onclick=()=>{if(memoryPage<memoryPages){memoryPage++;refreshMemoryPanel()}};
 $("agency-submit").onclick=admitAgencyText;
+$("intention-loom-submit").onclick=offerIntentionCue;
 $("writing-desk-submit").onclick=()=>admitWritingDesk("text");
 $("atelier-submit").onclick=admitAtelier;
 $("atelier-probe").onclick=probeAtelierRenderer;
 $("research-submit").onclick=offerResearchInterest;
 $("research-topic").addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();offerResearchInterest()}});
 $("autonomous-works-filter").onchange=renderAutonomousWorks;
+$("autonomous-works-stage").onchange=renderAutonomousWorks;
 $("autonomous-works-refresh").onclick=refreshAutonomousWorks;
-window.addEventListener("pagehide",()=>{stopVoiceOutput("page closed");stopCamera();stopMicrophone();stopAtelierCanvasLoops();stopAtelierAudioPlayers("page closed");
+window.addEventListener("pagehide",()=>{stopVoiceOutput("page closed");stopCamera();stopMicrophone();stopAtelierCanvasLoops();stopAtelier3DLoops();stopAtelierAudioPlayers("page closed");
   if(salienceStream)salienceStream.close()});
 $("image-picker").onchange=async e=>{await chooseImages(e.target.files||[]);e.target.value=""};
 $("setmood").onclick = setMood;
+$("altered-dose").addEventListener("input",()=>{
+  alteredDoseTouched=true;
+  $("altered-dose-value").textContent=`${Math.round(Number($("altered-dose").value)*100)}%`;
+  updateAlteredButtons(lastState?.altered_state);
+});
+$("altered-profile").addEventListener("change",()=>{
+  alteredProfileTouched=true;updateAlteredButtons(lastState?.altered_state);
+});
+$("altered-request").onclick=()=>alteredAction("request");
+$("altered-cancel-request").onclick=()=>alteredAction("cancel-consent");
+$("altered-begin").onclick=()=>alteredAction("begin");
+$("altered-adjust").onclick=()=>alteredAction("adjust");
+$("altered-abort").onclick=()=>alteredAction("abort");
 $("saveOrgans").onclick = pushOrgans;
 
 const BODY_OPEN_KEY = "jnsq.cockpit.bodyOpen.v2";
@@ -3209,14 +3855,26 @@ $("column-resizer").onpointerdown = event => {
     localStorage.setItem("jnsq.cockpit.bodyWidth", String(Math.round($("inspector").getBoundingClientRect().width)));
   };
 };
-fetchState().then(()=>{refreshSalience();refreshMemoryPanel();refreshAutonomousWorks();refreshAgency();refreshWritingDesk();refreshAtelier();refreshResearchDesk();refreshDocuments();refreshArchive();startSalienceStream()});
+$("user-persona").addEventListener("change",()=>{
+  localStorage.setItem(userPersonaStorageKey(),$("user-persona").value);
+  paintUserPersonaChoice();
+});
+fetchState().then(()=>{
+  loadUserPersonas().catch(error=>{
+    $("speaker-choice-note").textContent=`RP identities unavailable: ${error.message||error}`;
+  });
+  refreshSalience();refreshMemoryPanel();refreshAutonomousWorks();refreshAgency();refreshIntentionLoom();refreshWritingDesk();refreshAtelier();refreshResearchDesk();refreshDocuments();refreshArchive();startSalienceStream()
+});
 fetchOrgans();
 bindAppearance();
 fetchTheme();
 // Event-driven refresh: user actions repaint directly; returning to the
 // cockpit catches background changes. No arbitrary state polling loop.
 window.addEventListener("focus", () => {
-  if (!turnWorkerActive) fetchState().catch(()=>{});
+  if (!turnWorkerActive) {
+    fetchState().catch(()=>{});
+    loadUserPersonas().catch(()=>{});
+  }
 });
 document.addEventListener("visibilitychange", () => {
   if(document.hidden)stopAtelierAudioPlayers("page hidden");

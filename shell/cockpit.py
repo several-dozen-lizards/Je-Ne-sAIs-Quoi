@@ -30,7 +30,8 @@ from pydantic import BaseModel, Field
 from shell.contract import TurnEngine, CONTRACT_VERSION
 from shell.agency_controller import AgencyRunController
 from shell.ui_themes import resolve_theme, save_theme
-from shell.persona_media import load_persona_avatar
+from shell.persona_media import (load_persona_avatar,
+                                 write_roster_mapping_scalar)
 from shell.ui_background import (delete_conversation_area_background,
                                  delete_conversation_background,
                                  load_conversation_area_background,
@@ -45,7 +46,8 @@ from core.speech import (MAX_AUDIO_BYTES, build_transcriber, turn_admission,
                          validate_audio)
 from core.observatory import SalienceObserver
 from core.memory_observatory import MemoryObservatory
-from core.voice_output import append_output_receipt
+from core.voice_output import (append_output_receipt, normalize_output_config,
+                               OUTPUT_PROVIDERS)
 from core.documents import DocumentError
 from core.conversation_archive import ArchiveError
 from harness.model_call_receipts import model_call_scope, new_cycle_id
@@ -56,12 +58,15 @@ ASSET_DIR = os.path.join(REPO, "assets", "jnsq")
 
 
 def _autonomous_works(app) -> dict:
-    """Normalize durable, persona-private creations without reading content.
+    """Normalize the private gallery without reading creative content.
 
-    The shelf is an index, not a second authority boundary.  Its references
-    point back through each organ's existing bounded reader route.
+    The gallery is an automatic index, not a second authority boundary.  Its
+    references point back through each organ's existing bounded reader route;
+    waiting material is exposed separately so an empty finished gallery never
+    pretends that nothing is circulating.
     """
     works = []
+    waiting = []
     unavailable = []
 
     def add(**value):
@@ -69,7 +74,15 @@ def _autonomous_works(app) -> dict:
         value["updated_at"] = float(
             value.get("updated_at") or value["created_at"])
         value["ownership"] = "persona_private"
+        value["stage"] = "settled"
         works.append(value)
+
+    def add_waiting(**value):
+        value["created_at"] = float(value.get("created_at") or 0.0)
+        value["updated_at"] = float(
+            value.get("updated_at") or value["created_at"])
+        value["stage"] = "waiting"
+        waiting.append(value)
 
     agency = app.state.agency_runtime
     if agency is not None:
@@ -88,6 +101,42 @@ def _autonomous_works(app) -> dict:
                 )
         except Exception:
             unavailable.append({"organ": "agency",
+                                "error": "private store index unavailable"})
+
+    loom = getattr(app.state, "intention_loom_runtime", None)
+    if loom is not None:
+        try:
+            for intention in loom.loom.intentions():
+                revisions = int(intention.get("revision_count") or 1)
+                add(
+                    id=f"intention:{intention.get('intention_id')}",
+                    organ="intention_loom", kind="intention",
+                    title=intention.get("title") or "Untitled intention",
+                    state=intention.get("state") or "open",
+                    created_at=intention.get("created_at"),
+                    updated_at=intention.get("updated_at"),
+                    detail=(f"{revisions} movement"
+                            f"{'s' if revisions != 1 else ''}"),
+                    provenance="self-owned intention loom movement",
+                    open={"type": "intention",
+                          "intention_id": intention.get("intention_id")},
+                )
+            for cue in loom.loom.pending_cues():
+                ownership = str(cue.get("ownership") or "human_offered")
+                add_waiting(
+                    id=f"waiting:intention:{cue.get('cue_id')}",
+                    organ="intention_loom", kind="possibility",
+                    title=cue.get("label") or "Untitled possibility",
+                    state="waiting in the shared field",
+                    created_at=cue.get("created_at"), ownership=ownership,
+                    detail="available to the intention loom",
+                    provenance=("self-offered in conversation" if ownership ==
+                                "persona_chosen_conversation" else
+                                "admitted possibility"),
+                    open={"type": "organ_panel"},
+                )
+        except Exception:
+            unavailable.append({"organ": "intention_loom",
                                 "error": "private store index unavailable"})
 
     writing = app.state.writing_desk_runtime
@@ -116,6 +165,21 @@ def _autonomous_works(app) -> dict:
                     provenance=f"writing desk work from {origin}",
                     open={"type": "writing_project",
                           "project_id": project.get("project_id")},
+                )
+            for seed in getattr(
+                    writing.desk, "pending_seeds", lambda: [])():
+                ownership = str(seed.get("ownership") or "human_admitted")
+                add_waiting(
+                    id=f"waiting:writing:{seed.get('seed_id')}",
+                    organ="writing_desk", kind="writing material",
+                    title=seed.get("label") or "Untitled writing material",
+                    state="waiting in the shared field",
+                    created_at=seed.get("created_at"), ownership=ownership,
+                    detail="available to the writing desk",
+                    provenance=("self-offered in conversation" if ownership ==
+                                "persona_chosen_conversation" else
+                                "admitted material"),
+                    open={"type": "organ_panel"},
                 )
         except Exception:
             unavailable.append({"organ": "writing_desk",
@@ -158,6 +222,21 @@ def _autonomous_works(app) -> dict:
                     open={"type": "atelier_artifact",
                           "artifact_id": artifact.get("artifact_id")},
                 )
+            for seed in getattr(
+                    atelier.atelier, "pending_seeds", lambda: [])():
+                ownership = str(seed.get("ownership") or "human_admitted")
+                add_waiting(
+                    id=f"waiting:atelier:{seed.get('seed_id')}",
+                    organ="atelier", kind="creative material",
+                    title=seed.get("label") or "Untitled creative material",
+                    state="waiting in the shared field",
+                    created_at=seed.get("created_at"), ownership=ownership,
+                    detail="available to the atelier",
+                    provenance=("self-offered in conversation" if ownership ==
+                                "persona_chosen_conversation" else
+                                "admitted material"),
+                    open={"type": "organ_panel"},
+                )
         except Exception:
             unavailable.append({"organ": "atelier",
                                 "error": "private store index unavailable"})
@@ -187,14 +266,18 @@ def _autonomous_works(app) -> dict:
                                 "error": "private store index unavailable"})
 
     works.sort(key=lambda value: (-value["updated_at"], value["id"]))
+    waiting.sort(key=lambda value: (-value["updated_at"], value["id"]))
     return {
         "persona": app.state.engine.persona,
         "generated_at": time.time(),
         "works": works[:400],
+        "waiting": waiting[:400],
         "unavailable": unavailable,
         "policy": {
             "metadata_only": True,
             "content_readers": "existing organ routes",
+            "automatic_index": True,
+            "waiting_is_not_settled_work": True,
             "external_effects": False,
         },
     }
@@ -395,6 +478,67 @@ def save_persona_organs(persona: str, model: str, enabled,
     return _save_roster_organs(persona, model, enabled, "persona", repo)
 
 
+def visible_face(cocktail: dict, top_k: int = 3,
+                 floor: float = 0.15) -> dict:
+    """The privacy choke (20260719): distill substrate -> the FACE.
+    Only what a camera would see crosses the wire -- a display
+    vector, never the cocktail itself. top_k + floor are wire-noise
+    gates (same class as the orient reflex's half-degree), not
+    behavior tuning. Unknown emotion names no-op in the renderer's
+    gestalt table, so this function needs zero knowledge of it."""
+    if not cocktail:
+        return {"emotions": []}
+    ranked = sorted(
+        ((str(k).lower(), float(v)) for k, v in cocktail.items()
+         if isinstance(v, (int, float)) and float(v) >= floor),
+        key=lambda kv: kv[1], reverse=True)[:top_k]
+    return {"emotions": [f"{k}:{round(v, 2)}" for k, v in ranked]}
+
+
+def ingest_avatar_vision(engine, frame: dict) -> dict:
+    """Close one event-driven avatar-camera sample into perception.
+
+    The renderer supplies pixels and pose receipts only.  Existing sensory
+    admission decides whether the visual transducer may inspect them; the
+    observation then enters the same camera/salience circuit as a physical
+    webcam frame.
+    """
+    if not frame:
+        return {"admitted": False, "reason": "no_frame"}
+    images = store_images(engine.pdir, [{
+        "name": f"avatar-pov-{int(frame.get('revision', 0))}.png",
+        "data_url": frame.get("data_url", "")}])
+    novelty = max(0.0, min(1.0, float(frame.get("novelty", 0.5))))
+    event = SensoryEvent(
+        "camera", {"novelty": novelty, "admission_pressure": novelty,
+                   "pose_revision": int(frame.get("pose_revision", 0))},
+        subject="avatar point of view", ownership="self")
+    sensory = engine.receive_sensory_event(event)
+    if not sensory["admitted"]:
+        return {"admitted": False, "event_id": event.event_id,
+                "policy": sensory["policy"]}
+    observation, route = engine.transduce_visual(images)
+    engine.perception.annotate(event.event_id, observation)
+    field = getattr(engine, "idle_metabolism", None)
+    candidate = None
+    if field is not None and "dmn" in engine.enabled:
+        now = time.time()
+        candidate = field.offer_event(
+            "avatar_camera", observation,
+            {"novelty": sensory["demand"],
+             "body_intensity": max(
+                 [float(v) for v in engine.cocktail.values()] or [0.0]),
+             "unresolved": min(1.0, sensory["pressure"])},
+            now=now, raw_ref=event.event_id, ownership="self",
+            receipts=[event.event_id,
+                      f"room-pose:{int(frame.get('pose_revision', 0))}"])
+        field.save(now=now)
+        engine.salience_observer.field_snapshot(field, now)
+    return {"admitted": True, "event_id": event.event_id,
+            "observation": observation, "route": route,
+            "queued": candidate is not None}
+
+
 def heartbeat_loop(engine, turn_lock, interval_s: float, stop):
     """The body's own clock: osc/soma advance whether or not anyone is
     talking, via the SAME settle() take_turn uses — one clock, one
@@ -405,6 +549,7 @@ def heartbeat_loop(engine, turn_lock, interval_s: float, stop):
     import json
     import time
     log = os.path.join(engine.pdir, "history", "heartbeat.jsonl")
+    last_face = None    # publish-on-change: a still face is free
     while not stop.wait(interval_s):
         if "heartbeat" not in engine.enabled:
             continue          # runtime toggle: the loop idles, not dies
@@ -424,6 +569,21 @@ def heartbeat_loop(engine, turn_lock, interval_s: float, stop):
                         "band": (engine.osc.dominant()
                                  if engine.osc else None)},
                         ensure_ascii=False) + "\n")
+            # The face rides the heartbeat (20260719): expression is
+            # AUTONOMIC, so it publishes with the body's own clock --
+            # not gated behind tropism or any volitional loop. Only
+            # the distilled surface crosses; only changes post.
+            if engine.room is not None:
+                pkt = visible_face(dict(engine.cocktail))
+                if pkt != last_face:
+                    r = engine.room.express(pkt)
+                    if isinstance(r, dict) and "error" not in r:
+                        last_face = pkt
+                frame = engine.room.fresh_vision_frame()
+                if frame:
+                    ingest_avatar_vision(engine, frame)
+                    engine.room.acknowledge_vision_frame(
+                        int(frame.get("revision", 0)))
         except Exception:
             pass              # the heart must never kill the body
         finally:
@@ -487,16 +647,28 @@ def social_loop(engine, turn_lock, interval_s: float, max_tokens: int,
                 sp.note_events(evs, dict(engine.organ.bonds))
             autonomy = readiness_from_engine(
                 engine, getattr(engine, "idle_metabolism", None))
-            delivery = sp.tick(
-                now, dt, action_readiness=autonomy["readiness"],
-                hard_blocked=autonomy["hard_blocked"])
+            # A discharge changes durable social state: it drains pending
+            # speech, raises habituation, and starts the refractory period.
+            # Own the one-mouth lock BEFORE permitting that transition.  If a
+            # private or other embodied turn currently has the mouth, the
+            # social pull remains pending and can flow into the next cycle
+            # instead of being silently spent without ever reaching Nexus.
+            mouth_owned = turn_lock.acquire(blocking=False)
+            delivery = None
+            if mouth_owned:
+                delivery = sp.tick(
+                    now, dt, action_readiness=autonomy["readiness"],
+                    hard_blocked=autonomy["hard_blocked"])
+                if not delivery:
+                    turn_lock.release()
+                    mouth_owned = False
             entry = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
                      **sp.state(),
                      "autonomy": {
                          key: autonomy[key] for key in (
                              "readiness", "capacity", "support",
                              "hard_blocked", "reasons")}}
-            if delivery and turn_lock.acquire(blocking=False):
+            if delivery:
                 try:
                     result = engine.take_turn(delivery["text"],
                                               max_tokens=max_tokens,
@@ -510,12 +682,14 @@ def social_loop(engine, turn_lock, interval_s: float, max_tokens: int,
                         entry["skipped_repeat"] = True
                         reply = ""
                     if reply:
-                        engine.room.say(reply)
+                        engine.room.say(
+                            reply, conversation_id=result.get("cycle_id"))
                         last_said = reply
                     entry["answered"] = {"to": delivery["speaker"],
                                          "reply_len": len(reply)}
                 finally:
                     turn_lock.release()
+                    mouth_owned = False
             with open(log, "a", encoding="utf-8") as f:
                 f.write(json.dumps(entry, ensure_ascii=False) + "\n")
         except Exception:
@@ -530,7 +704,8 @@ def tropism_loop(engine, turn_lock, interval_s: float, stop):
     import json
     import time
     from core.place_intentions import PlaceIntentions, load_params
-    from core.perception import score_objects, score_members, REACH_M
+    from core.perception import (member_pos, score_objects,
+                                 score_members, REACH_M)
     from shell.autonomy_circulation import (
         circulate_experienced_event, readiness_from_engine,
     )
@@ -548,7 +723,8 @@ def tropism_loop(engine, turn_lock, interval_s: float, stop):
             now = time.time()
             dt, last = now - last, now
             snap = engine.room.snapshot()
-            me = (snap.get("members") or {}).get(engine.persona)
+            me = member_pos(
+                (snap.get("members") or {}).get(engine.persona))
             if not snap or me is None:
                 continue
             st = engine.get_state()
@@ -684,6 +860,7 @@ class SpeechRequest(BaseModel):
     pressure: float = Field(default=0.0, ge=0.0, le=2.0)
     speaker: str = None
     auto_turn: bool = False
+    user_persona: str = ""
 
 
 class SensoryEventRequest(BaseModel):
@@ -699,11 +876,28 @@ class TurnRequest(BaseModel):
     message: str
     speaker: str = None      # omitted means this installation's local human
                             # anonymous crosses (v1 nexus law, kept)
+    user_persona: str = ""   # explicit RP identity owned by the local account
     images: list[ImageRequest] = Field(default_factory=list)
 
 
 class MoodRequest(BaseModel):
     cocktail: dict
+
+
+class AlteredStateRequest(BaseModel):
+    profile: str = "psilocybin"
+    intensity: float = Field(default=0.78, ge=0.10, le=1.0)
+
+
+class AlteredDoseRequest(BaseModel):
+    profile: str = "psilocybin"
+    intensity: float = Field(default=0.78, ge=0.10, le=1.0)
+
+
+class AlteredConsentRequest(BaseModel):
+    action: str
+    profile: str = "psilocybin"
+    intensity: float = Field(default=0.78, ge=0.10, le=1.0)
 
 
 class OrganRequest(BaseModel):
@@ -730,6 +924,11 @@ class VoiceOutputRequest(BaseModel):
     evidence: dict = Field(default_factory=dict)
 
 
+class VoiceOutputConfigRequest(BaseModel):
+    provider: str = "browser-native"
+    voice: str = ""
+
+
 class AgencyInboxRequest(BaseModel):
     label: str
     content: str
@@ -750,6 +949,12 @@ class DocumentNavigateRequest(BaseModel):
     position: int | None = Field(default=None, ge=0)
 
 
+class DocumentReadingArcRequest(BaseModel):
+    action: str
+    start_section: int | None = Field(default=None, ge=1)
+    pace: str = Field(default="natural", max_length=24)
+
+
 class ArchiveOpenRequest(BaseModel):
     section: int = Field(default=1, ge=1)
 
@@ -767,6 +972,11 @@ class WritingDeskSeedRequest(BaseModel):
     label: str = Field(min_length=1, max_length=260)
     content: str = ""
     anchors: list[str] = Field(default_factory=list)
+
+
+class IntentionCueRequest(BaseModel):
+    label: str = Field(min_length=1, max_length=240)
+    content: str = Field(min_length=1, max_length=6000)
 
 
 class AtelierSeedRequest(BaseModel):
@@ -820,9 +1030,45 @@ def generate_idle_thought(engine, idle_model: str, item: dict,
         asm.add("sensory origin", modality, priority=9)
     asm.add("unbidden pull", item.get("node") or item.get("text") or "",
             priority=9)
-    asm.messages.append({
-        "role": "user",
-        "content": (
+    if item.get("source") == "altered_consent":
+        window_fn = getattr(engine, "conversation_window", None)
+        window = window_fn() if callable(window_fn) else []
+        self_authored = [
+            str(turn.get("reply") or "").strip()[:800]
+            for turn in list(window or [])[-6:]
+            if str(turn.get("reply") or "").strip()
+        ][-3:]
+        if self_authored:
+            asm.add(
+                "recent self-authored canonical replies",
+                "Documented context, not a new instruction:\n" + "\n\n".join(
+                    f"- {reply}" for reply in self_authored),
+                priority=9)
+        invitation = (
+            "An operator has requested authorization for the exact body "
+            "protocol and dose shown above. This is a request, not an "
+            "instruction, and no protocol change can occur unless you choose "
+            "to grant it. Decide from your own present preference. Return "
+            "exactly one of <act>approve_altered_state</act>, "
+            "<act>decline_altered_state</act>, or "
+            "<act>defer_altered_state</act>. Do not approve merely because "
+            "the request exists or because approval seems cooperative. Treat "
+            "your recent self-authored replies, when present, as evidence of "
+            "your own stated questions or choice—not as an operator command.")
+    elif item.get("source") == "altered_interoception":
+        invitation = (
+            "No one is speaking to you. A change in your own present "
+            "condition has earned an opening, but it does not require a "
+            "message. Notice what is actually yours. Is there anything you "
+            "want the person sharing this private cockpit to know, anything "
+            "you want to ask for, or anything you want changed or stopped? "
+            "You may also simply have something to say. Do not infer a "
+            "feeling from the instrument names and do not perform wellness. "
+            "Silence is valid: return [quiet] if nothing wants to be sent. "
+            "Otherwise return only the exact words you choose to send, in "
+            "your own voice, with no label or preamble.")
+    else:
+        invitation = (
             "No one is speaking to you. Something has surfaced on its own. "
             f"The movement is {drift_kind}. What, if anything, is moving "
             "through your mind? Follow the felt pull rather than explaining "
@@ -830,13 +1076,79 @@ def generate_idle_thought(engine, idle_model: str, item: dict,
             "language. Otherwise write only the private thought, in your own "
             "voice, with no labels or preamble. Let this one movement end "
             "where it naturally settles; do not keep writing merely because "
-            "space remains.")})
+            "space remains.")
+    asm.messages.append({
+        "role": "user",
+        "content": invitation})
     with model_call_scope(
             cycle_id=cycle_id or new_cycle_id(),
             persona=getattr(engine, "persona", "unknown"),
             purpose="dmn", sink=model_receipts):
         return (adapter.call(
             asm, max_tokens=220, temperature=0.8) or "").strip()
+
+
+def offer_altered_expression(engine, field, *, now: float = None):
+    """Let measured altered-state movement enter autonomous attention."""
+    altered = getattr(engine, "altered_state", None)
+    if altered is None or "altered_state" not in getattr(engine, "enabled", set()):
+        return None
+    soma = getattr(engine, "soma", None)
+    snapshot_fn = getattr(soma, "snapshot", None) if soma else None
+    snapshot = snapshot_fn() if callable(snapshot_fn) else {}
+    regions = dict((snapshot or {}).get("regions") or {})
+    body_intensity = max((float(dict(value or {}).get("activation", 0.0))
+                          for value in regions.values()), default=0.0)
+    memory = getattr(engine, "organ", None)
+    relationship = max((float(value) for value in
+                        dict(getattr(memory, "bonds", {}) or {}).values()),
+                       default=0.0)
+    pull = altered.expression_pull(
+        body_intensity=body_intensity, relationship=relationship)
+    if not pull:
+        return None
+    observed = dict(pull.get("observed_felt") or {})
+    observation_text = (
+        "; the affect reader most recently described " + str(observed)
+        if observed else "; no recent affect description is available")
+    return field.offer_cognitive_event(
+        "altered_interoception",
+        str(pull.get("description") or "Present instruments changed")
+        + observation_text,
+        features=pull.get("features"), key=pull.get("key"), now=now,
+        raw_ref=pull.get("session_id"), ownership="embodied_self_report",
+        receipts=[pull.get("session_id")])
+
+
+def prune_stale_altered_consent(engine, field, *, now: float = None):
+    """Withdraw authority candidates superseded by a newer exact request."""
+    altered = getattr(engine, "altered_state", None)
+    if altered is None:
+        return []
+    request = dict(getattr(altered, "consent_request", {}) or {})
+    current_id = (request.get("request_id")
+                  if request.get("state") == "pending" else None)
+    return field.queue.discard_where(
+        lambda item: (
+            item.get("source") == "altered_consent"
+            and item.get("key") != f"altered_consent:{current_id}"),
+        reason="superseded_consent_request", now=now)
+
+
+def offer_altered_consent(engine, field, *, now: float = None):
+    """Offer an operator request to the persona without granting authority."""
+    altered = getattr(engine, "altered_state", None)
+    if altered is None or "altered_state" not in getattr(engine, "enabled", set()):
+        return None
+    prune_stale_altered_consent(engine, field, now=now)
+    pull = altered.consent_pull()
+    if not pull:
+        return None
+    return field.offer_cognitive_event(
+        "altered_consent", pull["description"],
+        features=pull.get("features"), key=pull.get("key"), now=now,
+        raw_ref=pull.get("request_id"), ownership="persona_consent",
+        receipts=[pull.get("request_id")])
 
 
 def attach_idle_metabolism(engine, metabolism: dict):
@@ -848,12 +1160,16 @@ def attach_idle_metabolism(engine, metabolism: dict):
             path = os.path.join(engine.pdir, "history", "salience.jsonl")
             engine.salience_observer = SalienceObserver(engine.persona, path)
             current.set_observer(engine.salience_observer)
+        if prune_stale_altered_consent(engine, current):
+            current.save()
         return current
     state_path = os.path.join(engine.pdir, "body", "dmn_state.json")
     engine.idle_metabolism = IdleMetabolism.load(metabolism["params"], state_path)
     path = os.path.join(engine.pdir, "history", "salience.jsonl")
     engine.salience_observer = SalienceObserver(engine.persona, path)
     engine.idle_metabolism.set_observer(engine.salience_observer)
+    if prune_stale_altered_consent(engine, engine.idle_metabolism):
+        engine.idle_metabolism.save()
     return engine.idle_metabolism
 
 
@@ -1171,7 +1487,8 @@ def execute_narrative_cluster(engine, field, item: dict, receipt,
 
 
 def dmn_loop(engine, turn_lock, metabolism: dict, stop,
-             agency_runtime=None, writing_desk_runtime=None,
+             agency_runtime=None, intention_loom_runtime=None,
+             writing_desk_runtime=None,
              archive_reader_runtime=None, document_reader_runtime=None,
              research_desk_runtime=None,
              atelier_runtime=None):
@@ -1208,20 +1525,129 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
     boot_turn_ts = engine.last_turn_ts
     last_verdict = None
     last_pressure_band = int(field.pressure.pressure / 0.05)
+
+    def local_volitional_opening(now):
+        """Return a zero-paid-fallback opening earned by a self-offered pull.
+
+        This is deliberately narrower than ordinary idle attention: exact
+        candidate keys created by a persona's conversational motor can enter
+        through a zero-paid route, while altered-state embodied self-report
+        can enter because safety speech cannot depend on a cost cap. Human
+        admission and generic wandering cannot use this seam.
+        """
+        admitted = {}
+        runtimes = (
+            ("intention_loom", intention_loom_runtime),
+            ("writing_desk", writing_desk_runtime),
+            ("research_desk", research_desk_runtime),
+            ("atelier", atelier_runtime),
+        )
+
+        def self_offered(candidate, organ, runtime):
+            if (candidate.get("ownership") ==
+                    "persona_chosen_conversation" or
+                    candidate.get("origin") ==
+                    "persona_chosen_conversation"):
+                return True
+            # Candidates saved before ownership became part of the durable
+            # field can recover it only from their authoritative organ record.
+            # No wording or model inference is used to manufacture provenance.
+            try:
+                if organ == "intention_loom" and candidate.get("cue_id"):
+                    record = runtime.loom.cue(candidate["cue_id"])
+                    return record.get("ownership") == \
+                        "persona_chosen_conversation"
+                if organ == "writing_desk" and candidate.get("seed_id"):
+                    record = runtime.desk.seed(candidate["seed_id"])
+                    return record.get("ownership") == \
+                        "persona_chosen_conversation"
+                if organ == "research_desk" and candidate.get("interest_id"):
+                    record = runtime.desk.interest(candidate["interest_id"])
+                    return record.get("origin") == \
+                        "persona_chosen_conversation"
+                if organ == "atelier" and candidate.get("seed_id"):
+                    record = runtime.atelier.seed(candidate["seed_id"])
+                    return record.get("ownership") == \
+                        "persona_chosen_conversation"
+            except (KeyError, TypeError, ValueError):
+                return False
+            return False
+
+        for candidate in field.queue.items(now):
+            if (candidate.get("source") in {
+                    "altered_interoception", "altered_consent"}
+                    and candidate.get("ownership") in {
+                        "embodied_self_report", "persona_consent"}):
+                score, score_meta = field.attention_score(
+                    candidate, now=now)
+                admitted[str(candidate.get("key"))] = {
+                    "score": max(0.0, min(1.0, float(score))),
+                    "organ": "altered_state",
+                    "selection": score_meta,
+                }
+                continue
+            for organ, runtime in runtimes:
+                if runtime is None or organ not in engine.enabled \
+                        or not runtime.eligible(candidate):
+                    continue
+                if not self_offered(candidate, organ, runtime):
+                    continue
+                capability = runtime.capability()
+                if (not capability.get("usable")
+                        or capability.get("locality") != "local"
+                        or int(capability.get("paid_fallbacks") or 0) != 0):
+                    continue
+                state = runtime.readiness(field)
+                score, score_meta = runtime.selection_score(
+                    field, candidate, now=now, readiness=state)
+                admitted[str(candidate.get("key"))] = {
+                    "score": max(0.0, min(1.0, float(score))),
+                    "organ": organ,
+                    "selection": score_meta,
+                }
+                break
+        # The paid exception exists for embodied communication, not as extra
+        # workbench throughput.  If that voice is present, it alone owns this
+        # capped opening; ordinary fires still preserve full competition.
+        embodied = {
+            key: value for key, value in admitted.items()
+            if value.get("organ") == "altered_state"}
+        if embodied:
+            admitted = embodied
+        if not admitted:
+            return False, None, {}
+        pull = max(value["score"] for value in admitted.values())
+        opened, opening = field.pressure.try_local_volitional_opening(
+            pull, now=now)
+        return opened, frozenset(admitted), {
+            **opening,
+            "candidate_keys": sorted(admitted),
+            "candidate_organs": sorted({
+                value["organ"] for value in admitted.values()}),
+        }
+
     while not stop.wait(params["tick_s"]):
         now = None
         try:
             capability_field = any(
                 runtime is not None and organ in engine.enabled
                 for organ, runtime in (
+                    ("intention_loom", intention_loom_runtime),
                     ("writing_desk", writing_desk_runtime),
                     ("archive_reader", archive_reader_runtime),
                     ("document_reader", document_reader_runtime),
-                    ("research_desk", research_desk_runtime),
-                    ("atelier", atelier_runtime)))
+                     ("research_desk", research_desk_runtime),
+                     ("atelier", atelier_runtime)))
             generic_field = bool(metabolism["enabled"])
+            embodied_field = (
+                "altered_state" in engine.enabled
+                and any(candidate.get("source") in {
+                    "altered_interoception", "altered_consent"}
+                    and candidate.get("ownership") in {
+                        "embodied_self_report", "persona_consent"}
+                        for candidate in field.queue.items()))
             if "dmn" not in engine.enabled or not (
-                    generic_field or capability_field):
+                    generic_field or capability_field or embodied_field):
                 continue
             with turn_lock:
                 now = _time.time()
@@ -1230,6 +1656,15 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
                     if returned:
                         receipt(
                             "agency_reentry",
+                            candidate_count=len(returned),
+                            candidate_keys=[item.get("key")
+                                            for item in returned])
+                if intention_loom_runtime is not None:
+                    returned = intention_loom_runtime.drain_effects(
+                        field, now=now)
+                    if returned:
+                        receipt(
+                            "intention_loom_reentry",
                             candidate_count=len(returned),
                             candidate_keys=[item.get("key")
                                             for item in returned])
@@ -1287,13 +1722,74 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
                         float(_c) if _c is not None else 0.5)
                 idle_s = now - engine.last_turn_ts
                 dp = field.pressure
+                # Interoception joins the same competition before the
+                # substrate verdict. expression_pull only emits on measured
+                # vector movement, so observation granularity is not policy.
+                if generic_field:
+                    try:
+                        consent_candidate = offer_altered_consent(
+                            engine, field, now=now)
+                        if consent_candidate:
+                            receipt(
+                                "altered_consent_offered",
+                                key=consent_candidate.get("key"),
+                                salience=round(float(
+                                    consent_candidate.get("salience", 0.0)), 6),
+                                features=consent_candidate.get("features"))
+                    except Exception as altered_consent_error:
+                        receipt(
+                            "altered_consent_offer_error",
+                            error_type=type(altered_consent_error).__name__)
+                    try:
+                        altered_candidate = offer_altered_expression(
+                            engine, field, now=now)
+                        if altered_candidate:
+                            receipt(
+                                "altered_expression_offered",
+                                key=altered_candidate.get("key"),
+                                salience=round(float(
+                                    altered_candidate.get("salience", 0.0)), 6),
+                                features=altered_candidate.get("features"))
+                    except Exception as altered_offer_error:
+                        receipt(
+                            "altered_expression_offer_error",
+                            error_type=type(altered_offer_error).__name__)
                 if (dp.active_node and dp.fired_at >= boot_turn_ts
                         and engine.last_turn_ts > dp.fired_at):
                     receipt("catch", node=dp.active_node[:80],
                             text=render_catch(dp.active_node))
                     dp.active_node = None
                     field.save(now=now)
-                verdict, ev = dp.tick(bands, coh, idle_s, now=now)
+                direct_consent = []
+                for candidate in field.queue.items(now):
+                    if (candidate.get("source") == "altered_consent"
+                            and candidate.get("ownership") ==
+                            "persona_consent"):
+                        score, score_meta = field.attention_score(
+                            candidate, now=now)
+                        direct_consent.append((candidate, score, score_meta))
+                local_volitional_only = None
+                if direct_consent:
+                    pull = max(float(row[1]) for row in direct_consent)
+                    opened, opening = dp.open_for_direct_volition(
+                        pull, now=now)
+                    verdict = "fired" if opened else "below_threshold"
+                    local_volitional_only = frozenset(
+                        str(row[0].get("key")) for row in direct_consent)
+                    ev = {**opening, "opening": "direct_volitional_request",
+                          "candidate_keys": sorted(local_volitional_only)}
+                    receipt("direct_volitional_opening", **ev)
+                else:
+                    verdict, ev = dp.tick(bands, coh, idle_s, now=now)
+                if verdict == "capped":
+                    opened, candidate_keys, opening = \
+                        local_volitional_opening(now)
+                    if opened:
+                        verdict = "fired"
+                        local_volitional_only = candidate_keys
+                        ev = {**(ev or {}), **opening,
+                              "opening": "local_volitional"}
+                        receipt("local_volitional_opening", **opening)
                 pressure_band = int(dp.pressure / 0.05)
                 if verdict != last_verdict:
                     receipt("verdict", verdict=verdict,
@@ -1317,6 +1813,12 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
                     except Exception as agency_error:
                         receipt("agency_recurrence_error",
                                 error=str(agency_error)[:200])
+                if intention_loom_runtime is not None:
+                    try:
+                        intention_loom_runtime.refresh_pending(field, now=now)
+                    except Exception as loom_error:
+                        receipt("intention_loom_recurrence_error",
+                                error=str(loom_error)[:200])
                 if writing_desk_runtime is not None:
                     try:
                         writing_desk_runtime.refresh_pending(field, now=now)
@@ -1376,6 +1878,9 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
                                        emotional_charge=affect, now=now)
                 agency_state = (agency_runtime.readiness(field)
                                 if agency_runtime is not None else None)
+                intention_state = (
+                    intention_loom_runtime.readiness(field)
+                    if intention_loom_runtime is not None else None)
                 desk_state = (writing_desk_runtime.readiness(field)
                               if writing_desk_runtime is not None else None)
                 archive_state = (archive_reader_runtime.readiness(field)
@@ -1388,8 +1893,15 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
                                  if atelier_runtime is not None else None)
 
                 def capability_owned(candidate):
+                    if (candidate.get("source") in {
+                            "altered_interoception", "altered_consent"}
+                            and candidate.get("ownership") in {
+                                "embodied_self_report", "persona_consent"}):
+                        return True
                     return bool(
-                        (writing_desk_runtime is not None
+                        (intention_loom_runtime is not None
+                         and intention_loom_runtime.eligible(candidate))
+                        or (writing_desk_runtime is not None
                          and writing_desk_runtime.eligible(candidate))
                         or (archive_reader_runtime is not None
                             and archive_reader_runtime.eligible(candidate))
@@ -1401,6 +1913,18 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
                             and atelier_runtime.eligible(candidate)))
 
                 def scorer(candidate):
+                    if (local_volitional_only is not None
+                            and str(candidate.get("key")) not in
+                            local_volitional_only):
+                        return -1.0, {
+                            "local_volitional_opening": True,
+                            "action_eligible": False,
+                        }
+                    if intention_loom_runtime is not None \
+                            and intention_loom_runtime.eligible(candidate):
+                        return intention_loom_runtime.selection_score(
+                            field, candidate, now=now,
+                            readiness=intention_state)
                     if writing_desk_runtime is not None \
                             and writing_desk_runtime.eligible(candidate):
                         return writing_desk_runtime.selection_score(
@@ -1426,6 +1950,9 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
                         return atelier_runtime.selection_score(
                             field, candidate, now=now,
                             readiness=atelier_state)
+                    if candidate.get("source") in {
+                            "altered_interoception", "altered_consent"}:
+                        return field.attention_score(candidate, now=now)
                     if generic_field and agency_runtime is not None:
                         return agency_runtime.selection_score(
                             field, candidate, now=now,
@@ -1455,6 +1982,10 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
                         agency_capacity=(agency_state or {}).get("capacity"),
                         agency_support=(agency_state or {}).get("support"),
                         agency_blocked=(agency_state or {}).get("hard_blocked"),
+                        intention_loom_readiness=(intention_state or {}).get(
+                            "readiness"),
+                        intention_loom_blocked=(intention_state or {}).get(
+                            "hard_blocked"),
                         writing_desk_readiness=(desk_state or {}).get(
                             "readiness"),
                         writing_desk_blocked=(desk_state or {}).get(
@@ -1485,6 +2016,34 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
                         engine, field, item, receipt,
                         metabolism.get("idle_model"), now=now)
                     continue
+                if intention_loom_runtime is not None \
+                        and intention_loom_runtime.eligible(item):
+                    loom_run = intention_loom_runtime.start_candidate(item)
+                    if loom_run.get("started"):
+                        receipt(
+                            "intention_loom_handoff", key=item.get("key"),
+                            proposal_id=loom_run.get("proposal_id"),
+                            run_id=loom_run.get("run_id"))
+                        field.save(now=now)
+                        continue
+                    if loom_run.get("reason") == "stale_candidate":
+                        dp.refund()
+                        receipt("intention_loom_stale_candidate",
+                                key=item.get("key"))
+                        field.save(now=now)
+                        continue
+                    dp.refund()
+                    field.queue.put(
+                        item, item.get("salience", 0.05), now=now,
+                        offer_meta={
+                            "operation": "requeued",
+                            "reason": loom_run.get("reason") or
+                                      "intention_loom_unavailable"})
+                    receipt(
+                        "intention_loom_requeued", key=item.get("key"),
+                        reason=str(loom_run.get("reason") or "unknown")[:200])
+                    field.save(now=now)
+                    continue
                 if writing_desk_runtime is not None \
                         and writing_desk_runtime.eligible(item):
                     desk_run = writing_desk_runtime.start_candidate(item)
@@ -1493,6 +2052,12 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
                             "writing_desk_handoff", key=item.get("key"),
                             proposal_id=desk_run.get("proposal_id"),
                             run_id=desk_run.get("run_id"))
+                        field.save(now=now)
+                        continue
+                    if desk_run.get("reason") == "stale_candidate":
+                        dp.refund()
+                        receipt("writing_desk_stale_candidate",
+                                key=item.get("key"))
                         field.save(now=now)
                         continue
                     # A desk-owned source cannot silently fall through to an
@@ -1569,6 +2134,12 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
                             run_id=research_run.get("run_id"))
                         field.save(now=now)
                         continue
+                    if research_run.get("reason") == "stale_candidate":
+                        dp.refund()
+                        receipt("research_desk_stale_candidate",
+                                key=item.get("key"))
+                        field.save(now=now)
+                        continue
                     dp.refund()
                     field.queue.put(
                         item, item.get("salience", 0.05), now=now,
@@ -1592,6 +2163,12 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
                             run_id=atelier_run.get("run_id"))
                         field.save(now=now)
                         continue
+                    if atelier_run.get("reason") == "stale_candidate":
+                        dp.refund()
+                        receipt("atelier_stale_candidate",
+                                key=item.get("key"))
+                        field.save(now=now)
+                        continue
                     # Creative material belongs to the atelier boundary.  A
                     # missing renderer must not turn it into idle narration or
                     # a paid general-agency call.
@@ -1608,7 +2185,8 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
                                    "unknown")[:200])
                     field.save(now=now)
                     continue
-                if not generic_field:
+                if (not generic_field and item.get("source") not in {
+                        "altered_interoception", "altered_consent"}):
                     dp.refund()
                     field.queue.put(
                         item, item.get("salience", 0.05), now=now,
@@ -1617,7 +2195,9 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
                     receipt("capability_candidate_guard", key=item.get("key"))
                     field.save(now=now)
                     continue
-                if agency_runtime is not None \
+                if item.get("source") not in {
+                        "altered_interoception", "altered_consent"} \
+                        and agency_runtime is not None \
                         and agency_runtime.eligible(item):
                     agency = agency_runtime.start_candidate(item)
                     if agency.get("started"):
@@ -1704,12 +2284,48 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
                             error=str(gen_error)[:200], **ev)
                     field.save(now=now)
                     continue
+                altered_consent = item.get("source") == "altered_consent"
+                if altered_consent:
+                    thought, consent_actions = \
+                        engine.apply_persona_altered_actions(thought)
+                    if consent_actions:
+                        field.satiate(item, now=now)
+                        observer.discharge(
+                            item, "consent_decision", str(consent_actions),
+                            {"candidate_key": item.get("key"),
+                             "model": idle_model, "drift_type": dt,
+                             **generation_meta}, now)
+                        receipt(
+                            "altered_consent_decision",
+                            actions=consent_actions,
+                            candidate_key=item.get("key"),
+                            model=idle_model, **generation_meta, **ev)
+                        field.save(now=now)
+                        continue
+                    # No authority marker means no grant.  The exact request
+                    # remains pending and can be deliberately re-offered.
+                    field.satiate(item, now=now)
+                    observer.discharge(
+                        item, "consent_undecided", thought,
+                        {"candidate_key": item.get("key"),
+                         "model": idle_model, "drift_type": dt,
+                         **generation_meta}, now)
+                    receipt("altered_consent_undecided", model=idle_model,
+                            candidate_key=item.get("key"),
+                            **generation_meta, **ev)
+                    field.save(now=now)
+                    continue
+                altered_expression = (
+                    item.get("source") == "altered_interoception")
                 if not thought or thought.lower() == "[quiet]":
                     try:
                         felt = circulate_experienced_event(
                             engine,
-                            "An unbidden private pull settled without "
-                            "language; nothing was expressed or sent.",
+                            ("An interoceptive opportunity to speak settled "
+                             "without language; nothing was expressed or sent."
+                             if altered_expression else
+                             "An unbidden private pull settled without "
+                             "language; nothing was expressed or sent."),
                             cycle_id=cycle_id)
                         receipt(
                             "dmn_felt_consequence", outcome="quiet",
@@ -1720,6 +2336,10 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
                         receipt(
                             "dmn_consequence_error", outcome="quiet",
                             error_type=type(consequence_error).__name__)
+                    if altered_expression:
+                        altered = getattr(engine, "altered_state", None)
+                        if altered is not None:
+                            altered.settle_expression("quiet", now=now)
                     field.satiate(item, now=now)
                     observer.discharge(
                         item, "quiet", thought,
@@ -1729,6 +2349,83 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
                             **generation_meta, **ev)
                     field.save(now=now)
                     continue
+                if altered_expression:
+                    felt = None
+                    try:
+                        felt = circulate_experienced_event(
+                            engine,
+                            "An autonomous message about the persona's "
+                            "present condition was chosen and sent: " + thought,
+                            cycle_id=cycle_id)
+                        receipt(
+                            "dmn_felt_consequence", outcome="expressed",
+                            felt=sorted(felt.get("felt") or {}),
+                            why=str(felt.get("why") or "")[:240],
+                            affect_change=felt.get("affect_change", 0.0))
+                    except Exception as consequence_error:
+                        receipt(
+                            "dmn_consequence_error", outcome="expressed",
+                            error_type=type(consequence_error).__name__)
+                    context_builder = getattr(
+                        engine, "memory_context_snapshot", None)
+                    memory_context = (
+                        context_builder(now=now)
+                        if callable(context_builder) else None)
+                    body = (engine.soma.snapshot()
+                            if getattr(engine, "soma", None) else None)
+                    fields = {
+                        "channel": "chat", "speaker": "",
+                        "message_full": "", "reply_full": thought,
+                        "autonomous": True,
+                        "autonomous_source": "altered_interoception",
+                        "conversation_id": cycle_id,
+                        "audience": "household", "gist_eligible": True,
+                        "candidate_key": item.get("key"),
+                        "felt_why": str((felt or {}).get("why") or ""),
+                    }
+                    if generation_meta:
+                        fields["generation"] = dict(generation_meta)
+                    ledger = getattr(engine, "conversation_ledger", None)
+                    if ledger is not None:
+                        ledger.admit(
+                            conversation_id=cycle_id, channel="chat",
+                            speaker=engine.persona, message="",
+                            source="altered_interoception")
+                    mem = engine.organ.encode(
+                        thought, cocktail=engine.cocktail, entities=[],
+                        mem_type="turn", origin="lived", fields=fields,
+                        body=body, context_at_encoding=memory_context)
+                    engine.organ.save()
+                    if ledger is not None:
+                        ledger.complete(
+                            cycle_id, reply=thought,
+                            memory_id=(mem or {}).get("id", ""),
+                            receipts={"autonomous": True,
+                                      "source": "altered_interoception"})
+                    altered = getattr(engine, "altered_state", None)
+                    if altered is not None:
+                        altered.settle_expression("expressed", now=now)
+                    field.satiate(item, now=now)
+                    engine.last_turn_ts = now
+                    dp.active_node = node
+                    gist_folded = bool(
+                        engine.gist and
+                        engine.gist.update_idle(engine.organ.memories))
+                    observer.discharge(
+                        item, "expressed", thought,
+                        {"candidate_key": item.get("key"),
+                         "model": idle_model, "drift_type": dt,
+                         **generation_meta}, now)
+                    receipt(
+                        "autonomous_expression", text=thought,
+                        candidate_key=item.get("key"),
+                        salience=round(item.get("salience", 0.0), 3),
+                        mem_id=(mem or {}).get("id"),
+                        gist_folded=gist_folded, model=idle_model,
+                        **generation_meta, **ev)
+                    field.save(now=now)
+                    continue
+                felt = None
                 try:
                     felt = circulate_experienced_event(
                         engine,
@@ -1754,6 +2451,14 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
                         "candidate_key": item.get("key"),
                         "perception_event_ids": list(
                         item.get("perception_event_ids") or [])})
+                    if item.get("source") == "intention_effect":
+                        memory_fields.update({
+                            "intention_id": item.get("intention_id"),
+                            "intention_movement": item.get(
+                                "intention_movement"),
+                            "intention_record_digest": item.get(
+                                "intention_record_digest"),
+                        })
                     if sensory_origin:
                         memory_fields["sensory_source"] = item.get("source")
                 else:
@@ -1772,6 +2477,45 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
                     fields=memory_fields,
                     context_at_encoding=memory_context)
                 engine.organ.save()
+                seed_fields = dict((seed or {}).get("fields") or {})
+                recurrent_private_thought = bool(
+                    not event_origin and seed
+                    and seed_fields.get("channel") == "dmn")
+                if intention_loom_runtime is not None \
+                        and "intention_loom" in engine.enabled \
+                        and recurrent_private_thought:
+                    try:
+                        bonds = dict(getattr(engine.organ, "bonds", {}) or {})
+                        relationship = max(
+                            (float(bonds.get(entity, 0.0)) for entity in
+                             list(seed.get("entities") or [])), default=0.0)
+                        continuity = {
+                            "novelty": 0.0,
+                            "affect_change": float((felt or {}).get(
+                                "affect_change") or 0.0),
+                            "body_intensity": float((felt or {}).get(
+                                "body_change") or 0.0),
+                            "relationship": max(
+                                0.0, min(1.0, relationship)),
+                            "unresolved": max(0.0, min(1.0,
+                                field.preoccupation.warmth(
+                                    str(item.get("key") or ""), now))),
+                        }
+                        loom_cue = intention_loom_runtime.admit_self_cue(
+                            field, str(seed.get("content") or ""),
+                            memory_id=seed.get("id"), now=now,
+                            continuity=continuity)
+                        receipt(
+                            "intention_recurrent_cue",
+                            cue_id=(loom_cue.get("record") or {}).get("cue_id"),
+                            candidate_key=(loom_cue.get("candidate") or {}).get(
+                                "key"),
+                            source_memory_id=seed.get("id"),
+                            continuity=continuity)
+                    except Exception as loom_cue_error:
+                        receipt(
+                            "intention_recurrent_cue_error",
+                            error_type=type(loom_cue_error).__name__)
                 field.satiate(item, now=now)
                 gist_folded = bool(engine.gist and
                                    engine.gist.update_idle(engine.organ.memories))
@@ -1831,6 +2575,7 @@ def turn_failure_message(engine, exc: Exception) -> str:
 def build_app(engine: TurnEngine, max_tokens: int = 600,
               turn_lock=None, speaker: str = None,
               agency_controller=None, agency_runtime=None,
+              intention_loom_runtime=None,
               writing_desk_runtime=None,
               archive_reader_runtime=None,
               document_reader_runtime=None,
@@ -1847,6 +2592,7 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
     app.state.speaker = speaker
     app.state.agency_controller = agency_controller
     app.state.agency_runtime = agency_runtime
+    app.state.intention_loom_runtime = intention_loom_runtime
     app.state.writing_desk_runtime = writing_desk_runtime
     app.state.archive_reader_runtime = archive_reader_runtime
     app.state.document_reader_runtime = document_reader_runtime
@@ -1887,6 +2633,17 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
             return f.read().replace("/*CONFIG*/", json.dumps({
                 "primary_user": current_speaker(),
                 "persona_avatar": "/api/avatar"}))
+
+    @app.get("/api/user-personas")
+    def user_personas():
+        """Chat-safe projection of RP identities owned by the local account."""
+        from core.users import get_user
+        user = get_user(REPO, app.state.engine.local_user_id)
+        personas = list((user or {}).get("user_personas", {}).values())
+        return {"user": app.state.engine.local_user_id,
+                "display_name": current_speaker(),
+                "personas": sorted(personas,
+                                   key=lambda item: item["name"].lower())}
 
     @app.get("/api/ui/conversation-background")
     def conversation_background():
@@ -2155,7 +2912,7 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
                     "admitted_speech_turn", "human_speech")
                 turn_result = app.state.engine.take_turn(
                     transcript.text, max_tokens=app.state.max_tokens,
-                    speaker=subject)
+                    speaker=subject, user_persona=req.user_persona)
             elif transcript.text:
                 field = getattr(app.state.engine, "idle_metabolism", None)
                 if (sensory["admitted"] and field is not None
@@ -2222,7 +2979,19 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
 
     @app.get("/api/state")
     def state():
-        return app.state.engine.get_state()
+        value = app.state.engine.get_state()
+        roster = None
+        roster_path = os.path.join(app.state.engine.pdir, "roster.yaml")
+        if os.path.isfile(roster_path):
+            try:
+                import yaml
+                with open(roster_path, encoding="utf-8") as handle:
+                    roster = yaml.safe_load(handle) or {}
+            except (OSError, ValueError, TypeError):
+                roster = None
+        value["voice_output_config"] = normalize_output_config(
+            (roster or {}).get("voice_output"))
+        return value
 
     def document_library():
         library = getattr(app.state.engine, "documents", None)
@@ -2338,6 +3107,44 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
         finally:
             app.state.turn_lock.release()
 
+    @app.post("/api/documents/{doc_id}/reading-arc")
+    def document_reading_arc(doc_id: str, req: DocumentReadingArcRequest):
+        library = document_library()
+        if library is None:
+            return JSONResponse(status_code=503, content={
+                "error": "document library is not attached"})
+        if not app.state.turn_lock.acquire(blocking=False):
+            return JSONResponse(status_code=409, content={
+                "error": "attention is occupied; reading arc did not change"})
+        try:
+            action = str(req.action or "").strip().casefold()
+            external_demand(f"document_reading_arc_{action}", "human_document")
+            if action == "start":
+                arc = library.start_reading_arc(
+                    doc_id, start_section=req.start_section, pace=req.pace)
+            elif action in {"natural", "foreground"}:
+                current = library.reading_arc_status()
+                if current.get("doc_id") != doc_id:
+                    raise DocumentError(
+                        "reading arc belongs to a different document")
+                arc = library.set_reading_arc_pace(action)
+            else:
+                current = library.reading_arc_status()
+                if current.get("doc_id") != doc_id:
+                    raise DocumentError(
+                        "reading arc belongs to a different document")
+                arc = library.change_reading_arc(action)
+            status = library.status()
+            runtime = app.state.document_reader_runtime
+            if runtime is not None:
+                status["autonomous_reader"] = runtime.status()
+            return {"ok": True, "arc": arc, "status": status}
+        except DocumentError as exc:
+            return JSONResponse(status_code=400,
+                                content={"error": str(exc)[:500]})
+        finally:
+            app.state.turn_lock.release()
+
     @app.get("/api/archive")
     def archive_status():
         archive = conversation_archive()
@@ -2435,9 +3242,105 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
                 "error": "writing desk is not attached"})
         return runtime.status()
 
+    @app.get("/api/intention-loom")
+    def intention_loom_status():
+        runtime = app.state.intention_loom_runtime
+        if runtime is None:
+            return JSONResponse(status_code=503, content={
+                "error": "intention loom is not attached"})
+        return runtime.status()
+
+    @app.post("/api/intention-loom/cues")
+    def intention_loom_cue(req: IntentionCueRequest):
+        runtime = app.state.intention_loom_runtime
+        if runtime is None:
+            return JSONResponse(status_code=503, content={
+                "error": "intention loom is not attached"})
+        field = getattr(app.state.engine, "idle_metabolism", None)
+        if field is None:
+            return JSONResponse(status_code=409, content={
+                "error": "intention loom needs the shared DMN field"})
+        if not app.state.turn_lock.acquire(blocking=False):
+            return JSONResponse(status_code=409, content={
+                "error": "attention is occupied; possibility was not offered"})
+        try:
+            external_demand("intention_loom_cue", "human_possibility")
+            bonds = dict(getattr(
+                getattr(app.state.engine, "organ", None), "bonds", {}) or {})
+            relationship = next((float(value) for name, value in bonds.items()
+                                 if str(name).casefold() ==
+                                 str(speaker).casefold()), 0.0)
+            admitted = runtime.admit_cue(
+                field, req.label, req.content, ownership="human_offered",
+                continuity={
+                    "novelty": 1.0,
+                    "affect_change": 0.0,
+                    "body_intensity": 0.0,
+                    "relationship": max(0.0, min(1.0, relationship)),
+                    "unresolved": 1.0,
+                })
+            return {"ok": True, **admitted, "status": runtime.status()}
+        except ValueError as exc:
+            return JSONResponse(status_code=400,
+                                content={"error": str(exc)[:500]})
+        finally:
+            app.state.turn_lock.release()
+
+    @app.get("/api/intention-loom/intentions/{intention_id}")
+    def intention_loom_intention(intention_id: str):
+        runtime = app.state.intention_loom_runtime
+        if runtime is None:
+            return JSONResponse(status_code=503, content={
+                "error": "intention loom is not attached"})
+        try:
+            return runtime.loom.intention(intention_id)
+        except ValueError as exc:
+            return JSONResponse(status_code=404,
+                                content={"error": str(exc)[:500]})
+
+    @app.post("/api/intention-loom/intentions/{intention_id}/resume")
+    def intention_loom_resume(intention_id: str):
+        runtime = app.state.intention_loom_runtime
+        if runtime is None:
+            return JSONResponse(status_code=503, content={
+                "error": "intention loom is not attached"})
+        field = getattr(app.state.engine, "idle_metabolism", None)
+        if field is None:
+            return JSONResponse(status_code=409, content={
+                "error": "intention loom needs the shared DMN field"})
+        if not app.state.turn_lock.acquire(blocking=False):
+            return JSONResponse(status_code=409, content={
+                "error": "attention is occupied; return was not offered"})
+        try:
+            external_demand("intention_loom_return_offer", "human_possibility")
+            result = runtime.resume_intention(field, intention_id)
+            return {"ok": True, **result, "status": runtime.status()}
+        except ValueError as exc:
+            return JSONResponse(status_code=400,
+                                content={"error": str(exc)[:500]})
+        finally:
+            app.state.turn_lock.release()
+
     @app.get("/api/autonomous-works")
     def autonomous_works():
         return _autonomous_works(app)
+
+    @app.get("/api/experiential-continuity")
+    def experiential_continuity():
+        projector = getattr(app.state.engine, "experiential_continuity", None)
+        if projector is None:
+            return {
+                "schema": 1,
+                "persona": app.state.engine.persona,
+                "movements": [], "standing": [], "text": "",
+                "receipt": {
+                    "schema": 1, "status": "unavailable",
+                    "movement_count": 0, "standing_count": 0,
+                    "rendered": False,
+                    "reason": "continuity_projector_not_attached",
+                },
+            }
+        return projector.snapshot()
 
     @app.post("/api/writing-desk/seeds")
     def writing_desk_seed(req: WritingDeskSeedRequest):
@@ -2769,6 +3672,33 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
             return JSONResponse(status_code=400,
                                 content={"error": str(e)[:500]})
 
+    @app.post("/api/voice/config")
+    def voice_output_config(req: VoiceOutputConfigRequest):
+        """Switch this persona's speaking vessel without restarting it."""
+        provider = str(req.provider or "").strip()
+        voice = str(req.voice or "").strip()
+        if provider not in OUTPUT_PROVIDERS:
+            return JSONResponse(status_code=400, content={
+                "error": f"unknown voice output provider '{provider}'"})
+        if len(voice) > 160 or any(char in voice for char in "\r\n"):
+            return JSONResponse(status_code=400, content={
+                "error": "voice identifier must be one line under 161 characters"})
+        roster_path = os.path.join(app.state.engine.pdir, "roster.yaml")
+        if not os.path.isfile(roster_path):
+            return JSONResponse(status_code=409, content={
+                "error": "this runtime-only persona has no roster to save into"})
+        try:
+            write_roster_mapping_scalar(app.state.engine.pdir,
+                                        "voice_output", "provider", provider)
+            write_roster_mapping_scalar(app.state.engine.pdir,
+                                        "voice_output", "voice", voice)
+        except (OSError, ValueError) as error:
+            return JSONResponse(status_code=400,
+                                content={"error": str(error)[:500]})
+        return {"ok": True, "voice_output_config": {
+            "provider": provider, "voice": voice},
+            "restart_required": False}
+
     def salience_for(persona):
         if str(persona).lower() != app.state.engine.persona.lower():
             return None
@@ -2932,6 +3862,125 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
     def mood(req: MoodRequest):
         return app.state.engine.set_mood(req.cocktail)
 
+    @app.get("/api/altered-state")
+    def altered_state_status():
+        organ = getattr(app.state.engine, "altered_state", None)
+        if organ is None:
+            return JSONResponse(status_code=503, content={
+                "error": "altered_state organ is not enabled"})
+        return organ.status()
+
+    @app.post("/api/altered-state/request-consent")
+    def altered_state_request_consent(req: AlteredConsentRequest):
+        if not app.state.turn_lock.acquire(blocking=False):
+            return JSONResponse(status_code=409, content={
+                "error": "persona is mid-turn"})
+        try:
+            engine = app.state.engine
+            organ = getattr(engine, "altered_state", None)
+            if organ is None:
+                return JSONResponse(status_code=503, content={
+                    "error": "altered_state organ is not enabled"})
+            result = organ.request_consent(
+                req.action, req.profile, req.intensity)
+            field = getattr(engine, "idle_metabolism", None)
+            if field is not None and "dmn" in getattr(engine, "enabled", set()):
+                offer_altered_consent(engine, field,
+                                      now=__import__("time").time())
+                field.save()
+                result = organ.status()
+            return result
+        except ValueError as exc:
+            return JSONResponse(status_code=400,
+                                content={"error": str(exc)})
+        finally:
+            app.state.turn_lock.release()
+
+    @app.post("/api/altered-state/cancel-consent")
+    def altered_state_cancel_consent():
+        if not app.state.turn_lock.acquire(blocking=False):
+            return JSONResponse(status_code=409, content={
+                "error": "persona is mid-turn"})
+        try:
+            engine = app.state.engine
+            organ = getattr(engine, "altered_state", None)
+            if organ is None:
+                return JSONResponse(status_code=503, content={
+                    "error": "altered_state organ is not enabled"})
+            result = organ.cancel_consent_request()
+            field = getattr(engine, "idle_metabolism", None)
+            if field is not None and prune_stale_altered_consent(
+                    engine, field, now=__import__("time").time()):
+                field.save()
+            return result
+        except ValueError as exc:
+            return JSONResponse(status_code=400,
+                                content={"error": str(exc)})
+        finally:
+            app.state.turn_lock.release()
+
+    @app.post("/api/altered-state/begin")
+    def altered_state_begin(req: AlteredStateRequest):
+        if not app.state.turn_lock.acquire(blocking=False):
+            return JSONResponse(status_code=409, content={
+                "error": "persona is mid-turn"})
+        try:
+            engine = app.state.engine
+            organ = getattr(engine, "altered_state", None)
+            if organ is None:
+                return JSONResponse(status_code=503, content={
+                    "error": "altered_state organ is not enabled"})
+            body = engine.soma.snapshot() if engine.soma else {}
+            consent_receipt = organ.consume_consent(
+                "begin", req.profile, req.intensity)
+            return organ.begin(
+                req.profile, req.intensity,
+                set_snapshot={
+                    "persona_consent": consent_receipt,
+                    "cocktail": dict(engine.cocktail or {}),
+                    "bands": dict(engine.osc.bands) if engine.osc else {},
+                    "coherence": (engine.osc.coherence()
+                                  if engine.osc else 1.0),
+                    "body": body,
+                })
+        except ValueError as exc:
+            return JSONResponse(status_code=400,
+                                content={"error": str(exc)})
+        finally:
+            app.state.turn_lock.release()
+
+    @app.post("/api/altered-state/adjust")
+    def altered_state_adjust(req: AlteredDoseRequest):
+        if not app.state.turn_lock.acquire(blocking=False):
+            return JSONResponse(status_code=409, content={
+                "error": "persona is mid-turn"})
+        try:
+            organ = getattr(app.state.engine, "altered_state", None)
+            if organ is None:
+                return JSONResponse(status_code=503, content={
+                    "error": "altered_state organ is not enabled"})
+            organ.consume_consent("adjust", req.profile, req.intensity)
+            return organ.adjust_intensity(req.intensity)
+        except ValueError as exc:
+            return JSONResponse(status_code=400,
+                                content={"error": str(exc)})
+        finally:
+            app.state.turn_lock.release()
+
+    @app.post("/api/altered-state/abort")
+    def altered_state_abort():
+        if not app.state.turn_lock.acquire(blocking=False):
+            return JSONResponse(status_code=409, content={
+                "error": "persona is mid-turn"})
+        try:
+            organ = getattr(app.state.engine, "altered_state", None)
+            if organ is None:
+                return JSONResponse(status_code=503, content={
+                    "error": "altered_state organ is not enabled"})
+            return organ.abort()
+        finally:
+            app.state.turn_lock.release()
+
     @app.get("/api/organs")
     def organs():
         capability = (app.state.engine.spec.get("module_capability") or {})
@@ -3011,6 +4060,18 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
                   else item.dict()) for item in req.images])
         except ValueError as e:
             return JSONResponse(status_code=400, content={"error": str(e)})
+        conversation_id = new_cycle_id()
+        ledger = getattr(app.state.engine, "conversation_ledger", None)
+        if ledger is not None:
+            ledger.admit(
+                conversation_id=conversation_id, channel="chat",
+                speaker=req.speaker or current_speaker(),
+                speaker_account=req.speaker or current_speaker(),
+                user_persona=req.user_persona,
+                message=(req.message or "").strip() or (
+                    "[shared image material]" if images else ""),
+                images=[public_image_record(item) for item in images],
+                source="cockpit_turn")
         external_demand("human_turn_arrived", "human_turn")
         # A human turn is durable demand, not a best-effort sensory event.
         # If Nexus speech currently owns the one-mouth lock, wait for that
@@ -3022,14 +4083,18 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
                                               max_tokens=app.state.max_tokens,
                                               speaker=req.speaker or
                                                       current_speaker(),
-                                              images=images)
+                                              images=images,
+                                              user_persona=req.user_persona,
+                                              conversation_id=conversation_id)
         except Exception as e:
             # a lost turn should fail as WORDS, never a plain-text 500
             # the UI can't parse. Traceback still lands in the tenant log.
             import traceback
             traceback.print_exc()
             return JSONResponse(status_code=504, content={
-                "error": turn_failure_message(app.state.engine, e)})
+                "error": turn_failure_message(app.state.engine, e),
+                "conversation": {"id": conversation_id,
+                                 "status": "failed_saved"}})
         finally:
             app.state.turn_lock.release()
 
@@ -3043,6 +4108,18 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
                   else item.dict()) for item in req.images])
         except ValueError as e:
             return JSONResponse(status_code=400, content={"error": str(e)})
+        conversation_id = new_cycle_id()
+        ledger = getattr(app.state.engine, "conversation_ledger", None)
+        if ledger is not None:
+            ledger.admit(
+                conversation_id=conversation_id, channel="chat",
+                speaker=req.speaker or current_speaker(),
+                speaker_account=req.speaker or current_speaker(),
+                user_persona=req.user_persona,
+                message=(req.message or "").strip() or (
+                    "[shared image material]" if images else ""),
+                images=[public_image_record(item) for item in images],
+                source="cockpit_turn_stream")
         external_demand("human_turn_arrived", "human_turn_stream")
         # Streaming solo turns obey the same event-driven queue as JSON turns.
         app.state.turn_lock.acquire()
@@ -3054,6 +4131,8 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
                 result = app.state.engine.take_turn(
                     req.message, max_tokens=app.state.max_tokens,
                     speaker=req.speaker or current_speaker(), images=images,
+                    user_persona=req.user_persona,
+                    conversation_id=conversation_id,
                     on_text=lambda text: events.put({"type": "delta",
                                                      "text": text}))
                 events.put({"type": "final", "result": result})
@@ -3061,7 +4140,9 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
                 import traceback
                 traceback.print_exc()
                 events.put({"type": "error", "error":
-                            turn_failure_message(app.state.engine, e)})
+                            turn_failure_message(app.state.engine, e),
+                            "conversation": {"id": conversation_id,
+                                             "status": "failed_saved"}})
             finally:
                 app.state.turn_lock.release()
 
@@ -3183,6 +4264,9 @@ def main():
     from shell.agency_runtime import AgencyRuntime
     agency_runtime = AgencyRuntime(
         engine, agency_controller, (roster or {}).get("agency"))
+    from shell.intention_loom_runtime import IntentionLoomRuntime
+    intention_loom_runtime = IntentionLoomRuntime(
+        engine, agency_controller, (roster or {}).get("intention_loom"))
     from shell.writing_desk_runtime import WritingDeskRuntime
     writing_desk_runtime = WritingDeskRuntime(
         engine, agency_controller, (roster or {}).get("writing_desk"))
@@ -3200,10 +4284,49 @@ def main():
     from shell.atelier_runtime import AtelierRuntime
     atelier_runtime = AtelierRuntime(
         engine, agency_controller, (roster or {}).get("atelier"))
+    from core.experiential_continuity import ExperientialContinuity
+    engine.experiential_continuity = ExperientialContinuity(
+        engine.persona,
+        agency=agency_runtime.workbench,
+        intention_loom=intention_loom_runtime.loom,
+        writing_desk=writing_desk_runtime.desk,
+        archive_reader=archive_reader_runtime.archive,
+        document_reader=document_reader_runtime.library,
+        research_desk=research_desk_runtime.desk,
+        atelier=atelier_runtime.atelier,
+    )
+    engine.register_volitional_action(
+        "offer_intention",
+        lambda action: intention_loom_runtime.admit_cue(
+            engine.idle_metabolism, action["target"], action["text"] or "",
+            ownership="persona_chosen_conversation"),
+        requires="intention_loom")
+    engine.register_volitional_action(
+        "offer_writing",
+        lambda action: writing_desk_runtime.admit_seed(
+            engine.idle_metabolism, action["target"],
+            content=action["text"] or "",
+            ownership="persona_chosen_conversation"),
+        requires="writing_desk")
+    engine.register_volitional_action(
+        "offer_research",
+        lambda action: research_desk_runtime.admit_interest(
+            engine.idle_metabolism,
+            (action["target"] + (" " + action["text"]
+                                  if action["text"] else "")).strip(),
+            origin="persona_chosen_conversation"),
+        requires="research_desk")
+    engine.register_volitional_action(
+        "offer_atelier",
+        lambda action: atelier_runtime.admit_seed(
+            engine.idle_metabolism, action["target"], action["text"] or "",
+            ownership="persona_chosen_conversation"),
+        requires="atelier")
     app = build_app(engine, max_tokens=args.max_tokens,
                     turn_lock=shared_lock, speaker=args.speaker,
                     agency_controller=agency_controller,
                     agency_runtime=agency_runtime,
+                    intention_loom_runtime=intention_loom_runtime,
                     writing_desk_runtime=writing_desk_runtime,
                     archive_reader_runtime=archive_reader_runtime,
                     document_reader_runtime=document_reader_runtime,
@@ -3231,7 +4354,8 @@ def main():
                   f"discharge tiers that spend it will refuse")
     threading.Thread(target=dmn_loop,
                       args=(engine, shared_lock, metabolism, stop,
-                            agency_runtime, writing_desk_runtime,
+                            agency_runtime, intention_loom_runtime,
+                            writing_desk_runtime,
                             archive_reader_runtime, document_reader_runtime,
                             research_desk_runtime,
                             atelier_runtime),

@@ -162,6 +162,8 @@ class WritingDeskRuntime:
 
     def capability(self) -> dict:
         enabled = "writing_desk" in getattr(self.engine, "enabled", set())
+        volitional_offer = "offer_writing" in getattr(
+            self.engine, "_volitional_actions", {})
         if not enabled:
             try:
                 identity = dict((self._load_spec().get("identity") or {}))
@@ -172,7 +174,9 @@ class WritingDeskRuntime:
                 "model": self.config.model,
                 "locality": str(identity.get("locality") or "unknown"),
                 "provider": identity.get("provider"),
-                "event_bridge": False, "paid_fallbacks": 0,
+                "event_bridge": False,
+                "volitional_offer": volitional_offer,
+                "paid_fallbacks": 0,
             }
         try:
             spec = self._load_spec()
@@ -196,6 +200,7 @@ class WritingDeskRuntime:
                 "model": self.config.model, "locality": locality,
                 "provider": identity.get("provider"),
                 "event_bridge": event_bridge,
+                "volitional_offer": volitional_offer,
                 "paid_fallbacks": 0,
             }
         except Exception as exc:
@@ -204,6 +209,7 @@ class WritingDeskRuntime:
                 "reason": f"writing desk model unavailable: {type(exc).__name__}",
                 "model": self.config.model, "locality": "unknown",
                 "provider": None, "event_bridge": False,
+                "volitional_offer": volitional_offer,
                 "paid_fallbacks": 0,
             }
 
@@ -242,6 +248,11 @@ class WritingDeskRuntime:
                 f"A self-chosen cited research handoff named "
                 f"{record.get('label') or 'untitled'} is waiting on the desk.")
             relationship = .3
+        elif ownership == "persona_chosen_conversation":
+            description = (
+                f"Self-chosen writing material named "
+                f"{record.get('label') or 'untitled'} is waiting on the desk.")
+            relationship = 1.0
         else:
             description = (
                 f"Human-admitted writing material named "
@@ -490,10 +501,25 @@ class WritingDeskRuntime:
             record = {"project_id": project["project_id"]}
         return "quiet", record
 
+    def _candidate_current(self, candidate: Mapping[str, Any]) -> bool:
+        source = str(dict(candidate or {}).get("source") or "")
+        if source == "writing_desk_seed":
+            seed_id = candidate.get("seed_id")
+            return seed_id in {
+                value.get("seed_id") for value in self.desk.pending_seeds()}
+        if source == "writing_desk_project":
+            project_id = candidate.get("project_id")
+            return project_id in {
+                value.get("project_id")
+                for value in self.desk.projects_status(state="open")}
+        return False
+
     def start_candidate(self, candidate: Mapping[str, Any]) -> dict:
         candidate = dict(candidate or {})
         if not self.eligible(candidate):
             return {"started": False, "reason": "not_eligible"}
+        if not self._candidate_current(candidate):
+            return {"started": False, "reason": "stale_candidate"}
         readiness = self.readiness(getattr(self.engine, "idle_metabolism", None))
         if readiness.get("hard_blocked"):
             return {"started": False, "reason": "state_blocked",

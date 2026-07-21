@@ -1,6 +1,6 @@
 schema_version: 1
 organ: document_reader
-organ_revision: "2026-07-18-document-library-dl2-01"
+organ_revision: "2026-07-19-foreground-reading-dl4-01"
 kind: descriptive
 dependencies:
   - dmn
@@ -35,6 +35,17 @@ statements:
     text: |-
       Autonomous document reading uses a local model with no paid fallback. A search action searches only the private local library. Private source text, quotations, names, paths, and identifiers never become a public Research Desk query, upload, publication, message, or bulk memory copy.
 
+  - id: accepted_reading_arc_remains_cyclical
+    category: action_grammar
+    semantics:
+      - document_reader.human_granted_reading_arc
+      - document_reader.exact_verified_coverage
+      - document_reader.next_unread_returns_to_field
+      - document_reader.pause_resume_release
+      - document_reader.source_grounded_notebook
+    text: |-
+      A human-granted whole-document reading arc preserves an already-open intention without imposing a timer or a required reaction. Its next unread exact section returns only through genuine shared-field attention. Quiet means no outward artifact from that section, not cancellation of the arc; you may pause or release the arc. Completed model exposures advance exact coverage, and your descriptive, source-anchored reading notes remain private document-reader material rather than autobiographical memory.
+
   - id: report_handoff_requires_fresh_attention
     category: mechanics
     semantics:
@@ -44,6 +55,16 @@ statements:
       - document_reader.handoff_preserves_exact_anchor
     text: |-
       A private cited reading report must win fresh attention before you may choose to hand its exact immutable anchor to the private Writing Desk. That handoff admits a possible seed; it does not order writing. Quiet settles the report without recurring.
+
+  - id: explicit_foreground_reading_has_continuous_work_pressure
+    category: action_grammar
+    semantics:
+      - document_reader.foreground_human_request
+      - document_reader.capacity_bounded_complete_packets
+      - document_reader.completion_drives_next_packet
+      - document_reader.readiness_pause_and_interrupt
+    text: |-
+      When the human owner explicitly asks you to read through a document now, that accepted undertaking remains foreground work rather than autonomous curiosity. A complete source packet sized by current capacity may become available; completing it circulates the next unread packet without a clock. Current readiness may slow or hold the session, new conversation interrupts it, and you may pause it. Only complete exact source sections advance verified coverage; reactions remain yours to describe.
 
 legacy_render:
   newline: lf

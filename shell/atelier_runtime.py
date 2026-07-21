@@ -9,6 +9,8 @@ fallback provider call is admitted. Procedural sound crosses as a bounded
 score graph; trusted host code owns every Web Audio operation.
 Three-dimensional form crosses as bounded primitives and spatial relations;
 trusted host code owns meshes, matrices, shaders, and every WebGL call.
+Cross-medium composition references already-admitted immutable artifacts;
+trusted host code owns provenance resolution, the shared clock, and playback.
 """
 from __future__ import annotations
 
@@ -39,7 +41,7 @@ ATELIER_SOURCES = frozenset({"atelier_seed"})
 ATELIER_AUTHORITY_TIER = 2
 ATELIER_ACTIONS = frozenset({
     "quiet", "create_svg", "create_kinetic_svg", "create_canvas",
-    "create_audio", "create_3d", "create_diffusion",
+    "create_audio", "create_3d", "create_composition", "create_diffusion",
 })
 
 
@@ -120,18 +122,19 @@ def parse_atelier_proposal(text: str) -> dict[str, Any]:
     if not isinstance(proposal, dict):
         raise ValueError("atelier model did not return one JSON object")
     legacy = {"action", "title", "svg"}
-    allowed = {"action", "title", "svg", "scene", "score", "motions", "prompt",
-               "negative_prompt", "aspect"}
+    allowed = {"action", "title", "svg", "scene", "score", "composition",
+               "motions", "prompt", "negative_prompt", "aspect"}
     unknown = set(proposal) - allowed
     if unknown:
         raise ValueError(
             f"atelier proposal contains unknown fields: {sorted(unknown)}")
-    at4 = allowed - {"score"}
+    at6 = allowed - {"composition"}
+    at4 = at6 - {"score"}
     at3 = at4 - {"scene"}
     at2 = at3 - {"motions"}
     if frozenset(proposal) not in {
             frozenset(legacy), frozenset(at2), frozenset(at3),
-            frozenset(at4), frozenset(allowed)}:
+            frozenset(at4), frozenset(at6), frozenset(allowed)}:
         raise ValueError("atelier proposal must contain the complete renderer shape")
     if "motions" in proposal and not isinstance(proposal["motions"], list):
         raise ValueError("atelier motions must be an array")
@@ -139,6 +142,9 @@ def parse_atelier_proposal(text: str) -> dict[str, Any]:
         raise ValueError("atelier scene must be an object")
     if "score" in proposal and not isinstance(proposal["score"], dict):
         raise ValueError("atelier score must be an object")
+    if "composition" in proposal \
+            and not isinstance(proposal["composition"], dict):
+        raise ValueError("atelier composition must be an object")
     action = str(proposal.get("action") or "").strip().casefold()
     if action not in ATELIER_ACTIONS:
         raise ValueError("atelier proposal action is invalid")
@@ -148,51 +154,61 @@ def parse_atelier_proposal(text: str) -> dict[str, Any]:
         "svg": str(proposal.get("svg") or "").strip(),
         "scene": proposal.get("scene", {}),
         "score": proposal.get("score", {}),
+        "composition": proposal.get("composition", {}),
         "motions": proposal.get("motions", []),
         "prompt": str(proposal.get("prompt") or "").strip(),
         "negative_prompt": str(proposal.get("negative_prompt") or "").strip(),
         "aspect": _finite(proposal.get("aspect"), 1.0),
     }
     if action == "quiet" and any(
-            value[key] for key in ("title", "svg", "scene", "score", "motions",
-                                   "prompt", "negative_prompt")):
+            value[key] for key in ("title", "svg", "scene", "score",
+                                   "composition", "motions", "prompt",
+                                   "negative_prompt")):
         raise ValueError("quiet atelier proposal must not carry an artifact")
     if action == "create_svg" and (
             not value["title"] or not value["svg"] or value["prompt"]
             or value["negative_prompt"] or value["motions"] or value["scene"]
-            or value["score"]):
+            or value["score"] or value["composition"]):
         raise ValueError("SVG atelier proposal requires only title and svg")
     if action == "create_kinetic_svg" and (
             not value["title"] or not value["svg"]
             or not isinstance(value["motions"], list) or not value["motions"]
             or value["prompt"] or value["negative_prompt"] or value["scene"]
-            or value["score"]):
+            or value["score"] or value["composition"]):
         raise ValueError(
             "kinetic SVG proposal requires title, svg, and motion vectors")
     if action == "create_canvas" and (
             not value["title"] or not isinstance(value["scene"], dict)
             or not value["scene"] or value["svg"] or value["prompt"]
             or value["negative_prompt"] or value["score"]
-            or value["aspect"] != 1.0):
+            or value["composition"] or value["aspect"] != 1.0):
         raise ValueError(
             "Canvas proposal requires title, scene, optional motions, and aspect 1.0")
     if action == "create_audio" and (
             not value["title"] or not isinstance(value["score"], dict)
             or not value["score"] or value["svg"] or value["scene"]
             or value["motions"] or value["prompt"] or value["negative_prompt"]
-            or value["aspect"] != 1.0):
+            or value["composition"] or value["aspect"] != 1.0):
         raise ValueError(
             "audio proposal requires title, score, and otherwise empty renderer fields")
     if action == "create_3d" and (
             not value["title"] or not isinstance(value["scene"], dict)
             or not value["scene"] or value["score"] or value["svg"]
             or value["prompt"] or value["negative_prompt"]
-            or value["aspect"] != 1.0):
+            or value["composition"] or value["aspect"] != 1.0):
         raise ValueError(
             "3D proposal requires title, scene, optional motions, and aspect 1.0")
+    if action == "create_composition" and (
+            not value["title"] or not isinstance(value["composition"], dict)
+            or not value["composition"] or value["svg"] or value["scene"]
+            or value["score"] or value["motions"] or value["prompt"]
+            or value["negative_prompt"] or value["aspect"] != 1.0):
+        raise ValueError(
+            "composition proposal requires title, composition, and otherwise empty renderer fields")
     if action == "create_diffusion" and (
             not value["title"] or not value["prompt"] or value["svg"]
-            or value["motions"] or value["scene"] or value["score"]):
+            or value["motions"] or value["scene"] or value["score"]
+            or value["composition"]):
         raise ValueError("diffusion proposal requires title and prompt, not SVG")
     if not .625 <= value["aspect"] <= 1.6:
         raise ValueError("atelier aspect must be between 0.625 and 1.6")
@@ -248,20 +264,31 @@ class AtelierRuntime:
         return self._adapter
 
     def capability(self) -> dict:
-        media = (["svg", "kinetic svg", "canvas", "procedural audio",
-                  "3d scene", "png"]
-                 if self.config.diffusion_enabled
-                 else ["svg", "kinetic svg", "canvas", "procedural audio",
-                       "3d scene"])
+        base_media = ["svg", "kinetic svg", "canvas", "procedural audio",
+                      "3d scene", "composition"]
+        last_probe = (dict(self.comfy.last_probe)
+                      if self.comfy is not None and self.comfy.last_probe
+                      else None)
+        raster_ready = bool(
+            self.config.diffusion_enabled
+            and last_probe
+            and last_probe.get("reachable")
+            and last_probe.get("checkpoint_ready"))
+        media = [*base_media, *(("png",) if raster_ready else ())]
         diffusion = {
             "enabled": self.config.diffusion_enabled,
+            "status": ("ready" if raster_ready else
+                       "unavailable" if last_probe else
+                       "unchecked" if self.config.diffusion_enabled else
+                       "disabled"),
+            "usable": raster_ready,
             "renderer": "comfyui", "locality": "local",
             "checkpoint": self.config.comfy_checkpoint,
             "endpoint": self.config.comfy_endpoint,
-            "last_probe": (dict(self.comfy.last_probe)
-                           if self.comfy is not None and self.comfy.last_probe
-                           else None),
+            "last_probe": last_probe,
         }
+        volitional_offer = "offer_atelier" in getattr(
+            self.engine, "_volitional_actions", {})
         enabled = "atelier" in getattr(self.engine, "enabled", set())
         if not enabled:
             return {
@@ -269,6 +296,7 @@ class AtelierRuntime:
                 "model": self.config.model, "locality": "unknown",
                 "provider": None, "event_bridge": False,
                 "media": media, "diffusion": diffusion,
+                "volitional_offer": volitional_offer,
                 "paid_fallbacks": 0,
             }
         try:
@@ -294,6 +322,7 @@ class AtelierRuntime:
                 "provider": identity.get("provider"),
                 "event_bridge": event_bridge, "media": media,
                 "diffusion": diffusion,
+                "volitional_offer": volitional_offer,
                 "paid_fallbacks": 0,
             }
         except Exception as exc:
@@ -303,6 +332,7 @@ class AtelierRuntime:
                 "model": self.config.model, "locality": "unknown",
                 "provider": None, "event_bridge": False,
                 "media": media, "diffusion": diffusion,
+                "volitional_offer": volitional_offer,
                 "paid_fallbacks": 0,
             }
 
@@ -335,16 +365,20 @@ class AtelierRuntime:
         }
 
     def _offer_seed(self, field, record: Mapping[str, Any], *, now: float):
+        ownership = str(record.get("ownership") or "human_admitted")
+        description = ("Self-chosen creative material" if
+                       ownership == "persona_chosen_conversation" else
+                       "Human-admitted creative material")
         candidate = field.offer_cognitive_event(
             "atelier_seed",
-            f"Human-admitted creative material named "
+            f"{description} named "
             f"{record.get('label') or 'untitled'} is waiting in the atelier.",
             {"novelty": 1.0, "affect_change": 0.0,
              "body_intensity": 0.0, "relationship": 1.0,
              "unresolved": 1.0},
             key=f"atelier_seed:{record['seed_id']}", now=now,
             raw_ref=record.get("source_digest"),
-            ownership="human_admitted",
+            ownership=ownership,
             receipts=[record.get("source_digest")])
         candidate.update({
             "seed_id": record["seed_id"],
@@ -366,9 +400,11 @@ class AtelierRuntime:
         return offered
 
     def admit_seed(self, field, label: str, brief: str, *,
-                   now: float = None) -> dict:
+                   now: float = None,
+                   ownership: str = "human_admitted") -> dict:
         now = time.time() if now is None else float(now)
-        record = self.atelier.admit_seed(label, brief)
+        record = self.atelier.admit_seed(
+            label, brief, ownership=ownership)
         candidate = self._offer_seed(field, record, now=now)
         field.save(now=now)
         self._emit(
@@ -404,13 +440,33 @@ class AtelierRuntime:
 
     def _assembly(self, candidate: Mapping[str, Any], spec):
         seed = self.atelier.seed(candidate.get("seed_id"), include_brief=True)
+        available = [{
+            "artifact_id": item.get("artifact_id"),
+            "title": str(item.get("title") or "")[:160],
+            "medium": item.get("medium"), "variant": item.get("variant"),
+            "sha256": item.get("sha256"),
+        } for item in self.atelier.artifacts_status()
+            if item.get("medium") != "composition"]
+        family_for = {
+            "svg": "visual2d", "png": "visual2d", "webp": "visual2d",
+            "canvas": "visual2d", "scene3d": "spatial", "audio": "audio",
+        }
+        families = {family_for.get(str(item.get("medium") or ""))
+                    for item in available}
+        families.discard(None)
+        composition_ready = len(families) >= 2 and bool(
+            families.intersection({"visual2d", "spatial"}))
         medium_law = (
             "Available forms are static SVG, kinetic SVG, Canvas, procedural "
-            "sound, trusted 3D, and local "
+            "sound, trusted 3D, "
+            + ("cross-medium composition, " if composition_ready else "")
+            + "and local "
             "ComfyUI diffusion. "
             if self.config.diffusion_enabled else
             "Available forms are static SVG, kinetic SVG, Canvas, and procedural "
-            "sound, and trusted 3D; "
+            "sound, trusted 3D"
+            + (", and cross-medium composition" if composition_ready else "")
+            + "; "
             "diffusion is disabled. ")
         task = (
             "This material has won attention inside your private atelier. "
@@ -424,9 +480,9 @@ class AtelierRuntime:
             "will be published, messaged, installed, or routed to a paid provider."
         )
         renderer_contract = (
-            "Return exactly: action,title,svg,scene,score,motions,prompt,negative_prompt,aspect. "
+            "Return exactly: action,title,svg,scene,score,composition,motions,prompt,negative_prompt,aspect. "
             "Actions: quiet, create_svg, create_kinetic_svg, create_canvas, "
-            "create_audio, create_3d, create_diffusion. Unused text fields are empty; unused scene/score are {}; "
+            "create_audio, create_3d, create_composition, create_diffusion. Unused text fields are empty; unused scene/score/composition are {}; "
             "unused motions is []; quiet and Canvas use top-level aspect 1.0. "
             "SVG uses only svg,g,defs,path,rect,circle,ellipse,line,polyline,polygon,"
             "text,tspan,linearGradient,radialGradient,stop,clipPath with inline "
@@ -467,7 +523,19 @@ class AtelierRuntime:
             "sphere,box,torus,plane; position -2..2; scale .05..2; rotation -1..1; "
             "color #RRGGBB; material values 0..1; opacity .15..1. 3D motions may be "
             "empty and use the Canvas motion shape/channels. The host exclusively owns "
-            "meshes, matrices, shaders, draw calls, timing, and freeze-frame rendering."
+            "meshes, matrices, shaders, draw calls, timing, and freeze-frame rendering. "
+            "Composition is available only when the separate private-artifact catalog "
+            "contains at least two medium families including a visual family. Composition "
+            "exact keys: tempo,beats,background,aspect,tracks; tempo 48..168; beats integer "
+            "4..32; background #RRGGBB; aspect .625..1.6; 2..12 tracks. Track exact keys: "
+            "artifact_id,start_beat,duration_beats,gain,opacity,depth,phase. Use only exact "
+            "artifact_id values from that catalog, once each; start 0..<beats; duration "
+            ".125..beats and must close inside the cycle; gain/opacity/phase 0..1; depth "
+            "-1..1. A composition must cross at least two catalog medium families and have "
+            "a visual track. It cannot reference a composition. Composition uses empty "
+            "svg/scene/score/motions/prompt fields and top-level aspect 1.0. The host binds "
+            "source hashes and owns the shared cyclic clock, audio scheduling, visual draw, "
+            "finite return, and freeze-frame rendering."
         )
         source = {
             "kind": "seed", "seed_id": seed["seed_id"],
@@ -490,7 +558,13 @@ class AtelierRuntime:
             agency_spec=spec, agency_model=self.config.model)
         product.assembly.add(
             "atelier_renderer_contract", renderer_contract,
-            priority=9, budget=1800)
+            priority=9, budget=2250)
+        product.assembly.add(
+            "atelier_available_artifacts",
+            json.dumps({"composition_ready": composition_ready,
+                        "artifacts": available}, ensure_ascii=False,
+                       sort_keys=True),
+            priority=9, budget=1100)
         product.assembly.add(
             "atelier_material",
             f"Material label: {seed['label']}\n\n{seed['brief']}",
@@ -544,6 +618,10 @@ class AtelierRuntime:
                 context.run_id, proposal["title"], proposal["scene"],
                 proposal["motions"], source=source,
                 expression_vector=expression_vector)
+        elif proposal["action"] == "create_composition":
+            record = self.atelier.create_composition(
+                context.run_id, proposal["title"], proposal["composition"],
+                source=source, expression_vector=expression_vector)
         else:
             if not self.config.diffusion_enabled or self.comfy is None:
                 raise ValueError("diffusion is not enabled for this Atelier")
@@ -574,10 +652,19 @@ class AtelierRuntime:
             artifact_id=record["artifact_id"])
         return f"created_{record['medium']}", record, renderer
 
+    def _candidate_current(self, candidate: Mapping[str, Any]) -> bool:
+        if str(dict(candidate or {}).get("source") or "") != "atelier_seed":
+            return False
+        seed_id = candidate.get("seed_id")
+        return seed_id in {
+            value.get("seed_id") for value in self.atelier.pending_seeds()}
+
     def start_candidate(self, candidate: Mapping[str, Any]) -> dict:
         candidate = dict(candidate or {})
         if not self.eligible(candidate):
             return {"started": False, "reason": "not_eligible"}
+        if not self._candidate_current(candidate):
+            return {"started": False, "reason": "stale_candidate"}
         readiness = self.readiness(getattr(self.engine, "idle_metabolism", None))
         if readiness.get("hard_blocked"):
             return {"started": False, "reason": "state_blocked",
@@ -605,6 +692,7 @@ class AtelierRuntime:
         async def runner(context):
             cycle_id = new_cycle_id()
             events = []
+            model_requests = 1
             with model_call_scope(
                     cycle_id=cycle_id,
                     persona=getattr(self.engine, "persona", "unknown"),
@@ -634,7 +722,55 @@ class AtelierRuntime:
             if context.live_epoch() != context.captured_epoch:
                 raise concurrent.futures.CancelledError(
                     "external demand changed before atelier commit")
-            proposal = parse_atelier_proposal(text)
+            try:
+                proposal = parse_atelier_proposal(text)
+            except ValueError as first_error:
+                # One local-only correction is cheaper than repeatedly
+                # returning the same valid seed to the wider field.  The
+                # rejected response is never committed, and the correction
+                # describes only the schema error—not private output text.
+                product.assembly.add(
+                    "atelier_schema_correction",
+                    "The previous object was not admissible: "
+                    f"{str(first_error)[:180]}. This is the Atelier, not the "
+                    "Writing Desk. Return one new object using only these "
+                    "exact top-level keys: action,title,svg,scene,score,"
+                    "composition,motions,prompt,negative_prompt,aspect. "
+                    "Do not use form or content. Reconsider the same admitted "
+                    "material; quiet remains valid.",
+                    priority=10, budget=260)
+                repair_events = []
+                with model_call_scope(
+                        cycle_id=new_cycle_id(),
+                        persona=getattr(self.engine, "persona", "unknown"),
+                        purpose="atelier_schema_correction"):
+                    repair_events = [event async for event in adapter.events(
+                        product.assembly, tools=(), exchanges=(),
+                        max_tokens=self.config.max_tokens,
+                        temperature=product.temperature,
+                        cancel=context.cancellation)]
+                    repair_usage = self._usage(repair_events)
+                    repair_attempts = 1 + len(getattr(
+                        getattr(adapter, "event_transport", None),
+                        "last_attempt_receipts", ()) or ())
+                    record_model_call(
+                        str(identity.get("provider") or "unknown"),
+                        str(identity.get("endpoint") or self.config.model),
+                        {**repair_usage, "attempts": repair_attempts},
+                        status="ok")
+                context.cancellation.raise_if_cancelled()
+                if context.live_epoch() != context.captured_epoch:
+                    raise concurrent.futures.CancelledError(
+                        "external demand changed before atelier correction commit")
+                proposal = parse_atelier_proposal(collect_legacy_text(
+                    repair_events, context.cancellation))
+                usage = {
+                    key: int(usage.get(key) or 0)
+                    + int(repair_usage.get(key) or 0)
+                    for key in ("input_tokens", "output_tokens", "total_tokens")
+                }
+                attempts += repair_attempts
+                model_requests = 2
             outcome, record, renderer = self._commit(
                 context, candidate, proposal, source, expression_vector)
             usage = self._usage(events)
@@ -642,8 +778,9 @@ class AtelierRuntime:
                 result={"outcome": outcome, "record": record,
                         "renderer": renderer,
                         "usage": usage,
+                        "model_requests": model_requests,
                         "provider_http_attempts": attempts},
-                metrics={"model_requests": 1,
+                metrics={"model_requests": model_requests,
                          "provider_http_attempts": attempts, **usage})
 
         try:
@@ -685,6 +822,7 @@ class AtelierRuntime:
             "medium": record.get("medium"),
             "record_digest": _digest(record),
             "usage": dict(result.get("usage") or {}),
+            "model_requests": int(result.get("model_requests") or 1),
             "provider_http_attempts": int(
                 result.get("provider_http_attempts") or 1),
             "model": self.config.model,
@@ -751,7 +889,8 @@ class AtelierRuntime:
                 "medium": effect.get("medium") or "unknown",
                 "model": effect.get("model"),
                 "provider": effect.get("provider"),
-                "locality": effect.get("locality"), "model_requests": 1,
+                "locality": effect.get("locality"),
+                "model_requests": effect.get("model_requests", 1),
                 "provider_http_attempts": effect.get(
                     "provider_http_attempts", 1),
                 "renderer": dict(effect.get("renderer") or {}).get("renderer"),

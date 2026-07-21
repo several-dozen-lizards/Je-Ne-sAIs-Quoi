@@ -436,6 +436,39 @@ def delete_user_persona(repo: str, uid: str, persona_id: str) -> bool:
     return True
 
 
+def user_persona_context(repo: str, uid: str,
+                         persona_id: str = "") -> tuple[str, dict]:
+    """Render one explicitly selected RP identity for a chat turn."""
+    pid = slugify(persona_id) if persona_id else ""
+    if not pid:
+        return "", {"user": slugify(uid), "active": None,
+                    "fields_rendered": []}
+    user = get_user(repo, uid)
+    if not user:
+        raise KeyError(f"no user '{slugify(uid)}'")
+    persona = user["user_personas"].get(pid)
+    if not persona:
+        raise KeyError(f"no user persona '{pid}'")
+    lines = [
+        "User-selected role-play identity for this turn. This is the identity "
+        "the user is currently choosing to inhabit, separate from their "
+        "canonical human account and bedrock:",
+        f"- Name: {persona['name']}",
+    ]
+    rendered = []
+    for key, label in (("description", "Details"),
+                       ("preferences", "Preferences"),
+                       ("boundaries", "Boundaries")):
+        value = str(persona.get(key) or "").strip()
+        if value:
+            lines.append(f"- {label}: {value}")
+            rendered.append(key)
+    return "\n".join(lines), {
+        "user": slugify(uid), "active": pid, "name": persona["name"],
+        "fields_rendered": rendered,
+    }
+
+
 def can_disclose_fact(user: dict, fact: dict, recipient: str) -> bool:
     """Whether one fact may reach one recipient.  Denial always wins."""
     rid = slugify(recipient)
@@ -470,7 +503,8 @@ def can_disclose_fact(user: dict, fact: dict, recipient: str) -> bool:
 
 
 def context_for_turn(repo: str, speaker: str, listeners: Iterable[str],
-                     self_persona: str = "") -> tuple[str, dict]:
+                     self_persona: str = "", *,
+                     include_bedrock: bool = True) -> tuple[str, dict]:
     """Render user-owned truth safe for *all* listeners in this turn."""
     users = list_users(repo)
     sid = (speaker or "").lower()
@@ -480,6 +514,15 @@ def context_for_turn(repo: str, speaker: str, listeners: Iterable[str],
     if not uid:
         return "", {"user": None, "rendered": [], "withheld": []}
     user = get_user(repo, uid)
+    if not include_bedrock:
+        claimed_sources = [str((f.get("source") or {}).get("memory_id"))
+                           for f in user["bedrock"]
+                           if (f.get("source") or {}).get("memory_id")]
+        return "", {"user": uid, "rendered": [], "withheld": [],
+                    "listeners": [],
+                    "suppressed_for_user_persona":
+                        [f["id"] for f in user["bedrock"]],
+                    "claimed_source_memory_ids": claimed_sources}
     audience = [x for x in listeners
                 if (x or "").lower() not in
                 {sid, (self_persona or "").lower()}]

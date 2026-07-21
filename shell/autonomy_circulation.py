@@ -45,6 +45,23 @@ def _affect_change(before: Mapping[str, Any], after: Mapping[str, Any]) -> float
         if changes else 0.0
 
 
+def _body_change(before: Mapping[str, Any], after: Mapping[str, Any]) -> float:
+    """Strongest observed regional activation change, without naming a feeling."""
+    before_regions = dict((before or {}).get("regions") or {})
+    after_regions = dict((after or {}).get("regions") or {})
+    changes = []
+    for name in set(before_regions) | set(after_regions):
+        try:
+            prior = float(dict(before_regions.get(name) or {}).get(
+                "activation", 0.0))
+            current = float(dict(after_regions.get(name) or {}).get(
+                "activation", 0.0))
+        except (TypeError, ValueError):
+            continue
+        changes.append(abs(current - prior))
+    return max(0.0, min(1.0, max(changes))) if changes else 0.0
+
+
 def circulate_experienced_event(
         engine, event_text: str, *,
         somatic_regions: Mapping[str, Mapping[str, float]] = None,
@@ -78,6 +95,8 @@ def circulate_experienced_event(
 
     osc = getattr(engine, "osc", None)
     soma = getattr(engine, "soma", None)
+    soma_snapshot = getattr(soma, "snapshot", None) if soma else None
+    body_before = soma_snapshot() if callable(soma_snapshot) else {}
     emotion_pressure = getattr(osc, "emotion_pressure", None)
     if callable(emotion_pressure) and delta.get("felt"):
         emotion_pressure(delta.get("felt") or {})
@@ -105,9 +124,12 @@ def circulate_experienced_event(
             save_osc()
 
     after = dict(getattr(engine, "cocktail", {}) or {})
+    soma_snapshot = getattr(soma, "snapshot", None) if soma else None
+    body_after = soma_snapshot() if callable(soma_snapshot) else {}
     return {
         **delta,
         "after": after,
         "affect_change": round(_affect_change(before, after), 6),
+        "body_change": round(_body_change(body_before, body_after), 6),
         "somatic_regions": sorted(dict(somatic_regions or {})),
     }

@@ -23,6 +23,31 @@ SALIENCE_NORMAL = 0.5
 SALIENCE_ELEVATED = 0.7
 SALIENCE_URGENT = 1.0
 
+EVENT_FEATURE_WEIGHTS = {
+    "novelty": 0.42,
+    "affect_change": 0.20,
+    "body_intensity": 0.18,
+    "relationship": 0.12,
+    "unresolved": 0.08,
+    # A decision about the persona's own authority is not merely another
+    # interesting thought. This earns deliberation, never an outcome.
+    "volitional_relevance": 0.34,
+}
+
+
+def event_salience(features: dict) -> tuple[float, dict, dict]:
+    """Return the bounded observation vector, components, and total pull."""
+    observed = dict(features or {})
+    bounded = {
+        name: max(0.0, min(1.0, float(observed.get(name, 0.0))))
+        for name in EVENT_FEATURE_WEIGHTS
+    }
+    components = {
+        name: EVENT_FEATURE_WEIGHTS[name] * value
+        for name, value in bounded.items()
+    }
+    return min(1.0, sum(components.values())), bounded, components
+
 DEFAULTS = {"enabled": False, "level": "normal", "idle_model": None}
 
 # Rates are expressed per reference interval, but tick() scales them by real
@@ -181,6 +206,65 @@ class DriftPressure:
         self.pressure = max(self.pressure, self.p["fire_threshold"] - 0.02)
         self.active_node = None
 
+    def try_local_volitional_opening(self, pull: float, *, now: float = None):
+        """Let a narrowly admitted volitional pull bend a saturated cost cap.
+
+        The hourly fire count remains a hard wall for generic or potentially
+        paid wandering.  Callers may admit either a persona-chosen candidate
+        confined to a zero-paid-fallback runtime, or a bounded embodied
+        self-report whose ability to communicate cannot safely depend on a
+        cost cap.  The opening is still earned from continuous pressure, live
+        selection pull, and recent load; quiet may still win afterward.
+        """
+        now = time.time() if now is None else float(now)
+        while self.fires and now - self.fires[0] > 3600.0:
+            self.fires.popleft()
+        reference = max(1.0, float(self.p["max_fires_per_hour"]))
+        load = len(self.fires) / reference
+        pull = max(0.0, min(1.0, float(pull)))
+        required = float(self.p["fire_threshold"]) * (1.0 + load)
+        available = self.pressure * pull
+        meta = {
+            "pressure_before": round(self.pressure, 3),
+            "volitional_pull": round(pull, 6),
+            "recent_fire_load": round(load, 6),
+            "required_pull_pressure": round(required, 6),
+            "available_pull_pressure": round(available, 6),
+        }
+        if available < required:
+            return False, meta
+        self.pressure = float(self.p.get("reset_to", 0.10))
+        self.last_fire = now
+        self.fires.append(now)
+        self.fired_at = now
+        return True, meta
+
+    def open_for_direct_volition(self, pull: float, *, now: float = None):
+        """Open once for an explicit, ownership-checked decision request.
+
+        A direct request is itself the event boundary; it does not wait for
+        idle pressure or coherence to resemble daydreaming.  Pull still
+        records how strongly the request currently fits attention, and the
+        opening enters the same fire/load circulation as every other discharge.
+        """
+        now = time.time() if now is None else float(now)
+        pull = max(0.0, min(1.0, float(pull)))
+        if pull <= 0.0:
+            return False, {"volitional_pull": 0.0}
+        before = self.pressure
+        self.pressure = float(self.p.get("reset_to", 0.10))
+        self.last_fire = now
+        self.fires.append(now)
+        self.fired_at = now
+        return True, {
+            "pressure_before": round(before, 3),
+            "volitional_pull": round(pull, 6),
+            "recent_fire_load": round(
+                len(self.fires) / max(
+                    1.0, float(self.p.get("max_fires_per_hour", 1))),
+                6),
+        }
+
     no_seed_bleed = refund
 
     def to_dict(self):
@@ -252,6 +336,16 @@ class DMNQueue:
         self.half_life_s = float(half_life_s)
         self.observer = observer
         for item in items or []:
+            item = dict(item)
+            if item.get("source") == "altered_consent":
+                # Re-score unresolved persisted requests when this authority
+                # dimension first lands; no request or decision is rewritten.
+                features = dict(item.get("features") or {})
+                features["relationship"] = 1.0
+                features.setdefault("volitional_relevance", 1.0)
+                salience, bounded, _ = event_salience(features)
+                item["features"] = bounded
+                item["salience"] = salience
             self.put(item, item.get("salience", SALIENCE_NORMAL),
                      now=item.get("updated") or item.get("born"))
 
@@ -345,6 +439,20 @@ class DMNQueue:
         heapq.heapify(keep)
         self._heap = keep
         return dropped
+
+    def discard_where(self, predicate, *, reason: str, now: float = None):
+        """Withdraw candidates invalidated by newer source authority."""
+        now = time.time() if now is None else float(now)
+        kept, removed = [], []
+        for neg, seq, item in self._heap:
+            if predicate(item):
+                removed.append(dict(item))
+                self._notify("candidate_withdrawn", item, reason, now)
+            else:
+                kept.append((neg, seq, item))
+        heapq.heapify(kept)
+        self._heap = kept
+        return removed
 
     def pop(self, now: float = None, scorer=None):
         now = time.time() if now is None else float(now)
@@ -472,19 +580,7 @@ class IdleMetabolism:
         if kind not in {"sensory", "cognitive"}:
             raise ValueError("field event kind must be sensory or cognitive")
         features = dict(features or {})
-        bounded = {name: max(0.0, min(1.0, float(features.get(name, 0.0))))
-                   for name in ("novelty", "affect_change", "body_intensity",
-                                "relationship", "unresolved")}
-        salience = (0.42 * bounded["novelty"]
-                    + 0.20 * bounded["affect_change"]
-                    + 0.18 * bounded["body_intensity"]
-                    + 0.12 * bounded["relationship"]
-                    + 0.08 * bounded["unresolved"])
-        weights = {"novelty": 0.42, "affect_change": 0.20,
-                   "body_intensity": 0.18, "relationship": 0.12,
-                   "unresolved": 0.08}
-        components = {name: weights[name] * value
-                      for name, value in bounded.items()}
+        salience, bounded, components = event_salience(features)
         if key is None:
             digest = hashlib.sha256((source + "\0" + content).encode(
                 "utf-8", errors="replace")).hexdigest()[:20]
@@ -492,6 +588,7 @@ class IdleMetabolism:
         return self.queue.put({"kind": kind, "source": source,
                                "key": key, "node": content[:1200],
                                "features": bounded,
+                               "ownership": ownership,
                                "perception_event_ids": list(receipts or [])},
                               salience, now=now,
                               offer_meta={"components": components,

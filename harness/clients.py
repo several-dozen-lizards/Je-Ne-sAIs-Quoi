@@ -62,15 +62,30 @@ class _PersistentHTTP:
     provider, persona, or prompt state.
     """
     def __init__(self):
-        self.session = requests.Session()
+        self.session = self._new_session()
+
+    @staticmethod
+    def _new_session():
+        session = requests.Session()
         adapter = requests.adapters.HTTPAdapter(
             pool_connections=16, pool_maxsize=32, max_retries=0,
             pool_block=True)
-        self.session.mount("http://", adapter)
-        self.session.mount("https://", adapter)
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+        return session
 
     def post(self, *args, **kwargs):
-        return self.session.post(*args, **kwargs)
+        try:
+            return self.session.post(*args, **kwargs)
+        except requests.exceptions.ConnectionError:
+            # Providers and local gateways routinely reap idle keep-alive
+            # sockets.  If that happens before a response exists, discard
+            # the pool and replay the request once on a fresh connection.
+            # Streaming read failures happen after this method returns and
+            # are deliberately not replayed: visible text may already exist.
+            self.session.close()
+            self.session = self._new_session()
+            return self.session.post(*args, **kwargs)
 
     def close(self):
         self.session.close()
@@ -386,6 +401,11 @@ def build_anthropic_body(model: str, system: str | list, user: str,
                          stream: bool = False) -> dict:
     """One request-shape truth shared by legacy and structured transports."""
     exchanges = validate_exchanges(exchanges)
+    # The organism's expressive vector may legitimately run hotter than the
+    # Anthropic Messages API's 0..1 wire contract (altered-state circulation
+    # can lift it as high as 1.2). Preserve that internal signal and translate
+    # only at the provider boundary.
+    wire_temperature = max(0.0, min(1.0, float(temperature)))
     messages = [{
         "role": "user",
         "content": _anthropic_user_content(user, images),
@@ -402,7 +422,7 @@ def build_anthropic_body(model: str, system: str | list, user: str,
     body = {
         "model": model,
         "max_tokens": max_tokens,
-        "temperature": temperature,
+        "temperature": wire_temperature,
         "system": system,
         "messages": messages,
     }

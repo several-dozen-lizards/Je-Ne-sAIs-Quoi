@@ -16,8 +16,10 @@ identity:
   api_key_env: "OPENAI_API_KEY"
   locality: "api"
 context:
-  window_tokens: 8192
-  practical_window_tokens: 6963
+  # The gpt-5.6 alias routes to GPT-5.6 Sol. OpenAI documents a
+  # 1,050,000-token context window; keep the existing 85% practical margin.
+  window_tokens: 1050000
+  practical_window_tokens: 892500
   block_budgets: {}
 prompt_structure:
   system_prompt: true

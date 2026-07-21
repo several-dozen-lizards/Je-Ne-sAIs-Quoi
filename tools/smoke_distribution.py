@@ -26,6 +26,14 @@ def main():
     assert not (ROOT / "godot-room").exists(), "public build contains 3D assets"
     start = (ROOT / "START_NEXUS.bat").read_text(encoding="utf-8")
     assert "shell\\boot.py --session" in start
+    mac_start = (ROOT / "START_NEXUS.command").read_text(encoding="utf-8")
+    assert ".venv/bin/python" in mac_start
+    assert "shell/boot.py --session" in mac_start
+    for name in ("INSTALL_JNSQ.command", "START_NEXUS.command",
+                 "STOP_NEXUS.command", "UPDATE_JNSQ.command"):
+        assert (ROOT / name).is_file(), f"macOS launcher is missing: {name}"
+    assert (ROOT / "tools" / "setup_jnsq_macos.py").is_file()
+    assert (ROOT / "tools" / "update_jnsq.py").is_file()
     boot = (ROOT / "shell" / "boot.py").read_text(encoding="utf-8")
     assert "def run_session()" in boot and "browser.wait()" in boot
     assert "session_browser_pid" in boot
@@ -88,7 +96,7 @@ def main():
     assert 'fetch("/api/turn/stream"' in cockpit
     assert "res.body.getReader()" in cockpit
     assert "const turnQueue = []" in cockpit
-    assert "turnQueue.push({text,sentImages})" in cockpit
+    assert "turnQueue.push({text,sentImages,speakingAs})" in cockpit
     assert "const item=turnQueue.shift()" in cockpit
     assert "repaintQueuedTurns()" in cockpit
     contract = (ROOT / "shell" / "contract.py").read_text(encoding="utf-8")
@@ -101,6 +109,8 @@ def main():
     assert "human_turn_arrived" in cockpit_server
     assert 'id="atelier"' in cockpit
     assert 'id="atelier-submit"' in cockpit
+    assert 'id="intention-loom"' in cockpit
+    assert 'id="intention-loom-submit"' in cockpit
     assert 'id="autonomous-works"' in cockpit
     assert 'id="autonomous-works-filter"' in cockpit
     assert "refreshAutonomousWorks" in cockpit
@@ -117,10 +127,23 @@ def main():
     assert "new IntersectionObserver" in cockpit
     assert "new MutationObserver" in cockpit
     assert "function renderAtelierAudioBuffer" in cockpit
+    assert "function drawAtelierComposition" in cockpit
+    assert "window.JNSQ_ATELIER_COMPOSITION" in cockpit
+    assert "function saveAtelierCompositionPng" in cockpit
+    assert "function saveAtelierCompositionWav" in cockpit
+    assert "function saveAtelierCompositionBundle" in cockpit
+    assert 'format:"jnsq.bundle.v1"' in cockpit
     assert "function mountAtelierAudio" in cockpit
     assert "new OfflineAudioContext" in cockpit
     assert "stopAtelierAudioPlayers(\"page hidden\")" in cockpit
     assert "Sound never autoplays" in cockpit
+    assert "function createScene3DRenderer" in cockpit
+    assert "function mountAtelier3D" in cockpit
+    assert "scene3DShader" in cockpit
+    assert "function scene3DMatrixBoundary" in cockpit
+    assert "preserveDrawingBuffer:true" in cockpit
+    assert "stopAtelier3DLoops" in cockpit
+    assert "Models cannot author script" in cockpit
     assert '@app.get("/api/atelier")' in cockpit_server
     assert '@app.get("/api/autonomous-works")' in cockpit_server
     assert '@app.post("/api/atelier/seeds")' in cockpit_server
@@ -128,6 +151,12 @@ def main():
     assert '@app.post("/api/atelier/artifacts/{artifact_id}/perceive")' in cockpit_server
     assert '"medium": str(artifact.get("medium") or "unknown")' in cockpit_server
     assert '@app.post("/api/atelier/renderers/comfyui/probe")' in cockpit_server
+    assert '@app.get("/api/intention-loom")' in cockpit_server
+    assert '@app.post("/api/intention-loom/cues")' in cockpit_server
+    assert (ROOT / "core" / "intention_loom.py").is_file()
+    assert (ROOT / "shell" / "intention_loom_runtime.py").is_file()
+    assert (ROOT / "specs" / "organ_instructions" /
+            "intention_loom.yaml").is_file()
     assert (ROOT / "core" / "atelier.py").is_file()
     assert (ROOT / "shell" / "atelier_runtime.py").is_file()
     assert (ROOT / "shell" / "comfyui_client.py").is_file()
@@ -135,6 +164,9 @@ def main():
     assert (ROOT / "tools" / "verify_atelier_kinetic.py").is_file()
     assert (ROOT / "tools" / "verify_atelier_canvas.py").is_file()
     assert (ROOT / "tools" / "verify_atelier_audio.py").is_file()
+    assert (ROOT / "tools" / "verify_atelier_3d.py").is_file()
+    assert (ROOT / "tools" / "verify_atelier_composition.py").is_file()
+    assert (ROOT / "tools" / "verify_atelier_masters.py").is_file()
     assert (ROOT / "specs" / "organ_instructions" / "atelier.yaml").is_file()
     assert "CONFIG.persona_avatar" in cockpit
     assert 'id="column-resizer"' in cockpit
@@ -164,7 +196,7 @@ def main():
     users = (ROOT / "shell" / "users.html").read_text(encoding="utf-8")
     assert "scrollbar-color:var(--accent)" in settings
     assert "scrollbar-color:var(--accent)" in users
-    assert settings.count('class="ui-icon"') == 6
+    assert settings.count('class="ui-icon"') == 7
     assert '<span>Account &amp; privacy</span>' in settings
     assert '<span>Updates</span>' in settings
     assert 'class="ui-icon"' in users and "👤" not in users
@@ -224,15 +256,22 @@ def main():
     assert "jnsq-venetian-mask-space.png" in readme
     assert "Ambient camera and microphone" in readme
     assert "body/perception/images/" in readme
+    assert "body/intention_loom/" in readme
     assert "body/atelier/" in readme
     assert "no publishing or" in readme
     assert "INSTALL_ATELIER_GPU.bat" in readme
+    assert "Windows and macOS" in readme
+    assert "INSTALL_JNSQ.command" in readme
+    assert "UPDATE_JNSQ.command" in readme
+    assert "Windows-only" in readme
     assert "host-compiled kinetic SVG" in readme
     assert "normalized motion vectors" in readme
     assert "trusted Canvas scenes" in readme
     assert "versioned data-only scene graph" in readme
     assert "procedural audio" in readme.casefold()
     assert "sound never autoplays" in readme.casefold()
+    assert "trusted 3d" in readme.casefold()
+    assert "model-authored shaders" in readme.casefold()
     assert "online API nodes disabled" in readme
     assert (ROOT / "INSTALL_ATELIER_GPU.bat").is_file()
     assert (ROOT / "START_ATELIER_GPU.bat").is_file()
@@ -260,6 +299,9 @@ def main():
         encoding="utf-8").splitlines()
     assert requirements.count("pydantic-ai-slim==2.8.0") == 1
     assert requirements.count("websocket-client==1.9.0") == 1
+    assert 'torch==2.11.0; sys_platform == "darwin"' in requirements
+    assert ('torchvision==0.26.0; sys_platform == "darwin"'
+            in requirements)
     updater = (ROOT / "UPDATE_JNSQ.ps1").read_text(encoding="utf-8")
     update_launcher = (ROOT / "UPDATE_JNSQ.bat").read_text(encoding="utf-8")
     assert "UPDATE_JNSQ.ps1" in update_launcher
@@ -269,6 +311,11 @@ def main():
     assert updater.index("Checking patched source files") < updater.index(
         "Copy-Item -LiteralPath $packageManifestPath")
     assert "local-life data" in updater
+    mac_updater = (ROOT / "tools" / "update_jnsq.py").read_text(
+        encoding="utf-8")
+    assert "managed_files" in mac_updater and "safe_relative" in mac_updater
+    assert "Previous managed files were restored" in mac_updater
+    assert "LOCAL_LIFE_ROOTS" in mac_updater
     for relative in (
             "harness/anthropic_events.py",
             "harness/openai_compat_events.py",
@@ -283,6 +330,8 @@ def main():
     assert 'src="/users"' in settings
     assert "/api/ui/theme" in settings and "/api/env" in settings
     assert "data-vision-select" in settings and "/vision/test" in settings
+    assert ('data-page="voice"' in settings and 'id="voiceRoutes"' in settings
+            and "/voice-output" in settings)
     assert "public JNSQ" in settings and "may incur" in settings
     assert "cheap + reliable recommendation" in settings
     assert "organ_prompts" in settings and "/api/version/check" in settings
@@ -360,7 +409,7 @@ def main():
         opened.assert_called_once_with("http://127.0.0.1:43102/")
 
     text_suffixes = {".py", ".html", ".yaml", ".yml", ".json", ".md",
-                     ".txt", ".bat", ".ps1"}
+                     ".txt", ".bat", ".ps1", ".command"}
     private_markers = ("D:" + "/Wrappers", "D:" + "\\Wrappers",
                        "K" + "ay", "Re" + "ed", "Eury" + "ale",
                        "Testy " + "McPrototype",
@@ -386,7 +435,7 @@ def main():
         assert hashlib.sha256(path.read_bytes()).hexdigest() == expected
         if path.suffix.lower() in {".py", ".html", ".js", ".css", ".json",
                                     ".yaml", ".yml", ".md", ".txt", ".bat",
-                                    ".ps1"} or path.name in {
+                                    ".ps1", ".command"} or path.name in {
                                         ".gitignore", ".gitattributes", "VERSION"}:
             assert b"\r\n" not in path.read_bytes(), \
                 f"public text is not canonical LF: {relative}"

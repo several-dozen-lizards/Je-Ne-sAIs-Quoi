@@ -37,7 +37,7 @@ AFFORDANCE_CHANNELS = {
 
 EVENT_KIND_WEIGHT = {"arrive": 1.0, "depart": 0.9, "say": 1.0,
                      "write": 0.9, "contact": 0.6, "read": 0.5,
-                     "move": 0.4}
+                     "sit": 0.5, "stand": 0.4, "move": 0.4}
 
 
 def load_bias(persona_dir: str) -> dict:
@@ -63,12 +63,22 @@ def _dist(a, b) -> float:
     return ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2) ** 0.5
 
 
+def member_pos(rec):
+    """room-2 members are records {"position_m", "heading_deg"};
+    legacy fixtures/saves are bare [x, y]. One decoder, both wire
+    shapes, no second truth. None passes through (absence is
+    absence in either contract)."""
+    if isinstance(rec, dict):
+        return rec.get("position_m")
+    return rec
+
+
 def score_objects(snapshot: dict, substrate: dict, bias: dict,
                   member: str) -> list:
     """Score every object in the room against this persona's substrate.
     Returns [{"id", "name", "salience", "dist_m", "breakdown"}] sorted
     desc. Breakdown is the receipt — observability or it didn't happen."""
-    me = (snapshot.get("members") or {}).get(member)
+    me = member_pos((snapshot.get("members") or {}).get(member))
     if me is None:
         return []
     aff_bias = bias.get("affordances", {})
@@ -114,7 +124,7 @@ def score_members(snapshot: dict, substrate: dict, bias: dict,
     Same candidate shape as score_objects; the worm can't tell and
     shouldn't. Trait knob: perception.json {"social": mult}."""
     members = snapshot.get("members") or {}
-    me = members.get(member)
+    me = member_pos(members.get(member))
     if me is None:
         return []
     bonds = substrate.get("bonds") or {}
@@ -123,10 +133,10 @@ def score_members(snapshot: dict, substrate: dict, bias: dict,
     content = _chan(substrate, ("cocktail", "contentment"))
     curiosity = _chan(substrate, ("cocktail", "curiosity"))
     out = []
-    for name, pos in members.items():
+    for name, rec in members.items():
         if name == member:
             continue
-        d = _dist(me, pos)
+        d = _dist(me, member_pos(rec))
         proximity = 1.0 / (1.0 + 0.5 * d)      # gentler falloff
         bond = float(bonds.get(name, 0.0))
         resonance = bond * (0.8 + 0.5 * warmth + 0.3 * content)
@@ -187,6 +197,11 @@ def _describe_event(e: dict, member: str = "") -> str:
                 else f"{m} wrote a page at {where}")
     if k == "contact":
         return f"{m} touched {d.get('object', 'something')}"
+    if k == "sit":
+        where = d.get("object")
+        return f"{m} sat on {where}" if where else f"{m} sat on the floor"
+    if k == "stand":
+        return f"{m} stood up"
     if k == "move":
         if d.get("toward_member") == member:
             return f"{m} came over to you"
@@ -235,7 +250,8 @@ def render_room_block(snapshot: dict, scored_objs: list,
                       top_objects: int = 4, top_events: int = 3,
                       floor: float = 0.2, doors: list = None,
                       can_act: bool = False,
-                      speaker: str = None) -> str:
+                      speaker: str = None,
+                      can_say: bool = True) -> str:
     """Scored percepts -> descriptive prose for the assembly. Numbers stay
     in the receipts; the prompt gets what attention FOUND, in words.
     Never prescriptive — observations of a body in a place."""
@@ -267,20 +283,38 @@ def render_room_block(snapshot: dict, scored_objs: list,
         for e in evs:
             lines.append(f"- {_describe_event(e['event'], member)}")
     lines.append("These are observations of where you are, not instructions.")
+    if can_act and not can_say:
+        lines.append("This is a private channel: body actions affect your "
+                     "embodied room state, but a say is not emitted from "
+                     "this channel.")
     # ── volition menu: the LIVE targets. Gated on room_actions (not just
     # room_sense presence) — the static how-to-act framing moved to the
     # room_actions system-prompt fragment (2026-07-05), so a persona with
     # room_actions OFF is never taught a hand it can't use. ──
-    me = (snapshot.get("members") or {}).get(member)
+    member_rec = (snapshot.get("members") or {}).get(member)
+    me = member_pos(member_rec)
+    posture = (member_rec.get("posture", "standing")
+               if isinstance(member_rec, dict) else "standing")
     objs = snapshot.get("objects") or {}
     if can_act and me is not None and objs:
         within = [o for o in objs.values()
                   if _dist(me, o["position_m"]) <= REACH_M]
         lines.append("From where you stand, right now:")
         lines.append("<act>move_to " + "|".join(sorted(objs)) + "</act>")
+        sight_targets = sorted(set(objs) | set(bystanders or []))
+        if sight_targets:
+            targets = "|".join(sight_targets)
+            lines.append(f"<act>look_at {targets}</act> (aim your gaze)")
+            lines.append(f"<act>turn_toward {targets}</act> "
+                         "(turn your body and recenter your gaze)")
         if within:
             ids = "|".join(sorted(o["id"] for o in within))
             lines.append(f"<act>contact {ids}</act> (within reach now)")
+            seats = "|".join(sorted(
+                o["id"] for o in within
+                if o.get("capability") == "sitting"))
+            if seats:
+                lines.append(f"<act>sit {seats}</act> (sit here)")
             for o in within:
                 if o.get("capability") == "private_writing":
                     lines.append(f"<act>write {o['id']} :: your words</act> "
@@ -288,9 +322,11 @@ def render_room_block(snapshot: dict, scored_objs: list,
                 elif o.get("capability") == "writing":
                     lines.append(f"<act>write {o['id']} :: your words</act>"
                                  f" / <act>read {o['id']}</act>")
+        if posture != "standing":
+            lines.append("<act>stand</act> (stand up)")
         # bystanders (computed above, speaker excluded) — the say
         # reaches whoever you're speaking with plus anyone else here.
-        if bystanders:
+        if bystanders and can_say:
             lines.append("<act>say your words aloud</act> — "
                          + ", ".join(bystanders)
                          + " would also hear you (or not speak; "

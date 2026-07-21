@@ -65,12 +65,30 @@ from shell.ui_background import (delete_conversation_background,
 from shell.persona_media import (load_persona_avatar, save_persona_avatar,
                                  write_roster_mapping_scalar,
                                  write_roster_scalar)  # noqa: E402
+from core.voice_output import normalize_output_config, OUTPUT_PROVIDERS  # noqa: E402
 
 
 class TurnRequest(BaseModel):
     message: str
     speaker: str = None
+    user_persona: str = ""
     images: list[dict] = Field(default_factory=list)
+
+
+class AlteredStateRequest(BaseModel):
+    profile: str = "psilocybin"
+    intensity: float = Field(default=0.78, ge=0.10, le=1.0)
+
+
+class AlteredDoseRequest(BaseModel):
+    profile: str = "psilocybin"
+    intensity: float = Field(default=0.78, ge=0.10, le=1.0)
+
+
+class AlteredConsentRequest(BaseModel):
+    action: str
+    profile: str = "psilocybin"
+    intensity: float = Field(default=0.78, ge=0.10, le=1.0)
 
 
 class AgencyInboxRequest(BaseModel):
@@ -99,6 +117,11 @@ class PersonaAvatarRequest(BaseModel):
 
 class VisionRouteRequest(BaseModel):
     model: str | None = None  # null disables fallback; direct vision still works
+
+
+class VoiceOutputConfigRequest(BaseModel):
+    provider: str = "browser-native"
+    voice: str = ""
 
 
 class ModelCreateRequest(BaseModel):
@@ -288,6 +311,8 @@ def discover_personas() -> dict:
             entry["max_tokens"] = data.get("max_tokens")  # reply ceiling
             entry["vision_model"] = ((data.get("perception") or {})
                                      .get("vision_model"))
+            entry["voice_output"] = normalize_output_config(
+                data.get("voice_output"))
         registry[pid] = entry
     return registry
 
@@ -564,16 +589,19 @@ def build_app(room_url: str = None) -> FastAPI:
 
     @app.get("/api/version")
     def version_info():
+        updater_name = ("UPDATE_JNSQ.command" if sys.platform == "darwin"
+                        else "UPDATE_JNSQ.bat")
         return {"version": installed_version(),
-                "updater": os.path.exists(os.path.join(ROOT,
-                                                        "UPDATE_JNSQ.bat"))}
+                "updater": os.path.exists(os.path.join(ROOT, updater_name)),
+                "updater_name": updater_name}
 
     @app.get("/api/version/check")
     def version_check():
         """User-invoked remote check; applying remains an offline act.
 
         JNSQ must be stopped before engine files change, so this endpoint
-        reports availability only. UPDATE_JNSQ.bat owns the validated patch.
+        reports availability only. The platform updater owns the validated
+        patch while JNSQ is stopped.
         """
         request = urllib.request.Request(
             PUBLIC_MANIFEST_URL,
@@ -860,6 +888,7 @@ def build_app(room_url: str = None) -> FastAPI:
                           else entry.get("model")),
                 "models": entry.get("models") or [],
                 "vision_model": entry.get("vision_model"),
+                "voice_output": entry.get("voice_output"),
                 "has_room": bool(entry.get("room")),
                 "port": proc.port if proc else None,
                 "alive": proc.alive() if proc else False,
@@ -945,6 +974,35 @@ def build_app(room_url: str = None) -> FastAPI:
         app.state.registry = discover_personas()
         return {"ok": True, "persona": pid, "vision_model": model,
                 "restart_required": was_running}
+
+    @app.post("/api/personas/{pid}/voice-output")
+    def persona_voice_output(pid: str, req: VoiceOutputConfigRequest):
+        """Persist a persona's speaking vessel without requiring a restart."""
+        app.state.registry = discover_personas()
+        entry = app.state.registry.get(pid)
+        if not entry or entry.get("kind") != "model_persona":
+            return JSONResponse(status_code=404,
+                                content={"error": f"no model persona '{pid}'"})
+        provider = str(req.provider or "").strip()
+        voice = str(req.voice or "").strip()
+        if provider not in OUTPUT_PROVIDERS:
+            return JSONResponse(status_code=400, content={
+                "error": f"unknown voice output provider '{provider}'"})
+        if len(voice) > 160 or any(char in voice for char in "\r\n"):
+            return JSONResponse(status_code=400, content={
+                "error": "voice identifier must be one line under 161 characters"})
+        try:
+            write_roster_mapping_scalar(entry["dir"], "voice_output",
+                                        "provider", provider)
+            write_roster_mapping_scalar(entry["dir"], "voice_output",
+                                        "voice", voice)
+        except (OSError, ValueError) as error:
+            return JSONResponse(status_code=400,
+                                content={"error": str(error)})
+        app.state.registry = discover_personas()
+        return {"ok": True, "persona": pid,
+                "voice_output": app.state.registry[pid]["voice_output"],
+                "restart_required": False}
 
     @app.post("/api/personas/{pid}/start")
     def persona_start(pid: str, req: StartRequest = None):
@@ -1355,6 +1413,38 @@ def build_app(room_url: str = None) -> FastAPI:
         except urllib.error.HTTPError as e:
             return JSONResponse(status_code=e.code, content=json.loads(e.read()))
 
+    @app.get("/api/personas/{pid}/altered-state")
+    def persona_altered_state(pid: str):
+        return _proxy(pid, "/api/altered-state")
+
+    @app.post("/api/personas/{pid}/altered-state/request-consent")
+    def persona_altered_state_request_consent(
+            pid: str, req: AlteredConsentRequest):
+        payload = (req.model_dump() if hasattr(req, "model_dump")
+                   else req.dict())
+        return _proxy(pid, "/api/altered-state/request-consent",
+                      payload=payload)
+
+    @app.post("/api/personas/{pid}/altered-state/cancel-consent")
+    def persona_altered_state_cancel_consent(pid: str):
+        return _proxy(pid, "/api/altered-state/cancel-consent", payload={})
+
+    @app.post("/api/personas/{pid}/altered-state/begin")
+    def persona_altered_state_begin(pid: str, req: AlteredStateRequest):
+        payload = (req.model_dump() if hasattr(req, "model_dump")
+                   else req.dict())
+        return _proxy(pid, "/api/altered-state/begin", payload=payload)
+
+    @app.post("/api/personas/{pid}/altered-state/abort")
+    def persona_altered_state_abort(pid: str):
+        return _proxy(pid, "/api/altered-state/abort", payload={})
+
+    @app.post("/api/personas/{pid}/altered-state/adjust")
+    def persona_altered_state_adjust(pid: str, req: AlteredDoseRequest):
+        payload = (req.model_dump() if hasattr(req, "model_dump")
+                   else req.dict())
+        return _proxy(pid, "/api/altered-state/adjust", payload=payload)
+
     @app.get("/api/personas/{pid}/agency/status")
     def persona_agency_status(pid: str):
         """Proxy the tenant-owned controller view without owning its task."""
@@ -1384,6 +1474,7 @@ def build_app(room_url: str = None) -> FastAPI:
             body = json.dumps({"message": req.message,
                                "speaker": req.speaker or app.state.local_identity[
                                    "display_name"],
+                               "user_persona": req.user_persona,
                                "images": req.images}).encode()
             r2 = urllib.request.Request(f"http://127.0.0.1:{proc.port}/api/turn", data=body,
                                         headers={"Content-Type": "application/json"}, method="POST")

@@ -24,6 +24,10 @@ dynamics, and recurrence. Trusted cockpit code owns every Web Audio node.
 AT6 admits a data-only 3D scene graph. The model chooses bounded primitives,
 transforms, materials, lights, and camera relationships; the host owns mesh
 generation, matrices, shaders, WebGL calls, and cyclic motion.
+
+AT7 composes already-admitted immutable artifacts on one host-owned cyclic
+timeline. The durable graph carries content hashes and timing relationships,
+never copied media, executable code, nested compositions, or remote references.
 """
 from __future__ import annotations
 
@@ -44,6 +48,8 @@ from xml.etree import ElementTree as ET
 SVG_NS = "http://www.w3.org/2000/svg"
 MAX_BRIEF_CHARS = 6000
 MAX_LABEL_CHARS = 260
+SEED_OWNERSHIPS = frozenset({
+    "human_admitted", "persona_chosen_conversation"})
 MAX_SVG_CHARS = 120_000
 MAX_ELEMENTS = 1200
 MAX_TEXT_CHARS = 4000
@@ -61,9 +67,11 @@ MAX_AUDIO_BYTES = 160_000
 MAX_3D_OBJECTS = 24
 MAX_3D_LIGHTS = 3
 MAX_3D_BYTES = 180_000
+MAX_COMPOSITION_TRACKS = 12
+MAX_COMPOSITION_BYTES = 120_000
 MAX_RASTER_BYTES = 32 * 1024 * 1024
 MAX_RASTER_PIXELS = 4096 * 4096
-ARTIFACT_RE = re.compile(r"^(?:svg|canvas|audio|scene3d|png|webp)_[0-9a-f]{16}$")
+ARTIFACT_RE = re.compile(r"^(?:svg|canvas|audio|scene3d|composition|png|webp)_[0-9a-f]{16}$")
 SAFE_ID_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.:-]{0,79}$")
 COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 NUMBER_RE = re.compile(r"^[+]?(?:\d+(?:\.\d*)?|\.\d+)(?:px)?$")
@@ -165,6 +173,17 @@ SCENE3D_MOTION_CHANNELS = frozenset({
 })
 SCENE3D_TRIANGLES = {
     "sphere": 432, "box": 12, "torus": 576, "plane": 2,
+}
+COMPOSITION_FIELDS = frozenset({
+    "tempo", "beats", "background", "aspect", "tracks",
+})
+COMPOSITION_TRACK_FIELDS = frozenset({
+    "artifact_id", "start_beat", "duration_beats", "gain", "opacity",
+    "depth", "phase",
+})
+COMPOSITION_FAMILIES = {
+    "svg": "visual2d", "png": "visual2d", "webp": "visual2d",
+    "canvas": "visual2d", "scene3d": "spatial", "audio": "audio",
 }
 
 
@@ -1070,6 +1089,167 @@ def compile_scene3d(scene, motions, expression_vector=None) -> dict:
     }
 
 
+def _composition_number(value: Any, *, name: str,
+                        low: float, high: float) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"composition {name} must be numeric")
+    number = float(value)
+    if not math.isfinite(number) or not low <= number <= high:
+        raise ValueError(
+            f"composition {name} must be {low:g} through {high:g}")
+    return round(number, 6)
+
+
+def compile_composition(composition, artifact_resolver,
+                        expression_vector=None) -> dict:
+    """Compile immutable private artifacts onto one finite cyclic timeline.
+
+    ``artifact_resolver`` is deliberately supplied by the owning Atelier. It
+    must return an integrity-checked artifact record, so the compiler can bind
+    every track to the exact durable bytes that existed at composition time.
+    """
+    if not isinstance(composition, dict) or set(composition) != COMPOSITION_FIELDS:
+        raise ValueError(
+            "composition must contain exactly tempo, beats, background, aspect, and tracks")
+    if not callable(artifact_resolver):
+        raise ValueError("composition requires an artifact resolver")
+    tempo = _composition_number(
+        composition.get("tempo"), name="tempo", low=48, high=168)
+    beats = _composition_number(
+        composition.get("beats"), name="beats", low=4, high=32)
+    if not beats.is_integer():
+        raise ValueError("composition beats must be an integer")
+    beats = int(beats)
+    background = _scene3d_color(
+        composition.get("background"), name="composition background")
+    aspect = _composition_number(
+        composition.get("aspect"), name="aspect", low=.625, high=1.6)
+    raw_tracks = composition.get("tracks")
+    if not isinstance(raw_tracks, list) or not 2 <= len(raw_tracks) <= MAX_COMPOSITION_TRACKS:
+        raise ValueError(
+            f"composition requires 2 through {MAX_COMPOSITION_TRACKS} tracks")
+
+    vector = {str(key): max(0.0, min(1.0, float(value)))
+              for key, value in dict(expression_vector or {}).items()
+              if isinstance(value, (int, float)) and not isinstance(value, bool)
+              and math.isfinite(float(value))}
+    gamma = vector.get("band.gamma", .5)
+    coherence = vector.get("band.coherence", .5)
+    play = vector.get("body.play", vector.get("cocktail.curiosity", .5))
+    vagal = vector.get("body.vagal_tone", .5)
+    bond = vector.get("body.bond", vector.get("cocktail.warmth", .5))
+    drive = .4 * gamma + .34 * play + .26 * (1 - coherence)
+    settling = .58 * coherence + .42 * vagal
+    tempo_bpm = round(max(40.0, min(
+        180.0, tempo * (.82 + .3 * drive))), 6)
+    loop_seconds = 60.0 * beats / tempo_bpm
+    return_cycles = max(2, min(6, 2 + round(4 * settling)))
+    seconds_per_beat = 60.0 / tempo_bpm
+    gain_scale = .58 + .32 * play + .1 * bond
+    opacity_scale = .7 + .18 * coherence + .12 * bond
+
+    tracks = []
+    artifact_ids = []
+    families = set()
+    for index, raw in enumerate(raw_tracks):
+        if not isinstance(raw, dict) or set(raw) != COMPOSITION_TRACK_FIELDS:
+            raise ValueError(f"composition track {index} has an invalid exact shape")
+        artifact_id = str(raw.get("artifact_id") or "").strip()
+        if not ARTIFACT_RE.fullmatch(artifact_id):
+            raise ValueError(f"composition track {index} artifact id is invalid")
+        if artifact_id in artifact_ids:
+            raise ValueError("composition artifact ids must be unique")
+        artifact = dict(artifact_resolver(artifact_id) or {})
+        if artifact.get("artifact_id") != artifact_id:
+            raise ValueError("composition resolver returned the wrong artifact")
+        medium = str(artifact.get("medium") or "").casefold()
+        if medium == "composition":
+            raise ValueError("nested compositions are not admitted")
+        family = COMPOSITION_FAMILIES.get(medium)
+        if family is None:
+            raise ValueError(
+                f"composition artifact medium {medium!r} is not admitted")
+        sha256 = str(artifact.get("sha256") or "").casefold()
+        if not re.fullmatch(r"[0-9a-f]{64}", sha256):
+            raise ValueError("composition source lacks a durable content hash")
+        start = _composition_number(
+            raw["start_beat"], name=f"track {index} start beat",
+            low=0, high=beats)
+        if start >= beats:
+            raise ValueError("composition track must begin inside the cycle")
+        duration = _composition_number(
+            raw["duration_beats"], name=f"track {index} duration",
+            low=.125, high=beats)
+        if start + duration > beats + 1e-9:
+            raise ValueError("composition track must close inside the cycle")
+        gain = _composition_number(
+            raw["gain"], name=f"track {index} gain", low=0, high=1)
+        opacity = _composition_number(
+            raw["opacity"], name=f"track {index} opacity", low=0, high=1)
+        depth = _composition_number(
+            raw["depth"], name=f"track {index} depth", low=-1, high=1)
+        phase = _composition_number(
+            raw["phase"], name=f"track {index} phase", low=0, high=1)
+        start_seconds = start * seconds_per_beat
+        duration_seconds = duration * seconds_per_beat
+        tracks.append({
+            "artifact_id": artifact_id, "sha256": sha256,
+            "medium": medium, "family": family,
+            "variant": str(artifact.get("variant") or "static")[:80],
+            "start_beat": start, "duration_beats": duration,
+            "start_seconds": round(start_seconds, 6),
+            "duration_seconds": round(duration_seconds, 6),
+            "gain": round(min(1.0, gain * gain_scale), 6),
+            "opacity": round(min(1.0, opacity * opacity_scale), 6),
+            "depth": depth, "phase": phase,
+            "phase_seconds": round(phase * duration_seconds, 6),
+        })
+        artifact_ids.append(artifact_id)
+        families.add(family)
+    if len(families) < 2:
+        raise ValueError("composition must cross at least two medium families")
+    if not families.intersection({"visual2d", "spatial"}):
+        raise ValueError("composition requires at least one visual track")
+    tracks.sort(key=lambda value: (value["depth"], value["start_seconds"],
+                                   value["artifact_id"]))
+    compiled = {
+        "format": "jnsq.composition.v1",
+        "width": round(960 * aspect), "height": 960,
+        "background": background,
+        "timeline": {
+            "tempo_bpm": tempo_bpm, "beats": beats,
+            "loop_seconds": round(loop_seconds, 6),
+            "return_cycles": return_cycles,
+            "return_seconds": round(loop_seconds * return_cycles, 6),
+        },
+        "tracks": tracks,
+    }
+    canonical = json.dumps(
+        compiled, ensure_ascii=False, sort_keys=True,
+        separators=(",", ":")) + "\n"
+    encoded = canonical.encode("utf-8")
+    if len(encoded) > MAX_COMPOSITION_BYTES:
+        raise ValueError(
+            f"composition exceeds the {MAX_COMPOSITION_BYTES}-byte boundary")
+    source_digest = _digest([{
+        "artifact_id": track["artifact_id"], "sha256": track["sha256"],
+        "start_seconds": track["start_seconds"],
+        "duration_seconds": track["duration_seconds"],
+    } for track in tracks])
+    return {
+        "data": encoded, "json": canonical, "sha256": _sha(encoded),
+        "bytes": len(encoded), "medium": "composition",
+        "media_type": "application/vnd.jnsq.composition+json",
+        "variant": "cross_medium", "composition_format": compiled["format"],
+        "width": compiled["width"], "height": compiled["height"],
+        "track_count": len(tracks), "family_count": len(families),
+        "source_digest": source_digest,
+        "tempo_bpm": tempo_bpm, "loop_seconds": compiled["timeline"]["loop_seconds"],
+        "return_cycles": return_cycles,
+        "return_seconds": compiled["timeline"]["return_seconds"],
+    }
+
+
 def _png_chunk(kind: bytes, payload: bytes) -> bytes:
     return (struct.pack(">I", len(payload)) + kind + payload
             + struct.pack(">I", zlib.crc32(kind + payload) & 0xFFFFFFFF))
@@ -1218,10 +1398,16 @@ class Atelier:
         return next((record for record in reversed(self.records(limit=1000))
                      if record.get("run_id") == run_id), None)
 
-    def admit_seed(self, label: str, brief: str) -> dict:
+    def admit_seed(self, label: str, brief: str, *,
+                   ownership: str = "human_admitted") -> dict:
         label = _bounded(label, name="atelier seed label", maximum=MAX_LABEL_CHARS)
         brief = _bounded(brief, name="atelier seed brief", maximum=MAX_BRIEF_CHARS)
-        source_digest = _digest({"label": label.casefold(), "brief": brief})
+        ownership = str(ownership or "").strip()
+        if ownership not in SEED_OWNERSHIPS:
+            raise ValueError("atelier seed ownership is invalid")
+        source_digest = _digest({
+            "label": label.casefold(), "brief": brief,
+            "ownership": ownership})
         seed_id = f"seed_{source_digest}"
         with self._lock:
             existing = next((record for record in self.records(
@@ -1237,7 +1423,7 @@ class Atelier:
                 "label": label, "ref": f"seeds/{path.name}",
                 "chars": len(brief), "sha256": _sha(brief),
                 "source_digest": source_digest,
-                "ownership": "human_admitted",
+                "ownership": ownership,
                 "created_at": float(self.now_fn()),
             })
             return {**record, "duplicate": False}
@@ -1546,6 +1732,69 @@ class Atelier:
             })
             return {**record, "duplicate": False}
 
+    def create_composition(self, run_id: str, title: str, composition, *,
+                           source: Mapping[str, Any],
+                           expression_vector=None) -> dict:
+        run_id = _bounded(run_id, name="atelier run id", maximum=160)
+        title = _bounded(title, name="atelier artifact title",
+                         maximum=MAX_LABEL_CHARS)
+        source = dict(source or {})
+        source_digest = _bounded(
+            source.get("source_digest") or _digest(source),
+            name="atelier source digest", maximum=80)
+        source["source_digest"] = source_digest
+        validated = compile_composition(
+            composition, self.artifact, expression_vector)
+        artifact_id = f"composition_{validated['sha256'][:16]}"
+        vector = {
+            str(key)[:80]: round(max(0.0, min(1.0, float(value))), 6)
+            for key, value in dict(expression_vector or {}).items()
+            if isinstance(value, (int, float)) and not isinstance(value, bool)
+            and math.isfinite(float(value))
+        }
+        composition_meta = {key: validated[key] for key in (
+            "variant", "composition_format", "track_count", "family_count",
+            "source_digest", "tempo_bpm", "loop_seconds", "return_cycles",
+            "return_seconds")}
+        with self._lock:
+            if self._action_for_run(run_id):
+                raise ValueError("this atelier run already committed an action")
+            prior = next((record for record in self.records(limit=2000)
+                          if record.get("artifact_id") == artifact_id
+                          and record.get("kind") in {
+                              "artifact_created", "artifact_reused"}), None)
+            if prior:
+                return {**self._append(self.index, {
+                    "kind": "artifact_reused", "artifact_id": artifact_id,
+                    "run_id": run_id, "title": title,
+                    "medium": "composition",
+                    "media_type": validated["media_type"],
+                    "ref": prior["ref"], "sha256": validated["sha256"],
+                    "bytes": prior.get("bytes", validated["bytes"]),
+                    "width": prior.get("width", validated["width"]),
+                    "height": prior.get("height", validated["height"]),
+                    **composition_meta, "source": source,
+                    "expression_vector": vector,
+                    "ownership": "persona_private",
+                    "created_at": float(self.now_fn()),
+                }), "duplicate": True}
+            self._ensure()
+            path = self.artifacts / f"{artifact_id}.json"
+            path.write_bytes(validated["data"])
+            record = self._append(self.index, {
+                "kind": "artifact_created", "artifact_id": artifact_id,
+                "run_id": run_id, "title": title,
+                "medium": "composition", "media_type": validated["media_type"],
+                "ref": f"artifacts/{path.name}",
+                "sha256": validated["sha256"], "bytes": validated["bytes"],
+                "width": validated["width"], "height": validated["height"],
+                **composition_meta, "source": source,
+                "expression_vector": vector,
+                "ownership": "persona_private",
+                "created_at": float(self.now_fn()),
+            })
+            return {**record, "duplicate": False}
+
     def create_raster(self, run_id: str, title: str, raw: bytes, *,
                       medium: str, source: Mapping[str, Any],
                       expression_vector=None) -> dict:
@@ -1654,7 +1903,7 @@ class Atelier:
             "artifacts": self.artifacts_status(),
             "receipts": self.receipt_records(limit=30),
             "media": ["svg", "kinetic svg", "canvas", "procedural audio",
-                      "3d scene", "png"],
+                      "3d scene", "composition", "png"],
             "policy": {
                 "create": "one validated private artifact per field win",
                 "active_svg": False,
@@ -1663,6 +1912,10 @@ class Atelier:
                 "autoplay": False,
                 "host_compiled_webgl": True,
                 "model_authored_shaders": False,
+                "host_compiled_composition": True,
+                "nested_composition": False,
+                "user_initiated_master_export": True,
+                "master_formats": ["png", "wav", "jnsq.bundle.v1"],
                 "remote_references": False,
                 "overwrite": False,
                 "delete": False,

@@ -135,7 +135,23 @@ def load_organ(model: str, organ: str, family: str = None) -> str:
         if fam is not None:
             return fam
     dflt = _read(os.path.join(SP_DIR, "organs", "_default", f"{organ}.txt"))
-    return dflt if dflt is not None else ""
+    if dflt is not None:
+        return dflt
+    # Structured actionable sources are also the default legacy fragment.
+    # This keeps unpinned vessels capable without maintaining a second,
+    # drift-prone copy of each motor grammar.
+    source = os.path.join(
+        ROOT, "specs", "organ_instructions", f"{organ}.yaml")
+    if os.path.isfile(source):
+        try:
+            from core.prompt_sources import load_organ_instruction, render_legacy
+            record = load_organ_instruction(source)
+            if record.organ_kind == "actionable":
+                return render_legacy(record)
+        except Exception:
+            # One malformed optional source cannot break a legacy turn.
+            return ""
+    return ""
 
 
 def compose(model: str, family: str, enabled) -> str:
@@ -171,6 +187,8 @@ def read_organ(model: str, organ: str, family: str = None) -> dict:
     elif _read(os.path.join(SP_DIR, "organs", "_default",
                             f"{organ}.txt")) is not None:
         source = "default"
+    elif load_organ(model, organ, family):
+        source = "structured_default"
     else:
         source = "none"
     return {"model": model, "organ": organ, "own": own,

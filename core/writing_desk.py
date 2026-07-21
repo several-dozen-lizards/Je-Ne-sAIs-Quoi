@@ -26,7 +26,8 @@ MAX_READ_CHARS = AGENCY_TASK_BUDGET * 8
 MAX_LABEL_CHARS = AGENCY_SOURCE_BUDGET
 RESOLUTIONS = frozenset({"paused", "completed", "abandoned"})
 SEED_OWNERSHIPS = frozenset({"human_admitted",
-                             "persona_chosen_research_handoff"})
+                             "persona_chosen_research_handoff",
+                             "persona_chosen_conversation"})
 ANCHOR_RE = re.compile(
     r"^(?:(?:doc_|arc_)[0-9a-f]{16}#[1-9][0-9]*|"
     r"res_[0-9a-f]{16}#1)$")

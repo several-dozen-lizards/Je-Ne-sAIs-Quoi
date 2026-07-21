@@ -20,25 +20,31 @@ assets.
 
 ## How to get started
 
-JNSQ currently ships for Windows. You do not need to know Python or use a
-terminal for the ordinary setup.
+JNSQ currently ships for Windows and macOS. You do not need to know Python for
+the ordinary setup.
 
 ### 1. Download and install
 
 1. Click the green **Code** button above, choose **Download ZIP**, and extract
    the ZIP somewhere you own. Do not run JNSQ from inside the ZIP.
-2. Open the extracted folder and double-click `INSTALL_JNSQ.bat`.
-3. Follow the prompts. Setup checks for Python 3.10 or newer, creates an
-   isolated `.venv`, installs and verifies the dependencies, and asks who owns
-   this local house. It does not ask for an API key or upload personal data.
+2. On Windows, double-click `INSTALL_JNSQ.bat`.
+3. On macOS, install Python 3.12 from
+   <https://www.python.org/downloads/macos/>, then Control-click
+   `INSTALL_JNSQ.command`, choose **Open**, and confirm the first launch. If
+   macOS removed the executable bit while extracting the archive, open Terminal
+   in the JNSQ folder and run `bash INSTALL_JNSQ.command` once; the installer
+   repairs all four Mac launchers.
+4. Follow the prompts. Setup creates an isolated `.venv`, installs and verifies
+   the dependencies, and asks who owns this local house. It does not ask for an
+   API key or upload personal data.
 
-If setup is interrupted, run `INSTALL_JNSQ.bat` again. It repairs and reuses
-the installation without replacing the existing owner or personas.
+If setup is interrupted, run the installer for your platform again. It repairs
+and reuses the installation without replacing the existing owner or personas.
 
 ### 2. Give the house a model
 
 For a completely local starting model, install Ollama from
-<https://ollama.com/download/windows/> and then run:
+<https://ollama.com/download> and then run:
 
     ollama pull llama3.1:8b
 
@@ -48,7 +54,10 @@ does not silently choose or substitute a provider.
 
 ### 3. Start JNSQ and create someone
 
-1. Double-click `START_NEXUS.bat`. JNSQ opens in its own app window.
+1. Double-click `START_NEXUS.bat` on Windows or open `START_NEXUS.command` on
+   macOS. Firefox and Chromium-family browsers can own a dedicated JNSQ window;
+   another Mac default browser opens normally and uses the launcher Return key
+   as the explicit session-close boundary.
 2. Open **Household -> Create a persona**.
 3. Give them a name, choose a model and interior preset, and write their voice:
    how they speak, what they value, their relationships, and their boundaries.
@@ -68,16 +77,18 @@ perception, memory, and response loop.
 
 ### 5. Stop and update cleanly
 
-Closing the JNSQ app window performs a clean shutdown. You can also run
-`STOP_NEXUS.bat`. When a new public version is available, stop JNSQ and run
-`UPDATE_JNSQ.bat`; the updater replaces engine files while preserving local
+Closing the owned JNSQ app window performs a clean shutdown. You can also run
+`STOP_NEXUS.bat` on Windows or `STOP_NEXUS.command` on macOS. When a new public
+version is available, stop JNSQ and run `UPDATE_JNSQ.bat` or
+`UPDATE_JNSQ.command`; the updater replaces engine files while preserving local
 accounts, personas, histories, keys, appearance, artifacts, and room state.
 
-### Optional local image generation
+### Optional local creative generation
 
 Personas with the Atelier organ may create inert SVG, host-compiled kinetic SVG,
-trusted Canvas scenes, or locally diffused PNG artifacts after admitted material wins their ordinary
-attention field. Kinetic SVG starts from the same inert SVG wall: the model may
+trusted Canvas scenes, procedural audio scores, trusted 3D scenes,
+cross-medium compositions, or locally diffused PNG artifacts after admitted
+material wins their ordinary attention field. Kinetic SVG starts from the same inert SVG wall: the model may
 only name safe element IDs and normalized motion vectors, while JNSQ compiles
 bounded, body-coupled, closed cycles. It never admits model-authored JavaScript
 or animation markup. Canvas uses a versioned data-only scene graph: models may
@@ -95,6 +106,11 @@ strips ComfyUI workflow, prompt, EXIF, and text metadata from a generated PNG
 before committing its immutable private artifact. SDXL Base 1.0 is distributed
 under the CreativeML Open RAIL++-M license; review its use restrictions before
 enabling the renderer for other people.
+
+The bundled NVIDIA/ComfyUI PNG renderer is currently Windows-only. On macOS,
+Atelier's inert and kinetic SVG, Canvas, procedural audio, trusted 3D, and
+cross-medium composition remain available; only locally diffused PNG output is
+held closed until a separately validated Mac-native renderer is added.
 
 In a conversation, drop images directly onto the message field or use the
 paperclip. Vision-capable active models receive the pixels themselves. For a
@@ -150,7 +166,8 @@ linguistic clause boundary rather than waiting for the complete response.
 Sensory observations and salience receipts become part of the persona's local
 history. Updates preserve that history, and public builds never contain it.
 
-Use `STOP_NEXUS.bat` for a clean shutdown.
+Use `STOP_NEXUS.bat` on Windows or `STOP_NEXUS.command` on macOS for a clean
+shutdown.
 
 Setup never asks for an API key and never uploads personal information. Remote
 provider keys can be added later from JNSQ's local settings page and are saved
@@ -158,7 +175,8 @@ only in the gitignored `.env` file on that computer.
 
 ## Updating an existing installation
 
-Starting with version 0.2.0, double-click `UPDATE_JNSQ.bat` to check GitHub.
+Double-click `UPDATE_JNSQ.bat` on Windows or open `UPDATE_JNSQ.command` on
+macOS to check GitHub.
 The updater compares the installed version and verifies SHA-256 fingerprints
 for the public engine. When a patch is available it copies only managed files
 whose contents changed, retires only files previously declared engine-owned,
@@ -185,7 +203,7 @@ The public header has three stable doors:
 ## What in the hell is up with the organs?
 
 <p align="center">
-  <img src="assets/jnsq/readme_organ_constellation_v2.svg" width="920" alt="Twenty-two connected nodes circulating around the JNSQ mask">
+  <img src="assets/jnsq/readme_organ_constellation_v2.svg" width="920" alt="Connected organ nodes circulating around the JNSQ mask">
 </p>
 
 The short answer: JNSQ treats a persistent persona as more than a prompt sent
@@ -217,7 +235,7 @@ Examples include:
 `atelier`, which provide private, authority-limited places for reading,
 inquiry, writing, and making artifacts.
 
-The running app's **About** guide contains the complete twenty-two-organ roster,
+The running app's **About** guide contains the complete organ roster,
 including what each organ takes, what it makes, and where its output feeds next.
 
 No organ is an instruction that says *feel happy now* or *become interested in
@@ -320,6 +338,9 @@ more continuity than the model call alone.
 - Each persona's `body/writing_desk/` holds private seeds, versioned drafts,
   project state, and content-free run receipts. It is preserved across updates
   and excluded from public builds with the rest of the persona's interior.
+- Each persona's `body/intention_loom/` holds private cues, intentions,
+  attention outcomes, and content-free receipts. Proposals circulate through
+  ordinary readiness and authority boundaries rather than a fixed timer.
 - When the optional Atelier organ is enabled, `body/atelier/` holds admitted
   creative material, content-addressed static/kinetic SVG, Canvas, procedural
   audio-score, and PNG artifacts,
@@ -330,7 +351,11 @@ more continuity than the model call alone.
   freezes the frame that is actually present and returns that frame through
   vision. Procedural audio is a versioned data-only score: the host owns all
   synthesis and gain ceilings, sound never autoplays, and playback or WAV
-  download requires a deliberate browser gesture. Its entire lived output
+  download requires a deliberate browser gesture. Trusted 3D stores bounded
+  scene data while the host owns meshes, WebGL calls, and fixed shaders;
+  model-authored shaders and arbitrary URLs are refused. Cross-medium
+  composition can reference only existing hash-bound private artifacts. Its
+  entire lived output
   is preserved across updates and excluded from public builds.
 - A human may keep imported conversation history under
   `users/<owner>/archives/`. Immutable sources and derived search indexes stay

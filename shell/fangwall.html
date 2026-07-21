@@ -59,7 +59,9 @@ header{height:74px;display:flex;align-items:center;gap:18px;padding:0 24px;
   background:color-mix(in srgb,var(--mint) 20%,var(--panel));
   box-shadow:0 0 var(--theme-glow-radius) color-mix(in srgb,var(--mint) 36%,transparent)}
 .top-nav .nav-icon{width:13px;height:13px;flex:0 0 13px;display:block}
-#status{margin-left:auto;color:var(--dim);font-size:.82rem}
+#status{margin-left:auto;color:var(--dim);font-size:.82rem;display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;text-align:right}
+#status a{color:var(--mint);text-underline-offset:2px}
+#status a:hover{color:var(--gold)}
 .top-page{display:none;height:calc(100% - 74px)}.top-page.on{display:block}
 .app{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr);min-width:0;position:relative}
 #page-settings iframe,#page-about iframe{width:100%;height:100%;border:0;background:var(--bg)}
@@ -154,7 +156,7 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
     <button type="button" data-top-page="nexus"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5h16v11H9l-5 4z"/><path d="M8 10h8M8 13h5"/></svg><span>Chat</span></button>
     <button type="button" data-top-page="settings"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21H9.6v-.1A1.7 1.7 0 0 0 8.5 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3V9.6h.1A1.7 1.7 0 0 0 4.6 8.5a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1A1.7 1.7 0 0 0 15.5 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.13.37.35.71.65.98.3.27.68.42 1.08.42H21v4h-.1a1.7 1.7 0 0 0-1.5.6z"/></svg><span>Settings</span></button>
     <button type="button" data-top-page="about"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 10.5v6M12 7.5h.01"/></svg><span>About</span></button></nav>
-  <div id="status">connecting…</div>
+  <div id="status"><span id="statusText">connecting…</span> · <a href="https://ko-fi.com/a_dozen_lizards" target="_blank" rel="noopener">Support this work</a></div>
 </header>
 <section class="top-page on" id="page-personas"><div class="app">
   <nav class="panel-tabs" id="panelTabs" aria-label="Household panes"></nav>
@@ -327,6 +329,28 @@ async function refresh(){
     $("status").textContent=`${live} awake · ${personas().length} local`;
   }catch(e){$("status").textContent=`unreachable · ${e.message}`;}
 }
+function setStatusLine(text){
+  const statusLine = String(text == null ? "" : text);
+  const node = document.getElementById("status");
+  if(!node)return;
+  node.textContent = "";
+  const statusText = document.createElement("span");
+  statusText.id = "statusText";
+  statusText.textContent = statusLine;
+  const sep = document.createTextNode(" · ");
+  const link = document.createElement("a");
+  link.href = "https://ko-fi.com/a_dozen_lizards";
+  link.target = "_blank";
+  link.rel = "noopener";
+  link.textContent = "Support this work";
+  node.append(statusText, sep, link);
+}
+const refreshWithKofi = refresh;
+refresh = async () => {
+  await refreshWithKofi();
+  const current = document.getElementById("statusText")?.textContent || document.getElementById("status")?.textContent || "ready";
+  setStatusLine(current);
+};
 function renderModels(){
   const sel=$("newModel"), prior=sel.value;
   sel.innerHTML=state.models.filter(m=>m.name&&m.name!=="haiku-4-5")

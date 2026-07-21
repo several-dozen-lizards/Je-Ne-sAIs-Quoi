@@ -29,7 +29,7 @@ body[data-background="none"]::before{display:none}body[data-motion="off"]::befor
 header{display:flex;align-items:center;gap:14px;margin-bottom:22px}
 h1{font-size:1.35rem;color:var(--mint);margin:0;font-family:var(--font-display);font-weight:600}.subtitle{color:var(--dim);margin-top:4px}
 .grid{--presence-width:315px;display:grid;grid-template-columns:minmax(220px,var(--presence-width)) 9px minmax(320px,1fr);gap:7px;transition:grid-template-columns .18s ease}
-.grid.sidebar-collapsed{grid-template-columns:46px 0 minmax(320px,1fr)}.grid.sidebar-collapsed .nexus-resizer{visibility:hidden;pointer-events:none}
+.grid.sidebar-collapsed{grid-template-columns:46px 0 minmax(320px,1fr)}.grid.sidebar-collapsed .nexus-resizer{display:none}
 .nexus-resizer{position:relative;cursor:col-resize;touch-action:none;border-radius:8px}.nexus-resizer::after{content:"";position:absolute;left:3px;top:36%;bottom:36%;width:3px;border-radius:4px;background:var(--line);transition:background .15s,top .15s,bottom .15s}
 .nexus-resizer:hover::after,.nexus-resizer.dragging::after{top:20%;bottom:20%;background:var(--mint)}
 .card{border:1px solid var(--line);border-radius:var(--theme-radius,15px);background:color-mix(in srgb,var(--panel) 92%,transparent);padding:var(--card-pad);box-shadow:0 0 var(--theme-glow-radius) color-mix(in srgb,var(--mint) 15%,transparent)}

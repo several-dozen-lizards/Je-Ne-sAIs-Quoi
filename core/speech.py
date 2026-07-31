@@ -46,6 +46,10 @@ class FasterWhisperTranscriber:
         self.device = cfg.get("device", "cpu")
         self.compute_type = cfg.get("compute_type", "int8")
         self.language = cfg.get("language") or None
+        try:
+            self.beam_size = max(1, min(5, int(cfg.get("beam_size", 1))))
+        except (TypeError, ValueError):
+            self.beam_size = 1
         self._model = None
 
     def _load(self):
@@ -60,7 +64,7 @@ class FasterWhisperTranscriber:
         validate_audio(audio, mime_type)
         segments, info = self._load().transcribe(
             io.BytesIO(audio), language=self.language, vad_filter=False,
-            beam_size=3, condition_on_previous_text=False)
+            beam_size=self.beam_size, condition_on_previous_text=False)
         segments = list(segments)
         text = " ".join((segment.text or "").strip()
                         for segment in segments).strip()
@@ -77,6 +81,7 @@ class FasterWhisperTranscriber:
     def status(self):
         return {"available": True, "provider": self.provider,
                 "model": self.model_name, "local": True,
+                "beam_size": self.beam_size,
                 "loaded": self._model is not None}
 
 

@@ -28,6 +28,7 @@ MAX_READ_CHARS = 6000
 CUE_OWNERSHIPS = frozenset({
     "human_offered", "persona_private", "persona_chosen_conversation"})
 TERMINAL_STATES = frozenset({"satisfied", "released"})
+RELATION_MOVEMENTS = frozenset({"coexist", "differentiate", "braid"})
 CONTINUITY_FEATURES = (
     "novelty", "affect_change", "body_intensity", "relationship",
     "unresolved",
@@ -89,6 +90,26 @@ def _continuity(value: Mapping[str, Any] | None) -> dict[str, float]:
                 f"intention continuity {name} must be between 0 and 1")
         result[name] = round(number, 6)
     return result
+
+
+def _tokens(*values: Any) -> set[str]:
+    return {
+        token for value in values
+        for token in re.findall(r"[a-z0-9]+", str(value or "").casefold())
+        if token
+    }
+
+
+def _interval_overlap(left: list[Any], right: list[Any]) -> float:
+    try:
+        a0, a1 = float(left[0]), float(left[1])
+        b0, b1 = float(right[0]), float(right[1])
+    except (IndexError, TypeError, ValueError):
+        return 0.0
+    union = max(a1, b1) - min(a0, b0)
+    if union <= 0.0:
+        return 1.0 if a0 == b0 else 0.0
+    return max(0.0, min(a1, b1) - max(a0, b0)) / union
 
 
 class IntentionLoom:
@@ -313,6 +334,34 @@ class IntentionLoom:
                     "last_observation": record.get("basis") or "",
                     "last_observed_at": record.get("created_at"),
                 })
+            elif iid in views and kind == "intention_related":
+                views[iid].update({
+                    "last_relationship": {
+                        "movement": record.get("movement"),
+                        "related_intention_id":
+                            record.get("related_intention_id"),
+                        "basis": record.get("basis") or "",
+                        "vector": dict(record.get("vector") or {}),
+                    },
+                    "updated_at": record.get("created_at"),
+                })
+            elif iid in views and kind == "intention_braided":
+                views[iid].update({
+                    "state": "open", "title": record.get("title"),
+                    "statement": record.get("statement"),
+                    "uncertainty": list(record.get("uncertainty") or []),
+                    "basis": record.get("basis"),
+                    "revision_count": int(record.get("revision") or
+                                          views[iid]["revision_count"] + 1),
+                    "last_relationship": {
+                        "movement": "braid",
+                        "related_intention_id":
+                            record.get("related_intention_id"),
+                        "basis": record.get("basis") or "",
+                        "vector": dict(record.get("vector") or {}),
+                    },
+                    "updated_at": record.get("created_at"),
+                })
         return views
 
     def intentions(self, *, state: str | None = None) -> list[dict]:
@@ -329,6 +378,83 @@ class IntentionLoom:
         if value is None:
             raise ValueError("intention does not exist")
         return dict(value)
+
+    def relationship_vector(self, intention_id: str,
+                            related_intention_id: str) -> dict[str, float]:
+        """Describe overlap without deciding what the relationship means."""
+        left = self.intention(intention_id)
+        right = self.intention(related_intention_id)
+        if intention_id == related_intention_id:
+            raise ValueError("an intention cannot relate to itself")
+        left_tokens = _tokens(left.get("title"), left.get("statement"))
+        right_tokens = _tokens(right.get("title"), right.get("statement"))
+        semantic = (len(left_tokens & right_tokens)
+                    / len(left_tokens | right_tokens)
+                    if left_tokens or right_tokens else 0.0)
+        left_source, right_source = (
+            dict(left.get("source") or {}), dict(right.get("source") or {}))
+        provenance = 1.0 if (
+            left_source.get("source_digest")
+            and left_source.get("source_digest")
+            == right_source.get("source_digest")) else 0.0
+        left_continuity = _continuity(left.get("continuity"))
+        right_continuity = _continuity(right.get("continuity"))
+        evidence = sum(max(left_continuity[name],
+                           right_continuity[name])
+                       for name in CONTINUITY_FEATURES) / len(
+                           CONTINUITY_FEATURES)
+        alignment = 1.0 - sum(
+            abs(left_continuity[name] - right_continuity[name])
+            for name in CONTINUITY_FEATURES) / len(CONTINUITY_FEATURES)
+        continuity = evidence * alignment
+        uncertainty = _interval_overlap(
+            list(left.get("uncertainty") or []),
+            list(right.get("uncertainty") or []))
+        stats = self.attention_stats()
+        left_attention = stats.get(intention_id, {})
+        right_attention = stats.get(related_intention_id, {})
+        left_returns = int(left_attention.get("exposures", 0))
+        right_returns = int(right_attention.get("exposures", 0))
+        recurrence = (min(left_returns, right_returns)
+                      / (1.0 + max(left_returns, right_returns)))
+        components = {
+            "semantic_overlap": semantic,
+            "provenance_overlap": provenance,
+            "continuity_overlap": continuity,
+            "uncertainty_overlap": uncertainty,
+            "recurrence_overlap": recurrence,
+        }
+        bounded_components = {
+            key: max(0.0, min(1.0, value))
+            for key, value in components.items()
+        }
+        # Every measured axis contributes equally; no single perfect overlap
+        # (for example, matching uncertainty ranges) can declare sameness.
+        affinity = sum(bounded_components.values()) / len(bounded_components)
+        return {
+            **{key: round(value, 6)
+               for key, value in bounded_components.items()},
+            "affinity": round(affinity, 6),
+        }
+
+    def relationships_for(self, intention_id: str) -> list[dict]:
+        self.intention(intention_id)
+        values = []
+        for related in self.intentions():
+            related_id = related["intention_id"]
+            if related_id == intention_id \
+                    or related.get("state") not in {"open", "paused"}:
+                continue
+            values.append({
+                "related_intention_id": related_id,
+                "title": related.get("title") or "",
+                "state": related.get("state"),
+                "vector": self.relationship_vector(
+                    intention_id, related_id),
+            })
+        return sorted(values, key=lambda value: (
+            -value["vector"]["affinity"],
+            value["related_intention_id"]))
 
     def form_intention(self, run_id: str, cue_id: str, *, title: str,
                        statement: str, uncertainty_low: Any,
@@ -394,6 +520,56 @@ class IntentionLoom:
                 "uncertainty": uncertainty, "basis": basis,
                 "ownership": "persona_private",
                 "created_at": float(self.now_fn()),
+            })
+
+    def relate_intention(self, run_id: str, intention_id: str, *,
+                         related_intention_id: str, movement: str,
+                         basis: str, title: str = "", statement: str = "",
+                         uncertainty_low: Any = 0.0,
+                         uncertainty_high: Any = 0.0) -> dict:
+        """Append one relationship movement without merging either history."""
+        movement = str(movement or "").strip().casefold()
+        if movement not in RELATION_MOVEMENTS:
+            raise ValueError("intention relationship movement is invalid")
+        run_id = _bounded(run_id, name="intention run id", maximum=180)
+        basis = _bounded(
+            basis, name="intention relationship basis",
+            maximum=MAX_BASIS_CHARS)
+        current = self.intention(intention_id)
+        related = self.intention(related_intention_id)
+        if intention_id == related_intention_id:
+            raise ValueError("an intention cannot relate to itself")
+        if current["state"] not in {"open", "paused"} \
+                or related["state"] not in {"open", "paused"}:
+            raise ValueError("only continuing intentions may be related")
+        vector = self.relationship_vector(
+            intention_id, related_intention_id)
+        with self._lock:
+            if self._action_for_run(run_id):
+                raise ValueError("this intention run already committed an action")
+            common = {
+                "intention_id": intention_id,
+                "related_intention_id": related_intention_id,
+                "run_id": run_id, "basis": basis, "vector": vector,
+                "ownership": "persona_private",
+                "created_at": float(self.now_fn()),
+            }
+            if movement == "braid":
+                title = _bounded(
+                    title, name="intention title", maximum=MAX_TITLE_CHARS)
+                statement = _bounded(
+                    statement, name="intention statement",
+                    maximum=MAX_STATEMENT_CHARS)
+                return self._append(self.index, {
+                    **common, "kind": "intention_braided",
+                    "revision": current["revision_count"] + 1,
+                    "title": title, "statement": statement,
+                    "uncertainty": _uncertainty(
+                        uncertainty_low, uncertainty_high),
+                })
+            return self._append(self.index, {
+                **common, "kind": "intention_related",
+                "movement": movement,
             })
 
     def pause_intention(self, run_id: str, intention_id: str, *,
@@ -481,6 +657,7 @@ class IntentionLoom:
             "provider_ms", "prompt_ms", "gen_ms", "load_ms",
             "estimated_cost_usd", "readiness", "source_satiety",
             "loom_satiety", "observed_at", *CONTINUITY_FEATURES,
+            "movement_count", "work_envelope",
         }
         record = {str(key): item for key, item in dict(value or {}).items()
                   if key in allowed and item is not None}
@@ -540,8 +717,12 @@ class IntentionLoom:
         stats = self.attention_stats()
         intentions = []
         for intention in self.intentions():
+            from core.project_loom import shadow_eligibility
             intentions.append({
                 **intention,
+                "relationships": self.relationships_for(
+                    intention["intention_id"]),
+                "project_loom_shadow": shadow_eligibility(intention),
                 "attention": stats.get(intention["intention_id"], {
                     "subject_kind": "intention", "exposures": 0,
                     "selections": 0, "unselected_exposures": 0,
@@ -565,13 +746,28 @@ class IntentionLoom:
             "receipts": self.receipt_records(limit=30),
             "policy": {
                 "cue_is_not_intention": True,
-                "one_movement_per_field_win": True,
+                "field_win_opens_resource_shaped_interior_work": True,
+                "fixed_movement_quota": False,
                 "quiet_is_for_now": True,
                 "paused_can_self_resume": True,
                 "attention_receipts_are_observational": True,
                 "neglect_changes_selection": False,
-                "tools": False, "projects": False, "message": False,
-                "publish": False, "overwrite": False, "delete": False,
+                "relationships_are_descriptive": True,
+                "relationships_do_not_auto_merge": True,
+                "intention_is_not_consent": True,
+                "owned_intention_carries_interior_authority": True,
+                "interior_authority_requires_no_external_grant": True,
+                "intention_does_not_expand_ownership": True,
+                "intention_does_not_change_constitutional_machinery": True,
+                "intention_does_not_authorize_external_discharge": True,
+                "consent_grants_created_here": False,
+                "owned_private_project_handoff": True,
+                "same_owner_organ_dispatch": True,
+                "external_tools": False,
+                "external_messages": False,
+                "publication": False,
+                "constitutional_overwrite": False,
+                "lifecycle_mutation_owned_by_destination": True,
                 "external_effects": False,
             },
         }

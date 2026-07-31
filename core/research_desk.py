@@ -12,12 +12,23 @@ from typing import Any, Mapping
 
 
 INTEREST_RE = re.compile(r"^interest_[0-9a-f]{16}$")
+OPPORTUNITY_RE = re.compile(r"^opportunity_[0-9a-f]{16}$")
 SOURCE_RE = re.compile(r"^web_[0-9a-f]{16}$")
 REPORT_RE = re.compile(r"^report_[0-9a-f]{16}$")
 REPORT_ANCHOR_RE = re.compile(r"^res_([0-9a-f]{16})#1$")
 PDF_PAGE_MARKER_RE = re.compile(
     r"(?m)^\[PDF page ([1-9][0-9]*) of ([1-9][0-9]*)\]\n")
 TERMINAL = frozenset({"paused", "abandoned", "satisfied"})
+CLAIM_RELATIONSHIPS = frozenset({
+    "supports", "qualifies", "conflicts", "different_definition",
+    "different_timeframe", "contextualizes", "unclear", "unresolved",
+})
+CLAIM_DIRECTNESS = frozenset({
+    "source_statement", "resident_inference", "present_endorsement",
+})
+CLAIM_VISIBILITY = frozenset({"private", "shareable"})
+CLAIM_CITATION_RE = re.compile(
+    r"^\[(web_[0-9a-f]{16})(?: p\.([1-9][0-9]{0,2}))?\]$")
 
 
 def _digest(value: Any) -> str:
@@ -103,6 +114,50 @@ class ResearchDesk:
                 "ownership": "persona_private",
                 "created_at": float(self.now_fn())}), "duplicate": False}
 
+    def create_opportunity(self, topic: str, *, origin: str) -> dict:
+        """Record an affordance without manufacturing resident interest."""
+        topic = _bounded(topic, "research opportunity", 240)
+        origin = _bounded(origin, "research opportunity origin", 80)
+        opportunity_id = "opportunity_" + _digest({
+            "topic": topic.casefold(), "origin": origin})[:16]
+        prior = next((record for record in self.records(
+            "opportunity_opened", limit=2000)
+            if record.get("opportunity_id") == opportunity_id), None)
+        if prior:
+            return {**prior, "duplicate": True}
+        return {**self._append(self.index, {
+            "kind": "opportunity_opened",
+            "opportunity_id": opportunity_id,
+            "topic": topic, "origin": origin,
+            "ownership": "human_offered",
+            "created_at": float(self.now_fn()),
+        }), "duplicate": False}
+
+    def settle_opportunity(self, opportunity_id: str, *, outcome: str,
+                           run_id: str) -> dict:
+        if not OPPORTUNITY_RE.fullmatch(str(opportunity_id or "")):
+            raise ValueError("research opportunity id is invalid")
+        prior = next((record for record in self.records(
+            "opportunity_settled", limit=2000)
+            if record.get("opportunity_id") == opportunity_id), None)
+        if prior:
+            return {**prior, "duplicate": True}
+        return {**self._append(self.index, {
+            "kind": "opportunity_settled",
+            "opportunity_id": opportunity_id,
+            "outcome": str(outcome or "quiet")[:80],
+            "run_id": str(run_id or "")[:160],
+            "ownership": "persona_private",
+            "settled_at": float(self.now_fn()),
+        }), "duplicate": False}
+
+    def pending_opportunities(self) -> list[dict]:
+        settled = {record.get("opportunity_id") for record in self.records(
+            "opportunity_settled", limit=2000)}
+        return [record for record in self.records(
+            "opportunity_opened", limit=2000)
+            if record.get("opportunity_id") not in settled]
+
     def settle_cue(self, cue_digest: str, outcome: str, run_id: str):
         cue_digest = _bounded(cue_digest, "research cue digest", 64)
         outcome = _bounded(outcome, "research cue outcome", 80)
@@ -175,6 +230,13 @@ class ResearchDesk:
             for hit in list(hits or [])[:10]:
                 url = _bounded(hit.get("url"), "research result URL", 2048)
                 title = _bounded(hit.get("title") or url, "research result title", 300)
+                web_range_id = str(
+                    hit.get("web_range_id") or "public_web")[:120]
+                source_class = str(
+                    hit.get("source_class") or "unclassified_public")[:80]
+                volatility = str(hit.get("volatility") or "medium")[:16]
+                foreground = bool(hit.get("foreground", False))
+                fetch_reason = str(hit.get("fetch_reason") or "")[:500]
                 source_id = "web_" + _digest({
                     "interest_id": interest_id, "url": url})[:16]
                 source_ids.append(source_id)
@@ -184,6 +246,11 @@ class ResearchDesk:
                         "kind": "source_admitted", "source_id": source_id,
                         "interest_id": interest_id, "title": title, "url": url,
                         "query": query, "state": "unread",
+                        "web_range_id": web_range_id,
+                        "source_class": source_class,
+                        "volatility": volatility,
+                        "foreground": foreground,
+                        "fetch_reason": fetch_reason,
                         "ownership": "external_untrusted",
                         "created_at": float(self.now_fn())})
             return self._append(self.index, {
@@ -225,7 +292,10 @@ class ResearchDesk:
     def store_evidence(self, source_id: str, *, title: str, url: str,
                        text: str, content_type: str, run_id: str,
                        page_count: int = 0, extracted_pages=(),
-                       extraction_truncated: bool = False):
+                       extraction_truncated: bool = False,
+                       web_range_id: str = "public_web",
+                       source_class: str = "unclassified_public",
+                       volatility: str = "medium", discovered_links=()):
         source = self.source(source_id)
         if source.get("url") != url and not url.startswith(("http://", "https://")):
             raise ValueError("research evidence URL is invalid")
@@ -248,6 +318,12 @@ class ResearchDesk:
             "extraction_truncated": bool(extraction_truncated),
             "content_sha256": digest, "ref": f"sources/{path.name}",
             "chars": len(text), "run_id": str(run_id)[:160],
+            "web_range_id": str(web_range_id or "public_web")[:120],
+            "source_class": str(
+                source_class or "unclassified_public")[:80],
+            "volatility": str(volatility or "medium")[:16],
+            "discovered_links": list(dict.fromkeys(
+                str(link)[:2048] for link in discovered_links or ()))[:24],
             "retrieved_at": float(self.now_fn()),
             "ownership": "external_untrusted"})
 
@@ -344,6 +420,28 @@ class ResearchDesk:
             "network_request": False,
         }
 
+    def inspect_source(self, source_id: str, maximum: int = 24000) -> dict:
+        """Open one exact stored web snapshot without revisiting the network."""
+        source, read, full_content = self._evidence_snapshot(source_id)
+        maximum = max(1, min(int(maximum), 24000))
+        return {
+            "source_id": source_id,
+            "citation": f"[{source_id}]",
+            "title": read.get("title") or source.get("title"),
+            "url": read.get("url") or source.get("url"),
+            "content_type": read.get("content_type"),
+            "content": full_content[:maximum],
+            "content_sha256": read.get("content_sha256"),
+            "web_range_id": read.get("web_range_id")
+                or source.get("web_range_id"),
+            "source_class": read.get("source_class")
+                or source.get("source_class"),
+            "volatility": read.get("volatility") or source.get("volatility"),
+            "retrieved_at": read.get("retrieved_at"),
+            "ownership": "external_untrusted",
+            "network_request": False,
+        }
+
     def inspect_evidence_set(self, source_ids, *, maximum: int = 7200) -> dict:
         """Resolve two-to-four exact same-interest snapshots without paths."""
         ids = []
@@ -422,6 +520,200 @@ class ResearchDesk:
             record["anchor"] = f"res_{record_digest[:16]}#1"
         return self._append(self.index, record)
 
+    def record_claim_observations(self, interest_id: str, claims, *,
+                                  allowed_source_ids, run_id: str) -> list[dict]:
+        """Append source-bounded assessments; never collapse disagreement."""
+        self.interest(interest_id)
+        allowed = {str(value) for value in allowed_source_ids or ()}
+        records = []
+        for raw in list(claims or ())[:8]:
+            value = dict(raw or {})
+            claim = _bounded(value.get("claim"), "research claim", 500)
+            relationship = str(
+                value.get("relationship") or "unresolved").casefold()
+            if relationship not in CLAIM_RELATIONSHIPS:
+                raise ValueError("research claim relationship is invalid")
+            directness = str(
+                value.get("directness") or "resident_inference").casefold()
+            if directness not in CLAIM_DIRECTNESS:
+                raise ValueError("research claim directness is invalid")
+            visibility = str(
+                value.get("visibility") or "private").casefold()
+            if visibility not in CLAIM_VISIBILITY:
+                raise ValueError("research claim visibility is invalid")
+            valid_time = str(value.get("valid_time") or "unknown").strip()[:240]
+            valid_time_basis = str(
+                value.get("valid_time_basis") or "unknown").casefold()
+            if valid_time_basis not in {
+                    "source_stated", "resident_inferred", "unknown"}:
+                raise ValueError("research claim valid-time basis is invalid")
+            relevance_cue = str(
+                value.get("relevance_cue") or "").strip()[:500]
+            try:
+                low = float(value.get("confidence_low"))
+                high = float(value.get("confidence_high"))
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    "research claim confidence range is invalid") from exc
+            if not 0.0 <= low <= high <= 1.0:
+                raise ValueError(
+                    "research claim confidence range is invalid")
+            citations = []
+            source_ids = []
+            for citation in list(value.get("citations") or ())[:8]:
+                citation = str(citation or "").strip()
+                match = CLAIM_CITATION_RE.fullmatch(citation)
+                if match is None or match.group(1) not in allowed:
+                    raise ValueError(
+                        "research claim citation escaped its evidence set")
+                if match.group(2):
+                    self.inspect_source_page(
+                        match.group(1), int(match.group(2)))
+                else:
+                    self.inspect_source(match.group(1), maximum=1)
+                if citation not in citations:
+                    citations.append(citation)
+                if match.group(1) not in source_ids:
+                    source_ids.append(match.group(1))
+            if not citations:
+                raise ValueError(
+                    "research claim requires an exact snapshot citation")
+            claim_key = _digest(" ".join(claim.casefold().split()))[:16]
+            observation_id = "claim_" + _digest({
+                "claim": claim, "relationship": relationship,
+                "directness": directness,
+                "confidence": [low, high], "citations": citations,
+                "valid_time": valid_time,
+                "valid_time_basis": valid_time_basis,
+            })[:16]
+            prior = next((record for record in self.records(
+                "claim_observed", limit=2000)
+                if record.get("observation_id") == observation_id), None)
+            if prior:
+                records.append({**prior, "duplicate": True})
+                continue
+            volatility = sorted({
+                str(self.source(source_id).get("volatility") or "medium")
+                for source_id in source_ids})
+            records.append({**self._append(self.index, {
+                "kind": "claim_observed",
+                "observation_id": observation_id,
+                "claim_key": claim_key,
+                "claim": claim,
+                "relationship": relationship,
+                "directness": directness,
+                "confidence_low": round(low, 4),
+                "confidence_high": round(high, 4),
+                "citations": citations,
+                "source_ids": source_ids,
+                "source_volatility": volatility,
+                "valid_time": valid_time,
+                "valid_time_basis": valid_time_basis,
+                "encountered_at": float(self.now_fn()),
+                "relevance_cue": relevance_cue,
+                "visibility": visibility,
+                "interest_id": interest_id,
+                "run_id": str(run_id or "")[:160],
+                "ownership": "persona_private",
+                "created_at": float(self.now_fn()),
+            }), "duplicate": False})
+        return records
+
+    def epistemic_garden(self) -> list[dict]:
+        groups = {}
+        for record in self.records("claim_observed", limit=2000):
+            group = groups.setdefault(record["claim_key"], {
+                "claim_key": record["claim_key"],
+                "claim": record["claim"],
+                "interest_id": record["interest_id"],
+                "observations": [],
+            })
+            group["observations"].append(dict(record))
+        values = []
+        for group in groups.values():
+            relationships = sorted({
+                item["relationship"] for item in group["observations"]})
+            lows = [float(item["confidence_low"])
+                    for item in group["observations"]]
+            highs = [float(item["confidence_high"])
+                     for item in group["observations"]]
+            # Conflict is explicitly described by the resident in context.
+            # Confidence spread, age, or differing numbers never manufactures it.
+            discrepancy = bool(set(relationships) & {
+                "conflicts", "different_definition",
+                "different_timeframe", "unclear"})
+            citations = list(dict.fromkeys(
+                citation for item in group["observations"]
+                for citation in item.get("citations") or ()))
+            volatility = sorted({
+                level for item in group["observations"]
+                for level in item.get("source_volatility") or ("medium",)})
+            volatility_weights = {"low": .15, "medium": .45, "high": .8}
+            volatility_pressure = sum(
+                volatility_weights.get(level, .45) for level in volatility
+            ) / max(1, len(volatility))
+            garden_digest = _digest({
+                "claim_key": group["claim_key"],
+                "observations": [
+                    item["observation_id"]
+                    for item in group["observations"]],
+            })[:16]
+            values.append({
+                **group, "relationships": relationships,
+                "confidence_low": min(lows),
+                "confidence_high": max(highs),
+                "citations": citations,
+                "source_volatility": volatility,
+                "volatility_pressure": round(volatility_pressure, 4),
+                "discrepancy": discrepancy,
+                "garden_digest": garden_digest,
+            })
+        return sorted(values, key=lambda value: (
+            not value["discrepancy"], value["claim_key"]))
+
+    def settle_garden_opportunity(self, garden_digest: str, *,
+                                  outcome: str, run_id: str) -> dict:
+        garden_digest = _bounded(
+            garden_digest, "garden opportunity digest", 64)
+        prior = next((record for record in self.records(
+            "garden_opportunity_settled", limit=2000)
+            if record.get("garden_digest") == garden_digest), None)
+        if prior:
+            return {**prior, "duplicate": True}
+        return {**self._append(self.index, {
+            "kind": "garden_opportunity_settled",
+            "garden_digest": garden_digest,
+            "outcome": str(outcome or "quiet")[:80],
+            "run_id": str(run_id or "")[:160],
+            "ownership": "persona_private",
+            "created_at": float(self.now_fn()),
+        }), "duplicate": False}
+
+    def pending_garden_opportunities(self) -> list[dict]:
+        settled = {record.get("garden_digest") for record in self.records(
+            "garden_opportunity_settled", limit=2000)}
+        return [value for value in self.epistemic_garden()
+                if value["discrepancy"]
+                and value["garden_digest"] not in settled]
+
+    def shared_epistemic_garden(self) -> list[dict]:
+        """Expose only observations the resident explicitly marked shareable."""
+        values = []
+        for garden in self.epistemic_garden():
+            observations = [
+                item for item in garden["observations"]
+                if item.get("visibility") == "shareable"]
+            if not observations:
+                continue
+            values.append({
+                **garden,
+                "observations": observations,
+                "citations": list(dict.fromkeys(
+                    citation for item in observations
+                    for citation in item.get("citations") or ())),
+            })
+        return values
+
     def report(self, report_id: str) -> dict:
         report_id = str(report_id or "")
         if not REPORT_RE.fullmatch(report_id):
@@ -434,6 +726,19 @@ class ResearchDesk:
         value = dict(record)
         value.setdefault("anchor", f"res_{report_id[7:]}#1")
         return value
+
+    def resolve_report(self, target: str = "latest") -> dict:
+        """Resolve an explicit report selector without exposing filesystem paths."""
+        target = str(target or "latest").strip()
+        if target.casefold() == "latest":
+            records = self.records("report_created", limit=2000)
+            if not records:
+                raise ValueError("no research reports exist")
+            return self.report(records[-1]["report_id"])
+        anchor = REPORT_ANCHOR_RE.fullmatch(target)
+        if anchor is not None:
+            return self.report(f"report_{anchor.group(1)}")
+        return self.report(target)
 
     def inspect_anchor(self, anchor: str, maximum: int = 5200) -> dict:
         """Resolve one immutable report revision without accepting a path."""
@@ -531,6 +836,7 @@ class ResearchDesk:
     def status(self):
         source_reads = self.records("source_read", limit=2000)
         return {"root": "body/research_desk", "interests": self.interests(),
+                "opportunities": self.pending_opportunities(),
                 "unread_sources": self.unread_sources(),
                 "pdf_read_count": sum(
                     record.get("content_type") == "application/pdf"
@@ -538,6 +844,13 @@ class ResearchDesk:
                 "notes": self.records("note_created", limit=100),
                 "reports": [self.report(r["report_id"]) for r in self.records(
                     "report_created", limit=100)],
+                "shared_epistemic_garden": self.shared_epistemic_garden(),
+                "private_garden_count": sum(
+                    not any(item.get("visibility") == "shareable"
+                            for item in garden["observations"])
+                    for garden in self.epistemic_garden()),
+                "pending_garden_count": len(
+                    self.pending_garden_opportunities()),
                 "pending_reports": self.pending_reports(),
                 "handoffs": self.records("report_handed_off", limit=100),
                 "receipts": self.receipt_records(),

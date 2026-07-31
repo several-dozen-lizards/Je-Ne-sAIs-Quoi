@@ -76,6 +76,7 @@ class _ActiveRecord:
     cancellation: CancellationToken
     started_at: float
     done: asyncio.Event
+    interruptible: bool = True
     task: asyncio.Task | None = None
     status: str = "starting"
     cancellation_requested: bool = False
@@ -149,7 +150,8 @@ class AgencyRunController:
     def start(
             self, run_id: str, runner: Runner, *,
             proposal_id: str = None,
-            replace: bool = False) -> concurrent.futures.Future:
+            replace: bool = False,
+            interruptible: bool = True) -> concurrent.futures.Future:
         run_id = str(run_id or "").strip()
         if not run_id:
             raise ValueError("agency run requires a run_id")
@@ -162,7 +164,8 @@ class AgencyRunController:
             loop = self._loop
         future = asyncio.run_coroutine_threadsafe(
             self._admit_and_run(
-                run_id, proposal_id, runner, bool(replace)),
+                run_id, proposal_id, runner, bool(replace),
+                bool(interruptible)),
             loop)
         with self._meta_lock:
             self._futures.add(future)
@@ -176,7 +179,7 @@ class AgencyRunController:
 
     async def _admit_and_run(
             self, run_id: str, proposal_id: str | None,
-            runner: Runner, replace: bool):
+            runner: Runner, replace: bool, interruptible: bool):
         old_done = None
         old_id = None
         async with self._op_lock:
@@ -234,6 +237,7 @@ class AgencyRunController:
                     cancellation=CancellationToken(),
                     started_at=time.time(),
                     done=asyncio.Event(),
+                    interruptible=interruptible,
                 )
                 self._active = record
                 if self._replacement_pending == run_id:
@@ -320,7 +324,8 @@ class AgencyRunController:
             record.done.set()
 
     def external_demand(
-            self, reason: str, *, source: str = "human") -> dict:
+            self, reason: str, *, source: str = "human",
+            force: bool = False) -> dict:
         reason = str(reason or "").strip()
         source = str(source or "").strip()
         if not reason:
@@ -332,9 +337,13 @@ class AgencyRunController:
             epoch = self._external_demand_epoch
             active = self._active
             cancelled = False
-            if active is not None:
+            deferred = bool(active is not None and
+                            not active.interruptible and not force)
+            if active is not None and not deferred:
                 active.cancellation_requested = True
                 cancelled = active.cancellation.cancel(reason)
+                run_id = active.run_id
+            elif active is not None:
                 run_id = active.run_id
             else:
                 run_id = None
@@ -347,6 +356,7 @@ class AgencyRunController:
             "external_demand_epoch": epoch,
             "active_run_id": run_id,
             "cancellation_requested": cancelled,
+            "private_completion_deferred_interruption": deferred,
         }
 
     def status(self) -> dict:
@@ -361,6 +371,7 @@ class AgencyRunController:
                     "captured_epoch": active.captured_epoch,
                     "status": active.status,
                     "started_at": active.started_at,
+                    "interruptible": active.interruptible,
                     "cancellation_requested":
                         active.cancellation_requested,
                 }
@@ -385,7 +396,7 @@ class AgencyRunController:
                 return
             self._closed = True
         self.external_demand(
-            "persona_process_stopping", source="shutdown")
+            "persona_process_stopping", source="shutdown", force=True)
         while True:
             with self._meta_lock:
                 futures = tuple(self._futures)

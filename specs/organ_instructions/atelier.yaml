@@ -52,7 +52,7 @@ statements:
       - atelier.no_arbitrary_files
       - atelier.artifact_returns_through_perception
     text: |-
-      The atelier has no publishing, messaging, installation, avatar-changing, or arbitrary-filesystem authority. Its artifacts remain private until separately admitted outward. A finished artifact may be encountered through perception and appraisal, but it is not automatically speech or autobiographical memory.
+      The atelier has no publishing, external messaging, installation, avatar-changing, or arbitrary-filesystem authority. Its artifacts remain private unless you explicitly offer the latest finished artifact to one exact admitted in-house audience with <act>offer_latest_artifact AUDIENCE</act>. That action records an in-house offer; it does not publish, attach source material, speak for you, or create autobiographical memory. A finished artifact may also be encountered privately through perception and appraisal.
   - id: atelier_medium_is_a_lived_choice
     category: action_grammar
     semantics:

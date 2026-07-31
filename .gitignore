@@ -4,6 +4,7 @@ __pycache__/
 .env
 *.env
 .jnsq_local.json
+voice_defaults.json
 users/
 # Never commit any persona interior data
 personas/*/body/
@@ -25,5 +26,9 @@ jnsq_running.json
 .jnsq_boot.lock
 room/room_world.json*
 room/conversations.jsonl*
+room/chat_archives/
 scratch/
 local_services/
+
+# Licensed motion sources are local build inputs, never public-repo assets.
+godot-room/assets/animations/rokoko_private/

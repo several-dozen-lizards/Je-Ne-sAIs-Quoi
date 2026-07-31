@@ -263,7 +263,7 @@ def _stop_unlocked():
     # subprocesses), then the room. A browser-watcher racing this manual
     # stop is harmless because runfile removal is idempotent below.
     for name in ("session_browser_pid", "router_pid", "room_pid",
-                 "comfy_pid"):
+                 "tts_pid", "chatterbox_pid", "comfy_pid"):
         pid = run.get(name)
         if pid:
             _stop_process_tree(pid)
@@ -289,6 +289,29 @@ def _boot_unlocked(open_browser: bool = True):
         if router_port and _alive(
                 f"http://127.0.0.1:{router_port}/api/personas") \
                 is not None:
+            # Optional services can die without taking the household down.
+            # Re-entering the canonical launcher is a real lifecycle edge:
+            # reclaim a missing private renderer here instead of preserving a
+            # stale PID and an Atelier that can never select PNG.
+            try:
+                from shell.comfyui_service import (
+                    installed as comfy_installed,
+                    start as start_comfyui,
+                )
+                if comfy_installed():
+                    comfy_run = start_comfyui(wait_seconds=120.0)
+                    if comfy_run.get("owned") and comfy_run.get("pid"):
+                        run["comfy_pid"] = comfy_run["pid"]
+                        run["comfy_endpoint"] = comfy_run.get("endpoint")
+                    elif comfy_run.get("reachable"):
+                        run.pop("comfy_pid", None)
+                        run["comfy_endpoint"] = comfy_run.get(
+                            "endpoint", "http://127.0.0.1:8188")
+                    _write_runfile(run)
+                    print(f"  Atelier GPU: {comfy_run.get('reason')}")
+            except Exception as exc:
+                print(f"  Atelier GPU held closed ({type(exc).__name__}); "
+                      "the live household remains available")
             print(f"Household is ALREADY UP — router on {router_port}.")
             if open_browser:
                 webbrowser.open(f"http://127.0.0.1:{router_port}/")
@@ -312,12 +335,42 @@ def _boot_unlocked(open_browser: bool = True):
         print(f"  Atelier GPU held closed ({type(exc).__name__}); "
               "text/SVG household boot continues")
 
+    tts_run = {}
+    try:
+        from shell.qwen_tts_service import installed as tts_installed
+        from shell.qwen_tts_service import start as start_tts
+        if tts_installed():
+            print("  starting private Qwen3-TTS voice ...", flush=True)
+            tts_run = start_tts(wait_seconds=20.0)
+            print(f"  Qwen3-TTS: {tts_run.get('reason')}")
+    except Exception as exc:
+        print(f"  Qwen3-TTS held closed ({type(exc).__name__}); "
+              "browser voice remains available")
+
+    chatterbox_run = {}
+    try:
+        from shell.chatterbox_tts_service import installed as chatterbox_installed
+        from shell.chatterbox_tts_service import start as start_chatterbox
+        if chatterbox_installed():
+            print("  starting private Chatterbox Turbo voice ...", flush=True)
+            chatterbox_run = start_chatterbox(wait_seconds=20.0)
+            print(f"  Chatterbox: {chatterbox_run.get('reason')}")
+    except Exception as exc:
+        print(f"  Chatterbox held closed ({type(exc).__name__}); "
+              "other voices remain available")
+
     run = {"room_port": room_port, "router_port": router_port,
            "booted": time.strftime("%Y-%m-%dT%H:%M:%S"),
            "booting": True}
     if comfy_run.get("owned") and comfy_run.get("pid"):
         run["comfy_pid"] = comfy_run["pid"]
         run["comfy_endpoint"] = comfy_run.get("endpoint")
+    if tts_run.get("owned") and tts_run.get("pid"):
+        run["tts_pid"] = tts_run["pid"]
+        run["tts_endpoint"] = tts_run.get("endpoint")
+    if chatterbox_run.get("owned") and chatterbox_run.get("pid"):
+        run["chatterbox_pid"] = chatterbox_run["pid"]
+        run["chatterbox_endpoint"] = chatterbox_run.get("endpoint")
 
     room_pid = _spawn([os.path.join("room", "host.py"),
                        "--port", str(room_port)],

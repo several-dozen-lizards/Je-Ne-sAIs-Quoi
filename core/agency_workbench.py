@@ -1,9 +1,9 @@
 """Persona-owned, append-only workbench for the first actionable agency cut.
 
-The workbench is deliberately smaller than a filesystem tool.  A persona may
-inspect only human-admitted inbox records and may create only new private
-drafts beneath its own ``body/autonomy`` interior.  It cannot select paths,
-overwrite, delete, publish, message, or mutate the repository.
+The workbench is deliberately smaller than a filesystem tool. A persona may
+inspect exact human-admitted or persona-owned workbench references and create
+new private drafts beneath its own ``body/autonomy`` interior. It cannot select
+arbitrary paths, publish, message, or mutate the repository.
 """
 from __future__ import annotations
 
@@ -20,6 +20,7 @@ from typing import Any, Mapping
 from core.agency_projection import (
     AGENCY_SOURCE_BUDGET, AGENCY_TASK_BUDGET, AgencyTaskEnvelope,
 )
+from core.interior_work_envelope import InteriorWorkEnvelope
 
 
 MAX_INBOX_CHARS = AGENCY_TASK_BUDGET * 40
@@ -120,7 +121,9 @@ def proposal_from_candidate(persona: str, candidate: Mapping[str, Any],
         "An inbox reference, if present in the source description, may be "
         "inspected with inspect_admitted_artifact. If carrying the thread "
         "forward would produce something worth keeping, you may create one "
-        "new private, unsent draft with create_private_draft. Do not claim "
+        "or more coherent private, unsent drafts with create_private_draft "
+        "while the admitted work envelope remains open. Do not pad the work. "
+        "Do not claim "
         "that anything was sent, published, deleted, or changed outside your "
         "private workbench."
     )
@@ -219,11 +222,28 @@ class PersonaWorkbench:
                 "inbox", label, content, run_id=None,
                 ownership="human_admitted")
 
+    def admit_owned_text(self, label: str, content: str) -> dict[str, Any]:
+        """Persist one persona-authored private input without a human grant."""
+        label = _bounded_text(
+            label, name="owned input label", maximum=MAX_LABEL_CHARS)
+        content = _bounded_text(
+            content, name="owned input content", maximum=MAX_INBOX_CHARS)
+        with self._lock:
+            return self._create(
+                "inbox", label, content, run_id=None,
+                ownership="persona_private")
+
     def inspect(self, ref: str) -> dict[str, Any]:
-        """Read one inbox record through a bounded, reference-only door."""
-        path = self._path_for_ref(ref, bucket="inbox")
+        """Read one exact owned/admitted workbench reference."""
+        path = self._path_for_ref(ref)
         if not path.is_file():
-            raise ValueError("admitted inbox reference does not exist")
+            raise ValueError("workbench reference does not exist")
+        record = next((
+            value for value in reversed(self.records(limit=200))
+            if value.get("ref") == ref), None)
+        if record is None or record.get("ownership") not in {
+                "human_admitted", "persona_private"}:
+            raise ValueError("workbench reference is not owned or admitted")
         text = path.read_text(encoding="utf-8")
         bounded = text[:MAX_TOOL_READ_CHARS]
         return {
@@ -233,6 +253,7 @@ class PersonaWorkbench:
             "source_chars": len(text),
             "truncated": len(bounded) < len(text),
             "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
+            "ownership": record["ownership"],
         }
 
     def read_artifact(self, ref: str) -> dict[str, Any]:
@@ -250,7 +271,7 @@ class PersonaWorkbench:
 
     def create_draft(self, run_id: str, title: str,
                      content: str) -> dict[str, Any]:
-        """Create one new private draft; no caller controls its path."""
+        """Create a new private draft; no caller controls its path."""
         run_id = _bounded_text(
             run_id, name="agency run id", maximum=160)
         title = _bounded_text(
@@ -258,9 +279,6 @@ class PersonaWorkbench:
         content = _bounded_text(
             content, name="draft content", maximum=MAX_DRAFT_CHARS)
         with self._lock:
-            if self.artifacts_for_run(run_id):
-                raise ValueError(
-                    "this agency run has already created its private draft")
             return self._create(
                 "artifacts", title, content, run_id=run_id,
                 ownership="persona_private")
@@ -322,14 +340,23 @@ class PersonaWorkbench:
             self._append_index(record)
             return dict(record)
 
-    def tools_for_run(self, run_id: str):
-        """Return the only two callable capabilities in the first blade."""
+    def tools_for_run(self, run_id: str, *,
+                      envelope: InteriorWorkEnvelope | None = None):
+        """Return bounded sovereign-interior workbench capabilities."""
         async def inspect_admitted_artifact(ref: str) -> dict:
-            """Inspect one explicitly human-admitted private inbox reference."""
+            """Inspect one exact owned/admitted private workbench reference."""
+            if envelope is not None and not envelope.admit({
+                    "action": "inspect", "ref": str(ref or "")}):
+                raise ValueError("interior work envelope settled before inspect")
             return self.inspect(ref)
 
         async def create_private_draft(title: str, content: str) -> dict:
-            """Create one new private unsent draft without overwriting a file."""
+            """Create a new private unsent draft without overwriting a file."""
+            if envelope is not None and not envelope.admit({
+                    "action": "create_private_draft",
+                    "title": str(title or ""), "content": str(content or "")}):
+                raise ValueError(
+                    "interior work envelope settled before private draft")
             return self.create_draft(run_id, title, content)
 
         return inspect_admitted_artifact, create_private_draft
@@ -341,10 +368,17 @@ class PersonaWorkbench:
             "pending_inbox": self.pending_inbox(),
             "artifacts": self.records(kind="private_draft", limit=20),
             "policy": {
-                "inspect": "human-admitted inbox only",
+                "lane": "sovereign_interior",
+                "inspect": "exact owned or admitted workbench references",
                 "create": "new private drafts only",
+                "field_win_opens_resource_shaped_sequence": True,
+                "fixed_artifact_quota": False,
+                "human_grant_required": False,
+                "ownership_expansion": False,
+                "constitutional_changes": False,
                 "overwrite": False,
-                "delete": False,
+                "recoverable_lifecycle": True,
+                "irreversible_delete": False,
                 "external_effects": False,
             },
         }

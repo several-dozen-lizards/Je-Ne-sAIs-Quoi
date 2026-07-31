@@ -49,7 +49,8 @@ SVG_NS = "http://www.w3.org/2000/svg"
 MAX_BRIEF_CHARS = 6000
 MAX_LABEL_CHARS = 260
 SEED_OWNERSHIPS = frozenset({
-    "human_admitted", "persona_chosen_conversation"})
+    "human_admitted", "persona_chosen_conversation",
+    "persona_project_handoff"})
 MAX_SVG_CHARS = 120_000
 MAX_ELEMENTS = 1200
 MAX_TEXT_CHARS = 4000
@@ -1854,10 +1855,22 @@ class Atelier:
 
     def artifacts_status(self) -> list[dict]:
         latest = {}
+        offers = {}
         for record in self.records(limit=2000):
             if record.get("kind") in {"artifact_created", "artifact_reused"}:
                 latest[record.get("artifact_id")] = record
-        return sorted((dict(value) for value in latest.values()), key=lambda value: (
+            elif record.get("kind") == "artifact_offered":
+                offers.setdefault(record.get("artifact_id"), []).append(
+                    record.get("audience"))
+        projected = []
+        for artifact_id, value in latest.items():
+            projected.append({
+                **dict(value),
+                "offered_to": sorted({
+                    str(item) for item in offers.get(artifact_id, [])
+                    if str(item or "").strip()}),
+            })
+        return sorted(projected, key=lambda value: (
             -float(value.get("created_at") or 0.0), value["artifact_id"]))
 
     def artifact(self, artifact_id: str, *, include_svg: bool = False) -> dict:
@@ -1878,6 +1891,45 @@ class Atelier:
     def artifact_path(self, artifact_id: str) -> Path:
         artifact = self.artifact(artifact_id)
         return self._safe_ref(artifact["ref"], "artifacts")
+
+    def offer_artifact(self, artifact_id: str, *, audience: str,
+                       offered_by: str) -> dict:
+        """Offer one owned artifact to one exact in-house audience."""
+        artifact = self.artifact(artifact_id)
+        audience = str(audience or "").strip().casefold()
+        offered_by = str(offered_by or "").strip().casefold()
+        if not re.fullmatch(r"[a-z][a-z0-9_-]{0,63}", audience):
+            raise ValueError("atelier offer audience is invalid")
+        if not re.fullmatch(r"[a-z][a-z0-9_-]{0,63}", offered_by):
+            raise ValueError("atelier offer owner is invalid")
+        with self._lock:
+            existing = next((
+                record for record in reversed(self.records(limit=2000))
+                if record.get("kind") == "artifact_offered"
+                and record.get("artifact_id") == artifact_id
+                and record.get("audience") == audience), None)
+            if existing:
+                return {**existing, "duplicate": True}
+            record = self._append(self.index, {
+                "kind": "artifact_offered",
+                "artifact_id": artifact_id,
+                "artifact_sha256": artifact["sha256"],
+                "audience": audience,
+                "offered_by": offered_by,
+                "ownership": "persona_chosen_exact_audience",
+                "external_effects": False,
+                "offered_at": float(self.now_fn()),
+            })
+            return {**record, "duplicate": False}
+
+    def offer_latest_artifact(self, *, audience: str,
+                              offered_by: str) -> dict:
+        artifacts = self.artifacts_status()
+        if not artifacts:
+            raise ValueError("atelier has no artifact to offer")
+        return self.offer_artifact(
+            artifacts[0]["artifact_id"], audience=audience,
+            offered_by=offered_by)
 
     def record_receipt(self, record: Mapping[str, Any]) -> dict:
         allowed = {
@@ -1921,6 +1973,7 @@ class Atelier:
                 "delete": False,
                 "publish": False,
                 "message": False,
+                "exact_in_house_offer": True,
                 "external_effects": False,
             },
         }

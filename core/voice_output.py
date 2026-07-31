@@ -8,12 +8,93 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from typing import Mapping
 
 
 OUTPUT_EVENTS = frozenset({"started", "completed", "interrupted", "failed"})
-OUTPUT_PROVIDERS = frozenset({"disabled", "browser-native"})
+OUTPUT_PROVIDERS = frozenset({
+    "disabled", "browser-native", "qwen3-tts", "chatterbox-turbo",
+    "hume-octave", "elevenlabs"})
+
+_ACTION = re.compile(r"<act>.*?</act>", re.DOTALL | re.IGNORECASE)
+_FENCE = re.compile(r"```.*?```", re.DOTALL)
+_STAGE_LINE = re.compile(
+    r"(?m)^\s*\*[^*\n]{2,600}\*\s*$")
+_MARKDOWN_LINK = re.compile(r"\[([^\]]+)\]\([^)]+\)")
+_URL = re.compile(r"https?://\S+")
+_EMOJI = re.compile(
+    "[\U0001F1E6-\U0001F1FF\U0001F300-\U0001FAFF\U00002600-\U000027BF]+")
+
+
+def spoken_text(value: str) -> str:
+    """Project visible prose into mouth-safe language.
+
+    The written reply remains untouched.  Private actions, standalone embodied
+    stage directions, code blocks, URLs, emoji, and Markdown furniture do not
+    become bizarre literal speech.
+    """
+    text = str(value or "")
+    text = _ACTION.sub(" ", text)
+    text = _FENCE.sub(" ", text)
+    text = _STAGE_LINE.sub(" ", text)
+    text = _MARKDOWN_LINK.sub(r"\1", text)
+    text = _URL.sub(" a link ", text)
+    text = _EMOJI.sub(" ", text)
+    text = re.sub(r"(?m)^\s{0,3}(?:#{1,6}|[-+>] |\d+[.)] )\s*", "", text)
+    text = re.sub(r"[*_~`]", "", text)
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"\s*\n\s*", " ", text)
+    return re.sub(r"\s{2,}", " ", text).strip()
+
+
+def conversation_text(value: str) -> str:
+    """Project a reply into the conversation transcript.
+
+    Embodied stage directions are part of the persona's experienced turn, but
+    they are not speech and must not masquerade as chat messages.  Keep the
+    full reply in memory; remove only explicit action tags and standalone
+    ``*stage direction*`` lines from the user-facing transcript.  Inline
+    emphasis remains ordinary written conversation.
+    """
+    text = _ACTION.sub(" ", str(value or ""))
+    text = _STAGE_LINE.sub(" ", text)
+    text = re.sub(r"[ \t]*\n{3,}", "\n\n", text)
+    return text.strip()
+
+
+def expression_instruction(policy: Mapping | None,
+                           previous: Mapping | None = None) -> tuple[str, dict]:
+    """Describe acoustic delivery from the continuous expression vector.
+
+    Recent delivery contributes inertia so a changing body bends the voice
+    rather than making it jitter between independent vocal snapshots.
+    """
+    current = dict((policy or {}).get("vector") or {})
+    prior = dict(previous or {})
+    vector = {}
+    for key in ("energy", "settling", "warmth", "tension", "coherence"):
+        now = _clamp(current.get(key, 0.5), 0.0, 1.0)
+        before = _clamp(prior.get(key, now), 0.0, 1.0)
+        vector[key] = round(.68 * now + .32 * before, 4)
+    pace = "unhurried" if vector["settling"] > .62 else \
+        "quick but unforced" if vector["energy"] > .62 else "conversational"
+    spacing = "with roomy phrase endings" if vector["settling"] > .58 else \
+        "with close, connected phrasing"
+    force = "light vocal force" if vector["energy"] < .36 else \
+        "lively vocal energy" if vector["energy"] > .66 else "moderate vocal energy"
+    texture = "soft-edged resonance" if vector["warmth"] > .58 else \
+        "clear, neutral resonance"
+    stability = "steady breath support" if vector["coherence"] > .62 else \
+        "small natural hesitations and unevenness"
+    tension = "a little tautness in the phrasing" if vector["tension"] > .58 else \
+        "an easy, unstrained throat"
+    return (f"Speak as spontaneous private conversation: {pace}, {spacing}, "
+            f"{force}, {texture}, {stability}, and {tension}. Preserve "
+            "natural contractions, emphasis, and sentence-level melodic continuity. "
+            "Do not sound like an announcer, narrator, assistant, or customer-service agent.",
+            vector)
 
 
 def normalize_output_config(value: Mapping | None) -> dict:
@@ -30,7 +111,12 @@ def normalize_output_config(value: Mapping | None) -> dict:
     voice = str(raw.get("voice") or "").strip()
     if len(voice) > 160 or any(char in voice for char in "\r\n"):
         voice = ""
-    return {"provider": provider, "voice": voice}
+    from shell.voice_settings import normalize_voice_tuning
+    auto_play = bool(raw.get("auto_play", provider != "disabled"))
+    if provider == "disabled":
+        auto_play = False
+    return {"provider": provider, "voice": voice, "auto_play": auto_play,
+            **normalize_voice_tuning(raw)}
 
 
 def _clamp(value: float, low: float, high: float) -> float:

@@ -1,8 +1,9 @@
 """Machine-local solo-chat background storage.
 
 The file is deliberately separate from theme JSON: opacity and selection are
-theme tokens, while the potentially large private image remains one local
-asset that presets can reference without copying it.
+theme tokens, while potentially large private images remain local assets.
+Outer and Nexus wallpapers belong to the household; the inner conversation
+image belongs to the persona whose cockpit displays it.
 """
 from __future__ import annotations
 
@@ -31,8 +32,8 @@ def _paths(repo: str, kind: str = "outer"):
             os.path.join(root, stem + ".json"))
 
 
-def load_background(repo: str, kind: str):
-    image_path, meta_path = _paths(repo, kind)
+def _load_paths(paths):
+    image_path, meta_path = paths
     try:
         with open(meta_path, encoding="utf-8") as f:
             meta = json.load(f)
@@ -46,6 +47,10 @@ def load_background(repo: str, kind: str):
 
 
 def save_background(repo: str, kind: str, data_url: str):
+    return _save_paths(_paths(repo, kind), kind, data_url)
+
+
+def _save_paths(paths, kind: str, data_url: str):
     if not isinstance(data_url, str) or not data_url.startswith("data:"):
         raise ValueError("background must be an image data URL")
     header, sep, encoded = data_url.partition(",")
@@ -68,7 +73,7 @@ def save_background(repo: str, kind: str, data_url: str):
     }
     if not signatures[mime]:
         raise ValueError("background bytes do not match the declared image type")
-    image_path, meta_path = _paths(repo, kind)
+    image_path, meta_path = paths
     os.makedirs(os.path.dirname(image_path), exist_ok=True)
     revision = hashlib.sha256(raw).hexdigest()[:16]
     for path, payload, binary in (
@@ -85,12 +90,20 @@ def save_background(repo: str, kind: str, data_url: str):
         finally:
             if os.path.exists(tmp):
                 os.unlink(tmp)
-    return load_background(repo, kind)
+    return _load_paths(paths)
+
+
+def load_background(repo: str, kind: str):
+    return _load_paths(_paths(repo, kind))
 
 
 def delete_background(repo: str, kind: str) -> bool:
+    return _delete_paths(_paths(repo, kind))
+
+
+def _delete_paths(paths) -> bool:
     removed = False
-    for path in _paths(repo, kind):
+    for path in paths:
         if os.path.exists(path):
             os.unlink(path)
             removed = True
@@ -110,16 +123,24 @@ def delete_conversation_background(repo: str) -> bool:
     return delete_background(repo, "outer")
 
 
-def load_conversation_area_background(repo: str):
-    return load_background(repo, "conversation_area")
+def _persona_conversation_area_paths(persona_dir: str):
+    root = os.path.join(persona_dir, "ui")
+    stem = KINDS["conversation_area"]
+    return (os.path.join(root, stem + ".bin"),
+            os.path.join(root, stem + ".json"))
 
 
-def save_conversation_area_background(repo: str, data_url: str):
-    return save_background(repo, "conversation_area", data_url)
+def load_conversation_area_background(persona_dir: str):
+    return _load_paths(_persona_conversation_area_paths(persona_dir))
 
 
-def delete_conversation_area_background(repo: str) -> bool:
-    return delete_background(repo, "conversation_area")
+def save_conversation_area_background(persona_dir: str, data_url: str):
+    return _save_paths(_persona_conversation_area_paths(persona_dir),
+                       "conversation_area", data_url)
+
+
+def delete_conversation_area_background(persona_dir: str) -> bool:
+    return _delete_paths(_persona_conversation_area_paths(persona_dir))
 
 
 def load_nexus_background(repo: str):

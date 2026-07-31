@@ -27,6 +27,93 @@ MAX_EXTRACTED_CHARS = 24000
 MAX_REDIRECTS = 4
 
 
+@dataclass(frozen=True)
+class WebRangeEntry:
+    entry_id: str
+    host: str
+    source_class: str = "public_reference"
+    volatility: str = "medium"
+    include_subdomains: bool = False
+
+    def __post_init__(self):
+        host = str(self.host or "").strip().casefold().rstrip(".")
+        if not host or "/" in host or ":" in host:
+            raise WebResearchError("web range host is invalid")
+        if self.volatility not in {"low", "medium", "high"}:
+            raise WebResearchError("web range volatility is invalid")
+        object.__setattr__(self, "host", host)
+        object.__setattr__(self, "entry_id", str(self.entry_id or host)[:120])
+        object.__setattr__(
+            self, "source_class",
+            str(self.source_class or "public_reference")[:80])
+
+    def admits(self, host: str) -> bool:
+        host = str(host or "").casefold().rstrip(".")
+        return host == self.host or (
+            self.include_subdomains and host.endswith("." + self.host))
+
+
+class WebRangePolicy:
+    """Resident-scoped permission to read, distinct from source credibility."""
+
+    def __init__(self, entries=(), *, mode="public_web"):
+        if mode not in {"public_web", "permitted_only"}:
+            raise WebResearchError("web range mode is invalid")
+        self.mode = mode
+        self.entries = tuple(entries)
+        if mode == "permitted_only" and not self.entries:
+            raise WebResearchError("permitted-only web range is empty")
+
+    @classmethod
+    def from_config(cls, raw=None):
+        raw = dict(raw or {})
+        entries = []
+        for value in raw.get("entries") or ():
+            value = dict(value or {})
+            entries.append(WebRangeEntry(
+                entry_id=value.get("id") or value.get("host"),
+                host=value.get("host"),
+                source_class=value.get("source_class", "public_reference"),
+                volatility=value.get("volatility", "medium"),
+                include_subdomains=bool(value.get("include_subdomains", False))))
+        return cls(entries, mode=str(raw.get("mode") or "public_web"))
+
+    def classify(self, url: str) -> dict:
+        host = (urlparse(str(url or "")).hostname or "").casefold().rstrip(".")
+        for entry in self.entries:
+            if entry.admits(host):
+                return {
+                    "web_range_id": entry.entry_id,
+                    "source_class": entry.source_class,
+                    "volatility": entry.volatility,
+                    "permission": "resident_web_range",
+                }
+        if self.mode == "permitted_only":
+            raise WebResearchError(
+                "research destination is outside the resident web range")
+        return {
+            "web_range_id": "public_web",
+            "source_class": "unclassified_public",
+            "volatility": "medium",
+            "permission": "public_web",
+        }
+
+    def search_guidance(self) -> str:
+        if self.mode != "permitted_only":
+            return "The public web boundary will classify each admitted result."
+        groups = {}
+        for entry in self.entries:
+            groups.setdefault(entry.source_class, []).append(entry.host)
+        rendered = "; ".join(
+            f"{source_class}: {', '.join(hosts)}"
+            for source_class, hosts in groups.items())
+        return (
+            "Only results inside this resident Web Range can be admitted. "
+            "Use a site:host term when a particular habitat matters. "
+            f"Permitted habitats by source class: {rendered}. "
+            "Permission is not evidence of credibility.")
+
+
 class WebResearchError(ValueError):
     """A proposed network operation crossed the Research Desk boundary."""
 
@@ -221,6 +308,23 @@ class _SearchParser(HTMLParser):
             self.current = None
 
 
+class _LinkExtractor(HTMLParser):
+    def __init__(self, base_url: str):
+        super().__init__(convert_charrefs=True)
+        self.base_url = base_url
+        self.links = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag.casefold() != "a":
+            return
+        href = dict(attrs).get("href")
+        if not href:
+            return
+        url = urljoin(self.base_url, html.unescape(str(href)))
+        if url.startswith(("http://", "https://")) and url not in self.links:
+            self.links.append(url)
+
+
 @dataclass(frozen=True)
 class WebEvidence:
     url: str
@@ -230,18 +334,25 @@ class WebEvidence:
     page_count: int = 0
     extracted_pages: tuple[int, ...] = ()
     extraction_truncated: bool = False
+    web_range_id: str = "public_web"
+    source_class: str = "unclassified_public"
+    volatility: str = "medium"
+    permission: str = "public_web"
+    links: tuple[str, ...] = ()
 
 
 class ReadOnlyWebResearch:
     """Bounded search/fetch transport with dependency injection for tests."""
 
     def __init__(self, *, client=None, resolver=socket.getaddrinfo,
+                 policy=None,
                  search_url: str = "https://html.duckduckgo.com/html/"):
         self.client = client or httpx.Client(
             timeout=httpx.Timeout(15.0, connect=8.0), follow_redirects=False,
             headers={"User-Agent": "JNSQ-ResearchDesk/1.0 (read-only)"})
         self.resolver = resolver
         self.search_url = search_url
+        self.policy = policy or WebRangePolicy()
 
     def _request(self, url: str) -> httpx.Response:
         headers = {"Accept": (
@@ -279,8 +390,11 @@ class ReadOnlyWebResearch:
             cookie_jar.clear()
         return bounded
 
-    def _get(self, url: str) -> tuple[httpx.Response, str]:
+    def _get(self, url: str, *, search_transport=False) -> tuple[httpx.Response, str]:
         current = validate_public_url(url, resolver=self.resolver)
+        search_host = (urlparse(self.search_url).hostname or "").casefold()
+        if not search_transport:
+            self.policy.classify(current)
         for _hop in range(MAX_REDIRECTS + 1):
             response = self._request(current)
             if response.status_code in {301, 302, 303, 307, 308}:
@@ -289,6 +403,12 @@ class ReadOnlyWebResearch:
                     raise WebResearchError("research redirect had no destination")
                 current = validate_public_url(
                     urljoin(current, location), resolver=self.resolver)
+                if search_transport:
+                    if (urlparse(current).hostname or "").casefold() != search_host:
+                        raise WebResearchError(
+                            "research search transport redirect escaped its host")
+                else:
+                    self.policy.classify(current)
                 continue
             response.raise_for_status()
             return response, current
@@ -304,23 +424,25 @@ class ReadOnlyWebResearch:
     def search(self, query: str, *, limit: int = 6) -> list[dict]:
         query = validate_search_query(query)
         url = f"{self.search_url}?q={quote_plus(query)}"
-        response, _final = self._get(url)
+        response, _final = self._get(url, search_transport=True)
         parser = _SearchParser()
         parser.feed(self._bounded_body(response).decode("utf-8", "replace"))
         found = []
         for row in parser.results:
             try:
                 validate_public_url(row["url"], resolver=self.resolver)
+                classification = self.policy.classify(row["url"])
             except WebResearchError:
                 continue
             if row["url"] not in {item["url"] for item in found}:
-                found.append(row)
+                found.append({**row, **classification})
             if len(found) >= max(1, min(int(limit), 10)):
                 break
         return found
 
     def fetch(self, url: str) -> WebEvidence:
         response, final_url = self._get(url)
+        classification = self.policy.classify(final_url)
         content_type = response.headers.get("content-type", "").split(";", 1)[0].casefold()
         if content_type not in ALLOWED_TYPES:
             raise WebResearchError("research response type is not admitted")
@@ -338,13 +460,30 @@ class ReadOnlyWebResearch:
         else:
             title, text = extract_text(
                 raw, response.headers.get("content-type", ""))
+            links = ()
+            if content_type == "text/html":
+                parser = _LinkExtractor(final_url)
+                parser.feed(raw.decode("utf-8", "replace"))
+                admitted = []
+                for link in parser.links:
+                    try:
+                        self.policy.classify(link)
+                    except WebResearchError:
+                        continue
+                    admitted.append(link)
+                    if len(admitted) >= 24:
+                        break
+                links = tuple(admitted)
             page_count = 0
             extracted_pages = ()
             extraction_truncated = False
+        if content_type == "application/pdf":
+            links = ()
         if not text:
             raise WebResearchError("research source contained no readable text")
         return WebEvidence(
             final_url, title or urlparse(final_url).hostname or
             "Untitled source", text, content_type,
             page_count=page_count, extracted_pages=extracted_pages,
-            extraction_truncated=extraction_truncated)
+            extraction_truncated=extraction_truncated, links=links,
+            **classification)

@@ -38,6 +38,22 @@ def installed() -> bool:
         (base / "ComfyUI" / "main.py").is_file()
 
 
+def launch_command() -> list[str]:
+    """Build the private renderer command for this machine's memory envelope."""
+    base = home()
+    return [
+        str(base / "python_embeded" / "python.exe"),
+        "-s", str(base / "ComfyUI" / "main.py"),
+        "--listen", "127.0.0.1", "--port", "8188",
+        "--disable-auto-launch", "--disable-api-nodes",
+        # DynamicVRAM/comfy-aimdo's mapped offload can exhaust Windows commit
+        # while SDXL is loading on an 8 GB GPU. Use the older bounded loader:
+        # weights are loaded in low-VRAM chunks and VAE work stays on CPU.
+        "--disable-dynamic-vram", "--lowvram",
+        "--disable-async-offload", "--cpu-vae",
+    ]
+
+
 def _pid_is_owned_python(pid) -> bool:
     """Prove a recorded Windows PID still names this portable Python."""
     if os.name != "nt":
@@ -88,17 +104,11 @@ def start(*, wait_seconds=120.0) -> dict:
         return {"started": False, "owned": False, "reachable": False,
                 "reason": "portable ComfyUI is not installed"}
     base = home()
-    python = base / "python_embeded" / "python.exe"
-    main = base / "ComfyUI" / "main.py"
     LOGFILE.parent.mkdir(parents=True, exist_ok=True)
     RUNFILE.parent.mkdir(parents=True, exist_ok=True)
     log = LOGFILE.open("a", encoding="utf-8")
     log.write(f"\n=== atelier GPU start {time.strftime('%Y-%m-%d %H:%M:%S')} ===\n")
-    command = [
-        str(python), "-s", str(main),
-        "--listen", "127.0.0.1", "--port", "8188",
-        "--disable-auto-launch", "--disable-api-nodes",
-    ]
+    command = launch_command()
     creation = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | \
         getattr(subprocess, "CREATE_NO_WINDOW", 0)
     process = subprocess.Popen(
@@ -109,7 +119,9 @@ def start(*, wait_seconds=120.0) -> dict:
         "home": str(base), "owned": True,
         "started_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "command_policy": ["loopback", "disable_api_nodes",
-                           "disable_auto_launch"],
+                           "disable_auto_launch", "low_vram",
+                           "disable_dynamic_vram",
+                           "disable_async_offload", "cpu_vae"],
     }
     RUNFILE.write_text(json.dumps(record, indent=2), encoding="utf-8")
     deadline = time.monotonic() + max(1.0, float(wait_seconds))

@@ -9,6 +9,7 @@
 <link rel="apple-touch-icon" href="/assets/favicon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Alegreya:wght@400;600;700&family=Bebas+Neue&family=Caveat:wght@400;600;700&family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Lexend:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&family=Permanent+Marker&family=Playfair+Display:wght@400;600;700&family=Quicksand:wght@400;500;600;700&family=Roboto+Slab:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Cormorant+Garamond:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Nunito:wght@400;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="/assets/hex_color.js"></script>
 <style>
@@ -374,7 +375,7 @@ const MODEL_PRESETS={
 };
 const KNOWN_MODEL_IDS={
   anthropic:["claude-sonnet-4-6","claude-sonnet-4-5-20250929","claude-haiku-4-5-20251001"],ollama:[],
-  openai:["gpt-5.6","gpt-5.5","gpt-5.4","gpt-5.4-mini","gpt-5.2","gpt-5.1","gpt-5","gpt-5-mini","gpt-4.1","gpt-4.1-mini"],
+  openai:["gpt-5.6-sol","gpt-5.6-terra","gpt-5.6-luna","gpt-5.5","gpt-5.4","gpt-5.4-mini","gpt-5.2","gpt-5.1","gpt-5","gpt-5-mini","gpt-4.1","gpt-4.1-mini"],
   gemini:["gemini-3.5-flash","gemini-3.1-pro-preview","gemini-2.5-pro","gemini-2.5-flash"],
   openrouter:[],together:["meta-llama/Llama-3.3-70B-Instruct-Turbo"],
   groq:["llama-3.3-70b-versatile","llama-3.1-8b-instant"],mistral:["mistral-large-latest","mistral-small-latest"],
@@ -599,7 +600,7 @@ $("voiceSave").onclick=async()=>{const btn=$("voiceSave");btn.disabled=true;$("v
       body:JSON.stringify({identity:$("voiceIdentity").value})});$("voiceDialog").close();}
   catch(e){$("voiceError").textContent=e.message;}finally{btn.disabled=false;}};
 window.addEventListener("focus",()=>refresh());
-const FONT_STACKS={system:'"Segoe UI",system-ui,sans-serif',serif:'"Source Serif 4",Georgia,serif',display:'"Cormorant Garamond",Georgia,serif',mono:'"IBM Plex Mono",Consolas,monospace',humanist:'"Atkinson Hyperlegible","Segoe UI",sans-serif',rounded:'Nunito,"Segoe UI",sans-serif',geometric:'"Space Grotesk","Segoe UI",sans-serif'};
+const FONT_STACKS={system:'"Segoe UI",system-ui,sans-serif',serif:'"Source Serif 4",Georgia,serif',display:'"Cormorant Garamond",Georgia,serif',mono:'"IBM Plex Mono",Consolas,monospace',humanist:'"Atkinson Hyperlegible","Segoe UI",sans-serif',rounded:'Nunito,"Segoe UI",sans-serif',geometric:'"Space Grotesk","Segoe UI",sans-serif',alegreya:'Alegreya,Georgia,serif',baskerville:'"Libre Baskerville",Georgia,serif',playfair:'"Playfair Display",Georgia,serif',slab:'"Roboto Slab",Rockwell,serif',inter:'Inter,"Segoe UI",sans-serif',lexend:'Lexend,"Segoe UI",sans-serif',quicksand:'Quicksand,"Segoe UI",sans-serif',condensed:'"Bebas Neue","Arial Narrow",sans-serif',handwritten:'Caveat,"Segoe Print",cursive',marker:'"Permanent Marker","Segoe Print",cursive',jetbrains:'"JetBrains Mono",Consolas,monospace',cinzel:'Cinzel,Georgia,serif'};
 const themeFontStack=id=>FONT_STACKS[id]||FONT_STACKS.system;
 function applyHouseTheme(tokens,media=null){if(!tokens)return;const root=document.documentElement;
   const map={bg:"bg",panel:"panel",line:"line",ink:"ink",dim:"dim",accent:"mint",accent2:"gold",warn:"danger"};

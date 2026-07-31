@@ -33,6 +33,8 @@ TEXT_EXTENSIONS = {
     ".yaml", ".yml", ".html", ".htm",
 }
 SUPPORTED_EXTENSIONS = TEXT_EXTENSIONS | {".pdf", ".docx"}
+DOCUMENT_VISIBILITIES = frozenset({
+    "system_public", "persona_private", "user_private"})
 
 
 class DocumentError(ValueError):
@@ -260,6 +262,9 @@ class DocumentLibrary:
             raise DocumentError("persona name is outside the document-reader boundary")
         self.persona = persona
         self.root = self.repo / "users" / self.user_id / "documents"
+        self.user_root = self.root
+        self.persona_root = self.repo / "personas" / persona / "documents"
+        self.system_root = self.repo / "system" / "documents"
         self.reader_root = (self.repo / "personas" / persona / "body" /
                             "document_reader")
         self.state_path = self.reader_root / "state.json"
@@ -296,6 +301,73 @@ class DocumentLibrary:
             if isinstance(value, dict) and (not kind or value.get("kind") == kind):
                 records.append(value)
         return records
+
+    def admit_internal_read(self, selection_id: str, query: str) -> dict:
+        """Resolve one Project Loom handoff to an accessible exact anchor."""
+        selection_id = str(selection_id or "").strip()
+        if not re.fullmatch(r"selection_[0-9a-f]{16}", selection_id):
+            raise DocumentError("internal document selection id is invalid")
+        prior = next((
+            value for value in self.reader_events(
+                "document_internal_seed", 5000)
+            if value.get("selection_id") == selection_id), None)
+        if prior is not None:
+            return {**prior, "duplicate": True}
+        query = re.sub(r"\s+", " ", str(query or "")).strip()[:500]
+        hits = self.search(query, n=1)["hits"] if query else []
+        if hits:
+            anchor = hits[0]["anchor"]
+        else:
+            suggestions = self.suggestions("", limit=1)
+            if not suggestions:
+                raise DocumentError(
+                    "no accessible document section is available")
+            anchor = suggestions[0]["anchor"]
+        inspected = self.inspect_anchor(anchor, maximum=1)
+        seed_id = "dseed_" + hashlib.sha256(
+            f"{selection_id}:{anchor}".encode("utf-8")).hexdigest()[:16]
+        record = self._append(self.events_path, {
+            "schema": 2, "kind": "document_internal_seed",
+            "seed_id": seed_id, "selection_id": selection_id,
+            "anchor": anchor, "doc_id": inspected["doc_id"],
+            "visibility": inspected["visibility"],
+            "access_reason": inspected["access_reason"],
+            "query_digest": hashlib.sha256(
+                query.encode("utf-8")).hexdigest(),
+            "ownership": "persona_project_handoff",
+        })
+        return {**record, "duplicate": False}
+
+    def pending_internal_reads(self) -> list[dict]:
+        settled = {
+            value.get("seed_id") for value in self.reader_events(
+                "document_internal_seed_settled", 5000)}
+        return [
+            value for value in self.reader_events(
+                "document_internal_seed", 5000)
+            if value.get("seed_id") not in settled]
+
+    def settle_internal_read(self, seed_id: str, *, run_id: str,
+                             outcome: str) -> dict:
+        seed_id = str(seed_id or "").strip()
+        seed = next((
+            value for value in self.reader_events(
+                "document_internal_seed", 5000)
+            if value.get("seed_id") == seed_id), None)
+        if seed is None:
+            raise DocumentError("internal document seed does not exist")
+        prior = next((
+            value for value in self.reader_events(
+                "document_internal_seed_settled", 5000)
+            if value.get("seed_id") == seed_id), None)
+        if prior is not None:
+            return prior
+        return self._append(self.events_path, {
+            "schema": 2, "kind": "document_internal_seed_settled",
+            "seed_id": seed_id, "selection_id": seed["selection_id"],
+            "anchor": seed["anchor"], "run_id": str(run_id or "")[:160],
+            "outcome": str(outcome or "quiet")[:80],
+        })
 
     def record_receipt(self, record: dict) -> dict:
         return self._append(self.receipts_path, {
@@ -381,11 +453,51 @@ class DocumentLibrary:
             self._reconcile_reading_arc()
         return imported
 
-    def _doc_dir(self, doc_id: str) -> Path:
+    def _candidate_doc_dirs(self, doc_id: str):
         doc_id = str(doc_id or "")
         if not re.fullmatch(r"doc_[0-9a-f]{16}", doc_id):
             raise DocumentError("invalid document id")
-        return self.root / doc_id
+        return (
+            self.persona_root / doc_id,
+            self.user_root / doc_id,
+            self.system_root / doc_id,
+        )
+
+    def _access(self, metadata: dict) -> tuple[bool, str]:
+        """Resolve access from durable ownership, never from a caller claim."""
+        visibility = str(metadata.get("visibility") or "user_private")
+        if visibility not in DOCUMENT_VISIBILITIES:
+            return False, "unsupported_visibility"
+        if visibility == "system_public":
+            return True, "system_public"
+        if visibility == "persona_private":
+            if str(metadata.get("owner") or "") == self.persona:
+                return True, "persona_owner"
+            return False, "different_persona_owner"
+        if str(metadata.get("owner") or "") != self.user_id:
+            return False, "different_user_owner"
+        grants = metadata.get("grants")
+        # Schema-1 documents predate grants and were intentionally shared by
+        # one local user's persona cockpits. Preserve those exact anchors.
+        if grants is None:
+            return True, "legacy_local_user_library"
+        grants = {str(value or "") for value in grants if str(value or "")}
+        if "*" in grants or self.persona in grants:
+            return True, "explicit_user_grant"
+        return False, "persona_not_granted"
+
+    def _doc_dir(self, doc_id: str) -> Path:
+        for path in self._candidate_doc_dirs(doc_id):
+            metadata_path = path / "document.json"
+            try:
+                metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            except (OSError, ValueError, TypeError):
+                continue
+            allowed, _reason = self._access(
+                metadata if isinstance(metadata, dict) else {})
+            if allowed and metadata.get("id") == doc_id:
+                return path
+        raise DocumentError("document does not exist or is not accessible")
 
     def _metadata(self, doc_id: str) -> dict:
         path = self._doc_dir(doc_id) / "document.json"
@@ -406,16 +518,28 @@ class DocumentLibrary:
         return value
 
     def list_documents(self) -> list[dict]:
-        if not self.root.is_dir():
-            return []
         found = []
-        for path in sorted(self.root.glob("doc_*/document.json")):
-            try:
-                rec = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, ValueError, TypeError):
+        seen = set()
+        for root in (self.persona_root, self.user_root, self.system_root):
+            if not root.is_dir():
                 continue
-            if isinstance(rec, dict) and rec.get("id") == path.parent.name:
-                found.append(rec)
+            for path in sorted(root.glob("doc_*/document.json")):
+                try:
+                    rec = json.loads(path.read_text(encoding="utf-8"))
+                except (OSError, ValueError, TypeError):
+                    continue
+                allowed, reason = self._access(
+                    rec if isinstance(rec, dict) else {})
+                if (not allowed or rec.get("id") != path.parent.name
+                        or rec["id"] in seen):
+                    continue
+                seen.add(rec["id"])
+                found.append({
+                    **rec,
+                    "visibility": str(
+                        rec.get("visibility") or "user_private"),
+                    "access_reason": reason,
+                })
         return sorted(found, key=lambda rec: (
             -float(rec.get("imported_at", 0.0)), str(rec.get("title", ""))))
 
@@ -423,7 +547,9 @@ class DocumentLibrary:
         return bool(self.list_documents())
 
     def import_bytes(self, filename: str, data: bytes,
-                     content_type: str = "") -> dict:
+                     content_type: str = "", *,
+                     visibility: str = "user_private",
+                     grants=None) -> dict:
         filename = Path(str(filename or "")).name.strip()
         if not filename:
             raise DocumentError("document filename is required")
@@ -441,10 +567,38 @@ class DocumentLibrary:
                 "unsupported document type; supported: "
                 + ", ".join(sorted(SUPPORTED_EXTENSIONS)))
         digest = hashlib.sha256(data).hexdigest()
-        doc_id = f"doc_{digest[:16]}"
-        target = self._doc_dir(doc_id)
+        visibility = str(visibility or "").strip()
+        if visibility not in DOCUMENT_VISIBILITIES:
+            raise DocumentError("document visibility is invalid")
+        owner = (self.persona if visibility == "persona_private"
+                 else None if visibility == "system_public"
+                 else self.user_id)
+        normalized_grants = []
+        if visibility == "user_private":
+            normalized_grants = sorted({
+                str(value or "").strip() for value in (
+                    grants if grants is not None else ("*",))
+                if str(value or "").strip()
+            })
+            if not normalized_grants:
+                normalized_grants = [self.persona]
+        scope_digest = hashlib.sha256(
+            f"{visibility}:{owner or ''}:{digest}".encode("utf-8")).hexdigest()
+        doc_id = (f"doc_{digest[:16]}" if visibility == "user_private"
+                  and normalized_grants == ["*"]
+                  else f"doc_{scope_digest[:16]}")
+        target_root = (
+            self.persona_root if visibility == "persona_private"
+            else self.system_root if visibility == "system_public"
+            else self.user_root)
+        target = target_root / doc_id
         if target.is_dir():
-            record = self._metadata(doc_id)
+            try:
+                record = json.loads(
+                    (target / "document.json").read_text(encoding="utf-8"))
+            except (OSError, ValueError, TypeError) as exc:
+                raise DocumentError(
+                    "existing document metadata is invalid") from exc
             return {**record, "duplicate": True}
 
         text, extractor = _extract(data, suffix)
@@ -464,7 +618,9 @@ class DocumentLibrary:
         record = {
             "schema": 1,
             "id": doc_id,
-            "owner": self.user_id,
+            "owner": owner,
+            "visibility": visibility,
+            "grants": normalized_grants,
             "title": _title_for(filename, text),
             "filename": filename,
             "extension": suffix,
@@ -478,8 +634,9 @@ class DocumentLibrary:
             "imported_at": imported_at,
             "vectors": vector_receipt,
         }
-        self.root.mkdir(parents=True, exist_ok=True)
-        staging = Path(tempfile.mkdtemp(prefix=".jnsq-doc-", dir=self.root))
+        target_root.mkdir(parents=True, exist_ok=True)
+        staging = Path(tempfile.mkdtemp(
+            prefix=".jnsq-doc-", dir=target_root))
         try:
             (staging / f"source{suffix}").write_bytes(data)
             (staging / "text.txt").write_text(text, encoding="utf-8", newline="\n")
@@ -498,7 +655,9 @@ class DocumentLibrary:
         return {**record, "duplicate": False}
 
     def import_data_url(self, filename: str, data_url: str,
-                        content_type: str = "") -> dict:
+                        content_type: str = "", *,
+                        visibility: str = "user_private",
+                        grants=None) -> dict:
         prefix, separator, encoded = str(data_url or "").partition(",")
         if not separator or not prefix.startswith("data:") or ";base64" not in prefix:
             raise DocumentError("document payload must be a base64 data URL")
@@ -510,7 +669,9 @@ class DocumentLibrary:
         except (binascii.Error, ValueError, TypeError) as exc:
             raise DocumentError("document payload is not valid base64") from exc
         declared = prefix[5:].split(";", 1)[0]
-        return self.import_bytes(filename, data, content_type or declared)
+        return self.import_bytes(
+            filename, data, content_type or declared,
+            visibility=visibility, grants=grants)
 
     def _state(self) -> dict:
         try:
@@ -616,7 +777,15 @@ class DocumentLibrary:
             "source_chars": len(text),
             "truncated": len(text) > maximum,
             "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
-            "ownership": "human_owned_document",
+            "ownership": (
+                "system_public_document"
+                if metadata.get("visibility") == "system_public"
+                else "persona_private_document"
+                if metadata.get("visibility") == "persona_private"
+                else "human_owned_document"),
+            "visibility": str(
+                metadata.get("visibility") or "user_private"),
+            "access_reason": self._access(metadata)[1],
         }
 
     def encounter(self, anchor: str, *, action: str, query: str = "",
@@ -1237,9 +1406,21 @@ class DocumentLibrary:
                           for doc in documents)
         total_chunks = sum(int(doc.get("chunk_count", 0)) for doc in documents)
         events = self.reader_events(limit=5000)
+        scope_counts = {
+            visibility: sum(
+                doc.get("visibility") == visibility for doc in documents)
+            for visibility in sorted(DOCUMENT_VISIBILITIES)}
         return {"owner": self.user_id, "persona": self.persona,
                 "documents": documents, "document_count": len(documents),
                 "chunk_count": total_chunks, "vector_rows": vector_rows,
+                "scope_counts": scope_counts,
+                "access_policy": {
+                    "system_public": "all_personas",
+                    "persona_private": "owner_only",
+                    "user_private": "durable_grants",
+                    "arbitrary_paths": False,
+                    "external_effects": False,
+                },
                 "reader": active,
                 "reading": {
                     "documents": {document["id"]: self.reading_coverage(
@@ -1276,7 +1457,7 @@ def render_document_context(context: dict) -> str:
             DOCUMENT_CONTEXT_BUDGET), 3200))
     character_budget = token_budget * 4 - 420
     sections = [
-        "Human-owned document material available to this private turn. "
+        "Ownership-resolved document material available to this private turn. "
         "Each excerpt carries a stable source anchor; this material is "
         "reference context, separate from identity and lived memory."
     ]

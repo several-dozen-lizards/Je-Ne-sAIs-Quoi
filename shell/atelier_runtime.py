@@ -27,6 +27,7 @@ from typing import Any, Callable, Mapping
 from adapters.model_events import collect_legacy_text
 from core.agency_projection import AgencyTaskEnvelope
 from core.atelier import Atelier
+from core.sovereign_interior import lease_fields
 from harness.model_call_receipts import (
     model_call_scope, new_cycle_id, record_model_call,
 )
@@ -43,8 +44,39 @@ ATELIER_ACTIONS = frozenset({
     "quiet", "create_svg", "create_kinetic_svg", "create_canvas",
     "create_audio", "create_3d", "create_composition", "create_diffusion",
 })
-
-
+LEGACY_FORM_ACTIONS = {
+    "static svg": "create_svg",
+    "kinetic svg": "create_kinetic_svg",
+    "canvas": "create_canvas",
+    "procedural audio": "create_audio",
+    "trusted 3d": "create_3d",
+    "cross-medium composition": "create_composition",
+    "local comfyui diffusion": "create_diffusion",
+}
+LEGACY_TRANSLATION_HINTS = {
+    "create_svg": (
+        "The svg field must contain literal well-formed <svg "
+        "xmlns=\"http://www.w3.org/2000/svg\" ...>...</svg> XML, not a "
+        "description, Markdown, or code fence."),
+    "create_kinetic_svg": (
+        "The svg field must contain literal well-formed SVG XML and motions "
+        "must contain the host motion vectors, never prose."),
+    "create_canvas": (
+        "The scene field must be the exact Canvas scene object and motions "
+        "must be an array, never prose or serialized JSON text."),
+    "create_audio": (
+        "The score field must be the exact procedural-audio score object, "
+        "never prose or serialized JSON text."),
+    "create_3d": (
+        "The scene field must be the exact trusted-3D scene object and "
+        "motions must be an array, never prose or serialized JSON text."),
+    "create_composition": (
+        "The composition field must be the exact composition graph object, "
+        "never prose or serialized JSON text."),
+    "create_diffusion": (
+        "The prompt field is the concise visual renderer description; all "
+        "vector and scene fields remain neutral."),
+}
 def _digest(value: Any) -> str:
     rendered = json.dumps(value, ensure_ascii=False, sort_keys=True,
                           default=str, separators=(",", ":"))
@@ -57,6 +89,423 @@ def _finite(value: Any, fallback=0.0) -> float:
     except (TypeError, ValueError):
         return float(fallback)
     return number if math.isfinite(number) else float(fallback)
+
+
+def _legacy_form_action(text: str) -> tuple[str, str] | None:
+    try:
+        value = json.loads(str(text or "").strip())
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(value, dict) or "form" not in value:
+        return None
+    form = str(value.get("form") or "").strip()
+    normalized = re.sub(r"[_-]+", " ", form.casefold())
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    action = LEGACY_FORM_ACTIONS.get(normalized)
+    return (form, action) if action else None
+
+
+def _legacy_host_translation(proposal: Mapping[str, Any]) -> dict | None:
+    """Remap an older creative envelope without inventing renderer content.
+
+    The older Atelier dialect chose a ``form`` and placed renderer data under
+    ``content`` or ``render``.  This translation only moves already-structured
+    values into the current names.  Existing medium validators still reject
+    prose, incomplete geometry, executable surfaces, URLs, and bad ranges.
+    """
+    raw = dict(proposal or {})
+    form = str(raw.get("form") or "").strip()
+    normalized = re.sub(r"[_-]+", " ", form.casefold())
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    action = LEGACY_FORM_ACTIONS.get(normalized)
+    if not action:
+        return None
+
+    def object_value(value):
+        if isinstance(value, Mapping):
+            return dict(value)
+        if isinstance(value, str):
+            try:
+                decoded = json.loads(value)
+            except (TypeError, ValueError):
+                return value
+            return dict(decoded) if isinstance(decoded, Mapping) else decoded
+        return value
+
+    content = object_value(raw.get("content"))
+    render = object_value(raw.get("render"))
+    containers = [
+        value for value in (render, content, raw)
+        if isinstance(value, Mapping)
+    ]
+
+    def first(*keys, default=None):
+        for container in containers:
+            for key in keys:
+                value = container.get(key)
+                if value not in (None, "", {}, []):
+                    return object_value(value)
+        return default
+
+    def bounded_fields(value, ranges, text_fields=()):
+        if not isinstance(value, Mapping):
+            return value
+        result = {}
+        for key in text_fields:
+            if key in value:
+                result[key] = value[key]
+        for key, (minimum, maximum) in ranges.items():
+            if key not in value:
+                continue
+            number = value[key]
+            try:
+                finite_number = (
+                    None if isinstance(number, bool) else float(number))
+            except (TypeError, ValueError):
+                finite_number = None
+            if finite_number is not None and math.isfinite(finite_number):
+                result[key] = max(
+                    float(minimum), min(float(maximum), finite_number))
+            else:
+                result[key] = number
+        return result
+
+    title = str(
+        raw.get("title") or raw.get("description")
+        or raw.get("artifact_id") or form
+    ).strip()
+    translated = {"action": action, "title": title}
+    if action in {"create_svg", "create_kinetic_svg"}:
+        svg = first("svg", "markup")
+        if svg is None and isinstance(content, str):
+            svg = content
+        translated["svg"] = svg or ""
+        if action == "create_kinetic_svg":
+            translated["motions"] = first(
+                "motions", "motion", "cycles", default=[])
+    elif action in {"create_canvas", "create_3d"}:
+        scene = first("scene", "scene_graph", "scene3d", "world", "geometry")
+        if scene is None:
+            candidate = render if isinstance(render, Mapping) else content
+            required = (
+                {"background", "camera", "objects"}
+                if action == "create_3d" else {"nodes"})
+            if isinstance(candidate, Mapping) \
+                    and required.issubset(candidate):
+                scene = dict(candidate)
+                scene.pop("motions", None)
+        if isinstance(scene, Mapping):
+            scene = dict(scene)
+            for wrapper in ("scene", "scene_graph", "geometry", "world"):
+                nested = scene.get(wrapper)
+                if isinstance(nested, Mapping):
+                    scene = {**scene, **dict(nested)}
+            aliases = (
+                {
+                    "background": ("background_color", "clear_color"),
+                    "camera": ("viewpoint", "view", "camera_config"),
+                    "ambient": (
+                        "ambient_light", "ambient_intensity", "ambientLight"),
+                    "lights": ("lighting", "light_sources"),
+                    "objects": (
+                        "primitives", "elements", "entities", "geometry_objects"),
+                }
+                if action == "create_3d" else {
+                    "aspect": ("aspect_ratio",),
+                    "background": ("background_color", "clear_color"),
+                    "nodes": ("elements", "shapes", "objects"),
+                })
+            for canonical, alternatives in aliases.items():
+                if canonical in scene:
+                    continue
+                for alternative in alternatives:
+                    if alternative in scene:
+                        scene[canonical] = scene[alternative]
+                        break
+            if action == "create_3d" \
+                    and isinstance(scene.get("lights"), Mapping):
+                lighting = dict(scene["lights"])
+                scene["lights"] = (
+                    lighting.get("lights")
+                    or lighting.get("sources")
+                    or lighting.get("items")
+                    or scene["lights"])
+            # Some legacy renderers place presentation/envelope metadata next
+            # to an otherwise complete scene.  Project only the exact
+            # renderer vocabulary; required-key and value validation remains
+            # the compiler's job.
+            scene_keys = (
+                {"background", "camera", "ambient", "lights", "objects"}
+                if action == "create_3d"
+                else {"aspect", "background", "nodes"})
+            scene = {
+                key: value for key, value in dict(scene).items()
+                if key in scene_keys
+            }
+            if action == "create_3d":
+                scene = dict(scene)
+                scene["camera"] = bounded_fields(
+                    scene.get("camera"),
+                    {
+                        "x": (-4, 4), "y": (-4, 4), "z": (1, 6),
+                        "target_x": (-2, 2), "target_y": (-2, 2),
+                        "target_z": (-2, 2), "fov": (30, 80),
+                    })
+                if isinstance(scene.get("ambient"), (int, float)) \
+                        and not isinstance(scene.get("ambient"), bool):
+                    scene["ambient"] = max(
+                        .02, min(1.0, float(scene["ambient"])))
+                if isinstance(scene.get("lights"), list):
+                    scene["lights"] = [
+                        bounded_fields(
+                            light,
+                            {
+                                "x": (-4, 4), "y": (-4, 4), "z": (-4, 4),
+                                "intensity": (.05, 2),
+                            },
+                            ("color",))
+                        for light in scene["lights"]
+                    ]
+                if isinstance(scene.get("objects"), list):
+                    object_ranges = {
+                        "x": (-2, 2), "y": (-2, 2), "z": (-2, 2),
+                        "scale_x": (.05, 2), "scale_y": (.05, 2),
+                        "scale_z": (.05, 2),
+                        "rotation_x": (-1, 1), "rotation_y": (-1, 1),
+                        "rotation_z": (-1, 1), "roughness": (0, 1),
+                        "metallic": (0, 1), "opacity": (.15, 1),
+                    }
+                    scene["objects"] = [
+                        bounded_fields(
+                            item, object_ranges,
+                            ("id", "kind", "color"))
+                        for item in scene["objects"]
+                    ]
+                required_scene = {
+                    "background", "camera", "ambient", "lights", "objects"}
+                if set(scene) != required_scene:
+                    raise ValueError(
+                        "legacy 3D scene projection incomplete; present="
+                        f"{sorted(scene)}; missing="
+                        f"{sorted(required_scene - set(scene))}")
+        translated["scene"] = scene or {}
+        motions = first("motions", "motion", "cycles", default=[])
+        if action == "create_3d" and isinstance(motions, list):
+            motions = [
+                bounded_fields(
+                    motion,
+                    {
+                        "intensity": (0, 1), "rate": (0, 1),
+                        "phase": (0, 1), "x": (-1, 1), "y": (-1, 1),
+                    },
+                    ("target", "channel"))
+                for motion in motions
+            ]
+        translated["motions"] = motions
+    elif action == "create_audio":
+        score = first("score", "audio", "sound")
+        if score is None and isinstance(content, Mapping) \
+                and {"voices", "events"}.issubset(content):
+            score = content
+        translated["score"] = score or {}
+    elif action == "create_composition":
+        composition = first("composition", "graph")
+        if composition is None and isinstance(content, Mapping) \
+                and "tracks" in content:
+            composition = content
+        translated["composition"] = composition or {}
+    elif action == "create_diffusion":
+        prompt = first("prompt")
+        if prompt is None and isinstance(content, str):
+            prompt = content
+        if prompt is None:
+            prompt = raw.get("description")
+        translated.update({
+            "prompt": str(prompt or "").strip(),
+            "negative_prompt": str(
+                first("negative_prompt", "negative", default="") or ""),
+            "aspect": first("aspect", "aspect_ratio", default=1.0),
+        })
+    return translated
+
+
+def _translation_output_format(action: str):
+    """Small Ollama grammar for a chosen medium; host validation stays final."""
+    def number(minimum: float, maximum: float):
+        return {
+            "type": "number", "minimum": minimum, "maximum": maximum}
+
+    if action == "create_kinetic_svg":
+        motion = {
+            "type": "object",
+            "properties": {
+                "target": {"type": "string"},
+                "channel": {
+                    "type": "string",
+                    "enum": ["translate", "rotate", "opacity"],
+                },
+                "intensity": number(0.0, 1.0),
+                "rate": number(0.0, 1.0),
+                "phase": number(0.0, 1.0),
+                "x": number(-1.0, 1.0),
+                "y": number(-1.0, 1.0),
+            },
+            "required": [
+                "target", "channel", "intensity", "rate", "phase", "x", "y",
+            ],
+            "additionalProperties": False,
+        }
+        return {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string", "enum": ["create_kinetic_svg"]},
+                "title": {"type": "string"},
+                "svg": {"type": "string"},
+                "motions": {
+                    "type": "array", "items": motion,
+                    "minItems": 1, "maxItems": 12,
+                },
+            },
+            "required": ["action", "title", "svg", "motions"],
+            "additionalProperties": False,
+        }
+    if action == "create_svg":
+        return {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["create_svg"]},
+                "title": {"type": "string"},
+                "svg": {"type": "string"},
+            },
+            "required": ["action", "title", "svg"],
+            "additionalProperties": False,
+        }
+    if action == "create_3d":
+        hex_color = {
+            "type": "string", "pattern": "^#[0-9A-Fa-f]{6}$"}
+        camera = {
+            "type": "object",
+            "properties": {
+                "x": number(-4.0, 4.0), "y": number(-4.0, 4.0),
+                "z": number(1.0, 6.0),
+                "target_x": number(-2.0, 2.0),
+                "target_y": number(-2.0, 2.0),
+                "target_z": number(-2.0, 2.0),
+                "fov": number(30.0, 80.0),
+            },
+            "required": [
+                "x", "y", "z", "target_x", "target_y", "target_z", "fov"],
+            "additionalProperties": False,
+        }
+        light = {
+            "type": "object",
+            "properties": {
+                "x": number(-4.0, 4.0), "y": number(-4.0, 4.0),
+                "z": number(-4.0, 4.0), "color": hex_color,
+                "intensity": number(0.05, 2.0),
+            },
+            "required": ["x", "y", "z", "color", "intensity"],
+            "additionalProperties": False,
+        }
+        object3d = {
+            "type": "object",
+            "properties": {
+                "id": {"type": "string"},
+                "kind": {
+                    "type": "string",
+                    "enum": ["sphere", "box", "torus", "plane"],
+                },
+                **{
+                    key: number(-2.0, 2.0)
+                    for key in ("x", "y", "z")
+                },
+                **{
+                    key: number(0.05, 2.0)
+                    for key in ("scale_x", "scale_y", "scale_z")
+                },
+                **{
+                    key: number(-1.0, 1.0)
+                    for key in ("rotation_x", "rotation_y", "rotation_z")
+                },
+                "color": hex_color,
+                "roughness": number(0.0, 1.0),
+                "metallic": number(0.0, 1.0),
+                "opacity": number(0.15, 1.0),
+            },
+            "required": [
+                "id", "kind", "x", "y", "z", "scale_x", "scale_y",
+                "scale_z", "rotation_x", "rotation_y", "rotation_z", "color",
+                "roughness", "metallic", "opacity",
+            ],
+            "additionalProperties": False,
+        }
+        scene = {
+            "type": "object",
+            "properties": {
+                "background": hex_color,
+                "camera": camera,
+                "ambient": number(0.02, 1.0),
+                "lights": {
+                    "type": "array", "items": light,
+                    "minItems": 1, "maxItems": 3,
+                },
+                "objects": {
+                    "type": "array", "items": object3d,
+                    "minItems": 1, "maxItems": 24,
+                },
+            },
+            "required": [
+                "background", "camera", "ambient", "lights", "objects"],
+            "additionalProperties": False,
+        }
+        motion3d = {
+            "type": "object",
+            "properties": {
+                "target": {"type": "string"},
+                "channel": {
+                    "type": "string",
+                    "enum": [
+                        "translate", "rotate", "scale", "opacity", "orbit"],
+                },
+                "intensity": number(0.0, 1.0),
+                "rate": number(0.0, 1.0),
+                "phase": number(0.0, 1.0),
+                "x": number(-1.0, 1.0),
+                "y": number(-1.0, 1.0),
+            },
+            "required": [
+                "target", "channel", "intensity", "rate", "phase", "x", "y"],
+            "additionalProperties": False,
+        }
+        return {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["create_3d"]},
+                "title": {"type": "string"},
+                "scene": scene,
+                "motions": {
+                    "type": "array", "items": motion3d, "maxItems": 12},
+            },
+            "required": ["action", "title", "scene", "motions"],
+            "additionalProperties": False,
+        }
+    if action == "create_diffusion":
+        return {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string", "enum": ["create_diffusion"]},
+                "title": {"type": "string"},
+                "prompt": {"type": "string"},
+                "negative_prompt": {"type": "string"},
+                "aspect": number(0.625, 1.6),
+            },
+            "required": [
+                "action", "title", "prompt", "negative_prompt", "aspect"],
+            "additionalProperties": False,
+        }
+    return "json"
 
 
 @dataclass(frozen=True)
@@ -121,21 +570,30 @@ def parse_atelier_proposal(text: str) -> dict[str, Any]:
         raise ValueError("atelier model did not return one JSON object") from exc
     if not isinstance(proposal, dict):
         raise ValueError("atelier model did not return one JSON object")
-    legacy = {"action", "title", "svg"}
+    legacy = _legacy_host_translation(proposal)
+    if legacy is not None:
+        proposal = legacy
     allowed = {"action", "title", "svg", "scene", "score", "composition",
                "motions", "prompt", "negative_prompt", "aspect"}
     unknown = set(proposal) - allowed
     if unknown:
+        dialect = {
+            key: str(proposal.get(key) or "")[:80]
+            for key in ("action", "form") if key in proposal}
         raise ValueError(
-            f"atelier proposal contains unknown fields: {sorted(unknown)}")
-    at6 = allowed - {"composition"}
-    at4 = at6 - {"score"}
-    at3 = at4 - {"scene"}
-    at2 = at3 - {"motions"}
-    if frozenset(proposal) not in {
-            frozenset(legacy), frozenset(at2), frozenset(at3),
-            frozenset(at4), frozenset(at6), frozenset(allowed)}:
-        raise ValueError("atelier proposal must contain the complete renderer shape")
+            f"atelier proposal contains unknown fields: {sorted(unknown)}"
+            + (f"; dialect={dialect}" if dialect else ""))
+    # Local structured-output models reliably omit neutral unused fields.
+    # Their identities are unambiguous and carry no creative content, so the
+    # host may supply them before the exact medium validator runs. Required
+    # selected-medium content remains mandatory below; unknown authority
+    # surfaces still fail closed above.
+    neutral = {
+        "action": "", "title": "", "svg": "", "scene": {}, "score": {},
+        "composition": {}, "motions": [], "prompt": "",
+        "negative_prompt": "", "aspect": 1.0,
+    }
+    proposal = {**neutral, **proposal}
     if "motions" in proposal and not isinstance(proposal["motions"], list):
         raise ValueError("atelier motions must be an array")
     if "scene" in proposal and not isinstance(proposal["scene"], dict):
@@ -148,6 +606,31 @@ def parse_atelier_proposal(text: str) -> dict[str, Any]:
     action = str(proposal.get("action") or "").strip().casefold()
     if action not in ATELIER_ACTIONS:
         raise ValueError("atelier proposal action is invalid")
+    if action == "create_3d":
+        projected = _legacy_host_translation({
+            "form": "trusted_3d",
+            "description": proposal.get("title"),
+            "render": {
+                "scene": proposal.get("scene"),
+                "motions": proposal.get("motions"),
+            },
+        })
+        proposal["scene"] = projected["scene"]
+        proposal["motions"] = projected["motions"]
+    selected = {
+        "quiet": set(),
+        "create_svg": {"title", "svg"},
+        "create_kinetic_svg": {"title", "svg", "motions"},
+        "create_canvas": {"title", "scene", "motions"},
+        "create_audio": {"title", "score"},
+        "create_3d": {"title", "scene", "motions"},
+        "create_composition": {"title", "composition"},
+        "create_diffusion": {
+            "title", "prompt", "negative_prompt", "aspect"},
+    }[action]
+    for key, empty in neutral.items():
+        if key != "action" and key not in selected:
+            proposal[key] = empty
     value = {
         "action": action,
         "title": str(proposal.get("title") or "").strip(),
@@ -160,11 +643,6 @@ def parse_atelier_proposal(text: str) -> dict[str, Any]:
         "negative_prompt": str(proposal.get("negative_prompt") or "").strip(),
         "aspect": _finite(proposal.get("aspect"), 1.0),
     }
-    if action == "quiet" and any(
-            value[key] for key in ("title", "svg", "scene", "score",
-                                   "composition", "motions", "prompt",
-                                   "negative_prompt")):
-        raise ValueError("quiet atelier proposal must not carry an artifact")
     if action == "create_svg" and (
             not value["title"] or not value["svg"] or value["prompt"]
             or value["negative_prompt"] or value["motions"] or value["scene"]
@@ -232,6 +710,7 @@ class AtelierRuntime:
         self._adapter = None
         self._effects = queue.Queue()
         self._observer = getattr(engine, "salience_observer", None)
+        self.internal_outcome_sink = None
         self._last_readiness = None
         self.comfy = comfy_client
         if self.comfy is None and self.config.diffusion_enabled:
@@ -348,8 +827,7 @@ class AtelierRuntime:
                         now: float, readiness: Mapping[str, Any] = None):
         state = dict(readiness or self.readiness(field))
         eligible = self.eligible(candidate) \
-            and "atelier" in getattr(self.engine, "enabled", set()) \
-            and not state.get("hard_blocked")
+            and "atelier" in getattr(self.engine, "enabled", set())
         atelier_satiety = field.satiety.warmth("atelier", now)
         readiness_value = (
             max(0.0, min(1.0, _finite(state.get("readiness"))))
@@ -357,7 +835,7 @@ class AtelierRuntime:
         score, meta = field.attention_score(
             dict(candidate), now=now,
             action_readiness=readiness_value,
-            action_eligible=eligible)
+            action_eligible=eligible, scope_satiety=atelier_satiety)
         return score, {
             **meta, "atelier_eligible": eligible,
             "atelier_readiness": round(readiness_value, 6),
@@ -366,9 +844,12 @@ class AtelierRuntime:
 
     def _offer_seed(self, field, record: Mapping[str, Any], *, now: float):
         ownership = str(record.get("ownership") or "human_admitted")
-        description = ("Self-chosen creative material" if
-                       ownership == "persona_chosen_conversation" else
-                       "Human-admitted creative material")
+        description = (
+            "Self-chosen creative material"
+            if ownership == "persona_chosen_conversation"
+            else "Project-chosen private creative material"
+            if ownership == "persona_project_handoff"
+            else "Human-admitted creative material")
         candidate = field.offer_cognitive_event(
             "atelier_seed",
             f"{description} named "
@@ -383,6 +864,7 @@ class AtelierRuntime:
         candidate.update({
             "seed_id": record["seed_id"],
             "satiety_key": f"atelier_seed:{record['seed_id']}",
+            **lease_fields(record, origin="atelier_seed"),
         })
         return candidate
 
@@ -413,6 +895,129 @@ class AtelierRuntime:
             content_chars=record.get("chars", 0),
             duplicate=record.get("duplicate", False))
         return {"record": record, "candidate": candidate}
+
+    def offer_latest_artifact(self, audience: str, *,
+                              allowed_audiences=()) -> dict:
+        """Honor one resident-authored exact in-house offer."""
+        audience = str(audience or "").strip().casefold()
+        allowed = {
+            str(item or "").strip().casefold()
+            for item in (allowed_audiences or ())
+            if str(item or "").strip()}
+        if audience not in allowed:
+            raise ValueError("atelier audience is not an exact admitted resident")
+        record = self.atelier.offer_latest_artifact(
+            audience=audience,
+            offered_by=str(getattr(self.engine, "persona", "") or ""))
+        self._emit(
+            "atelier_artifact_offered",
+            artifact_id=record.get("artifact_id"),
+            audience=record.get("audience"),
+            duplicate=record.get("duplicate", False),
+            external_effects=False)
+        return {
+            "ok": True,
+            "artifact_id": record.get("artifact_id"),
+            "audience": record.get("audience"),
+            "duplicate": record.get("duplicate", False),
+            "external_effects": False,
+        }
+
+    def consume_internal_action(self, selection: Mapping[str, Any]) -> dict:
+        """Owner-validate one local private creation handoff."""
+        selection = dict(selection or {})
+        if selection.get("capability") != "atelier.private_creation" \
+                or selection.get("owner") != "atelier":
+            raise ValueError("internal action is not owned by Atelier")
+        if selection.get("authority_scope") \
+                != "wrapper_local_private_reversible" \
+                or selection.get("external_effects") is not False \
+                or selection.get("tool_binding") is not None \
+                or selection.get("scheduler_slot") is not None:
+            raise ValueError("internal Atelier action exceeded wrapper authority")
+        payload = dict(selection.get("payload") or {})
+        provenance = dict(payload.get("project_loom_provenance") or {})
+        allowed_provenance = {
+            "proposal_id", "orientation_id", "candidate_id", "selection_mode"}
+        if not set(provenance).issubset(allowed_provenance) \
+                or not {"proposal_id", "candidate_id"}.issubset(provenance) \
+                or any(not str(value or "").strip()
+                       for value in provenance.values()):
+            raise ValueError("internal Atelier action provenance is incomplete")
+        label = str(payload.get("label") or "").strip()
+        brief = str(payload.get("content") or "").strip()
+        if not label or not brief:
+            raise ValueError("internal Atelier action needs bounded private material")
+        record = self.atelier.admit_seed(
+            label, brief, ownership="persona_project_handoff")
+        self._emit(
+            "atelier_internal_action_admitted",
+            selection_id=selection.get("selection_id"),
+            seed_id=record.get("seed_id"),
+            duplicate=record.get("duplicate", False),
+            capability="atelier.private_creation",
+            ownership="persona_project_handoff")
+        return record
+
+    def request_opening(self, field, *, now: float = None) -> dict:
+        """Open one explicit human-requested attempt outside autonomous caps."""
+        now = time.time() if now is None else float(now)
+        if self.controller.status().get("active"):
+            return {"started": False, "reason": "attention_occupied"}
+        readiness = self.readiness(field)
+        candidates = [
+            dict(item) for item in field.queue.items(now)
+            if self.eligible(item) and self._candidate_current(item)]
+        if not candidates:
+            self.refresh_pending(field, now=now)
+            candidates = [
+                dict(item) for item in field.queue.items(now)
+                if self.eligible(item) and self._candidate_current(item)]
+        if not candidates:
+            return {"started": False, "reason": "no_pending_material"}
+
+        ranked = []
+        for candidate in candidates:
+            score, meta = self.selection_score(
+                field, candidate, now=now, readiness=readiness)
+            ranked.append((
+                float(score), float(candidate.get("salience", 0.0)),
+                str(candidate.get("key") or ""), candidate, meta))
+        score, _salience, _key, candidate, score_meta = max(ranked)
+        removed = field.queue.discard_where(
+            lambda item: item.get("key") == candidate.get("key"),
+            reason="human_requested_atelier_opening", now=now)
+        if not removed:
+            return {"started": False, "reason": "candidate_changed"}
+        field.save(now=now)
+        result = self.start_candidate(candidate)
+        if not result.get("started"):
+            field.queue.put(
+                candidate, float(candidate.get("salience", 0.05)), now=now,
+                offer_meta={
+                    "operation": "requeued",
+                    "reason": result.get("reason") or
+                              "direct_opening_failed"})
+            field.save(now=now)
+            return result
+        self.atelier.record_receipt({
+            "kind": "human_requested_atelier_opening",
+            "run_id": result.get("run_id"),
+            "candidate_key": candidate.get("key"),
+            "seed_id": candidate.get("seed_id"),
+            "outcome": "started",
+            "model": self.config.model,
+            "selection_score": round(score, 6),
+            "estimated_cost_usd": 0.0,
+        })
+        self._emit(
+            "human_requested_atelier_opening",
+            run_id=result.get("run_id"),
+            candidate_key=candidate.get("key"),
+            selection_score=round(score, 6),
+            selection_meta=score_meta)
+        return {
+            key: value for key, value in result.items() if key != "future"}
 
     def _expression_vector(self) -> dict[str, float]:
         values = {}
@@ -481,6 +1086,10 @@ class AtelierRuntime:
         )
         renderer_contract = (
             "Return exactly: action,title,svg,scene,score,composition,motions,prompt,negative_prompt,aspect. "
+            "The complete JSON object must close inside this bounded response. "
+            "Scale detail, node count, event count, object count, and SVG path "
+            "complexity down together when needed; a smaller complete form is "
+            "admissible and a truncated form is not. "
             "Actions: quiet, create_svg, create_kinetic_svg, create_canvas, "
             "create_audio, create_3d, create_composition, create_diffusion. Unused text fields are empty; unused scene/score/composition are {}; "
             "unused motions is []; quiet and Canvas use top-level aspect 1.0. "
@@ -665,10 +1274,14 @@ class AtelierRuntime:
             return {"started": False, "reason": "not_eligible"}
         if not self._candidate_current(candidate):
             return {"started": False, "reason": "stale_candidate"}
+        # Controller.start() admits on its async loop, so merely obtaining a
+        # Future does not mean this candidate owns the persona slot.  Refuse
+        # synchronously while another organ/run is active; otherwise the DMN
+        # loop can report a false Atelier start and later requeue it as an
+        # ActiveAgencyRun while a human-requested opening is still healthy.
+        if self.controller.status().get("active"):
+            return {"started": False, "reason": "attention_occupied"}
         readiness = self.readiness(getattr(self.engine, "idle_metabolism", None))
-        if readiness.get("hard_blocked"):
-            return {"started": False, "reason": "state_blocked",
-                    "readiness": readiness}
         capability = self.capability()
         if not capability["usable"]:
             self._emit(
@@ -698,11 +1311,20 @@ class AtelierRuntime:
                     persona=getattr(self.engine, "persona", "unknown"),
                     purpose="atelier_creative"):
                 try:
+                    event_args = {
+                        "tools": (), "exchanges": (),
+                        "max_tokens": self.config.max_tokens,
+                        "temperature": product.temperature,
+                        "cancel": context.cancellation,
+                    }
+                    if str(identity.get("provider") or "") == "ollama":
+                        # Ollama's union-schema grammar can make Qwen expand
+                        # unused renderer objects until the bounded completion
+                        # is truncated. JSON mode closes the syntax; the
+                        # host's exact per-medium validators remain authority.
+                        event_args["output_format"] = "json"
                     events = [event async for event in adapter.events(
-                        product.assembly, tools=(), exchanges=(),
-                        max_tokens=self.config.max_tokens,
-                        temperature=product.temperature,
-                        cancel=context.cancellation)]
+                        product.assembly, **event_args)]
                     usage = self._usage(events)
                     attempts = 1 + len(getattr(
                         getattr(adapter, "event_transport", None),
@@ -719,9 +1341,6 @@ class AtelierRuntime:
                         {"error_type": type(exc).__name__}, status="failed")
                     raise
             context.cancellation.raise_if_cancelled()
-            if context.live_epoch() != context.captured_epoch:
-                raise concurrent.futures.CancelledError(
-                    "external demand changed before atelier commit")
             try:
                 proposal = parse_atelier_proposal(text)
             except ValueError as first_error:
@@ -729,6 +1348,24 @@ class AtelierRuntime:
                 # returning the same valid seed to the wider field.  The
                 # rejected response is never committed, and the correction
                 # describes only the schema error—not private output text.
+                legacy_choice = _legacy_form_action(text)
+                dialect_instruction = (
+                    f"You already chose {legacy_choice[0]!r}. Preserve that "
+                    f"choice as action {legacy_choice[1]!r}; translate the "
+                    "private draft supplied in atelier_translation_source "
+                    "into that renderer's exact structured "
+                    "field, then leave every other renderer field neutral. "
+                    f"{LEGACY_TRANSLATION_HINTS[legacy_choice[1]]} "
+                    if legacy_choice else "")
+                if legacy_choice:
+                    # This is private, model-authored working material, not a
+                    # receipt or an outward log.  The correction must actually
+                    # receive the draft it is being asked to compile; without
+                    # it, the second pass can only guess from the original seed.
+                    product.assembly.add(
+                        "atelier_translation_source", text,
+                        priority=10, budget=min(
+                            900, max(160, len(str(text or "")) // 3)))
                 product.assembly.add(
                     "atelier_schema_correction",
                     "The previous object was not admissible: "
@@ -736,19 +1373,27 @@ class AtelierRuntime:
                     "Writing Desk. Return one new object using only these "
                     "exact top-level keys: action,title,svg,scene,score,"
                     "composition,motions,prompt,negative_prompt,aspect. "
-                    "Do not use form or content. Reconsider the same admitted "
-                    "material; quiet remains valid.",
+                    "Do not use form or content. " + dialect_instruction +
+                    ("Reconsider the same admitted material; quiet remains "
+                     "valid." if not legacy_choice else ""),
                     priority=10, budget=260)
                 repair_events = []
                 with model_call_scope(
                         cycle_id=new_cycle_id(),
                         persona=getattr(self.engine, "persona", "unknown"),
                         purpose="atelier_schema_correction"):
+                    repair_args = {
+                        "tools": (), "exchanges": (),
+                        "max_tokens": self.config.max_tokens,
+                        "temperature": product.temperature,
+                        "cancel": context.cancellation,
+                    }
+                    if str(identity.get("provider") or "") == "ollama":
+                        repair_args["output_format"] = (
+                            _translation_output_format(legacy_choice[1])
+                            if legacy_choice else "json")
                     repair_events = [event async for event in adapter.events(
-                        product.assembly, tools=(), exchanges=(),
-                        max_tokens=self.config.max_tokens,
-                        temperature=product.temperature,
-                        cancel=context.cancellation)]
+                        product.assembly, **repair_args)]
                     repair_usage = self._usage(repair_events)
                     repair_attempts = 1 + len(getattr(
                         getattr(adapter, "event_transport", None),
@@ -759,11 +1404,14 @@ class AtelierRuntime:
                         {**repair_usage, "attempts": repair_attempts},
                         status="ok")
                 context.cancellation.raise_if_cancelled()
-                if context.live_epoch() != context.captured_epoch:
-                    raise concurrent.futures.CancelledError(
-                        "external demand changed before atelier correction commit")
-                proposal = parse_atelier_proposal(collect_legacy_text(
-                    repair_events, context.cancellation))
+                try:
+                    proposal = parse_atelier_proposal(collect_legacy_text(
+                        repair_events, context.cancellation))
+                except ValueError as correction_error:
+                    raise ValueError(
+                        f"initial proposal: {str(first_error)[:140]}; "
+                        f"correction: {str(correction_error)[:140]}") \
+                        from correction_error
                 usage = {
                     key: int(usage.get(key) or 0)
                     + int(repair_usage.get(key) or 0)
@@ -785,7 +1433,8 @@ class AtelierRuntime:
 
         try:
             future = self.controller.start(
-                run_id, runner, proposal_id=proposal_id)
+                run_id, runner, proposal_id=proposal_id,
+                interruptible=False)
         except Exception as exc:
             return {"started": False, "reason": type(exc).__name__}
         future.add_done_callback(lambda done: self._completed(
@@ -809,7 +1458,7 @@ class AtelierRuntime:
                 "proposal_id": proposal_id, "candidate": dict(candidate),
                 "reason": ("interrupted" if isinstance(
                     exc, concurrent.futures.CancelledError)
-                    else f"failed:{type(exc).__name__}"),
+                    else f"failed:{type(exc).__name__}:{str(exc)[:180]}"),
             })
             return
         record = dict(result.get("record") or {})
@@ -848,6 +1497,16 @@ class AtelierRuntime:
             if effect["kind"] == "retry":
                 candidate = dict(effect["candidate"])
                 field.pressure.refund()
+                self.atelier.record_receipt({
+                    "kind": "atelier_run_failed",
+                    "run_id": effect["run_id"],
+                    "candidate_key": candidate.get("key"),
+                    "seed_id": candidate.get("seed_id"),
+                    "outcome": "failed_requeued",
+                    "reason": effect["reason"],
+                    "model": self.config.model,
+                    "estimated_cost_usd": 0.0,
+                })
                 restored = field.queue.put(
                     candidate, float(candidate.get("salience", 0.05)),
                     now=now, offer_meta={
@@ -903,6 +1562,16 @@ class AtelierRuntime:
                 "source_satiety": source_satiety,
                 "atelier_satiety": atelier_satiety,
             })
+            if self.internal_outcome_sink is not None \
+                    and source_candidate.get("seed_id"):
+                try:
+                    self.internal_outcome_sink(
+                        source_candidate["seed_id"],
+                        run_id=effect["run_id"], outcome=outcome,
+                        durable_ref=effect.get("artifact_id") or "",
+                        usage={**usage, "estimated_cost_usd": 0.0})
+                except ValueError:
+                    pass
             candidate = field.offer_cognitive_event(
                 "atelier_effect", event_text,
                 {"novelty": novelty,
@@ -928,6 +1597,35 @@ class AtelierRuntime:
         return admitted
 
     def status(self) -> dict:
+        field = getattr(self.engine, "idle_metabolism", None)
+        pending = self.atelier.pending_seeds()
+        pending_keys = {
+            f"atelier_seed:{item.get('seed_id')}" for item in pending}
+        live_keys = set()
+        pressure = None
+        threshold = None
+        recent_fires = None
+        max_fires = None
+        cooldown_remaining = None
+        if field is not None:
+            try:
+                now = time.time()
+                live_keys = {
+                    str(item.get("key") or "")
+                    for item in field.queue.items(now)
+                    if str(item.get("key") or "") in pending_keys}
+                pressure = float(field.pressure.pressure)
+                threshold = float(field.pressure.p.get("fire_threshold", 1.0))
+                recent_fires = len([
+                    fired for fired in field.pressure.fires
+                    if now - float(fired) <= 3600.0])
+                max_fires = int(field.pressure.p.get(
+                    "max_fires_per_hour", 0))
+                cooldown_remaining = max(
+                    0.0, float(field.pressure.p.get("cooldown_s", 0.0))
+                    - (now - float(field.pressure.last_fire or 0.0)))
+            except (AttributeError, TypeError, ValueError):
+                pass
         return {
             "enabled": "atelier" in getattr(self.engine, "enabled", set()),
             "config": {
@@ -941,7 +1639,24 @@ class AtelierRuntime:
             },
             "capability": self.capability(),
             "controller": self.controller.status(),
-            "readiness": self.readiness(
-                getattr(self.engine, "idle_metabolism", None)),
+            "readiness": self.readiness(field),
+            "field_evidence": {
+                "pending_count": len(pending_keys),
+                "circulating_count": len(live_keys),
+                "all_pending_circulating": bool(
+                    pending_keys and live_keys == pending_keys),
+                "pressure": (
+                    round(pressure, 6) if pressure is not None else None),
+                "fire_threshold": (
+                    round(threshold, 6) if threshold is not None else None),
+                "recent_fire_count": recent_fires,
+                "max_fires_per_hour": max_fires,
+                "hourly_capped": bool(
+                    max_fires and recent_fires is not None
+                    and recent_fires >= max_fires),
+                "cooldown_remaining_s": (
+                    round(cooldown_remaining, 3)
+                    if cooldown_remaining is not None else None),
+            },
             "atelier": self.atelier.status(),
         }

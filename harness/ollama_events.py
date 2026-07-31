@@ -49,7 +49,7 @@ class OllamaAsyncTransport:
         self.last_terminal_receipt = receipt
 
     def _body(self, system: str, user: str, max_tokens: int,
-              temperature: float, images: list) -> dict:
+              temperature: float, images: list, output_format=None) -> dict:
         user_message = {"role": "user", "content": user}
         if images:
             user_message["images"] = [image["data"] for image in images]
@@ -72,12 +72,19 @@ class OllamaAsyncTransport:
             body["think"] = self.think
         if self.keep_alive is not None:
             body["keep_alive"] = self.keep_alive
+        if output_format is not None:
+            if output_format != "json" and not isinstance(
+                    output_format, dict):
+                raise ValueError(
+                    "Ollama output format must be 'json' or a JSON schema")
+            body["format"] = output_format
         return body
 
     async def events(
             self, system: str, user: str, *, max_tokens: int = 400,
             temperature: float = 0.7, images: list = None,
             tools: Sequence[ToolSpec] = (), cancel: CancellationToken = None,
+            output_format=None,
             ) -> AsyncIterator[ModelEvent]:
         self.last_terminal_receipt = None
         self.last_attempt_receipts = ()
@@ -93,7 +100,8 @@ class OllamaAsyncTransport:
             yield event
             return
         body = self._body(
-            system, user, max_tokens, temperature, list(images or []))
+            system, user, max_tokens, temperature, list(images or []),
+            output_format=output_format)
         task = asyncio.current_task()
         loop = asyncio.get_running_loop()
         unsubscribe = None

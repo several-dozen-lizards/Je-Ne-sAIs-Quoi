@@ -20,14 +20,16 @@ class RoomClient:
         self.last_seq = 0
         self.last_vision_revision = 0
 
-    def _req(self, path: str, body: dict = None):
+    def _req(self, path: str, body: dict = None, timeout_s: float = None):
         url = self.base + path
         data = json.dumps(body).encode() if body is not None else None
         req = urllib.request.Request(
             url, data=data, method="POST" if body is not None else "GET",
             headers={"Content-Type": "application/json"})
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as r:
+            with urllib.request.urlopen(
+                    req, timeout=(self.timeout if timeout_s is None
+                                  else float(timeout_s))) as r:
                 return json.loads(r.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
             try:
@@ -65,6 +67,10 @@ class RoomClient:
         r = self._req(f"/api/rooms/{self.room_id}")
         return r if "error" not in r else {}
 
+    def local_weather(self) -> dict:
+        """Read the host's coordinate-free local-weather status."""
+        return self._req("/weather-sync")
+
     def fresh_events(self) -> list:
         if not self.room_id:
             return []
@@ -74,6 +80,27 @@ class RoomClient:
         if evs:
             self.last_seq = max(e["seq"] for e in evs)
         return evs
+
+    def wait_for_revision(self, since: int, timeout_s: float = 25.0) -> dict:
+        """Wait for shared state to advance without consuming event history.
+
+        Surface packets are included only so face/posture revisions can cross
+        the threshold. The caller uses the sequence, not packet content.
+        """
+        if not self.room_id:
+            return {"last_seq": int(since), "changed": False}
+        bounded = max(1.0, min(25.0, float(timeout_s)))
+        r = self._req(
+            f"/api/rooms/{self.room_id}/events/wait"
+            f"?since={int(since)}&timeout={bounded}&surface=1",
+            timeout_s=bounded + 2.0)
+        last_seq = int(r.get("last_seq", since) or since)
+        return {
+            "last_seq": last_seq,
+            "changed": last_seq > int(since),
+            "room_id": self.room_id,
+            "error": r.get("error"),
+        }
 
     def doors(self) -> list:
         """Adjacency from the current room (cached; world topology is
@@ -106,10 +133,12 @@ class RoomClient:
     def read(self, obj):
         return self.act("read", obj)
 
-    def say(self, text, conversation_id=None):
+    def say(self, text, conversation_id=None, social_depth=0):
         body = {"member": self.member, "action": "say", "text": text}
         if conversation_id:
             body["conversation_id"] = conversation_id
+        if social_depth:
+            body["social_depth"] = int(social_depth)
         return self._req("/api/act", body)
 
     def express(self, face: dict):
@@ -131,12 +160,30 @@ class RoomClient:
         return self._req("/api/act", {"member": self.member,
                                       "action": "stand"})
 
-    def walk(self, x: float, y: float):
+    def gesture(self, name: str):
+        return self.act("gesture", name)
+
+    def release_gesture(self):
+        return self._req("/api/act", {"member": self.member,
+                                      "action": "release_gesture"})
+
+    def body_motion(self, name: str):
+        return self.act("body_motion", name)
+
+    def light_on(self, obj: str):
+        return self.act("light_on", obj)
+
+    def light_off(self, obj: str):
+        return self.act("light_off", obj)
+
+    def walk(self, x: float, y: float, heading_deg=None):
         """Walk anywhere: raw meters, center-origin. The room is a
         place, not a menu of destinations."""
-        return self._req("/api/act", {"member": self.member,
-                                      "action": "walk",
-                                      "to": [float(x), float(y)]})
+        body = {"member": self.member, "action": "walk",
+                "to": [float(x), float(y)]}
+        if heading_deg is not None:
+            body["heading_deg"] = float(heading_deg)
+        return self._req("/api/act", body)
 
     def look_at(self, target: str):
         return self.act("look_at", target)
@@ -144,6 +191,8 @@ class RoomClient:
     def turn_toward(self, target: str):
         return self.act("turn_toward", target)
 
+    def inspect(self, target: str):
+        return self.act("inspect", target)
     def fresh_vision_frame(self) -> dict:
         """Return this body's newest private optical frame once."""
         if not self.room_id:

@@ -597,7 +597,7 @@ def build_openai_compat_body(
     wire = wire or {}
     if wire.get("tool_stream") is not None:
         body["tool_stream"] = bool(wire["tool_stream"])
-    if wire.get("include_stream_usage"):
+    if stream and wire.get("include_stream_usage"):
         body["stream_options"] = {"include_usage": True}
     thinking = wire.get("thinking")
     if thinking is not None:

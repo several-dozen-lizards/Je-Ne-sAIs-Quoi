@@ -1,6 +1,6 @@
 schema_version: 1
 organ: intention_loom
-organ_revision: "2026-07-19-intention-volitional-offer-01"
+organ_revision: "2026-07-26-accessible-document-owner-10"
 kind: actionable
 dependencies:
   - dmn
@@ -29,11 +29,11 @@ statements:
     semantics:
       - intention_loom.append_only_history
       - intention_loom.shared_attention_field
-      - intention_loom.one_movement_per_winner
+      - intention_loom.resource_shaped_movement_sequence
       - intention_loom.uncertainty_is_descriptive
       - intention_loom.pause_is_permeable_to_lived_evidence
     text: |-
-      Intentions remain in the same attention field as memory, perception, private thought, and every other enabled pull. Their field inputs come from observed recurrence, relationship relevance, actual affect and body change, preoccupation, readiness, and satiety rather than an intention-specific importance table. One field winner permits at most one loom movement: form, reframe, pause, resume, satisfy, release, or quiet. New wording adds history rather than erasing earlier wording, uncertainty describes how clear the present wording appears rather than prescribing commitment, and a paused intention may move again when related lived evidence genuinely returns.
+      Intentions remain in the same attention field as memory, perception, private thought, and every other enabled pull. Their field inputs come from observed recurrence, relationship relevance, actual affect and body change, preoccupation, readiness, and satiety rather than an intention-specific importance table. One field winner opens a readiness- and resource-shaped private work envelope rather than a fixed movement quota. It may carry several coherent append-only movements; every movement is revalidated against the state produced by the one before it, and the sequence stops when the work settles. New wording adds history rather than erasing earlier wording, uncertainty describes how clear the present wording appears rather than prescribing commitment, and a paused intention may move again when related lived evidence genuinely returns.
 
   - id: intention_is_not_execution
     category: expression_boundary
@@ -45,6 +45,106 @@ statements:
       - intention_loom.no_external_effect
     text: |-
       The loom records continuity; it does not make a plan or execute one. It has no tools, project authority, messaging, publication, arbitrary filesystem access, or external effects. Forming an intention does not authorize action, and satisfying or releasing one does not claim that anything happened outside the private loom.
+
+  - id: related_intentions_remain_plural
+    category: mechanics
+    semantics:
+      - intention_loom.relationship_vector_is_descriptive
+      - intention_loom.no_automatic_merge
+      - intention_loom.append_only_convergence
+    text: |-
+      Continuing intentions may show measured semantic, provenance, continuity, uncertainty, or recurrence overlap. That relationship vector describes shared territory; it does not prove sameness or require consolidation. If a related intention genuinely matters when one wins attention, one append-only movement may record coexistence, differentiation, or braid new wording into the focal intention. Both source histories remain intact, and no relationship movement creates a project or outward effect.
+
+  - id: intention_is_not_consent_or_authority
+    category: expression_boundary
+    semantics:
+      - intention_loom.intention_is_not_consent
+      - intention_loom.intention_is_not_authority
+      - intention_loom.intention_is_not_execution
+      - intention_loom.no_consent_grant
+    text: |-
+      An intention about authorization, consent, a protocol, a dose, a tool, or an external act is still only private intention history. It cannot create or substitute for the relevant organ's exact consent request, consumable grant, authority recheck, or execution boundary. The owning organ remains the only authority for any later action.
+
+  - id: project_shape_is_descriptive_not_imperative
+    category: expression_boundary
+    semantics:
+      - project_loom.shared_attention_return
+      - project_loom.append_only_shape
+      - project_loom.shape_is_not_plan
+      - project_loom.no_execution_authority
+    text: |-
+      An eligible private project proposal may recur through the shared attention field. If it genuinely wins, optional append-only shaping may describe its present purpose, one possible movement, an uncertainty range, and an observable private completion signal. Shaping is never a prerequisite for nominating an owned private action. These descriptions are history, not steps, assignments, deadlines, permissions, or commands. A project shape owns no scheduler, tools, messaging, publication, execution authority, or external effects.
+
+  - id: project_action_candidate_is_not_authority
+    category: expression_boundary
+    semantics:
+      - project_loom.action_candidate_is_hypothesis
+      - project_loom.no_tool_binding
+      - project_loom.no_consent_grant
+      - project_loom.no_scheduler_slot
+      - project_loom.execution_unavailable
+    text: |-
+      Within a resource-shaped field win, a private project may nominate one hypothetical owned action with an expected private signal, reversibility description, uncertainty range, and observed basis. The same envelope may hand that exact candidate to its registered same-owner destination without another attention contest or human grant. Nomination itself has no tool binding, consent grant, scheduler slot, or external authority; the destination revalidates exact provenance, ownership, and scope before admission.
+
+  - id: project_comparison_does_not_select
+    category: expression_boundary
+    semantics:
+      - project_loom.plural_exact_candidate_comparison
+      - project_loom.range_vector_deliberation
+      - project_loom.selection_is_null
+      - project_loom.comparison_is_not_recommendation
+    text: |-
+      When at least two exact hypothetical actions belong to the same private project, a later shared-attention win may compare two of them. Each is described through uncertain ranges for fit, cost, risk, reversibility, and embodied response. The comparison records distinctions without collapsing them into a universal score, winner, preference, recommendation, or selection. It creates no consent, tool binding, schedule, execution authority, or external effect.
+
+  - id: private_orientation_is_not_action_selection
+    category: expression_boundary
+    semantics:
+      - project_loom.orientation_is_revisable
+      - project_loom.orientation_scope_is_private_attention
+      - project_loom.action_selected_false
+      - project_loom.authority_request_null
+    text: |-
+      A later shared-attention win may record a revisable private orientation toward one exact candidate from one exact comparison, with an uncertainty range and observed basis. This is a bounded preference in private attention, not an action selection. It cannot create an authority request, consent grant, tool binding, scheduler slot, execution state, recommendation to another organ, or external effect.
+
+  - id: constitutional_and_external_boundaries_remain_owner_held
+    category: expression_boundary
+    semantics:
+      - project_loom.requires_typed_action_owner
+      - project_loom.same_owner_handoff_needs_no_human_grant
+      - project_loom.destination_revalidates_scope
+      - project_loom.external_discharge_remains_unavailable
+    text: |-
+      A same-owner, private, reversible handoff needs an exact registered destination and typed provenance, not an authority request or consumable human grant. The destination revalidates ownership and scope as an integrity check and may admit the material directly into its private lane. Constitutional changes, substantial shared-resource commitments, and external discharge remain separately held at their actual boundary. Project Loom cannot infer an owner or expand a private candidate into tools, publication, messaging, money, arbitrary paths, physical action, or cross-persona authority.
+
+  - id: wrapper_internal_owner_handoff
+    category: action_grammar
+    semantics:
+      - project_loom.typed_internal_selection
+      - project_loom.registered_private_capabilities_only
+      - project_loom.owner_validation_required
+      - project_loom.no_direct_tool
+    text: |-
+      A private project may select one registered wrapper-local capability without a separate human grant or prior orientation. The registry admits writing_desk.private_draft, atelier.private_creation, and document_reader.read_accessible_document. Nomination and handoff may share one resource-shaped field win. Selection creates one typed handoff, not draft text, an artifact, or direct external execution. The registered organ remains the owner, revalidates exact provenance and the local-private-reversible scope, and may admit bounded material to its own private lane. Document Reader additionally resolves an exact anchor through durable system-public, persona-owner, or user-grant metadata before admission. Unknown capabilities have no fallback. Project Loom receives no tool, path, scheduler, publication, messaging, network, or cross-persona authority.
+
+  - id: owner_handoff_is_crash_safe
+    category: mechanics
+    semantics:
+      - project_loom.selection_precedes_owner_adoption
+      - project_loom.owner_adoption_is_durable
+      - project_loom.pending_handoff_recovers_on_boot
+      - project_loom.owner_admission_is_idempotent
+    text: |-
+      A typed internal selection remains pending until its exact owner returns a durable adoption reference and Project Loom appends an owner-adopted receipt. If the process stops between selection and acknowledgement, boot replays only unacknowledged selections through the same typed registry. Owner admission is content-addressed and deduplicated, acknowledgement is idempotent, and failed recovery remains visibly pending rather than being treated as completion.
+
+  - id: typed_candidate_and_terminal_owner_return
+    category: mechanics
+    semantics:
+      - project_loom.capability_is_bound_at_nomination
+      - project_loom.selection_cannot_reinterpret_owner
+      - project_loom.owner_outcome_returns_by_adopted_seed
+      - project_loom.lifecycle_is_append_only_projection
+    text: |-
+      An action candidate names its registered capability and owner when it is nominated, before comparison or orientation. Final selection must match those exact stored values. After owner adoption, the owner's settled quiet, project, or artifact consequence returns through the exact durable seed reference as a content-free outcome receipt. Project lifecycle is projected from append-only records rather than mutated in place, and private draft or artifact content never enters Project Loom receipts.
 
 legacy_render:
   newline: lf

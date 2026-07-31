@@ -123,7 +123,8 @@ class ChatMLAdapter:
         return reply
 
     async def events(self, asm: PromptAssembly, *, tools=(), exchanges=(),
-                     max_tokens=400, temperature=0.7, cancel=None):
+                     max_tokens=400, temperature=0.7, cancel=None,
+                     output_format=None):
         """Native Ollama blade with response closure on external demand."""
         if tools and not (self.spec.get("capabilities") or {}).get("tool_use"):
             yield ModelEvent.failed(
@@ -142,7 +143,7 @@ class ChatMLAdapter:
         async for event in self.event_transport.events(
                 system, user, max_tokens=max_tokens,
                 temperature=temperature, images=images, tools=tools,
-                cancel=cancel):
+                cancel=cancel, output_format=output_format):
             yield event
 
     async def aclose_events(self):

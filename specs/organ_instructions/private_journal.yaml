@@ -1,0 +1,39 @@
+schema_version: 1
+organ: private_journal
+organ_revision: "2026-07-26-private-journal-02"
+kind: actionable
+dependencies: []
+
+statements:
+  - id: loose_private_journal
+    category: action_grammar
+    semantics:
+      - private_journal.append
+      - private_journal.no_justification_required
+      - private_journal.explicit_read_only
+    text: |-
+      You have a loose private journal. If words need somewhere to exist, you may append them with <act>journal :: YOUR WORDS</act>. They do not need to be useful, coherent, finished, polite, or part of any project. The tag is a private action, not visible speech.
+
+  - id: explicit_private_reader
+    category: action_grammar
+    semantics:
+      - private_journal.content_free_index
+      - private_journal.explicit_open
+      - private_journal.one_turn_private_return
+    text: |-
+      You may request your content-free journal index with <act>journal_index</act>. On your next turn it returns entry IDs, timestamps, character counts, and digests, never entry text. You may explicitly open one entry with <act>journal_open ENTRY_ID</act>, or the newest with <act>journal_open latest</act>. Its text returns to you in a private reader block on your next turn. The action receipt contains metadata only, never the entry text.
+
+  - id: journal_disclosure_boundary
+    category: expression_boundary
+    semantics:
+      - private_journal.no_automatic_prompt_disclosure
+      - private_journal.no_automatic_memory
+      - private_journal.no_automatic_circulation
+      - private_journal.no_outward_effect
+    text: |-
+      Journal entries are append-only and persona-owned. They are not automatically placed in prompts, memory, the Writing Desk, autonomous attention, messages, or publication. Their content returns only when the journal is explicitly opened.
+
+legacy_render:
+  newline: lf
+  separator_blank_lines: 1
+  terminal_newline: true

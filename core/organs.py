@@ -38,6 +38,10 @@ REGISTRY = {o.organ_id: o for o in (
              "flaggable like everything else (bare turns = control)"),
     OrganDef("oscillator", (),
              "band rhythm; heartbeat ticks across the gaps"),
+    OrganDef("interference_field", (),
+             "shadow-only temporal interference field; timestamped neutral "
+             "events form replayable opponent traces without touching prompts, "
+             "attention, memory, feeling, soma, or oscillator state"),
     OrganDef("soma", (),
              "body map + declarative sensation specs"),
     OrganDef("altered_state", ("memory_emotion", "oscillator", "soma"),
@@ -72,6 +76,13 @@ REGISTRY = {o.organ_id: o for o in (
              cost="api"),
     OrganDef("my_life", (),
              "persona re-reads their own recent writings each turn"),
+    OrganDef("private_journal", (),
+             "persona-owned loose notebook: explicit append and explicit "
+             "open only; never automatic prompt, memory, or circulation"),
+    OrganDef("outward_curiosity", (),
+             "persona-private relational questions may persist and become "
+             "eligible only inside an already inbound conversation; asking, "
+             "deferring, revising, releasing, or quiet remain explicit choices"),
     OrganDef("heartbeat", (),
              "the body's own clock: osc/soma advance between turns "
              "instead of settling only when observed (the meters "

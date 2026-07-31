@@ -262,15 +262,14 @@ class ArchiveReaderRuntime:
                         now: float, readiness: Mapping[str, Any] = None):
         state = dict(readiness or self.readiness(field))
         eligible = self.eligible(candidate) \
-            and "archive_reader" in getattr(self.engine, "enabled", set()) \
-            and not state.get("hard_blocked")
+            and "archive_reader" in getattr(self.engine, "enabled", set())
         archive_satiety = field.satiety.warmth("archive_reader", now)
         readiness_value = (
             max(0.0, min(1.0, _finite(state.get("readiness"))))
             / (1.0 + archive_satiety) if eligible else 0.0)
         score, meta = field.attention_score(
             dict(candidate), now=now, action_readiness=readiness_value,
-            action_eligible=eligible)
+            action_eligible=eligible, scope_satiety=archive_satiety)
         return score, {
             **meta, "archive_reader_eligible": eligible,
             "archive_reader_readiness": round(readiness_value, 6),
@@ -390,9 +389,6 @@ class ArchiveReaderRuntime:
         if not self.eligible(candidate):
             return {"started": False, "reason": "not_eligible"}
         readiness = self.readiness(getattr(self.engine, "idle_metabolism", None))
-        if readiness.get("hard_blocked"):
-            return {"started": False, "reason": "state_blocked",
-                    "readiness": readiness}
         capability = self.capability()
         if not capability["usable"]:
             return {"started": False, "reason": capability["reason"]}
@@ -438,9 +434,6 @@ class ArchiveReaderRuntime:
                         {"error_type": type(exc).__name__}, status="failed")
                     raise
             context.cancellation.raise_if_cancelled()
-            if context.live_epoch() != context.captured_epoch:
-                raise concurrent.futures.CancelledError(
-                    "external demand changed before archive encounter")
             proposal = parse_archive_proposal(text)
             record = self.archive.encounter(
                 inspected["anchor"], action=proposal["action"],
@@ -458,7 +451,8 @@ class ArchiveReaderRuntime:
 
         try:
             future = self.controller.start(
-                run_id, runner, proposal_id=proposal_id)
+                run_id, runner, proposal_id=proposal_id,
+                interruptible=False)
         except Exception as exc:
             return {"started": False, "reason": type(exc).__name__}
         future.add_done_callback(lambda done: self._completed(

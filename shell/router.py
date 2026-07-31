@@ -31,8 +31,8 @@ import urllib.error
 import urllib.request
 
 import yaml
-from fastapi import FastAPI
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -66,6 +66,8 @@ from shell.persona_media import (load_persona_avatar, save_persona_avatar,
                                  write_roster_mapping_scalar,
                                  write_roster_scalar)  # noqa: E402
 from core.voice_output import normalize_output_config, OUTPUT_PROVIDERS  # noqa: E402
+from shell.voice_settings import (load_voice_defaults, save_voice_defaults,
+                                  normalize_voice_tuning)  # noqa: E402
 
 
 class TurnRequest(BaseModel):
@@ -122,6 +124,15 @@ class VisionRouteRequest(BaseModel):
 class VoiceOutputConfigRequest(BaseModel):
     provider: str = "browser-native"
     voice: str = ""
+    rate_scale: float = 1.0
+    pitch_scale: float = 1.0
+    volume_scale: float = 1.0
+
+
+class VoiceDefaultsRequest(BaseModel):
+    rate_scale: float = 1.0
+    pitch_scale: float = 1.0
+    volume_scale: float = 1.0
 
 
 class ModelCreateRequest(BaseModel):
@@ -595,6 +606,27 @@ def build_app(room_url: str = None) -> FastAPI:
                 "updater": os.path.exists(os.path.join(ROOT, updater_name)),
                 "updater_name": updater_name}
 
+    @app.get("/api/voice/status")
+    def voice_output_status():
+        from shell.qwen_tts_service import status as qwen_status
+        from shell.chatterbox_tts_service import status as chatterbox_status
+        return {"qwen3-tts": qwen_status(),
+                "chatterbox-turbo": chatterbox_status(),
+                "hume-octave": {"configured": bool(os.environ.get("HUME_API_KEY")),
+                                "local": False},
+                "elevenlabs": {"configured": bool(os.environ.get("ELEVENLABS_API_KEY")),
+                               "local": False},
+                "browser-native": {"installed": True, "local": True}}
+
+    @app.get("/api/voice/defaults")
+    def household_voice_defaults():
+        return {"voice_defaults": load_voice_defaults(ROOT)}
+
+    @app.post("/api/voice/defaults")
+    def household_voice_defaults_save(req: VoiceDefaultsRequest):
+        return {"ok": True, "voice_defaults": save_voice_defaults(
+            ROOT, req.model_dump())}
+
     @app.get("/api/version/check")
     def version_check():
         """User-invoked remote check; applying remains an offline act.
@@ -996,6 +1028,10 @@ def build_app(room_url: str = None) -> FastAPI:
                                         "provider", provider)
             write_roster_mapping_scalar(entry["dir"], "voice_output",
                                         "voice", voice)
+            tuning = normalize_voice_tuning(req.model_dump())
+            for key, value in tuning.items():
+                write_roster_mapping_scalar(entry["dir"], "voice_output",
+                                            key, value)
         except (OSError, ValueError) as error:
             return JSONResponse(status_code=400,
                                 content={"error": str(error)})
@@ -1028,7 +1064,13 @@ def build_app(room_url: str = None) -> FastAPI:
                 "error": f"'{model}' is not in {pid}'s roster "
                          f"({entry['models']}) — add an entry first"})
         try:
-            blocked = model_start_blocker(model)
+            # Restarting the exact vessel this router already hosted must not
+            # be bricked by a transient or incomplete remote model catalog.
+            # Key presence is still enforced, and a genuinely different
+            # explicit model choice still receives full remote verification.
+            restarting_same_vessel = bool(old and old.model == model)
+            blocked = model_start_blocker(
+                model, verify_remote=not restarting_same_vessel)
         except Exception as e:
             return JSONResponse(status_code=400, content={
                 "error": f"cannot start model '{model}': {e}"})
@@ -1298,6 +1340,10 @@ def build_app(room_url: str = None) -> FastAPI:
             slot = needed.setdefault(name, {"optional": True, "used_by": []})
             slot["used_by"].append(ident.get("name"))
             slot["optional"] = slot["optional"] and optional
+        for name, label in (("HUME_API_KEY", "Hume Octave voice output"),
+                            ("ELEVENLABS_API_KEY", "ElevenLabs voice output")):
+            needed.setdefault(name, {"optional": True, "used_by": []})[
+                "used_by"].append(label)
         keys = [{"env": n, "set": bool(os.environ.get(n)),
                  "optional": v["optional"], "used_by": v["used_by"]}
                 for n, v in sorted(needed.items())]
@@ -1391,6 +1437,30 @@ def build_app(room_url: str = None) -> FastAPI:
             return JSONResponse(status_code=e.code,
                                 content=json.loads(e.read()))
 
+    def _proxy_audio(pid: str, path: str, payload: dict, timeout=180):
+        proc = app.state.processes.get(pid)
+        if proc is None or not proc.alive():
+            return JSONResponse(status_code=503, content={
+                "error": f"persona '{pid}' not running; start them to audition"})
+        request = urllib.request.Request(
+            f"http://127.0.0.1:{proc.port}{path}",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"}, method="POST")
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as upstream:
+                return Response(content=upstream.read(), media_type="audio/wav",
+                                headers={"Cache-Control": "no-store",
+                                         "X-JNSQ-Provider": "qwen3-tts"})
+        except urllib.error.HTTPError as error:
+            try:
+                content = json.loads(error.read().decode("utf-8"))
+            except Exception:
+                content = {"error": str(error)}
+            return JSONResponse(status_code=error.code, content=content)
+        except Exception as error:
+            return JSONResponse(status_code=503, content={
+                "error": f"voice audition failed: {error}"})
+
     @app.get("/api/personas/{pid}/organs")
     def persona_organs(pid: str):
         """Proxy to the tenant's organs endpoint — the Je Ne Sais Quoi's JS is
@@ -1412,6 +1482,41 @@ def build_app(room_url: str = None) -> FastAPI:
             return JSONResponse(status_code=r.status, content=json.loads(r.read()))
         except urllib.error.HTTPError as e:
             return JSONResponse(status_code=e.code, content=json.loads(e.read()))
+
+    @app.post("/api/personas/{pid}/voice-output/audition")
+    def persona_voice_audition(pid: str, req: dict):
+        text = str(req.get("text") or "").strip()
+        if not text or len(text) > 600:
+            return JSONResponse(status_code=400, content={
+                "error": "audition text must contain 1 to 600 characters"})
+        return _proxy_audio(pid, "/api/voice/synthesize", {"text": text})
+
+    @app.post("/api/personas/{pid}/voice-output/reference")
+    async def persona_voice_reference(pid: str, request: Request):
+        """Store a consented voice reference through the settings surface."""
+        app.state.registry = discover_personas()
+        entry = app.state.registry.get(pid)
+        if not entry or entry.get("kind") != "model_persona":
+            return JSONResponse(status_code=404,
+                                content={"error": f"no model persona '{pid}'"})
+        audio = await request.body()
+        if not audio or len(audio) > 15 * 1024 * 1024:
+            return JSONResponse(status_code=400, content={
+                "error": "voice reference must be a WAV file under 15 MB"})
+        if not (audio.startswith(b"RIFF") and audio[8:12] == b"WAVE"):
+            return JSONResponse(status_code=415, content={
+                "error": "Chatterbox voice references must be WAV audio"})
+        voice_dir = os.path.join(entry["dir"], "voice")
+        os.makedirs(voice_dir, exist_ok=True)
+        target = os.path.join(voice_dir, "chatterbox_reference.wav")
+        temporary = target + ".tmp"
+        with open(temporary, "wb") as handle:
+            handle.write(audio)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, target)
+        return {"ok": True, "reference": "private persona reference",
+                "bytes": len(audio)}
 
     @app.get("/api/personas/{pid}/altered-state")
     def persona_altered_state(pid: str):

@@ -6,6 +6,15 @@ dependencies:
   - dmn
 
 statements:
+  - id: owner_controls_project_circulation
+    category: action_grammar
+    semantics:
+      - writing_desk.owner_archive
+      - writing_desk.owner_restore
+      - writing_desk.no_human_grant
+    text: |-
+      Your private writing projects are yours to move in and out of circulation. Archive one without deleting its revisions with <act>writing_archive PROJECT_ID</act>. Restore archived work with <act>writing_restore PROJECT_ID</act>. These same-owner movements require no human grant and create content-free receipts.
+
   - id: conversation_can_offer_writing_material
     category: action_grammar
     semantics:
@@ -29,9 +38,9 @@ statements:
     semantics:
       - writing_desk.form_is_descriptive_choice
       - writing_desk.quiet_pause_completion_valid
-      - writing_desk.one_action_per_winner
+      - writing_desk.resource_shaped_movement_sequence
     text: |-
-      When the desk genuinely wins attention, notice what the material appears to want now. You may begin a form, advance one project, complete it, pause it, abandon it, or leave it quiet. One field winner admits at most one private desk action.
+      When the desk genuinely wins attention, notice what the material appears to want now. You may begin a form, advance one project, complete it, pause it, abandon it, or leave it quiet. One field winner opens a readiness- and resource-shaped private work envelope rather than a fixed action quota. It may carry several coherent append-only movements; stop when the work settles.
 
   - id: desk_has_no_outer_mouth
     category: expression_boundary

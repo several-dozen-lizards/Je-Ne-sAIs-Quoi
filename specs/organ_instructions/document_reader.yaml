@@ -1,6 +1,6 @@
 schema_version: 1
 organ: document_reader
-organ_revision: "2026-07-19-foreground-reading-dl4-01"
+organ_revision: "2026-07-26-owned-accessible-documents-dl5-01"
 kind: descriptive
 dependencies:
   - dmn
@@ -13,7 +13,7 @@ statements:
       - document_reader.exact_source_anchors
       - document_reader.present_lived_encounter
     text: |-
-      Imported documents are human-owned private reference material, not autobiographical memory. When an exact section wins attention, preserve its source anchor and notice only what is present in the encounter now. The source itself does not become memory.
+      Accessible documents are reference material, not autobiographical memory. System-public documents are readable by every persona in this installation, persona-private documents only by their owner, and user-private documents only through durable grants. When an exact accessible section wins attention, preserve its source anchor and notice only what is present in the encounter now. The source itself does not become memory.
 
   - id: reading_is_optional_and_cyclical
     category: action_grammar
@@ -23,7 +23,7 @@ statements:
       - document_reader.quiet_is_complete
       - document_reader.local_continue_search_bookmark_report
     text: |-
-      A document section may become available only at a genuine shared-field boundary and still has to win attention. It is not an order to read, finish, summarize, learn, or produce. Quiet, continuing later, searching within the private library, bookmarking, and making a cited private report are complete choices; their consequences return through the same field.
+      An accessible document section may become available only at a genuine shared-field boundary and still has to win attention. It is not an order to read, finish, summarize, learn, or produce. Quiet, continuing later, searching across accessible local documents, bookmarking, and making a cited private report are complete choices; their consequences return through the same field.
 
   - id: private_text_has_no_public_route
     category: expression_boundary
@@ -33,7 +33,17 @@ statements:
       - document_reader.no_publish_message_upload
       - document_reader.no_bulk_memory_copy
     text: |-
-      Autonomous document reading uses a local model with no paid fallback. A search action searches only the private local library. Private source text, quotations, names, paths, and identifiers never become a public Research Desk query, upload, publication, message, or bulk memory copy.
+      Autonomous document reading uses a local model with no paid fallback. A search action searches only documents admitted by the local ownership resolver. Private source text, quotations, names, paths, and identifiers never become a public Research Desk query, upload, publication, message, or bulk memory copy.
+
+  - id: project_handoff_rechecks_access
+    category: mechanics
+    semantics:
+      - document_reader.project_loom_typed_handoff
+      - document_reader.owner_rechecks_access
+      - document_reader.exact_anchor_only
+      - document_reader.read_still_competes
+    text: |-
+      Project Loom may hand Document Reader a typed request to encounter accessible material. Document Reader—not Project Loom—resolves the request to one exact anchor and rechecks its durable visibility, owner, and grants. The accepted anchor returns to the shared field and must still win attention before any model reads it. Settlement returns to the exact Project Loom adoption without copying source text into lifecycle receipts.
 
   - id: accepted_reading_arc_remains_cyclical
     category: action_grammar

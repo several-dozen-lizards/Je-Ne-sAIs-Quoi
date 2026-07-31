@@ -9,6 +9,8 @@
 <link rel="apple-touch-icon" href="/assets/favicon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Alegreya:wght@400;600;700&family=Bebas+Neue&family=Caveat:wght@400;600;700&family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Lexend:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&family=Permanent+Marker&family=Playfair+Display:wght@400;600;700&family=Quicksand:wght@400;500;600;700&family=Roboto+Slab:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Alegreya:wght@400;600;700&family=Bebas+Neue&family=Caveat:wght@400;600;700&family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Lexend:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&family=Permanent+Marker&family=Playfair+Display:wght@400;600;700&family=Quicksand:wght@400;500;600;700&family=Roboto+Slab:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=IBM+Plex+Mono:wght@400;500&family=Nunito:wght@400;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="/assets/hex_color.js"></script>
 <style>
@@ -83,6 +85,12 @@
     * { scroll-behavior:auto !important; transition-duration:.01ms !important; }
   }
   body[data-reduced-motion="true"] #atmosphere * { animation:none !important; }
+  /* Je Ne Sais Quoi may hide this presentation while the persona remains fully
+     alive. Pause only decorative atmosphere paint: perception, streams,
+     model work, audio, and autonomy are deliberately outside this rule. */
+  body[data-host-presentation="hidden"] #atmosphere * {
+    animation-play-state:paused !important;
+  }
   body[data-high-contrast="true"] { --line:var(--ink); --theme-glow:0; }
   body[data-high-contrast="true"] .panel,
   body[data-high-contrast="true"] .bubble { box-shadow:none !important; }
@@ -97,7 +105,9 @@
          position:relative;z-index:1; }
   main.inspector-collapsed { grid-template-columns:minmax(320px,1fr) 0 0;gap:0; }
   .col { display:flex; flex-direction:column; gap:12px; min-height:0; }
-  #inspector { overflow-y:auto;min-width:0; }
+  #inspector { min-width:0;min-height:0;height:100%;max-height:100%;
+      overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;
+      scrollbar-gutter:stable;align-content:flex-start;padding-right:2px; }
   main.inspector-collapsed #inspector,main.inspector-collapsed #column-resizer{display:none}
   #column-resizer{position:relative;cursor:col-resize;touch-action:none;border-radius:8px}
   #column-resizer::after{content:"";position:absolute;left:3px;top:35%;bottom:35%;width:3px;
@@ -105,6 +115,21 @@
   #column-resizer:hover::after,#column-resizer.dragging::after{top:20%;bottom:20%;background:var(--accent)}
   .header-spacer{flex:1}.layout-toggle{padding:5px 9px;background:transparent;color:var(--dim);
       border:1px solid var(--line);font-size:11px}.layout-toggle:hover{color:var(--ink);border-color:var(--accent)}
+  .lab-toggle{padding:5px 9px;background:color-mix(in srgb,var(--accent) 18%,transparent);
+      color:var(--accent2);border:1px solid color-mix(in srgb,var(--accent) 65%,var(--line));
+      font-size:11px}.lab-toggle:hover{background:color-mix(in srgb,var(--accent) 30%,transparent)}
+  .lab-toggle:disabled{background:transparent;color:var(--dim);border-color:var(--line);cursor:not-allowed}
+  .lab-overlay{position:fixed;inset:0;z-index:20;display:none;padding:24px;
+      background:color-mix(in srgb,var(--bg) 76%,transparent);backdrop-filter:blur(10px)}
+  .lab-overlay.open{display:grid;place-items:center}
+  .lab-dialog{width:min(1180px,100%);height:min(860px,calc(100vh - 48px));display:grid;
+      grid-template-rows:auto 1fr;overflow:hidden;background:var(--bg);border:1px solid var(--accent);
+      border-radius:var(--radius);box-shadow:0 24px 90px #000}
+  .lab-head{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--line)}
+  .lab-title{font:600 18px/1.1 var(--font-display);color:var(--accent2)}
+  .lab-state{flex:1;color:var(--dim);font:10px/1.35 var(--font-mono)}
+  .lab-close{padding:5px 9px;background:transparent;color:var(--ink);border:1px solid var(--line)}
+  #bodyLabFrame{width:100%;height:100%;border:0;background:var(--bg)}
   .panel { background:color-mix(in srgb,var(--panel) 90%,transparent);
            border:1px solid var(--line); border-radius:var(--radius);
            padding:calc(10px * var(--space)) calc(12px * var(--space));
@@ -122,6 +147,24 @@
               font-variant:small-caps; letter-spacing:.06em; color:var(--gold); }
   #substrate-readout { white-space:pre-wrap;overflow-wrap:anywhere;
       max-height:240px;overflow:auto;font-size:11px;line-height:1.35; }
+  .interference-boundary{display:flex;align-items:center;gap:7px;margin:6px 0 8px;
+      padding:6px 8px;border:1px solid color-mix(in srgb,var(--good) 55%,var(--line));
+      border-radius:8px;color:var(--good);font:10px/1.3 var(--font-mono);}
+  .interference-lamp{width:7px;height:7px;border-radius:50%;background:var(--good);
+      box-shadow:0 0 8px color-mix(in srgb,var(--good) 75%,transparent);flex:0 0 auto;}
+  .interference-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;}
+  .interference-cell,.calibration-family{padding:7px;border:1px solid var(--line);
+      border-radius:8px;background:color-mix(in srgb,var(--panel) 78%,transparent);min-width:0;}
+  .interference-cell b,.calibration-family b{display:block;color:var(--accent2);
+      font:10px/1.2 var(--font-mono);overflow-wrap:anywhere;}
+  .interference-cell span{display:block;margin-top:3px;font:12px/1.25 var(--font-mono);}
+  .interference-track{height:5px;margin-top:5px;border-radius:99px;background:var(--line);overflow:hidden;}
+  .interference-track i{display:block;height:100%;background:var(--accent);border-radius:inherit;}
+  .interference-meta{margin:7px 0;color:var(--dim);font:10px/1.4 var(--font-mono);}
+  .calibration-family{margin-top:7px;}
+  .calibration-scales{color:var(--dim);font:9px/1.35 var(--font-mono);margin:3px 0 5px;}
+  .calibration-carry{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;}
+  .calibration-carry div{font:9px/1.2 var(--font-mono);color:var(--dim);}
   .panel-heading{display:flex;align-items:center;gap:8px;margin:0 0 8px}
   .panel-heading h2{flex:1}.collapse-toggle{padding:2px 7px;background:transparent;color:var(--dim);
       border:1px solid transparent;font-size:11px}.collapse-toggle:hover{color:var(--ink);border-color:var(--line)}
@@ -161,13 +204,19 @@
                   letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px; }
   .msg.sys { align-self:center; color:var(--dim); font-size:12px;
              background:none; display:block; max-width:92%; text-align:center; }
-  #composer { display:grid; grid-template-columns:auto auto auto 1fr auto; gap:8px; }
+  #composer { display:grid; grid-template-columns:auto auto 1fr auto; gap:8px; }
   #speaker-choice { grid-column:1/-1;display:flex;align-items:center;gap:7px;
       color:var(--dim);font-size:11px; }
   #speaker-choice select { max-width:min(100%,280px);background:var(--bg);
       color:var(--ink);border:1px solid var(--line);border-radius:6px;
       padding:5px 8px;font:inherit; }
   #speaker-choice-note { overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+  .perception-controls { display:flex;gap:8px;margin:0 0 9px; }
+  .perception-controls .sensory-control { flex:1;width:auto;gap:7px; }
+  .perception-controls .control-label { font-size:11px; }
+  #afferent-autostart-label { color:var(--muted);font-size:.72rem;display:flex;
+    align-items:center;gap:6px;margin:0 0 9px;cursor:pointer; }
+  #afferent-autostart-label input { accent-color:var(--teal); }
   #say { min-width:0; min-height:38px; max-height:160px; resize:none;
          overflow-y:auto; background:#14110e; color:var(--ink);
          font:inherit; line-height:1.4; border:1px solid var(--line);
@@ -207,6 +256,12 @@
   #composer .sensory-control:hover {
     color:var(--accent); border-color:var(--accent);
     background:color-mix(in srgb,var(--accent) 10%,transparent); }
+  #composer #voice-output-toggle { cursor:pointer;position:relative; }
+  #composer #voice-output-toggle input { position:absolute;opacity:0;pointer-events:none; }
+  #composer #voice-output-toggle.live { color:var(--good);border-color:var(--good);
+    background:color-mix(in srgb,var(--good) 10%,transparent); }
+  #composer #voice-output-toggle:has(input:focus-visible) {
+    outline:2px solid var(--accent2);outline-offset:2px; }
   #composer #camera.live { color:var(--warn);border-color:var(--warn); }
   #audio-panel { display:none; align-items:center; gap:10px;
     padding:8px;border:1px solid var(--line);border-radius:9px;background:#0a0806; }
@@ -220,14 +275,52 @@
   #voice-turn-label { color:var(--muted);font-size:.72rem;display:flex;
     align-items:center;gap:6px;cursor:pointer; }
   #voice-turn-label input { accent-color:var(--teal); }
-  #voice-output-control { display:flex;align-items:center;gap:8px;
-    color:var(--muted);font-size:.72rem;padding:6px 2px 0; }
+  #voice-output-control { display:flex;flex-direction:column;align-items:stretch;gap:8px;
+    color:var(--muted);font-size:.72rem;padding:6px 2px 0;flex-wrap:wrap; }
   #voice-output-control label { display:flex;align-items:center;gap:6px;
     cursor:pointer; }
   #voice-output-control input { accent-color:var(--teal); }
   #voice-output-control select { max-width:210px;background:var(--panel);color:var(--ink);
     border:1px solid var(--line);border-radius:7px;padding:3px 6px; }
   #voice-output-story { color:var(--dim); }
+  #voice-output-control details { width:100%;border:1px solid var(--line);
+    border-radius:8px;padding:6px 8px;background:color-mix(in srgb,var(--panel) 74%,transparent); }
+  #voice-output-control summary { cursor:pointer;color:var(--accent); }
+  .voice-persona-grid { display:grid;grid-template-columns:minmax(0,1fr);
+    gap:8px;margin-top:8px;align-items:end; }
+  .voice-persona-grid label { display:grid;grid-template-columns:90px 42px minmax(0,1fr);
+    gap:6px;align-items:center;cursor:default;min-width:0; }
+  .voice-persona-grid label>select,.voice-persona-grid label>input:not([type="range"]){
+    grid-column:2/-1;width:100%;min-width:0; }
+  .voice-persona-grid input[type="range"]{width:100%;min-width:0;}
+  .voice-persona-grid [hidden] { display:none!important; }
+  .voice-persona-actions { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:7px;align-items:center;margin-top:8px; }
+  .voice-persona-actions button{width:100%;min-width:0;white-space:normal;}
+  .voice-persona-actions .quiet{grid-column:1/-1;}
+  #voice-output-control #voice-chatterbox-field{grid-column:1/-1;display:grid;grid-template-columns:1fr;gap:5px;align-items:start;}
+  #voice-chatterbox-field[hidden]{display:none;}
+  #voice-chatterbox-field input{grid-column:1;min-width:0;width:100%;}
+  #voice-chatterbox-field .quiet{grid-column:1;}
+  #voice-output-control #voice-hume-field,
+  #voice-output-control #voice-eleven-field{grid-column:1/-1;display:grid;grid-template-columns:1fr;gap:5px;align-items:start;}
+  #voice-hume-field input,#voice-hume-field select,
+  #voice-eleven-field input,#voice-eleven-field select{grid-column:1;min-width:0;width:100%;}
+  #voice-hume-field .quiet,#voice-eleven-field .quiet{grid-column:1;color:var(--warn);}
+  #voice-hume-field label,#voice-eleven-field label{display:grid;grid-template-columns:1fr;gap:4px;align-items:start;}
+  .voice-shelf-actions{display:grid;grid-template-columns:1fr auto auto;gap:6px;}
+  .voice-shelf-actions button{padding:5px 8px;white-space:nowrap;}
+  .body-group{flex:0 0 auto;border:1px solid var(--line);border-radius:var(--radius);
+    background:color-mix(in srgb,var(--panel) 70%,transparent);overflow:hidden;}
+  .body-group-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;
+    padding:10px 12px;border:0;border-radius:0;background:color-mix(in srgb,var(--accent) 10%,var(--panel));
+    color:var(--accent2);font:600 14px/1.2 var(--font-display);letter-spacing:.05em;text-align:left;}
+  .body-group-toggle::after{content:"▾";color:var(--dim);}
+  .body-group.collapsed>.body-group-toggle::after{content:"▸";}
+  .body-group-count{font:10px/1 var(--font-mono);color:var(--dim);margin-left:auto;margin-right:8px;}
+  .body-group-content{display:flex;flex-direction:column;gap:8px;padding:8px;}
+  .body-group.collapsed>.body-group-content{display:none;}
+  .body-group-content>.panel{border-radius:10px;background:color-mix(in srgb,var(--panel) 88%,transparent);}
   #composer #microphone.live { color:var(--warn);border-color:var(--warn); }
   .salience-head { display:flex;align-items:center;justify-content:space-between;
     gap:8px;margin-bottom:8px; }
@@ -254,6 +347,14 @@
   .salience-event { flex:0 0 auto;background:transparent;color:var(--muted);
     border:1px solid var(--line);font-size:9px;padding:4px 6px; }
   #salience-drill { max-height:240px;overflow:auto;margin-top:7px;font-size:10px; }
+  #fixation-diagnostic { margin-top:8px;padding-top:7px;border-top:1px solid var(--line); }
+  .fixation-boundary { color:var(--dim);font-size:9px;letter-spacing:.08em;text-transform:uppercase; }
+  #fixation-candidates { display:grid;gap:5px;margin-top:5px; }
+  .fixation-card { border:1px solid var(--line);border-radius:6px;padding:6px; }
+  .fixation-card .meta-line { display:flex;gap:6px;justify-content:space-between;
+    color:var(--dim);font-size:9px; }
+  .fixation-ranges { margin-top:4px;color:var(--muted);font-size:9px;
+    font-variant-numeric:tabular-nums; }
   .salience-life { border-left:2px solid var(--line);padding:3px 0 5px 7px; }
   .salience-life .tick { color:var(--dim);font-size:9px; }
   .salience-life pre { white-space:pre-wrap;word-break:break-word;color:var(--muted);
@@ -330,6 +431,33 @@
     background:color-mix(in srgb,var(--bg) 88%,var(--accent) 12%); }
   .atelier-card img,.atelier-card canvas { display:block;width:100%;aspect-ratio:1/1;object-fit:contain;border-radius:5px;
     background:color-mix(in srgb,var(--bg) 92%,white 8%); }
+  .atelier-expandable { cursor:zoom-in;outline:none;transition:box-shadow .16s,transform .16s; }
+  .atelier-expandable:hover,.atelier-expandable:focus-visible {
+    box-shadow:0 0 0 2px var(--accent),0 8px 24px color-mix(in srgb,var(--accent) 22%,transparent);
+    transform:translateY(-1px); }
+  #atelier-lightbox { position:fixed;inset:0;z-index:60;display:none;
+    place-items:center;padding:clamp(12px,3vw,42px);
+    background:color-mix(in srgb,#000 82%,var(--bg) 18%);
+    backdrop-filter:blur(12px); }
+  #atelier-lightbox.open { display:grid; }
+  .atelier-lightbox-dialog { width:min(1120px,96vw);height:min(900px,92vh);
+    display:grid;grid-template-rows:auto minmax(0,1fr);gap:10px;
+    padding:12px;border:1px solid var(--accent);border-radius:14px;
+    background:color-mix(in srgb,var(--panel) 96%,#000 4%);
+    box-shadow:0 28px 100px #000; }
+  .atelier-lightbox-head { display:flex;align-items:center;gap:12px;min-width:0; }
+  #atelier-lightbox-title { flex:1;min-width:0;color:var(--accent2);
+    font:600 clamp(15px,2vw,22px)/1.2 var(--font-display);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+  #atelier-lightbox-close { width:auto;padding:7px 12px; }
+  #atelier-lightbox-stage { min-width:0;min-height:0;display:grid;place-items:center;
+    overflow:auto;border-radius:9px;
+    background:radial-gradient(circle at 50% 44%,color-mix(in srgb,var(--accent) 10%,transparent),transparent 70%),
+      color-mix(in srgb,var(--bg) 94%,white 6%); }
+  #atelier-lightbox-stage>img,#atelier-lightbox-stage>canvas {
+    display:block;width:auto;height:auto;max-width:100%;max-height:100%;
+    aspect-ratio:auto;object-fit:contain;border-radius:7px;background:transparent;
+    cursor:default;transform:none;box-shadow:none; }
   .atelier-audio { min-height:118px;display:grid;place-content:center;gap:7px;text-align:center;border-radius:5px;
     background:radial-gradient(circle at 50% 45%,color-mix(in srgb,var(--accent) 24%,transparent),transparent 68%),
       color-mix(in srgb,var(--bg) 92%,white 8%);color:var(--accent2); }
@@ -353,7 +481,7 @@
   .research-page-url { color:var(--dim);margin-bottom:7px;overflow-wrap:anywhere; }
   .research-page-content { margin:0;white-space:pre-wrap;word-break:break-word;
     color:var(--muted);font:inherit; }
-  .works-controls { display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:6px;margin-bottom:7px; }
+  .works-controls { display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) auto;gap:6px;margin-bottom:7px; }
   .works-controls select { min-width:0;background:var(--bg);color:var(--ink);border:1px solid var(--line);
     border-radius:5px;padding:5px;font:inherit; }
   #autonomous-works-list { display:grid;gap:6px; }
@@ -370,6 +498,20 @@
   .autonomous-work-meta { color:var(--dim);font-size:9px;line-height:1.4;margin-top:2px; }
   .autonomous-work-organ { color:var(--accent2);font-variant:small-caps;letter-spacing:.05em; }
   .autonomous-work button { padding:5px 8px;font-size:9px; }
+  .autonomy-summary { display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin:8px 0; }
+  .autonomy-stat { border:1px solid var(--line);border-radius:7px;padding:8px;background:color-mix(in srgb,var(--bg) 82%,var(--accent) 18%); }
+  .autonomy-stat-value { color:var(--ink);font-size:19px;line-height:1;font-variant-numeric:tabular-nums; }
+  .autonomy-stat-label { color:var(--dim);font-size:8px;letter-spacing:.08em;text-transform:uppercase;margin-top:5px; }
+  .autonomy-dashboard-grid { display:grid;grid-template-columns:minmax(240px,.85fr) minmax(300px,1.15fr);gap:8px;align-items:start; }
+  .autonomy-dashboard-section { min-width:0;border-top:1px solid var(--line);padding-top:7px; }
+  .autonomy-dashboard-section h3 { margin:0 0 6px;color:var(--accent2);font-size:10px;letter-spacing:.08em;text-transform:uppercase; }
+  #autonomous-activity-list { display:grid;gap:5px;max-height:430px;overflow:auto; }
+  .autonomy-event { border-left:3px solid var(--accent2);padding:6px 7px;background:var(--panel);border-radius:0 6px 6px 0; }
+  .autonomy-event.failed { border-left-color:var(--warn); }
+  .autonomy-event.external { border-left-color:var(--accent); }
+  .autonomy-event-head { display:flex;justify-content:space-between;gap:8px;color:var(--ink);font-size:10px; }
+  .autonomy-event-meta { color:var(--dim);font-size:8px;line-height:1.4;margin-top:2px; }
+  @media (max-width:900px){.autonomy-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.autonomy-dashboard-grid{grid-template-columns:1fr}}
   #archive-reader { white-space:pre-wrap;word-break:break-word;max-height:360px;overflow:auto; }
   #archive-results { display:grid;gap:4px;margin-top:7px; }
   .image-chip { position:relative; width:72px; height:58px; }
@@ -500,8 +642,22 @@
   <span class="meta" id="who">connecting…</span>
   <span class="meta" id="timing"></span>
   <span class="header-spacer"></span>
+  <button class="lab-toggle" id="bodyLabToggle" type="button" aria-haspopup="dialog">experimental 3D lab</button>
   <button class="layout-toggle" id="bodyToggle" type="button" aria-expanded="false">show body functions</button>
 </header>
+<div class="lab-overlay" id="bodyLabOverlay" aria-hidden="true">
+  <section class="lab-dialog" role="dialog" aria-modal="true" aria-labelledby="bodyLabTitle">
+    <div class="lab-head">
+      <div>
+        <div class="lab-title" id="bodyLabTitle">Experimental 3D lab</div>
+        <div class="lab-state">Testy pilot · quarantine and inspection only · existing bodies locked</div>
+      </div>
+      <div class="lab-state" id="bodyLabState" role="status">checking local room host…</div>
+      <button class="lab-close" id="bodyLabClose" type="button">close lab</button>
+    </div>
+    <iframe id="bodyLabFrame" title="JNSQ2 body compatibility workshop"></iframe>
+  </section>
+</div>
 <main id="cockpit-main" class="inspector-collapsed">
   <div class="col">
     <div class="panel" id="conversation-panel" style="flex:1; display:flex; flex-direction:column; min-height:0;">
@@ -519,8 +675,7 @@
           <span id="speaker-choice-note">canonical account</span>
         </label>
         <div id="image-preview" aria-live="polite"></div>
-        <button class="sensory-control" id="camera" type="button" title="start ambient camera perception"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5A1.5 1.5 0 0 1 5 7h2.4l1.7-2h5.8l1.7 2H19a1.5 1.5 0 0 1 1.5 1.5V17a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 17z"/><circle cx="12" cy="12.7" r="3.2"/></svg></button>
-        <button class="sensory-control" id="microphone" type="button" title="start ambient acoustic perception"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9.2" y="3.5" width="5.6" height="10" rx="2.8"/><path d="M6 11.5a6 6 0 0 0 12 0"/><path d="M12 17.5v3"/><path d="M9 20.5h6"/></svg></button>
+        <label class="sensory-control" id="voice-output-toggle" title="turn automatic reply voice on"><input id="voice-output" type="checkbox" aria-label="Automatically speak replies"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9.5h3l4-3.5v12l-4-3.5H5z"/><path d="M15.5 9a4.5 4.5 0 0 1 0 6"/><path d="M18 6.5a8 8 0 0 1 0 11"/></svg></label>
         <button class="sensory-control" id="attach" type="button" title="share image"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 12.5l6.2-6.2a3.1 3.1 0 0 1 4.4 4.4l-7.8 7.8a5 5 0 0 1-7.1-7.1l7.4-7.4"/></svg></button>
         <input id="image-picker" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden>
         <textarea id="say" rows="1" placeholder="say something…" autocomplete="off"
@@ -528,9 +683,32 @@
         <button id="send">Send</button>
       </div>
       <div id="voice-output-control">
-        <label><input id="voice-output" type="checkbox"> let replies use local voice</label>
-        <select id="voice-output-voice" aria-label="Local voice"><option value="">browser default</option></select>
+        <span class="quiet">Automatic reply voice is controlled by the speaker button beside the composer.</span>
         <span id="voice-output-story">output quiet</span>
+        <details><summary>voice</summary>
+          <div class="voice-persona-grid">
+            <label>Provider<select id="voice-output-provider"><option value="browser-native">Browser native · local</option><option value="hume-octave">Hume Octave 2 · cloud</option><option value="elevenlabs">ElevenLabs v3 · cloud</option><option value="disabled">Disabled</option></select></label>
+            <label id="voice-browser-field">Actual voice<select id="voice-output-voice" aria-label="Local voice"><option value="">browser default</option></select></label>
+            <label id="voice-qwen-field" hidden>Voice description<input id="voice-output-qwen" maxlength="160" placeholder="Distinctive adult voice, intimate and unpolished"></label>
+            <label id="voice-chatterbox-field" hidden>Reference voice<input id="voice-output-reference" type="file" accept="audio/wav,.wav"><span class="quiet">Consented WAV · 5–15 seconds works well</span></label>
+            <div id="voice-hume-field" hidden>
+              <label>Saved Hume voices<select id="voice-hume-library"><option value="">Choose from shelf…</option></select></label>
+              <label>Hume reference<input id="voice-output-hume" maxlength="160" placeholder="voice ID or HUME_AI:Ava Song"></label>
+              <div class="voice-shelf-actions"><input id="voice-hume-label" maxlength="80" placeholder="friendly shelf name"><button id="voice-hume-save" type="button">save to shelf</button><button id="voice-hume-delete" type="button" disabled>remove</button></div>
+              <span class="quiet" id="voice-hume-shelf-note">Cloud: reply text is sent to Hume. Removing a shelf entry does not delete it from Hume.</span>
+            </div>
+            <div id="voice-eleven-field" hidden>
+              <label>Saved ElevenLabs voices<select id="voice-eleven-library"><option value="">Choose from shelf…</option></select></label>
+              <label>ElevenLabs voice ID<input id="voice-output-eleven" maxlength="160" placeholder="voice ID"></label>
+              <div class="voice-shelf-actions"><input id="voice-eleven-label" maxlength="80" placeholder="friendly shelf name"><button id="voice-eleven-save" type="button">save to shelf</button><button id="voice-eleven-delete" type="button" disabled>remove</button></div>
+              <span class="quiet" id="voice-eleven-shelf-note">Cloud: reply text is sent to ElevenLabs. Removing a shelf entry does not delete it from ElevenLabs.</span>
+            </div>
+            <label>Pace <span id="voice-rate-value">100%</span><input id="voice-rate" type="range" min="0.65" max="1.4" step="0.01"></label>
+            <label id="voice-pitch-field">Pitch <span id="voice-pitch-value">100%</span><input id="voice-pitch" type="range" min="0.75" max="1.25" step="0.01"><span class="quiet" id="voice-pitch-note"></span></label>
+            <label>Output level <span id="voice-volume-value">100%</span><input id="voice-volume" type="range" min="0" max="1.25" step="0.01"></label>
+          </div>
+          <div class="voice-persona-actions"><button id="voice-save" type="button">save voice</button><button id="voice-reset" type="button">neutral personal scales</button><span class="quiet">household defaults × personal scales × live expression</span></div>
+        </details>
       </div>
     </div>
     <div class="panel collapsed" id="receipts-panel">
@@ -542,9 +720,15 @@
   <div class="col" id="inspector">
     <div class="panel" id="afferent-rack">
       <h2>live afferents</h2>
+      <div class="perception-controls" aria-label="Perception controls">
+        <button class="sensory-control" id="camera" type="button" title="start ambient camera perception"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5A1.5 1.5 0 0 1 5 7h2.4l1.7-2h5.8l1.7 2H19a1.5 1.5 0 0 1 1.5 1.5V17a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 17z"/><circle cx="12" cy="12.7" r="3.2"/></svg><span class="control-label">camera</span></button>
+        <button class="sensory-control" id="microphone" type="button" title="start ambient acoustic perception"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9.2" y="3.5" width="5.6" height="10" rx="2.8"/><path d="M6 11.5a6 6 0 0 0 12 0"/><path d="M12 17.5v3"/><path d="M9 20.5h6"/></svg><span class="control-label">microphone</span></button>
+      </div>
+      <label id="afferent-autostart-label"><input id="afferent-autostart" type="checkbox">
+        start camera and microphone when JNSQ opens</label>
       <div id="camera-panel"><video id="camera-feed" autoplay muted playsinline></video>
         <div class="afferent-copy"><div id="camera-story">Camera is local until visual change crosses the
-          salience threshold. Only admitted frames are stored and transduced.</div>
+          salience threshold. Admitted change becomes an ordered visual episode; only its selected frames are stored and transduced.</div>
           <div class="afferent-edge" id="camera-edge">
             <div>pressure <span data-edge="pressure">0.000</span> / boundary <span data-edge="boundary">0.000</span></div>
             <div class="afferent-pressure"><span class="pressure-fill"></span><i class="boundary-mark"></i></div>
@@ -585,10 +769,17 @@
       <div id="salience-legend"></div>
       <div id="salience-history"></div>
       <div id="salience-drill"><div class="quiet">select a candidate or event for its lifecycle</div></div>
+      <div id="fixation-diagnostic">
+        <div class="fixation-boundary">persona-private · shadow · topic-blind</div>
+        <div id="fixation-status" class="quiet">waiting for structural receipts…</div>
+        <div id="play-counterfactual-status" class="quiet">play bid unapplied · waiting for natural selections…</div>
+        <div id="fixation-candidates"></div>
+      </div>
     </div>
     <div class="panel" id="autonomous-works">
-      <h2>gallery</h2>
-      <div class="agency-help">The automatic private index of everything this persona has formed through the intention loom, workbench, writing desk, document reader, Atelier, and research desk. Waiting material appears too, but is never mislabeled as finished work. Opening anything returns through its organ's existing private reader.</div>
+      <h2>autonomy dashboard</h2>
+      <div class="agency-help">A content-free view of what this persona initiated, what formed, what is still circulating, what failed safely, and what reached the room. Private content stays closed until you deliberately open an item through its owning organ.</div>
+      <div id="autonomy-summary" class="autonomy-summary" aria-label="Autonomy summary"></div>
       <div class="works-controls">
         <select id="autonomous-works-filter" aria-label="Filter autonomous works by organ">
           <option value="">all making organs</option>
@@ -604,10 +795,24 @@
           <option value="waiting">waiting in the field</option>
           <option value="settled">settled works</option>
         </select>
+        <select id="autonomous-activity-status" aria-label="Filter autonomous activity by outcome">
+          <option value="">all activity outcomes</option>
+          <option value="settled">settled / delivered</option>
+          <option value="failed">failed safely</option>
+        </select>
         <button id="autonomous-works-refresh" type="button">refresh</button>
       </div>
       <div id="autonomous-works-note" class="quiet">reading the private gallery…</div>
-      <div id="autonomous-works-list"></div>
+      <div class="autonomy-dashboard-grid">
+        <section class="autonomy-dashboard-section" aria-labelledby="autonomy-activity-heading">
+          <h3 id="autonomy-activity-heading">recent autonomous activity</h3>
+          <div id="autonomous-activity-list"></div>
+        </section>
+        <section class="autonomy-dashboard-section" aria-labelledby="autonomy-works-heading">
+          <h3 id="autonomy-works-heading">works and circulating material</h3>
+          <div id="autonomous-works-list"></div>
+        </section>
+      </div>
     </div>
     <div class="panel" id="agency-workbench">
       <h2>private workbench</h2>
@@ -632,10 +837,14 @@
         <button id="intention-loom-submit" type="button">offer</button>
         <textarea id="intention-loom-content" placeholder="Offer a possibility without calling it their goal. It enters the shared field and may become an intention, settle quietly, or wait."></textarea>
       </div>
-      <div class="agency-help">A cue is not an intention, and an intention is not a project. Human-offered possibilities may enter directly; a private thought enters only after it genuinely returns through lived attention. Recurrence, bond relevance, actual affect and body change, readiness, and satiety shape the shared field. One local appraisal may form, reframe, pause, resume, satisfy, release, or leave something quiet for now. Exposure and selection are visible; neglect does not secretly change selection. Tools, projects, messages, publication, and external effects are unavailable.</div>
+      <div class="agency-help">A cue is not an intention, and an intention is not execution. Continuing intentions may form private projects, compare typed possibilities, and hand bounded work to registered Writing Desk, Atelier, or accessible-document owners. A genuine choice carries a same-owner private handoff directly into its typed destination; it does not need to win permission again. Document access is resolved from durable visibility and ownership; the registry has no arbitrary paths, cross-persona reach, messaging, publication, or external effects.</div>
       <div id="intention-loom-note" class="quiet"></div>
       <div id="intention-loom-intentions"></div>
       <pre id="intention-loom-drill" class="quiet">no intentions yet</pre>
+      <h3>project loom</h3>
+      <div id="project-loom-summary" class="quiet">no private projects yet</div>
+      <div id="project-loom-projects"></div>
+      <pre id="project-loom-drill" class="quiet">select a project for content-free lifecycle receipts</pre>
     </div>
     <div class="panel" id="writing-desk">
       <h2>writing desk</h2>
@@ -651,6 +860,19 @@
       <div id="writing-desk-projects"></div>
       <pre id="writing-desk-drill" class="quiet">no writing projects yet</pre>
     </div>
+    <div class="panel" id="private-journal">
+      <h2>private journal</h2>
+      <div class="agency-status"><span class="agency-lamp ready" id="private-journal-lamp"></span>
+        <span id="private-journal-status">opening the notebook boundary…</span></div>
+      <div class="desk-admit">
+        <button id="private-journal-submit" type="button">append</button>
+        <textarea id="private-journal-text" placeholder="No title. No project. No usefulness test. Put words here because they need somewhere to exist."></textarea>
+      </div>
+      <div class="agency-help">Persona-owned and append-only. Entries do not enter prompts, memory, autonomous attention, the Writing Desk, messages, or publication. Content returns only when one entry is explicitly opened. Unfinished, contradictory, petty, embarrassingly sincere, and pigeon-obsessed are all valid states.</div>
+      <div id="private-journal-note" class="quiet"></div>
+      <div id="private-journal-entries"></div>
+      <pre id="private-journal-drill" class="quiet">open an entry to read it</pre>
+    </div>
     <div class="panel" id="atelier">
       <h2>atelier</h2>
       <div class="agency-status"><span class="agency-lamp" id="atelier-lamp"></span>
@@ -660,7 +882,8 @@
         <button id="atelier-submit" type="button">place</button>
         <textarea id="atelier-brief" placeholder="Place an image, sound, spatial pull, question, or fragment here without ordering a result. It may become form, settle quietly, or wait."></textarea>
       </div>
-      <div class="agency-help">Place material here to offer it—not assign it—to the shared field. Describing a piece in ordinary chat does not create or store an artifact. The Atelier may choose static SVG, host-compiled kinetic SVG, trusted Canvas, procedural sound, trusted 3D, or local ComfyUI diffusion only after admitted material wins attention; quiet is complete. Models cannot author script, animation markup, Canvas/Web Audio/WebGL calls, shaders, meshes, or URLs: they may describe bounded geometry, motion, voices, notes, primitives, materials, lights, and camera relationships, which the host couples to the current body and closes into cycles. Sound never autoplays. Private PNG metadata is stripped. Artifacts stay private; visual perception is explicit and never automatic memory.</div>
+      <div class="agency-help">Place material here to offer it—not assign it—to the shared field. Describing a piece in ordinary chat does not create or store an artifact. The Atelier may choose static SVG, host-compiled kinetic SVG, trusted Canvas, procedural sound, trusted 3D, or local ComfyUI diffusion after admitted material wins attention; same-owner handoffs retain that authority and quiet is complete. Models cannot author script, animation markup, Canvas/Web Audio/WebGL calls, shaders, meshes, or URLs: they may describe bounded geometry, motion, voices, notes, primitives, materials, lights, and camera relationships, which the host couples to the current body and closes into cycles. Sound never autoplays. Private PNG metadata is stripped. Artifacts stay private unless the resident later chooses an exact in-house audience; visual perception is explicit and never automatic memory.</div>
+      <button id="atelier-open-now" type="button">try one circulating material now</button>
       <button id="atelier-probe" type="button">check local raster renderer</button>
       <div id="atelier-note" class="quiet"></div>
       <div id="atelier-artifacts"></div>
@@ -674,7 +897,12 @@
         <input id="research-topic" placeholder="offer a question or topic (optional)">
         <button id="research-submit" type="button">offer</button>
       </div>
-      <div class="agency-help">An offer is not an assignment. Interests may also form from lived questions, and every step must win the shared field. Local Qwen plans; the host performs one isolated read-only public search or fetch, including bounded text-bearing PDFs with page provenance. A page citation opens that exact stored page without refetching. Search queries leave this computer. No accounts, cookies, JavaScript, PDF actions or attachments, OCR, forms, uploads, publishing, messaging, purchases, or personal browser.</div>
+      <div class="agency-admit">
+        <input id="research-url" placeholder="permitted URL or public query">
+        <input id="research-why" placeholder="why pull this up?">
+        <button id="research-open" type="button">pull up now</button>
+      </div>
+      <div class="agency-help">An offer is not an assignment. “Pull up now” admits one explicit foreground URL; readiness may hold it, but it remains foreground work and completion can circulate one exact permitted link the resident encountered. Local Qwen plans; the host performs isolated read-only search or fetch, including bounded PDFs. Every citation opens the exact stored snapshot without refetching. Search queries leave this computer. No accounts, cookies, JavaScript, PDF actions or attachments, OCR, forms, uploads, posting, voting, reacting, subscribing, publishing, messaging, purchases, or personal browser.</div>
       <div id="research-note" class="quiet"></div>
       <div id="research-items"></div>
       <div id="research-drill" class="quiet">no private research notes or reports yet</div>
@@ -689,6 +917,11 @@
         </select>
         <button id="document-open" type="button">open</button>
         <input id="document-search" class="wide" placeholder="search the human-owned library">
+        <select id="document-visibility" aria-label="Document access">
+          <option value="user_private">my private library · household personas</option>
+          <option value="persona_private">this persona only</option>
+          <option value="system_public">system-public · every persona</option>
+        </select>
         <button id="document-import" type="button">import document</button>
         <button id="document-search-button" type="button">search</button>
         <input id="document-picker" type="file" hidden
@@ -708,8 +941,8 @@
       <div id="document-reading-status" class="quiet">no verified reading ledger yet</div>
       <div id="document-coverage-map" aria-label="Verified document reading coverage"></div>
       <button id="document-to-desk" type="button" disabled>place current section on writing desk</button>
-      <pre id="document-reader" class="quiet">Import or open a document. Its active section and question-relevant excerpts enter private turns with source anchors; the source itself stays separate from memory.</pre>
-      <div class="agency-help">The browsing cursor is not reading evidence. Complete conversation-relevant sections and completed local reader packets advance coverage. “Read naturally” keeps the autonomous-curiosity pace. “Read through now” creates an explicitly requested foreground session: packet size bends with live capacity and source size, and each completed packet circulates the next without a timer. Readiness can slow it, conversation interrupts it, and the persona or you may pause or release it. Source-grounded notes stay private and source text never becomes a public Research query.</div>
+      <pre id="document-reader" class="quiet">Import or open an accessible document. Its active section and question-relevant excerpts enter private turns with source anchors; the source itself stays separate from memory.</pre>
+      <div class="agency-help">The browsing cursor is not reading evidence. System-public documents are readable by every persona inside this installation; persona-private documents are owner-only; user-private documents follow their grants. Access never means automatic disclosure, memory, speech, or web publication. Complete conversation-relevant sections and completed local reader packets advance coverage. “Read naturally” keeps the autonomous-curiosity pace. “Read through now” creates an explicitly requested foreground session: packet size bends with live capacity and source size, and each completed packet circulates the next without a timer. Readiness shapes packet size rather than revoking the chosen read; conversation may take the foreground while the current private packet reaches a safe commit. The persona or you may pause or release the arc. Source-grounded notes stay private and source text never becomes a public Research query.</div>
       <div id="document-autonomous"></div>
       <div id="document-results"></div>
     </div>
@@ -790,7 +1023,7 @@
       </details>
       <div id="altered-history" class="quiet"></div>
     </div>
-    <div class="panel">
+    <div class="panel" id="emotional-state">
       <h2>emotional state</h2>
       <div id="cocktail"><div class="quiet">quiet</div></div>
       <div id="moodrow">
@@ -798,26 +1031,42 @@
         <button id="setmood">Set</button>
       </div>
     </div>
-    <div class="panel">
+    <div class="panel" id="rhythm-panel">
       <h2>rhythm</h2>
       <div id="bands"></div>
       <div id="rhythmtext" class="quiet"></div>
     </div>
-    <div class="panel">
+    <div class="panel" id="interference-observatory">
+      <h2>interference field</h2>
+      <div class="interference-boundary"><span class="interference-lamp"></span>
+        <span id="interference-boundary">SHADOW · NO DOWNSTREAM INFLUENCE</span></div>
+      <div id="interference-status" class="quiet">waiting for the temporal field…</div>
+      <div id="interference-live"></div>
+      <div id="interference-calibration"></div>
+    </div>
+    <div class="panel" id="play-drive-observatory" hidden>
+      <h2>play drive</h2>
+      <div class="interference-boundary"><span class="interference-lamp"></span>
+        <span>PERSONA-PRIVATE · SHADOW · NO DOWNSTREAM INFLUENCE</span></div>
+      <div id="play-drive-status" class="quiet">waiting for lived evidence…</div>
+      <div id="play-drive-vector"></div>
+      <div id="play-drive-shadow" class="interference-meta"></div>
+    </div>
+    <div class="panel" id="room-substrate">
       <h2>room substrate</h2>
       <pre id="substrate-readout" class="quiet">no body-step summary yet</pre>
     </div>
-    <div class="panel">
+    <div class="panel" id="body-state">
       <h2>body</h2>
       <div id="regions"><div class="quiet">settled</div></div>
       <div id="sensations" class="chips"></div>
       <div id="bodytext" class="felt"></div>
     </div>
-    <div class="panel">
+    <div class="panel" id="last-turn-signals">
       <h2>last turn signals</h2>
       <div id="signals"><div class="quiet">—</div></div>
     </div>
-    <div class="panel">
+    <div class="panel" id="organs-panel">
       <h2>organs</h2>
       <p class="organ-help">Choose which systems belong in this body.
         Save for the persona to make this the default across models, or save
@@ -847,6 +1096,13 @@
           <option value="serif">Source Serif</option><option value="display">Cormorant</option>
           <option value="mono">IBM Plex Mono</option><option value="humanist">Atkinson Hyperlegible</option>
           <option value="rounded">Nunito</option><option value="geometric">Space Grotesk</option>
+          <option value="inter">Inter</option><option value="lexend">Lexend</option>
+          <option value="quicksand">Quicksand</option><option value="condensed">Bebas Neue</option>
+          <option value="alegreya">Alegreya</option>
+          <option value="baskerville">Libre Baskerville</option><option value="playfair">Playfair Display</option>
+          <option value="slab">Roboto Slab</option><option value="cinzel">Cinzel</option>
+          <option value="handwritten">Caveat</option><option value="marker">Permanent Marker</option>
+          <option value="jetbrains">JetBrains Mono</option>
         </select></label>
         <label>font size <span id="themeFontScaleValue">100%</span><input type="range" min="0.8" max="1.35" step=".05" id="themeFontScale"></label>
         <label>density<select id="themeDensity"><option value="compact">compact</option>
@@ -900,6 +1156,17 @@
     </div>
   </div>
 </main>
+<div id="atelier-lightbox" role="dialog" aria-modal="true"
+     aria-labelledby="atelier-lightbox-title" aria-hidden="true">
+  <div class="atelier-lightbox-dialog">
+    <div class="atelier-lightbox-head">
+      <div id="atelier-lightbox-title"></div>
+      <button id="atelier-lightbox-close" type="button"
+              aria-label="Close enlarged Atelier artifact">close</button>
+    </div>
+    <div id="atelier-lightbox-stage"></div>
+  </div>
+</div>
 <script>
 const CONFIG = /*CONFIG*/;
 const PRIMARY_USER = CONFIG.primary_user || "User";
@@ -912,6 +1179,27 @@ let userPersonas = [];
 const themeDirty = new Set();
 const clone = value => JSON.parse(JSON.stringify(value));
 const clamp = value => Math.max(0, Math.min(1, Number(value)||0));
+
+async function openBodyLab(){
+  const button=$("bodyLabToggle"),overlay=$("bodyLabOverlay"),state=$("bodyLabState");
+  button.disabled=true;state.textContent="checking local room host…";
+  try{
+    const response=await fetch("/api/3d-lab/status",{cache:"no-store"});
+    const status=await response.json();
+    if(!response.ok||!status.available)throw new Error(status.reason||"3D host unavailable");
+    $("bodyLabFrame").src=status.workshop_url;
+    state.textContent=`ready · ${status.locked_assignments||0} current assignments locked · install disabled`;
+    overlay.classList.add("open");overlay.setAttribute("aria-hidden","false");
+    $("bodyLabClose").focus();
+  }catch(error){
+    state.textContent=error.message||"3D host unavailable";
+  }finally{button.disabled=!CONFIG.body_workshop_url}
+}
+function closeBodyLab(){
+  const overlay=$("bodyLabOverlay");
+  overlay.classList.remove("open");overlay.setAttribute("aria-hidden","true");
+  $("bodyLabFrame").src="about:blank";$("bodyLabToggle").focus();
+}
 
 const userPersonaStorageKey = () => `jnsq.userPersona.${currentPersona}`;
 function selectedUserPersona() {
@@ -995,7 +1283,7 @@ function applyAccessibility() {
   $("themeReduce").checked = reduce; $("themeContrast").checked = contrast;
 }
 
-const FONT_STACKS={system:'"Segoe UI",system-ui,sans-serif',serif:'"Source Serif 4",Georgia,serif',display:'"Cormorant Garamond",Georgia,serif',mono:'"IBM Plex Mono",Consolas,"Cascadia Mono",monospace',humanist:'"Atkinson Hyperlegible","Segoe UI",sans-serif',rounded:'Nunito,"Segoe UI",sans-serif',geometric:'"Space Grotesk","Segoe UI",sans-serif'};
+const FONT_STACKS={system:'"Segoe UI",system-ui,sans-serif',serif:'"Source Serif 4",Georgia,serif',display:'"Cormorant Garamond",Georgia,serif',mono:'"IBM Plex Mono",Consolas,"Cascadia Mono",monospace',humanist:'"Atkinson Hyperlegible","Segoe UI",sans-serif',rounded:'Nunito,"Segoe UI",sans-serif',geometric:'"Space Grotesk","Segoe UI",sans-serif',alegreya:'Alegreya,Georgia,serif',baskerville:'"Libre Baskerville",Georgia,serif',playfair:'"Playfair Display",Georgia,serif',slab:'"Roboto Slab",Rockwell,serif',inter:'Inter,"Segoe UI",sans-serif',lexend:'Lexend,"Segoe UI",sans-serif',quicksand:'Quicksand,"Segoe UI",sans-serif',condensed:'"Bebas Neue","Arial Narrow",sans-serif',handwritten:'Caveat,"Segoe Print",cursive',marker:'"Permanent Marker","Segoe Print",cursive',jetbrains:'"JetBrains Mono",Consolas,monospace',cinzel:'Cinzel,Georgia,serif'};
 const themeFontStack=id=>FONT_STACKS[id]||FONT_STACKS.system;
 function applyTheme(tokens) {
   if (!tokens) return;
@@ -1377,7 +1665,7 @@ function renderState(st) {
   currentPersona=st.display_name||st.persona||currentPersona;
   currentModel=st.model||currentModel;
   const nextVoice=st.voice_output_config||{};
-  if(nextVoice.provider!==voiceOutputConfig.provider||nextVoice.voice!==voiceOutputConfig.voice)
+  if(!voiceOutputHydrated||voiceConfigSignature(nextVoice)!==voiceConfigSignature(voiceOutputConfig))
     applyVoiceOutputConfig(nextVoice);
   $("who").textContent =
     `${st.persona} on ${st.model} · contract v${st.contract_version} · ${st.memory_count} memories`;
@@ -1391,6 +1679,8 @@ function renderState(st) {
          b==="gamma"?"var(--warn)":b==="alpha"?"var(--good)":null]), 0.6);
     $("rhythmtext").textContent = st.rhythm||"";
   }
+  renderInterferenceField(st.interference_field);
+  renderPlayDrive(st.play_drive);
   const substrate=st.perception?.substrate;
   if(substrate&&Object.keys(substrate).length){
     $("substrate-readout").classList.remove("quiet");
@@ -1411,7 +1701,59 @@ function renderState(st) {
   syncConversation(st.conversation_window || []);
 }
 
+function interferenceNumber(value,digits=4){
+  const number=Number(value);return Number.isFinite(number)?number.toFixed(digits):"—"
+}
+function interferenceBar(value,maximum){
+  const width=Math.max(0,Math.min(100,maximum>0?Math.abs(Number(value)||0)/maximum*100:0));
+  return `<div class="interference-track"><i style="width:${width.toFixed(2)}%"></i></div>`
+}
+function renderInterferenceField(field){
+  const status=$("interference-status"),live=$("interference-live");
+  if(!field){status.textContent="interference_field organ is disabled";live.innerHTML="";return}
+  const traces=field.traces||[],axes=field.axes||[],traceMax=Math.max(...traces.map(Math.abs),1e-12);
+  const axisMax=Math.max(...axes.map(Math.abs),1e-12);
+  status.textContent=`${field.event_count||0} persisted arrivals · ${Object.keys(field.sources||{}).length} source channel${Object.keys(field.sources||{}).length===1?"":"s"}`;
+  const traceNames=["fast","medium","slow"],axisNames=["opponent 1","opponent 2","opponent 3"],relational=field.relational_overlap||[];
+  const cells=traceNames.map((name,index)=>`<div class="interference-cell"><b>${name} · τ ${interferenceNumber((field.timescales_s||[])[index],1)}s</b><span>${interferenceNumber(traces[index],6)}</span>${interferenceBar(traces[index],traceMax)}</div>`)
+    .concat(axisNames.map((name,index)=>`<div class="interference-cell"><b>${name}</b><span>${interferenceNumber(axes[index],6)}</span>${interferenceBar(axes[index],axisMax)}</div>`))
+    .concat(relational.map((value,index)=>`<div class="interference-cell"><b>source overlap ${index+1}</b><span>${interferenceNumber(value*100,2)}%</span>${interferenceBar(value,1)}</div>`));
+  live.innerHTML=`<div class="interference-grid">${cells.join("")}</div><div class="interference-meta">nonlinear energy ${interferenceNumber(field.nonlinear_energy,8)} · agreement ${interferenceNumber(field.agreement,6)} · angle ${interferenceNumber(field.field_angle_rad,4)} rad</div>`;
+}
+
+function renderPlayDrive(field){
+  const status=$("play-drive-status"),host=$("play-drive-vector"),shadow=$("play-drive-shadow");
+  if(!field){status.textContent="play_drive organ is disabled";host.innerHTML="";shadow.textContent="";return}
+  status.textContent=`${field.event_count||0} private observation${field.event_count===1?"":"s"} · ${(field.active_arcs||[]).length} active potential arc${(field.active_arcs||[]).length===1?"":"s"}`;
+  bars(host,Object.entries(field.vector||{}).map(([name,value])=>[name,value,
+    ["inhibition","refractory"].includes(name)?"var(--warn)":
+    ["satiation","reciprocity"].includes(name)?"var(--good)":null]));
+  const projection=field.shadow||{},body=projection.hypothetical_somatic_pressure||{};
+  shadow.textContent=`hypothetical only · attention Δ ${interferenceNumber(projection.hypothetical_attention_delta,4)} · activation ${interferenceNumber(body.activation,4)} · settling ${interferenceNumber(body.settling,4)} · applied ${projection.applied?"YES":"no"}`;
+}
+
+async function fetchInterferenceCalibration(){
+  const target=$("interference-calibration");
+  try{
+    const response=await fetch("/api/interference-field/calibration"),value=await response.json();
+    if(!response.ok||!value.available){target.innerHTML=`<div class="quiet">${value.reason||"calibration unavailable"}</div>`;return}
+    const intervals=value.intervals||{},families=value.families||{};
+    const familyHtml=Object.entries(families).map(([name,family])=>{
+      const carry=family.mean_carry_to_next_event||[];
+      const overlap=family.relational_overlap||[];
+      return `<div class="calibration-family"><b>${name}</b><div class="calibration-scales">τ ${(family.timescales_s||[]).map(v=>interferenceNumber(v,1)+"s").join(" · ")}</div><div class="calibration-carry">${carry.map((value,index)=>`<div>carry ${index+1}<br>${interferenceNumber(value*100,1)}%${interferenceBar(value,1)}</div>`).join("")}</div><div class="calibration-scales">source overlap ${overlap.map(v=>interferenceNumber(v*100,1)+"%").join(" · ")}</div></div>`}).join("");
+    const relational=value.relational||{},counts=relational.source_counts||{},transitions=relational.transitions||{};
+    const transitionHtml=Object.entries(transitions).map(([edge,receipt])=>`<div class="calibration-scales">${edge.replaceAll("conversation:","")} · ${receipt.count} · median ${interferenceNumber(receipt.median_s,1)}s</div>`).join("");
+    const lab=relational.permutation_lab||{},sessions=relational.sessions||{};
+    const nullLine=(label,rows)=>`<div class="calibration-scales">${label}<br>${(rows||[]).map((row,index)=>`scale ${index+1}: observed ${interferenceNumber((row.observed||0)*100,1)}% · null 90% ${interferenceNumber((row.null_p05||0)*100,1)}–${interferenceNumber((row.null_p95||0)*100,1)}% · upper-tail p ${interferenceNumber(row.upper_tail_probability,3)}`).join("<br>")}</div>`;
+    const sessionLine=sessions.count?`<div class="calibration-scales">${sessions.count} observed session span${sessions.count===1?"":"s"} · gap boundary ${interferenceNumber(sessions.boundary_s,1)}s · derived from largest multiplicative gap break</div>`:"";
+    const controls=relational.controls_ready?`<div class="calibration-family"><b>conversational dyad · statistical controls</b><div class="calibration-scales">human arrivals ${counts["conversation:human_arrival"]||0} · persona completions ${counts["conversation:persona_completion"]||0} · ${lab.sample_count||0} permutations</div>${transitionHtml}${sessionLine}${nullLine("source-label null",lab.source_label_null)}${nullLine("interval-order null",lab.interval_order_null)}</div>`:`<div class="calibration-family"><b>conversational dyad · gathering</b><div class="calibration-scales">${relational.event_window||0} dyad events · needs at least two complete exchanges</div>${transitionHtml}</div>`;
+    target.innerHTML=`<div class="interference-meta">read-only replay · ${value.event_window} unique events · ${value.duplicate_receipts_ignored} duplicate receipts ignored<br>observed gaps min ${interferenceNumber(intervals.minimum_s,1)}s · median ${interferenceNumber(intervals.median_s,1)}s · max ${interferenceNumber(intervals.maximum_s,1)}s</div>${controls}${familyHtml}`;
+  }catch(error){target.innerHTML='<div class="quiet">replay calibration unavailable</div>'}
+}
+
 let salienceStream=null,salienceSelected=null;
+let presentationRefreshInFlight=null,presentationRefreshDirty=false;
 function salienceSlug(){return String(lastState?.persona||currentPersona||"").toLowerCase()}
 function componentColor(name){let hash=0;for(const ch of String(name))
   hash=((hash<<5)-hash+ch.charCodeAt(0))|0;
@@ -1478,29 +1820,102 @@ async function loadSalienceCandidate(key){
   }catch(error){drill.innerHTML="";const quiet=document.createElement("div");quiet.className="quiet";
     quiet.textContent=`lifecycle unavailable: ${error.message||error}`;drill.appendChild(quiet)}
 }
+function diagnosticRange(value){
+  if(!value)return "—";
+  return `${Number(value.low||0).toFixed(2)}–${Number(value.high||0).toFixed(2)}`;
+}
+function renderFixationDiagnostic(value){
+  const status=$("fixation-status"),host=$("fixation-candidates");host.innerHTML="";
+  const counts=value.classification_counts||{};
+  status.textContent=`${Number(value.record_count||0)} structural receipts · ${Object.entries(counts).map(([key,count])=>`${key.replaceAll("_"," ")} ${count}`).join(" · ")||"insufficient recurrence"}`;
+  const play=value.play_attention_counterfactual||{};
+  $("play-counterfactual-status").textContent=`PD1-S unapplied · ${Number(play.record_count||0)} selections · ${Number(play.informative_count||0)} explicit-affinity comparisons · ${Number(play.changed_winner_count||0)} hypothetical winner changes · margin Δ ${Number(play.mean_margin_delta||0).toFixed(3)}`;
+  (value.candidates||[]).slice(0,8).forEach(candidate=>{
+    const card=document.createElement("div");card.className="fixation-card";
+    const meta=document.createElement("div");meta.className="meta-line";
+    const label=document.createElement("strong");label.textContent=candidate.classification.replaceAll("_"," ");
+    const ref=document.createElement("span");ref.textContent=candidate.candidate_ref;
+    meta.append(label,ref);
+    const ranges=document.createElement("div");ranges.className="fixation-ranges";
+    ranges.textContent=`responsive ${diagnosticRange(candidate.ranges.responsiveness)} · rut risk ${diagnosticRange(candidate.ranges.mechanical_rut_risk)} · local competition ${diagnosticRange(candidate.ranges.local_competition)} · satiety response ${diagnosticRange(candidate.ranges.satiety_response)} · release ${diagnosticRange(candidate.ranges.release_response)} · state movement ${diagnosticRange(candidate.ranges.state_response)} · evidence ${candidate.evidence_count}`;
+    card.append(meta,ranges);host.appendChild(card);
+  });
+  if(!(value.candidates||[]).length)host.innerHTML='<div class="quiet">No repeated candidate has enough structural history yet.</div>';
+}
 async function refreshSalience(){
   const slug=salienceSlug();if(!slug||$("salience-pause").checked)return;
   const types=$("salience-filter").value;
-  try{const [fieldResponse,historyResponse]=await Promise.all([
+  try{const [fieldResponse,historyResponse,fixationResponse]=await Promise.all([
       fetch(`/api/salience/${encodeURIComponent(slug)}/field`),
-      fetch(`/api/salience/${encodeURIComponent(slug)}/history?n=200${types?`&types=${encodeURIComponent(types)}`:""}`)]);
-    if(!fieldResponse.ok||!historyResponse.ok)throw new Error("observatory routes not available");
-    const field=await fieldResponse.json(),history=await historyResponse.json();
+      fetch(`/api/salience/${encodeURIComponent(slug)}/history?n=200${types?`&types=${encodeURIComponent(types)}`:""}`),
+      fetch(`/api/salience/${encodeURIComponent(slug)}/fixation-diagnostic?n=2000`)]);
+    if(!fieldResponse.ok||!historyResponse.ok||!fixationResponse.ok)throw new Error("observatory routes not available");
+    const field=await fieldResponse.json(),history=await historyResponse.json(),fixation=await fixationResponse.json();
     $("salience-status").textContent=`pressure ${Number(field.field_pressure?.pressure||0).toFixed(3)} · ${field.observed_at}`;
-    renderSalienceField(field);renderSalienceHistory(history.records||[]);
+    renderSalienceField(field);renderSalienceHistory(history.records||[]);renderFixationDiagnostic(fixation);
     if(salienceSelected)loadSalienceCandidate(salienceSelected)
   }catch(error){$("salience-status").textContent="observatory routes not available";
-    $("salience-live").innerHTML="";$("salience-history").innerHTML=""}
+    $("salience-live").innerHTML="";$("salience-history").innerHTML="";
+    $("fixation-status").textContent="structural diagnostic unavailable";$("fixation-candidates").innerHTML=""}
 }
 function startSalienceStream(){
   if(salienceStream){salienceStream.close();salienceStream=null}
-  if($("salience-pause").checked)return;
+  document.body.dataset.presentationStream="closed";
+  if($("salience-pause").checked||!hostPresentationActive())return;
   salienceStream=new EventSource(`/api/salience/${encodeURIComponent(salienceSlug())}/events`);
-  salienceStream.onmessage=()=>{fetchState();refreshSalience();refreshMemoryPanel();refreshAutonomousWorks();refreshAgency();refreshIntentionLoom();refreshWritingDesk();refreshAtelier();refreshResearchDesk();refreshDocuments();refreshArchive()};
+  document.body.dataset.presentationStream="open";
+  salienceStream.onmessage=()=>schedulePresentationRefresh();
   salienceStream.onerror=()=>{$("salience-status").textContent="observatory event stream unavailable"};
 }
 
-let autonomousWorksState=[];
+function hostPresentationActive(){
+  return window.parent===window||
+    document.body.dataset.hostPresentation==="visible";
+}
+
+function presentationRefreshes(){
+  return [
+    fetchState(),refreshSalience(),refreshMemoryPanel(),
+    refreshAutonomousWorks(),refreshAgency(),refreshIntentionLoom(),
+    refreshWritingDesk(),refreshPrivateJournal(),refreshAtelier(),
+    refreshResearchDesk(),refreshDocuments(),refreshArchive()
+  ];
+}
+
+function schedulePresentationRefresh(){
+  if(!hostPresentationActive())return Promise.resolve();
+  if(presentationRefreshInFlight){
+    presentationRefreshDirty=true;
+    return presentationRefreshInFlight;
+  }
+  presentationRefreshDirty=false;
+  presentationRefreshInFlight=Promise.allSettled(presentationRefreshes())
+    .finally(()=>{
+      presentationRefreshInFlight=null;
+      if(presentationRefreshDirty&&hostPresentationActive())
+        schedulePresentationRefresh();
+    });
+  return presentationRefreshInFlight;
+}
+
+function syncHostPresentationRuntime(){
+  if(hostPresentationActive()){
+    schedulePresentationRefresh();
+    startSalienceStream();
+    return;
+  }
+  presentationRefreshDirty=false;
+  if(salienceStream){salienceStream.close();salienceStream=null}
+  document.body.dataset.presentationStream="closed";
+  stopAtelierCanvasLoops();
+  stopAtelier3DLoops();
+  stopAtelierAudioPlayers("presentation hidden");
+  clearAtelierAudioBuffers();
+  stopAtelierCompositions("presentation hidden");
+  clearAtelierCompositionMounts();
+}
+
+let autonomousWorksState=[],autonomousActivityState=[],autonomousSummary={};
 const autonomousOrganNames={intention_loom:"intention loom",agency:"private workbench",writing_desk:"writing desk",
   document_reader:"document reader",atelier:"atelier",research_desk:"research desk"};
 function autonomousWorkTime(value){
@@ -1555,17 +1970,53 @@ function renderAutonomousWorks(){
     open.onclick=()=>openAutonomousWork(work);row.appendChild(open);host.appendChild(row)
   })
 }
+function renderAutonomySummary(){
+  const summary=autonomousSummary||{},host=$("autonomy-summary");host.innerHTML="";
+  const stats=[
+    [summary.activity_events||0,"recorded actions"],
+    [summary.settled_works||0,"settled works"],
+    [summary.waiting||0,"still circulating"],
+    [summary.failed_events||0,"failed safely"],
+    [summary.model_requests||0,"model requests"],
+  ];
+  stats.forEach(([value,label])=>{
+    const card=document.createElement("div");card.className="autonomy-stat";
+    const amount=document.createElement("div");amount.className="autonomy-stat-value";amount.textContent=String(value);
+    const name=document.createElement("div");name.className="autonomy-stat-label";name.textContent=label;
+    card.append(amount,name);host.appendChild(card)
+  })
+}
+function renderAutonomousActivity(){
+  const organFilter=$("autonomous-works-filter").value,statusFilter=$("autonomous-activity-status").value;
+  const events=autonomousActivityState.filter(event=>(!organFilter||event.organ===organFilter)&&(!statusFilter||event.status===statusFilter));
+  const host=$("autonomous-activity-list");host.innerHTML="";
+  if(!events.length){host.innerHTML='<div class="quiet">no matching autonomous activity receipts yet</div>';return}
+  events.forEach(event=>{
+    const row=document.createElement("div");row.className=`autonomy-event ${event.status==="failed"?"failed":""} ${event.external_effects?"external":""}`;
+    const head=document.createElement("div");head.className="autonomy-event-head";
+    const kind=document.createElement("span");kind.textContent=event.kind||"autonomous movement";
+    const outcome=document.createElement("span");outcome.textContent=event.outcome||event.status||"settled";
+    head.append(kind,outcome);
+    const meta=document.createElement("div");meta.className="autonomy-event-meta";
+    const cost=Number(event.estimated_cost_usd||0),requests=Number(event.model_requests||0);
+    meta.textContent=`${autonomousOrganNames[event.organ]||event.organ} · ${autonomousWorkTime(event.at)} · ${event.detail||"content-free receipt"}${requests?` · ${requests} model request${requests===1?"":"s"}`:""}${cost?` · $${cost.toFixed(4)}`:""} · ${event.external_effects?"reached room":"stayed private"}`;
+    row.append(head,meta);host.appendChild(row)
+  })
+}
 async function refreshAutonomousWorks(){
   try{const response=await fetch("/api/autonomous-works"),result=await response.json();
     if(!response.ok)throw new Error(result.error||response.status);
-    autonomousWorksState=[...(result.works||[]),...(result.waiting||[])].sort((a,b)=>Number(b.updated_at||0)-Number(a.updated_at||0));renderAutonomousWorks();
+    autonomousWorksState=[...(result.works||[]),...(result.waiting||[])].sort((a,b)=>Number(b.updated_at||0)-Number(a.updated_at||0));
+    autonomousActivityState=result.activity||[];autonomousSummary=result.summary||{};
+    renderAutonomySummary();renderAutonomousActivity();renderAutonomousWorks();
     const settled=autonomousWorksState.filter(work=>work.stage==="settled").length;
     const waiting=autonomousWorksState.filter(work=>work.stage==="waiting").length;
     $("autonomous-works-note").textContent=`${settled} settled work${settled===1?"":"s"} · ${waiting} waiting in the shared field · automatic private index`;
     if((result.unavailable||[]).length)
       $("autonomous-works-note").textContent+=` · ${(result.unavailable||[]).length} store${result.unavailable.length===1?"":"s"} unavailable`;
   }catch(error){$("autonomous-works-note").textContent=`private shelf unavailable: ${error.message||error}`;
-    autonomousWorksState=[];renderAutonomousWorks()}
+    autonomousWorksState=[];autonomousActivityState=[];autonomousSummary={};
+    renderAutonomySummary();renderAutonomousActivity();renderAutonomousWorks()}
 }
 
 async function openAgencyArtifact(ref){
@@ -1659,7 +2110,7 @@ function renderIntentionLoom(runtime){
   const unseen=[...pending,...open].reduce((total,value)=>total+Number(value.attention?.unselected_exposures||0),0);
   $("intention-loom-note").textContent=`${pending.length} possibility cue${pending.length===1?"":"s"} waiting · ${open.length} open · ${paused.length} paused · ${unseen} observed non-selection${unseen===1?"":"s"} · neglect is visible, not corrective`;
   const host=$("intention-loom-intentions");host.innerHTML="";
-  if(!intentions.length){host.innerHTML='<div class="quiet">no intentions yet</div>';return}
+  if(!intentions.length){host.innerHTML='<div class="quiet">no intentions yet</div>'}
   intentions.forEach(intention=>{const row=document.createElement("div");row.className="desk-project-row";
     const button=document.createElement("button");button.type="button";button.className="desk-project";
     const attention=intention.attention||{};
@@ -1667,7 +2118,39 @@ function renderIntentionLoom(runtime){
     button.onclick=()=>openIntention(intention.intention_id);row.appendChild(button);
     if(intention.state==="paused"){const resume=document.createElement("button");resume.type="button";
       resume.textContent="offer return";resume.onclick=()=>resumeIntention(intention.intention_id);row.appendChild(resume)}
-    host.appendChild(row)})
+    host.appendChild(row)});
+  renderProjectLoom(runtime.project_loom||{},runtime.internal_actions||{})
+}
+function openProjectLoom(projection){
+  const lifecycle=projection.lifecycle||{},proposal=projection.proposal||{};
+  const adoptions=projection.owner_adoptions||[],outcomes=projection.owner_outcomes||[];
+  const lines=[
+    proposal.title||proposal.proposal_id||"untitled private project",
+    `stage: ${lifecycle.stage||"unknown"}`,
+    `proposal: ${proposal.proposal_id||"unknown"}`,
+    `shapes: ${projection.movement_count||0}`,
+    `candidates: ${projection.action_candidate_count||0}`,
+    `comparisons: ${projection.evaluation_count||0}`,
+    `orientations: ${projection.orientation_count||0}`,
+    `selections: ${projection.internal_selection_count||0}`,
+    `owner adoptions: ${projection.owner_adoption_count||0}`,
+    `pending recovery: ${projection.pending_owner_adoption_count||0}`,
+    `owner outcomes: ${projection.owner_outcome_count||0}`,
+  ];
+  adoptions.forEach(value=>lines.push(`adopted: ${value.capability} · ${value.owner} · ${value.owner_ref}`));
+  outcomes.forEach(value=>lines.push(`settled: ${value.outcome} · ${value.owner_run_id}${value.durable_ref?` · ${value.durable_ref}`:""}`));
+  const drill=$("project-loom-drill");drill.classList.remove("quiet");drill.textContent=lines.join("\n")
+}
+function renderProjectLoom(project,registry){
+  const projections=project.projections||[],capabilities=registry.capabilities||{};
+  const pending=Number(project.pending_owner_adoption_count||0),settled=Number(project.owner_outcome_count||0);
+  $("project-loom-summary").textContent=`${projections.length} private project${projections.length===1?"":"s"} · ${project.internal_selection_count||0} selected · ${pending} recovering · ${settled} owner-settled · ${Object.keys(capabilities).length} registered internal capabilities`;
+  const host=$("project-loom-projects");host.innerHTML="";
+  if(!projections.length){host.innerHTML='<div class="quiet">no private projects yet</div>';return}
+  projections.forEach(projection=>{const proposal=projection.proposal||{},life=projection.lifecycle||{};
+    const button=document.createElement("button");button.type="button";button.className="desk-project";
+    button.textContent=`${proposal.title||"untitled"} · ${String(life.stage||"unknown").replaceAll("_"," ")} · pending ${life.recoverable_owner_handoffs||0}`;
+    button.onclick=()=>openProjectLoom(projection);host.appendChild(button)})
 }
 async function refreshIntentionLoom(){
   try{const response=await fetch("/api/intention-loom"),result=await response.json();
@@ -1732,6 +2215,46 @@ async function refreshWritingDesk(){
     if(!response.ok)throw new Error(result.error||response.status);renderWritingDesk(result)
   }catch(error){$("writing-desk-lamp").className="agency-lamp blocked";
     $("writing-desk-status").textContent=`desk unavailable: ${error.message||error}`}
+}
+async function openPrivateJournalEntry(entryId){
+  const drill=$("private-journal-drill");
+  try{const response=await fetch(`/api/private-journal/entries/${encodeURIComponent(entryId)}`);
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    drill.classList.remove("quiet");drill.textContent=result.text||"";
+  }catch(error){drill.classList.add("quiet");drill.textContent=`entry unavailable: ${error.message||error}`}
+}
+function renderPrivateJournal(status){
+  const entries=status.entries||[],integrity=status.integrity||{};
+  $("private-journal-lamp").className=`agency-lamp ${integrity.ok?"ready":"blocked"}`;
+  $("private-journal-status").textContent=integrity.ok
+    ?"private · append-only · explicit opening only"
+    :`integrity warning · ${integrity.reason||"journal chain did not verify"}`;
+  $("private-journal-note").textContent=`${entries.length} entr${entries.length===1?"y":"ies"} · ${integrity.ok?"history verified":"history needs inspection"} · no automatic disclosure`;
+  const host=$("private-journal-entries");host.innerHTML="";
+  if(!entries.length){host.innerHTML='<div class="quiet">blank pages, no demands</div>';return}
+  [...entries].reverse().forEach(entry=>{const button=document.createElement("button");
+    button.type="button";button.className="desk-project";
+    button.textContent=`${new Date(Number(entry.created_at||0)*1000).toLocaleString()} · ${entry.chars||0} characters`;
+    button.onclick=()=>openPrivateJournalEntry(entry.entry_id);host.appendChild(button)})
+}
+async function refreshPrivateJournal(){
+  try{const response=await fetch("/api/private-journal"),result=await response.json();
+    if(!response.ok)throw new Error(result.error||response.status);renderPrivateJournal(result)
+  }catch(error){$("private-journal-lamp").className="agency-lamp blocked";
+    $("private-journal-status").textContent=`journal unavailable: ${error.message||error}`}
+}
+async function appendPrivateJournal(){
+  const text=$("private-journal-text").value;
+  if(!text.trim()){$("private-journal-note").textContent="the page is still blank";return}
+  $("private-journal-submit").disabled=true;
+  $("private-journal-note").textContent="appending without interpretation…";
+  try{const response=await fetch("/api/private-journal/entries",{method:"POST",
+      headers:{"Content-Type":"application/json"},body:JSON.stringify({text})});
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    $("private-journal-text").value="";renderPrivateJournal(result.status);
+    $("private-journal-note").textContent="appended · private · not admitted anywhere else";
+  }catch(error){$("private-journal-note").textContent=`not appended: ${error.message||error}`}
+  finally{$("private-journal-submit").disabled=false}
 }
 async function admitWritingDesk(source="text"){
   const useReader=source!=="text";
@@ -1872,8 +2395,6 @@ function scene3DRotateY(a){const c=Math.cos(a),s=Math.sin(a);return new Float32A
 function scene3DRotateZ(a){const c=Math.cos(a),s=Math.sin(a);return new Float32Array([c,s,0,0,-s,c,0,0,0,0,1,0,0,0,0,1])}
 function scene3DMatrixBoundary(){const matrices=[scene3DIdentity(),scene3DTranslate(1,2,3),scene3DScale(1,2,3),scene3DRotateX(.3),scene3DRotateY(.3),scene3DRotateZ(.3)];if(matrices.some(matrix=>matrix.length!==16||Array.from(matrix).some(value=>!Number.isFinite(value))))throw new Error("trusted 3D matrix boundary failed")}
 scene3DMatrixBoundary();
-function scene3DMatrixBoundary(){const matrices=[scene3DIdentity(),scene3DTranslate(1,2,3),scene3DScale(1,2,3),scene3DRotateX(.3),scene3DRotateY(.3),scene3DRotateZ(.3)];if(matrices.some(matrix=>matrix.length!==16||Array.from(matrix).some(value=>!Number.isFinite(value))))throw new Error("trusted 3D matrix boundary failed")}
-scene3DMatrixBoundary();
 function scene3DPerspective(fov,aspect,near=.05,far=50){const f=1/Math.tan(fov/2),q=1/(near-far);return new Float32Array([f/aspect,0,0,0,0,f,0,0,0,0,(far+near)*q,-1,0,0,2*far*near*q,0])}
 function scene3DLookAt(eye,target){const z=scene3DNormalize([eye[0]-target[0],eye[1]-target[1],eye[2]-target[2]]),x=scene3DNormalize(scene3DCross([0,1,0],z)),y=scene3DCross(z,x);return new Float32Array([x[0],y[0],z[0],0,x[1],y[1],z[1],0,x[2],y[2],z[2],0,-scene3DDot(x,eye),-scene3DDot(y,eye),-scene3DDot(z,eye),1])}
 function scene3DMesh(kind){
@@ -1896,7 +2417,20 @@ function scene3DShader(gl,type,source){const shader=gl.createShader(type);gl.sha
 function scene3DProgram(gl){
   const vertex=`attribute vec3 aPosition;attribute vec3 aNormal;uniform mat4 uModel;uniform mat4 uViewProjection;varying vec3 vWorld;varying vec3 vNormal;void main(){vec4 world=uModel*vec4(aPosition,1.0);vWorld=world.xyz;vNormal=normalize(mat3(uModel)*aNormal);gl_Position=uViewProjection*world;}`;
   const fragment=`precision mediump float;varying vec3 vWorld;varying vec3 vNormal;uniform vec3 uCamera;uniform vec3 uColor;uniform float uRoughness;uniform float uMetallic;uniform float uOpacity;uniform float uAmbient;uniform int uLightCount;uniform vec3 uLightPosition[3];uniform vec3 uLightColor[3];uniform float uLightIntensity[3];void main(){vec3 n=normalize(vNormal);vec3 viewDir=normalize(uCamera-vWorld);vec3 color=uColor*uAmbient;for(int i=0;i<3;i++){if(i>=uLightCount)continue;vec3 delta=uLightPosition[i]-vWorld;float distanceAttenuation=1.0/(1.0+0.08*dot(delta,delta));vec3 lightDir=normalize(delta);float diffuse=max(dot(n,lightDir),0.0);vec3 halfDir=normalize(lightDir+viewDir);float shine=mix(8.0,72.0,1.0-uRoughness);float spec=pow(max(dot(n,halfDir),0.0),shine)*mix(0.18,0.92,uMetallic);color+=(uColor*diffuse+vec3(spec))*uLightColor[i]*uLightIntensity[i]*distanceAttenuation;}gl_FragColor=vec4(pow(max(color,vec3(0.0)),vec3(0.82)),uOpacity);}`;
-  const program=gl.createProgram();gl.attachShader(program,scene3DShader(gl,gl.VERTEX_SHADER,vertex));gl.attachShader(program,scene3DShader(gl,gl.FRAGMENT_SHADER,fragment));gl.linkProgram(program);if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw new Error(`trusted 3D program failed: ${gl.getProgramInfoLog(program)}`);return program
+  const vertexShader=scene3DShader(gl,gl.VERTEX_SHADER,vertex);
+  const fragmentShader=scene3DShader(gl,gl.FRAGMENT_SHADER,fragment);
+  const program=gl.createProgram();
+  gl.attachShader(program,vertexShader);gl.attachShader(program,fragmentShader);
+  gl.linkProgram(program);
+  if(!gl.getProgramParameter(program,gl.LINK_STATUS)){
+    const detail=gl.getProgramInfoLog(program);
+    gl.deleteShader(vertexShader);gl.deleteShader(fragmentShader);
+    gl.deleteProgram(program);
+    throw new Error(`trusted 3D program failed: ${detail}`)
+  }
+  gl.detachShader(program,vertexShader);gl.detachShader(program,fragmentShader);
+  gl.deleteShader(vertexShader);gl.deleteShader(fragmentShader);
+  return program
 }
 function scene3DMotion(scene,target,time){
   const state={x:0,y:0,z:0,rx:0,ry:0,rz:0,scale:1,opacity:1};(scene.motions||[]).filter(motion=>motion.target===target).forEach(motion=>{
@@ -1914,15 +2448,23 @@ function createScene3DRenderer(canvas,scene){
   const meshes=new Map();for(const kind of new Set(scene.objects.map(object=>object.kind))){const mesh=scene3DMesh(kind),position=gl.createBuffer(),normal=gl.createBuffer(),index=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,position);gl.bufferData(gl.ARRAY_BUFFER,mesh.positions,gl.STATIC_DRAW);gl.bindBuffer(gl.ARRAY_BUFFER,normal);gl.bufferData(gl.ARRAY_BUFFER,mesh.normals,gl.STATIC_DRAW);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,index);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,mesh.indices,gl.STATIC_DRAW);meshes.set(kind,{position,normal,index,count:mesh.indices.length})}
   const eye=[scene.camera.x,scene.camera.y,scene.camera.z],target=[scene.camera.target_x,scene.camera.target_y,scene.camera.target_z],view=scene3DLookAt(eye,target),projection=scene3DPerspective(scene.camera.fov*Math.PI/180,canvas.width/canvas.height),vp=scene3DMultiply(projection,view),lightPositions=new Float32Array(9),lightColors=new Float32Array(9),lightIntensity=new Float32Array(3);scene.lights.forEach((light,index)=>{lightPositions.set([light.x,light.y,light.z],index*3);lightColors.set(scene3DHex(light.color),index*3);lightIntensity[index]=light.intensity});
   gl.useProgram(program);gl.enable(gl.DEPTH_TEST);gl.disable(gl.CULL_FACE);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);gl.uniformMatrix4fv(uniforms.vp,false,vp);gl.uniform3fv(uniforms.camera,new Float32Array(eye));gl.uniform1f(uniforms.ambient,scene.ambient);gl.uniform1i(uniforms.lightCount,scene.lights.length);gl.uniform3fv(uniforms.lightPosition,lightPositions);gl.uniform3fv(uniforms.lightColor,lightColors);gl.uniform1fv(uniforms.lightIntensity,lightIntensity);
-  const bg=scene3DHex(scene.background);return time=>{gl.viewport(0,0,canvas.width,canvas.height);gl.clearColor(bg[0],bg[1],bg[2],1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);scene.objects.forEach(object=>{const motion=scene3DMotion(scene,object.id,time),mesh=meshes.get(object.kind);let model=scene3DTranslate(object.x+motion.x,object.y+motion.y,object.z+motion.z);model=scene3DMultiply(model,scene3DRotateX(object.rotation_x*Math.PI+motion.rx));model=scene3DMultiply(model,scene3DRotateY(object.rotation_y*Math.PI+motion.ry));model=scene3DMultiply(model,scene3DRotateZ(object.rotation_z*Math.PI+motion.rz));model=scene3DMultiply(model,scene3DScale(object.scale_x*motion.scale,object.scale_y*motion.scale,object.scale_z*motion.scale));gl.uniformMatrix4fv(uniforms.model,false,model);gl.uniform3fv(uniforms.color,new Float32Array(scene3DHex(object.color)));gl.uniform1f(uniforms.roughness,object.roughness);gl.uniform1f(uniforms.metallic,object.metallic);gl.uniform1f(uniforms.opacity,object.opacity*motion.opacity);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.position);gl.enableVertexAttribArray(attributes.position);gl.vertexAttribPointer(attributes.position,3,gl.FLOAT,false,0,0);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.normal);gl.enableVertexAttribArray(attributes.normal);gl.vertexAttribPointer(attributes.normal,3,gl.FLOAT,false,0,0);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,mesh.index);gl.drawElements(gl.TRIANGLES,mesh.count,gl.UNSIGNED_SHORT,0)});canvas.dataset.webglError=String(gl.getError())}
+  const bg=scene3DHex(scene.background);let disposed=false;
+  const draw=time=>{if(disposed)return;gl.viewport(0,0,canvas.width,canvas.height);gl.clearColor(bg[0],bg[1],bg[2],1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);scene.objects.forEach(object=>{const motion=scene3DMotion(scene,object.id,time),mesh=meshes.get(object.kind);let model=scene3DTranslate(object.x+motion.x,object.y+motion.y,object.z+motion.z);model=scene3DMultiply(model,scene3DRotateX(object.rotation_x*Math.PI+motion.rx));model=scene3DMultiply(model,scene3DRotateY(object.rotation_y*Math.PI+motion.ry));model=scene3DMultiply(model,scene3DRotateZ(object.rotation_z*Math.PI+motion.rz));model=scene3DMultiply(model,scene3DScale(object.scale_x*motion.scale,object.scale_y*motion.scale,object.scale_z*motion.scale));gl.uniformMatrix4fv(uniforms.model,false,model);gl.uniform3fv(uniforms.color,new Float32Array(scene3DHex(object.color)));gl.uniform1f(uniforms.roughness,object.roughness);gl.uniform1f(uniforms.metallic,object.metallic);gl.uniform1f(uniforms.opacity,object.opacity*motion.opacity);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.position);gl.enableVertexAttribArray(attributes.position);gl.vertexAttribPointer(attributes.position,3,gl.FLOAT,false,0,0);gl.bindBuffer(gl.ARRAY_BUFFER,mesh.normal);gl.enableVertexAttribArray(attributes.normal);gl.vertexAttribPointer(attributes.normal,3,gl.FLOAT,false,0,0);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,mesh.index);gl.drawElements(gl.TRIANGLES,mesh.count,gl.UNSIGNED_SHORT,0)});canvas.dataset.webglError=String(gl.getError())};
+  draw.dispose=()=>{if(disposed)return;disposed=true;
+    meshes.forEach(mesh=>{gl.deleteBuffer(mesh.position);gl.deleteBuffer(mesh.normal);gl.deleteBuffer(mesh.index)});
+    meshes.clear();gl.deleteProgram(program);
+    gl.getExtension("WEBGL_lose_context")?.loseContext()
+  };
+  return draw
 }
 async function mountAtelier3D(artifact,canvas){
   const response=await fetch(`/api/atelier/artifacts/${encodeURIComponent(artifact.artifact_id)}`),scene=await response.json();if(!response.ok)throw new Error(scene.error||response.status);if(scene.format!=="jnsq.scene3d.v1"||!Array.isArray(scene.objects)||!Array.isArray(scene.lights)||!Array.isArray(scene.motions))throw new Error("3D scene format refused");
-  canvas.width=scene.width;canvas.height=scene.height;canvas.style.aspectRatio=`${scene.width}/${scene.height}`;canvas.setAttribute("aria-label",artifact.title||"private trusted 3D artifact");const draw=createScene3DRenderer(canvas,scene);let frame=0,visible=true,stopped=false;const reduced=()=>window.matchMedia("(prefers-reduced-motion: reduce)").matches||document.body.dataset.reducedMotion==="true";const still=()=>draw(0);const schedule=()=>{if(stopped)return;if(reduced()){if(frame){cancelAnimationFrame(frame);frame=0}still();return}if(visible&&!frame)frame=requestAnimationFrame(tick)};const tick=now=>{frame=0;if(stopped||!visible)return;draw(now/1000);schedule()};const intersection=new IntersectionObserver(entries=>{visible=Boolean(entries[0]?.isIntersecting);if(!visible&&frame){cancelAnimationFrame(frame);frame=0}else schedule()},{threshold:.01}),mutation=new MutationObserver(schedule),media=window.matchMedia("(prefers-reduced-motion: reduce)");media.addEventListener("change",schedule);mutation.observe(document.body,{attributes:true,attributeFilter:["data-reduced-motion"]});still();intersection.observe(canvas);schedule();const stop=()=>{stopped=true;if(frame)cancelAnimationFrame(frame);intersection.disconnect();mutation.disconnect();media.removeEventListener("change",schedule)};atelier3DLoops.set(artifact.artifact_id,stop);return canvas
+  canvas.width=scene.width;canvas.height=scene.height;canvas.style.aspectRatio=`${scene.width}/${scene.height}`;canvas.setAttribute("aria-label",artifact.title||"private trusted 3D artifact");const draw=createScene3DRenderer(canvas,scene);let frame=0,visible=true,stopped=false;const reduced=()=>window.matchMedia("(prefers-reduced-motion: reduce)").matches||document.body.dataset.reducedMotion==="true";const still=()=>draw(0);const schedule=()=>{if(stopped)return;if(reduced()){if(frame){cancelAnimationFrame(frame);frame=0}still();return}if(visible&&!frame)frame=requestAnimationFrame(tick)};const tick=now=>{frame=0;if(stopped||!visible)return;draw(now/1000);schedule()};const intersection=new IntersectionObserver(entries=>{visible=Boolean(entries[0]?.isIntersecting);if(!visible&&frame){cancelAnimationFrame(frame);frame=0}else schedule()},{threshold:.01}),mutation=new MutationObserver(schedule),media=window.matchMedia("(prefers-reduced-motion: reduce)");media.addEventListener("change",schedule);mutation.observe(document.body,{attributes:true,attributeFilter:["data-reduced-motion"]});still();intersection.observe(canvas);schedule();const stop=()=>{if(stopped)return;stopped=true;if(frame)cancelAnimationFrame(frame);intersection.disconnect();mutation.disconnect();media.removeEventListener("change",schedule);draw.dispose()};atelier3DLoops.set(artifact.artifact_id,stop);return canvas
 }
 window.JNSQ_ATELIER_3D=Object.freeze({format:"jnsq.scene3d.v1",mount:mountAtelier3D,stopAll:stopAtelier3DLoops});
 const atelierAudioBuffers=new Map(),atelierAudioPlayers=new Map();
 let atelierAudioContext=null;
+function clearAtelierAudioBuffers(){atelierAudioBuffers.clear()}
 function atelierAudioNoise(seed,eventIndex,cycleIndex){
   const value=Math.sin((Number(seed||0)*104729+(eventIndex+1)*13007+(cycleIndex+1)*7919)*12.9898)*43758.5453;
   return value-Math.floor(value)
@@ -2045,7 +2587,8 @@ async function loadAtelierCompositionSource(track){
   if(track.medium==="scene3d"){
     const scene=JSON.parse(text);if(scene.format!=="jnsq.scene3d.v1"||!Array.isArray(scene.objects)||!Array.isArray(scene.lights)||!Array.isArray(scene.motions))throw new Error("composition 3D source refused");
     const canvas=document.createElement("canvas");canvas.width=scene.width;canvas.height=scene.height;
-    return {track,canvas,draw:createScene3DRenderer(canvas,scene),rawBytes:bytes,type,dispose:()=>{}}
+    const draw=createScene3DRenderer(canvas,scene);
+    return {track,canvas,draw,rawBytes:bytes,type,dispose:()=>draw.dispose()}
   }
   if(track.medium==="audio"){
     const score=validateAtelierScore(JSON.parse(text));return {track,score,buffer:await renderAtelierAudioBuffer(score),rawBytes:bytes,type,dispose:()=>{}}
@@ -2129,11 +2672,57 @@ async function mountAtelierComposition(artifact,canvas,play,status){
 document.addEventListener("visibilitychange",()=>{if(document.hidden)stopAtelierCompositions("page hidden")});
 window.addEventListener("pagehide",()=>{stopAtelierCompositions("page left");clearAtelierCompositionMounts()});
 window.JNSQ_ATELIER_COMPOSITION=Object.freeze({format:"jnsq.composition.v1",mount:mountAtelierComposition,draw:drawAtelierComposition,stopAll:stopAtelierCompositions});
+let atelierLightboxState=null;
+function closeAtelierLightbox({restoreFocus=true}={}){
+  if(!atelierLightboxState)return;
+  const {visual,placeholder}=atelierLightboxState;
+  if(placeholder.parentNode)placeholder.replaceWith(visual);
+  $("atelier-lightbox-stage").replaceChildren();
+  $("atelier-lightbox").classList.remove("open");
+  $("atelier-lightbox").setAttribute("aria-hidden","true");
+  atelierLightboxState=null;
+  if(restoreFocus&&visual.isConnected)visual.focus({preventScroll:true})
+}
+function openAtelierLightbox(artifact,visual){
+  if(atelierLightboxState?.visual===visual)return;
+  closeAtelierLightbox({restoreFocus:false});
+  const placeholder=document.createComment("atelier visual returns here");
+  visual.before(placeholder);$("atelier-lightbox-stage").appendChild(visual);
+  $("atelier-lightbox-title").textContent=artifact.title||`private ${artifact.medium||"visual"} artifact`;
+  $("atelier-lightbox").classList.add("open");
+  $("atelier-lightbox").setAttribute("aria-hidden","false");
+  atelierLightboxState={artifact,visual,placeholder};
+  $("atelier-lightbox-close").focus()
+}
+function bindAtelierLightbox(artifact,visual){
+  visual.classList.add("atelier-expandable");visual.tabIndex=0;
+  visual.setAttribute("role","button");
+  visual.setAttribute("aria-label",`Open ${artifact.title||"this Atelier artifact"} for a larger view`);
+  visual.addEventListener("click",()=>openAtelierLightbox(artifact,visual));
+  visual.addEventListener("keydown",event=>{
+    if(event.key==="Enter"||event.key===" "){
+      event.preventDefault();openAtelierLightbox(artifact,visual)
+    }
+  })
+}
+$("atelier-lightbox-close").onclick=()=>closeAtelierLightbox();
+$("atelier-lightbox").addEventListener("click",event=>{
+  if(event.target===$("atelier-lightbox"))closeAtelierLightbox()
+});
+document.addEventListener("keydown",event=>{
+  if(event.key==="Escape"&&atelierLightboxState){
+    event.preventDefault();closeAtelierLightbox()
+  }
+});
 function renderAtelier(runtime){
   const lamp=$("atelier-lamp");lamp.className="agency-lamp";
   const active=runtime.controller?.active;
+  const state=runtime.atelier||{},artifacts=state.artifacts||[],pending=state.pending_seeds||[];
+  const receipts=state.receipts||[],last=receipts.length?receipts[receipts.length-1]:null;
   if(active&&String(active.run_id||"").startsWith("atelier-")){
     lamp.classList.add("active");$("atelier-status").textContent=`creating privately · ${active.run_id}`
+  }else if(last?.outcome==="failed_requeued"){
+    lamp.classList.add("blocked");$("atelier-status").textContent=`last attempt failed safely · ${last.reason||"invalid renderer proposal"} · material requeued`
   }else if(runtime.enabled&&runtime.capability?.usable&&runtime.readiness?.hard_blocked){
     lamp.classList.add("blocked");const why=(runtime.readiness.reasons||[]).join(", ").replaceAll("_"," ");
     $("atelier-status").textContent=`resting · ${why||"the current body holds making closed"}`
@@ -2146,10 +2735,18 @@ function renderAtelier(runtime){
     $("atelier-status").textContent=`ready · ${runtime.config.model} · ${media} · ${raster} · paid fallbacks 0`
   }else{lamp.classList.add("blocked");$("atelier-status").textContent=runtime.enabled
     ?`held closed · ${runtime.capability?.reason||"capability unavailable"}`:"atelier organ disabled"}
-  const state=runtime.atelier||{},artifacts=state.artifacts||[],pending=state.pending_seeds||[];
-  const receipts=state.receipts||[],last=receipts.length?receipts[receipts.length-1]:null;
-  $("atelier-note").textContent=`${pending.length} material${pending.length===1?"":"s"} waiting · ${artifacts.length} private artifact${artifacts.length===1?"":"s"}${last?` · last ${last.outcome||last.kind} · $${Number(last.estimated_cost_usd||0).toFixed(4)}`:""}`;
-  stopAtelierCanvasLoops();stopAtelier3DLoops();stopAtelierAudioPlayers("gallery refreshed");stopAtelierCompositions("gallery refreshed");clearAtelierCompositionMounts();const host=$("atelier-artifacts");host.innerHTML="";
+  const field=runtime.field_evidence||{},circulating=Number(field.circulating_count||0);
+  const pressure=Number(field.pressure),threshold=Number(field.fire_threshold);
+  const gate=field.hourly_capped
+    ?` · autonomous discharge capped by recent load (${Number(field.recent_fire_count||0)}/${Number(field.max_fires_per_hour||0)} this hour)`
+    :(Number(field.cooldown_remaining_s)>0
+      ?` · cooldown ${Math.ceil(Number(field.cooldown_remaining_s))}s`
+      :"");
+  const fieldText=circulating
+    ?` · ${circulating}/${pending.length} circulating in shared field${Number.isFinite(pressure)&&Number.isFinite(threshold)&&threshold>0?` · organism pressure ${pressure.toFixed(3)}/${threshold.toFixed(3)}`:""}${gate}`
+    :(pending.length?" · not currently present in shared field":"");
+  $("atelier-note").textContent=`${pending.length} material${pending.length===1?"":"s"} waiting${fieldText} · ${artifacts.length} private artifact${artifacts.length===1?"":"s"}${last?` · last ${last.outcome||last.kind} · $${Number(last.estimated_cost_usd||0).toFixed(4)}`:""}`;
+  closeAtelierLightbox({restoreFocus:false});stopAtelierCanvasLoops();stopAtelier3DLoops();stopAtelierAudioPlayers("gallery refreshed");stopAtelierCompositions("gallery refreshed");clearAtelierCompositionMounts();const host=$("atelier-artifacts");host.innerHTML="";
   if(!artifacts.length){host.innerHTML='<div class="quiet">no creative artifacts have taken form yet</div>';return}
   artifacts.slice(0,12).forEach(artifact=>{
     const card=document.createElement("div");card.className="atelier-card";
@@ -2176,6 +2773,11 @@ function renderAtelier(runtime){
       :String(artifact.medium||"visual").toUpperCase();
     title.textContent=isAudio?`${artifact.title||"untitled"} · ${form}`:`${artifact.title||"untitled"} · ${form} · ${artifact.width||"?"}×${artifact.height||"?"}`;
     card.appendChild(title);
+    if(Array.isArray(artifact.offered_to)&&artifact.offered_to.length){
+      const offered=document.createElement("div");offered.className="quiet";
+      offered.textContent=`offered by resident to ${artifact.offered_to.join(", ")}`;
+      card.appendChild(offered)}
+    if(!isAudio)bindAtelierLightbox(artifact,visual);
     if(isAudio){
       const controls=document.createElement("div");controls.className="atelier-audio-controls";
       const play=document.createElement("button");play.type="button";play.textContent="play return";
@@ -2215,7 +2817,7 @@ async function probeAtelierRenderer(){
   try{const response=await fetch("/api/atelier/renderers/comfyui/probe",{method:"POST"});
     const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
     renderAtelier(result.status);$("atelier-note").textContent=result.ok
-      ?`ComfyUI ready · ${result.renderer.checkpoint}`
+      ?`ComfyUI ready · ${result.renderer?.checkpoint||result.status?.capability?.diffusion?.checkpoint||"configured checkpoint"}`
       :`ComfyUI held closed · ${result.renderer.reason}`
   }catch(error){$("atelier-note").textContent=`renderer check failed: ${error.message||error}`}
   finally{button.disabled=false}
@@ -2238,6 +2840,16 @@ async function admitAtelier(){
     refreshSalience()
   }catch(error){$("atelier-note").textContent=`not placed: ${error.message||error}`}
   finally{$("atelier-submit").disabled=false}
+}
+async function openAtelierNow(){
+  const button=$("atelier-open-now");button.disabled=true;
+  $("atelier-note").textContent="opening one bounded human-requested Atelier attemptâ€¦";
+  try{const response=await fetch("/api/atelier/open-now",{method:"POST"});
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    renderAtelier(result.status);
+    $("atelier-note").textContent=`human-requested opening started · ${result.run_id||"local run"}`;
+  }catch(error){$("atelier-note").textContent=`opening did not start: ${error.message||error}`}
+  finally{button.disabled=false}
 }
 async function perceiveAtelierArtifact(artifact,visual,button){
   const drill=$("atelier-drill");button.disabled=true;drill.classList.add("quiet");
@@ -2266,19 +2878,38 @@ let researchTextRef="";
 function renderResearchText(content,ref){
   const drill=$("research-drill"),text=String(content||"");
   drill.innerHTML="";drill.classList.remove("quiet");researchTextRef=String(ref||"");
-  const citation=/\[(web_[0-9a-f]{16}) p\.([1-9][0-9]{0,2})\]/g;
+  const citation=/\[(web_[0-9a-f]{16})(?: p\.([1-9][0-9]{0,2}))?\]/g;
   let cursor=0,match;
   while((match=citation.exec(text))!==null){
     drill.appendChild(document.createTextNode(text.slice(cursor,match.index)));
     const button=document.createElement("button");button.type="button";
     button.className="research-citation";button.textContent=match[0];
     button.setAttribute("aria-label",`open ${match[0]}`);
-    const sourceId=match[1],page=Number(match[2]),returnRef=researchTextRef;
-    button.onclick=()=>openResearchPage(sourceId,page,returnRef);
+    const sourceId=match[1],page=match[2]?Number(match[2]):null,returnRef=researchTextRef;
+    button.onclick=()=>page?openResearchPage(sourceId,page,returnRef)
+      :openResearchSource(sourceId,returnRef);
     drill.appendChild(button);cursor=citation.lastIndex
   }
   drill.appendChild(document.createTextNode(text.slice(cursor)));
   if(!text)drill.textContent="research record is empty"
+}
+async function openResearchSource(sourceId,returnRef){
+  const drill=$("research-drill");
+  try{const response=await fetch(`/api/research-desk/sources/${encodeURIComponent(sourceId)}`);
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    drill.innerHTML="";drill.classList.remove("quiet");
+    const head=document.createElement("div");head.className="research-page-head";
+    if(returnRef){const back=document.createElement("button");back.type="button";back.textContent="back to report";
+      back.onclick=()=>openResearchText(returnRef);head.appendChild(back)}
+    const label=document.createElement("strong");
+    label.textContent=`${result.title||sourceId} · ${result.citation}`;
+    head.appendChild(label);drill.appendChild(head);
+    const provenance=document.createElement("div");provenance.className="research-page-url";
+    provenance.textContent=`stored external source · ${result.source_class||"unclassified"} · volatility ${result.volatility||"unknown"} · ${result.url||"URL unavailable"} · network request: no`;
+    drill.appendChild(provenance);
+    const body=document.createElement("pre");body.className="research-page-content";
+    body.textContent=result.content||"";drill.appendChild(body)
+  }catch(error){drill.classList.add("quiet");drill.textContent=`research source unavailable: ${error.message||error}`}
 }
 async function openResearchPage(sourceId,page,returnRef){
   const drill=$("research-drill");
@@ -2318,25 +2949,43 @@ function renderResearchDesk(runtime){
     $("research-status").textContent=`ready · ${runtime.config.model} · local planning · paid fallbacks 0`
   }else{lamp.classList.add("blocked");$("research-status").textContent=runtime.enabled
     ?`held closed · ${runtime.capability?.reason||"capability unavailable"}`:"research desk organ disabled"}
-  const desk=runtime.desk||{},interests=desk.interests||[],unread=desk.unread_sources||[];
+  const desk=runtime.desk||{},interests=desk.interests||[],opportunities=desk.opportunities||[],unread=desk.unread_sources||[];
   const notes=desk.notes||[],reports=desk.reports||[],receipts=desk.receipts||[];
+  const garden=desk.shared_epistemic_garden||[];
+  const privateGarden=Number(desk.private_garden_count||0);
+  const pendingGarden=Number(desk.pending_garden_count||0);
   const pending=desk.pending_reports||[],handoffs=desk.handoffs||[];
   const pdfReads=Number(desk.pdf_read_count||0);
   const comparisons=reports.filter(report=>(report.source_ids||[]).length>1).length;
+  const residentOwned=interests.filter(interest=>["persona_accepted_human_opportunity","persona_chosen_conversation","autonomous_lived_cue"].includes(interest.origin));
+  const foregroundArcs=interests.filter(interest=>interest.origin==="foreground_action_before_articulated_interest");
   const last=receipts.length?receipts[receipts.length-1]:null;
-  $("research-note").textContent=`${interests.filter(i=>i.state==="open").length} open interest${interests.filter(i=>i.state==="open").length===1?"":"s"} · ${unread.length} unread source${unread.length===1?"":"s"} · ${notes.length} note${notes.length===1?"":"s"} · ${reports.length} report${reports.length===1?"":"s"}${last?` · last ${last.action||last.outcome} · $${Number(last.estimated_cost_usd||0).toFixed(4)}`:""}`;
+  $("research-note").textContent=`${opportunities.length} offered opportunit${opportunities.length===1?"y":"ies"} · ${residentOwned.length} resident-owned interest${residentOwned.length===1?"":"s"} · ${foregroundArcs.length} foreground action arc${foregroundArcs.length===1?"":"s"} · ${unread.length} unread source${unread.length===1?"":"s"} · ${notes.length} note${notes.length===1?"":"s"} · ${reports.length} report${reports.length===1?"":"s"}${last?` · last ${last.action||last.outcome} · $${Number(last.estimated_cost_usd||0).toFixed(4)}`:""}`;
   $("research-note").textContent+=` · ${pending.length} awaiting their choice · ${handoffs.length} writing handoff${handoffs.length===1?"":"s"}`;
   $("research-note").textContent+=` · ${comparisons} multi-source report${comparisons===1?"":"s"}`;
   $("research-note").textContent+=` · ${pdfReads} PDF source${pdfReads===1?"":"s"} read`;
+  $("research-note").textContent+=` · ${garden.length} shared garden claim${garden.length===1?"":"s"} · ${privateGarden} private · ${pendingGarden} live discrepanc${pendingGarden===1?"y":"ies"}`;
   const host=$("research-items");host.innerHTML="";
+  opportunities.forEach(opportunity=>{const row=document.createElement("div");row.className="desk-project";
+    row.textContent=`offered possibility · ${opportunity.topic} · not yet resident interest`;host.appendChild(row)});
   interests.forEach(interest=>{const row=document.createElement("div");row.className="desk-project";
     row.textContent=`${interest.topic} · ${interest.state} · ${interest.search_count||0} searches · ${interest.source_count||0} sources`;host.appendChild(row)});
+  garden.slice(0,12).forEach(claim=>{const button=document.createElement("button");
+    button.type="button";button.className="desk-project";
+    const relationships=(claim.relationships||[]).join(" / ")||"unresolved";
+    button.textContent=`${claim.discrepancy?"discrepancy":"claim"} · ${relationships} · confidence ${Number(claim.confidence_low||0).toFixed(2)}–${Number(claim.confidence_high||0).toFixed(2)} · volatility ${(claim.source_volatility||[]).join("/")||"unknown"} · ${claim.claim}`;
+    const citation=String((claim.citations||[])[0]||"");
+    const match=citation.match(/^\[(web_[0-9a-f]{16})(?: p\.([1-9][0-9]{0,2}))?\]$/);
+    if(match)button.onclick=()=>match[2]
+      ?openResearchPage(match[1],Number(match[2]),"")
+      :openResearchSource(match[1],"");
+    host.appendChild(button)});
   [...reports,...notes].slice(-12).reverse().forEach(record=>{const button=document.createElement("button");
     button.type="button";button.className="desk-project";
     button.textContent=`${record.kind==="report_created"?"report":"note"} · ${(record.source_ids||[]).join(", ")}`;
     if(record.kind==="report_created"&&record.anchor)button.textContent=`report ${record.anchor} · ${(record.source_ids||[]).join(", ")}`;
     button.onclick=()=>openResearchText(record.ref);host.appendChild(button)});
-  if(!interests.length&&!notes.length&&!reports.length)host.innerHTML='<div class="quiet">no research has settled yet</div>'
+  if(!opportunities.length&&!interests.length&&!notes.length&&!reports.length&&!garden.length)host.innerHTML='<div class="quiet">no research has settled yet</div>'
 }
 async function refreshResearchDesk(){
   try{const response=await fetch("/api/research-desk"),result=await response.json();
@@ -2355,6 +3004,18 @@ async function offerResearchInterest(){
   }catch(error){$("research-note").textContent=`interest was not offered: ${error.message||error}`}
   finally{$("research-submit").disabled=false}
 }
+async function openForegroundResearch(){
+  const target=$("research-url").value.trim(),why=$("research-why").value.trim();
+  if(target.length<2){$("research-note").textContent="foreground browsing needs a permitted URL or public query";return}
+  $("research-open").disabled=true;$("research-note").textContent="admitting the permitted URL as foreground work…";
+  try{const response=await fetch("/api/research-desk/foreground",{method:"POST",
+      headers:{"Content-Type":"application/json"},body:JSON.stringify({target,why})});
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    $("research-url").value="";$("research-why").value="";
+    renderResearchDesk(result.status);refreshSalience()
+  }catch(error){$("research-note").textContent=`foreground URL was not admitted: ${error.message||error}`}
+  finally{$("research-open").disabled=false}
+}
 
 let documentLibraryState=null;
 function renderDocumentReader(reader){
@@ -2364,7 +3025,7 @@ function renderDocumentReader(reader){
     $("document-previous").disabled=true;$("document-next").disabled=true;
     $("document-to-desk").disabled=true;
     pre.classList.add("quiet");
-    pre.textContent="Import or open a document. Its active section and question-relevant excerpts enter private turns with source anchors; the source itself stays separate from memory.";
+    pre.textContent="Import or open an accessible document. Its active section and question-relevant excerpts enter private turns with source anchors; the source itself stays separate from memory.";
     return;
   }
   pre.classList.remove("quiet");pre.textContent=reader.chunk?.text||"";
@@ -2417,21 +3078,28 @@ function renderDocumentLibrary(status){
     const option=document.createElement("option");option.value="";option.textContent="no documents imported";select.appendChild(option);
   }else (status.documents||[]).forEach(libraryDocument=>{
     const option=document.createElement("option");option.value=libraryDocument.id;
-    option.textContent=`${libraryDocument.title||libraryDocument.filename} · ${libraryDocument.chunk_count} sections`;
+    option.textContent=`${libraryDocument.title||libraryDocument.filename} · ${libraryDocument.chunk_count} sections · ${String(libraryDocument.visibility||"user_private").replaceAll("_"," ")}`;
     select.appendChild(option);
   });
   const active=status.reader?.document?.id;
   if(active)select.value=active;else if([...select.options].some(o=>o.value===prior))select.value=prior;
-  $("document-status").textContent=`${status.document_count||0} document${status.document_count===1?"":"s"} · ${status.chunk_count||0} source sections · ${status.vector_rows||0} derived vectors · private by default`;
+  const scopeCounts=(status.documents||[]).reduce((counts,doc)=>{const key=doc.visibility||"user_private";counts[key]=(counts[key]||0)+1;return counts},{});
+  $("document-status").textContent=`${status.document_count||0} accessible document${status.document_count===1?"":"s"} · ${scopeCounts.system_public||0} system-public · ${scopeCounts.persona_private||0} persona-private · ${scopeCounts.user_private||0} user-private · ${status.chunk_count||0} source sections · ${status.vector_rows||0} derived vectors`;
   const autonomous=status.autonomous||{},runtime=status.autonomous_reader;
   $("document-status").textContent+=` · ${autonomous.encounter_count||0} chosen encounter${autonomous.encounter_count===1?"":"s"} · ${autonomous.bookmark_count||0} bookmark${autonomous.bookmark_count===1?"":"s"} · ${(autonomous.reports||[]).length} report${(autonomous.reports||[]).length===1?"":"s"} · ${(autonomous.handoffs||[]).length} writing handoff${(autonomous.handoffs||[]).length===1?"":"s"}`;
   const lamp=$("document-reader-lamp");lamp.className="agency-lamp";
   if(!runtime){lamp.classList.add(status.document_count?"ready":"blocked");
-    $("document-reader-runtime").textContent=status.document_count?"library ready · autonomous boundary loading":"library empty";
+    $("document-reader-runtime").textContent=status.document_count?"library ready · no autonomous reader status attached":"library empty";
   }else{
-    const activeRun=runtime.controller?.active;
+    const activeRun=runtime.controller?.active,readingArc=status.reading?.arc||{},field=runtime.field_evidence||{};
     if(activeRun&&String(activeRun.run_id||"").startsWith("document-reader-")){
       lamp.classList.add("active");$("document-reader-runtime").textContent=`reading privately · ${activeRun.run_id}`
+    }else if(readingArc.status==="active"&&readingArc.pace==="foreground"&&field.hourly_capped){
+      lamp.classList.add("ready");
+      const release=Number(field.cap_release_remaining_s);
+      $("document-reader-runtime").textContent=`foreground packet circulating · next ${readingArc.next_anchor||"source boundary"} · shared field at ${field.recent_fire_count||0}/${field.max_fires_per_hour||0} recent fires${Number.isFinite(release)?` · next capacity returns in about ${Math.max(1,Math.ceil(release/60))}m`:""}`
+    }else if(readingArc.status==="active"&&readingArc.pace==="foreground"){
+      lamp.classList.add("ready");$("document-reader-runtime").textContent=`foreground packet ${field.foreground_packet_circulating?"circulating":"queued"} · next ${readingArc.next_anchor||"source boundary"} · awaiting organism boundary`
     }else if(runtime.enabled&&runtime.capability?.usable&&runtime.readiness?.hard_blocked){
       lamp.classList.add("blocked");const why=(runtime.readiness.reasons||[]).join(", ").replaceAll("_"," ");
       $("document-reader-runtime").textContent=`resting · ${why||"the current body holds reading closed"}`
@@ -2473,11 +3141,11 @@ async function importDocument(file){
   if(!file)return;const maximum=documentLibraryState?.max_document_bytes||25*1024*1024;
   if(file.size>maximum){$("document-status").textContent=`not imported: ${file.name} exceeds ${Math.round(maximum/1048576)} MB`;return}
   $("document-import").disabled=true;$("document-status").textContent=`extracting and indexing ${file.name}…`;
-  try{const data_url=await readDocumentFile(file);const response=await fetch("/api/documents/import",{method:"POST",
-      headers:{"Content-Type":"application/json"},body:JSON.stringify({name:file.name,content_type:file.type||"",data_url})});
+  try{const data_url=await readDocumentFile(file);const visibility=$("document-visibility").value;const response=await fetch("/api/documents/import",{method:"POST",
+      headers:{"Content-Type":"application/json"},body:JSON.stringify({name:file.name,content_type:file.type||"",data_url,visibility})});
     const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
     renderDocumentLibrary(result.status);renderDocumentReader(result.reader);
-    $("document-status").textContent=`${result.document.duplicate?"already present":"imported"} · ${result.document.title} · ${result.document.chunk_count} sections · source ${result.document.sha256.slice(0,12)}`
+    $("document-status").textContent=`${result.document.duplicate?"already present":"imported"} · ${result.document.title} · ${String(result.document.visibility||"user_private").replaceAll("_"," ")} · ${result.document.chunk_count} sections · source ${result.document.sha256.slice(0,12)}`
   }catch(error){$("document-status").textContent=`not imported: ${error.message||error}`}
   finally{$("document-import").disabled=false}
 }
@@ -2723,6 +3391,7 @@ function syncConversation(turns) {
 
 async function fetchState() {
   renderState(await (await fetch("/api/state")).json());
+  fetchInterferenceCalibration();
   refreshAgency();
 }
 
@@ -2787,12 +3456,13 @@ let turnWorkerActive = false;
 let cameraStream=null, cameraWatching=false, cameraBusy=false;
 let cameraPrevious=null, cameraPressure=0, cameraLastFrame=0;
 let cameraLastFeatures=null;
+let cameraAnchorFrame=null,cameraEpisode=null;
 const cameraBaseline={mean:0,variance:.0001,ready:false};
 let audioStream=null,audioContext=null,audioAnalyser=null,audioWatching=false,audioBusy=false;
 let audioSource=null,audioProcessor=null,audioSink=null;
 let audioPressure=0,audioLastFrame=0,audioPreviousSpectrum=null,audioLastDemand=0;
 let audioArmed=true,audioEpisodePeak=0;
-let voicePressure=0,speechUploadBusy=false,speechCapture=null;
+let voicePressure=0,voiceLastLikelihood=0,speechUploadBusy=false,speechCapture=null;
 let speechPreRoll=[],speechPreSamples=0;
 let voiceOutputSpeaking=false,voiceOutputGeneration=0,voiceOutputSession=null;
 let outputInterruptPressure=0,outputLastVoiceDemand=0;
@@ -2956,31 +3626,167 @@ const voiceOutputProviders={
       utterance.onstart=hooks.start;utterance.onend=hooks.end;utterance.onerror=hooks.error;
       window.speechSynthesis.speak(utterance);return utterance},
     cancel:()=>window.speechSynthesis.cancel()
+  },
+  "qwen3-tts":{
+    controllers:new Set(),players:new Set(),objectUrls:new Set(),tail:Promise.resolve(),
+    available:()=>"Audio" in window&&"URL" in window&&"createObjectURL" in URL,
+    speak(text,policy,hooks){
+      const controller=new AbortController();this.controllers.add(controller);
+      const ready=fetch("/api/voice/synthesize",{method:"POST",signal:controller.signal,
+        headers:{"Content-Type":"application/json"},body:JSON.stringify({text})}).then(async response=>{
+          if(!response.ok){let detail={};try{detail=await response.json()}catch(_){}
+            throw new Error(detail.error||`Qwen3-TTS ${response.status}`)}
+          return {audio:await response.blob(),synthesisMs:response.headers.get("X-JNSQ-Synthesis-Ms")}});
+      this.tail=this.tail.catch(()=>{}).then(()=>ready).then(async value=>{
+        if(controller.signal.aborted)return;
+        const objectUrl=URL.createObjectURL(value.audio),player=new Audio(objectUrl);
+        this.objectUrls.add(objectUrl);this.players.add(player);
+        player.playbackRate=Math.max(.5,Math.min(2,Number(policy.rate||1)));
+        player.preservesPitch=true;
+        if("mozPreservesPitch" in player)player.mozPreservesPitch=true;
+        if("webkitPreservesPitch" in player)player.webkitPreservesPitch=true;
+        player.volume=Math.max(0,Math.min(1,Number(policy.volume||1)));
+        try{await new Promise((resolve,reject)=>{let startedReceipt=false;
+          player._jnsqResolve=resolve;
+          player.onplaying=()=>{if(startedReceipt)return;startedReceipt=true;
+            hooks.start({synthesis_ms:value.synthesisMs,pitch_preserved:true})};
+          player.onended=resolve;player.onerror=()=>reject(new Error("generated voice audio could not play"));
+          const started=player.play();if(started?.catch)started.catch(reject)
+        })}finally{this.players.delete(player);this.objectUrls.delete(objectUrl);
+          URL.revokeObjectURL(objectUrl)}
+        if(!controller.signal.aborted)hooks.end()
+      }).catch(error=>{if(error.name!=="AbortError"&&!controller.signal.aborted)hooks.error({error:error.message})})
+        .finally(()=>this.controllers.delete(controller));return controller},
+    cancel(){for(const controller of this.controllers)controller.abort();this.controllers.clear();
+      for(const player of this.players){try{player.pause();player._jnsqResolve?.();
+        player.removeAttribute("src");player.load()}catch(_){}}
+      this.players.clear();for(const objectUrl of this.objectUrls)URL.revokeObjectURL(objectUrl);
+      this.objectUrls.clear();this.tail=Promise.resolve()}
   }
 };
-let voiceOutputConfig={provider:"browser-native",voice:""};
+voiceOutputProviders["chatterbox-turbo"]=voiceOutputProviders["qwen3-tts"];
+voiceOutputProviders["hume-octave"]=voiceOutputProviders["qwen3-tts"];
+voiceOutputProviders.elevenlabs=voiceOutputProviders["qwen3-tts"];
+let lastEnabledVoiceProvider="browser-native",voiceOutputHydrated=false;
+let voiceOutputConfig={provider:"browser-native",voice:"",auto_play:true,rate_scale:1,pitch_scale:1,volume_scale:1,household:{rate_scale:1,pitch_scale:1,volume_scale:1}};
+let humeVoiceShelf=[],elevenLabsVoiceShelf=[];
+const voiceBodyPanel=$("voice-output-control");
+voiceBodyPanel.classList.add("panel");
+const voiceBodyTitle=document.createElement("h2");voiceBodyTitle.textContent="voice output";
+voiceBodyPanel.prepend(voiceBodyTitle);$("inspector").prepend(voiceBodyPanel);
+const voiceBodyDetails=voiceBodyPanel.querySelector("details");
+if(voiceBodyDetails){voiceBodyDetails.open=true;voiceBodyDetails.querySelector("summary").textContent="voice vessel"}
+const voiceConfigSignature=config=>JSON.stringify([config?.provider||"browser-native",config?.voice||"",config?.auto_play??config?.provider!=="disabled",Number(config?.rate_scale??1),Number(config?.pitch_scale??1),Number(config?.volume_scale??1),Number(config?.household?.rate_scale??1),Number(config?.household?.pitch_scale??1),Number(config?.household?.volume_scale??1)]);
 const activeVoiceOutputProvider=()=>voiceOutputConfig.provider;
+function renderHumeVoiceShelf(preferredReference=""){
+  const select=$("voice-hume-library"),current=preferredReference||$("voice-output-hume").value;select.textContent="";
+  const blank=document.createElement("option");blank.value="";blank.textContent="Choose from shelf…";select.append(blank);
+  for(const item of humeVoiceShelf){const option=document.createElement("option");option.value=item.id;
+    option.textContent=item.label;option.dataset.reference=item.reference;select.append(option)}
+  const match=humeVoiceShelf.find(item=>item.reference===current);select.value=match?.id||"";
+  $("voice-hume-delete").disabled=!select.value;
+  if(match)$("voice-hume-label").value=match.label
+}
+async function loadHumeVoiceShelf(){try{const response=await fetch("/api/voice/hume-library"),result=await response.json();
+  if(!response.ok||result.error)throw new Error(result.error||response.statusText);humeVoiceShelf=result.voices||[];renderHumeVoiceShelf(voiceOutputConfig.provider==="hume-octave"?voiceOutputConfig.voice:"")}
+  catch(error){$("voice-hume-shelf-note").textContent=`Hume shelf unavailable · ${error.message||error}`}}
+async function saveHumeVoiceShelf(){const label=$("voice-hume-label").value.trim(),reference=$("voice-output-hume").value.trim();
+  try{const response=await fetch("/api/voice/hume-library",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({label,reference})}),result=await response.json();
+    if(!response.ok||result.error)throw new Error(result.error||response.statusText);humeVoiceShelf=result.voices||[];renderHumeVoiceShelf(reference);
+    $("voice-hume-shelf-note").textContent="Saved locally on the Hume voice shelf."}
+  catch(error){$("voice-hume-shelf-note").textContent=`Voice not saved · ${error.message||error}`}}
+async function deleteHumeVoiceShelf(){const id=$("voice-hume-library").value;if(!id)return;const item=humeVoiceShelf.find(row=>row.id===id);
+  try{const response=await fetch(`/api/voice/hume-library/${encodeURIComponent(id)}`,{method:"DELETE"}),result=await response.json();
+    if(!response.ok||result.error)throw new Error(result.error||response.statusText);humeVoiceShelf=result.voices||[];renderHumeVoiceShelf();
+    $("voice-hume-label").value="";$("voice-hume-shelf-note").textContent=`Removed ${item?.label||"voice"} from this local shelf; the Hume voice itself was not deleted.`}
+  catch(error){$("voice-hume-shelf-note").textContent=`Voice not removed · ${error.message||error}`}}
+function renderElevenLabsVoiceShelf(preferredVoiceId=""){
+  const select=$("voice-eleven-library"),current=preferredVoiceId||$("voice-output-eleven").value;select.textContent="";
+  const blank=document.createElement("option");blank.value="";blank.textContent="Choose from shelf…";select.append(blank);
+  for(const item of elevenLabsVoiceShelf){const option=document.createElement("option");option.value=item.id;
+    option.textContent=item.label;option.dataset.voiceId=item.voice_id;select.append(option)}
+  const match=elevenLabsVoiceShelf.find(item=>item.voice_id===current);select.value=match?.id||"";
+  $("voice-eleven-delete").disabled=!select.value;
+  if(match)$("voice-eleven-label").value=match.label
+}
+async function loadElevenLabsVoiceShelf(){try{const response=await fetch("/api/voice/elevenlabs-library"),result=await response.json();
+  if(!response.ok||result.error)throw new Error(result.error||response.statusText);elevenLabsVoiceShelf=result.voices||[];renderElevenLabsVoiceShelf(voiceOutputConfig.provider==="elevenlabs"?voiceOutputConfig.voice:"")}
+  catch(error){$("voice-eleven-shelf-note").textContent=`ElevenLabs shelf unavailable · ${error.message||error}`}}
+async function saveElevenLabsVoiceShelf(){const label=$("voice-eleven-label").value.trim(),voice_id=$("voice-output-eleven").value.trim();
+  try{const response=await fetch("/api/voice/elevenlabs-library",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({label,voice_id})}),result=await response.json();
+    if(!response.ok||result.error)throw new Error(result.error||response.statusText);elevenLabsVoiceShelf=result.voices||[];renderElevenLabsVoiceShelf(voice_id);
+    $("voice-eleven-shelf-note").textContent="Saved locally on the ElevenLabs voice shelf."}
+  catch(error){$("voice-eleven-shelf-note").textContent=`Voice not saved · ${error.message||error}`}}
+async function deleteElevenLabsVoiceShelf(){const id=$("voice-eleven-library").value;if(!id)return;const item=elevenLabsVoiceShelf.find(row=>row.id===id);
+  try{const response=await fetch(`/api/voice/elevenlabs-library/${encodeURIComponent(id)}`,{method:"DELETE"}),result=await response.json();
+    if(!response.ok||result.error)throw new Error(result.error||response.statusText);elevenLabsVoiceShelf=result.voices||[];renderElevenLabsVoiceShelf();
+    $("voice-eleven-label").value="";$("voice-eleven-shelf-note").textContent=`Removed ${item?.label||"voice"} from this local shelf; the ElevenLabs voice itself was not deleted.`}
+  catch(error){$("voice-eleven-shelf-note").textContent=`Voice not removed · ${error.message||error}`}}
 function refreshBrowserVoices(){const select=$("voice-output-voice"),prior=voiceOutputConfig.voice;
   const voices=window.speechSynthesis?.getVoices?.()||[];select.textContent="";
   const base=document.createElement("option");base.value="";base.textContent="browser default";select.append(base);
   for(const voice of voices.sort((a,b)=>a.name.localeCompare(b.name))){const option=document.createElement("option");
     option.value=voice.name;option.textContent=`${voice.name} · ${voice.lang}${voice.localService?" · local":""}`;select.append(option)}
   select.value=[...select.options].some(option=>option.value===prior)?prior:""}
-function applyVoiceOutputConfig(config={}){voiceOutputConfig={provider:config.provider||"browser-native",voice:config.voice||""};
-  $("voice-output").checked=voiceOutputConfig.provider!=="disabled";refreshBrowserVoices();
-  $("voice-output-voice").disabled=voiceOutputConfig.provider==="disabled";
-  if(voiceOutputConfig.voice&&!$("voice-output-voice").value)
+function voiceScaleValue(value,fallback=1){const n=Number(value);return Number.isFinite(n)?n:fallback}
+function renderVoiceTuning(){const set=(id,value,label)=>{$(id).value=String(value);$(label).textContent=`${Math.round(value*100)}%`};
+  set("voice-rate",voiceScaleValue(voiceOutputConfig.rate_scale),"voice-rate-value");
+  set("voice-pitch",voiceScaleValue(voiceOutputConfig.pitch_scale),"voice-pitch-value");
+  set("voice-volume",voiceScaleValue(voiceOutputConfig.volume_scale),"voice-volume-value")}
+function renderVoicePitchAvailability(provider){const independent=provider==="browser-native";
+  $("voice-pitch").disabled=!independent;$("voice-pitch-note").textContent=independent
+    ?"":"generated audio keeps the voice's native pitch while pace changes"}
+function renderVoiceOutputToggle(){const active=$("voice-output").checked,toggle=$("voice-output-toggle");
+  toggle.classList.toggle("live",active);toggle.title=active
+    ?"turn automatic reply voice off":"turn automatic reply voice on"}
+function applyVoiceOutputConfig(config={}){voiceOutputConfig={provider:config.provider||"browser-native",voice:config.voice||"",
+  auto_play:Boolean(config.auto_play??config.provider!=="disabled"),
+  rate_scale:voiceScaleValue(config.rate_scale),pitch_scale:voiceScaleValue(config.pitch_scale),volume_scale:voiceScaleValue(config.volume_scale),
+  household:{rate_scale:voiceScaleValue(config.household?.rate_scale),pitch_scale:voiceScaleValue(config.household?.pitch_scale),volume_scale:voiceScaleValue(config.household?.volume_scale)}};
+  voiceOutputHydrated=true;
+  if(voiceOutputConfig.provider!=="disabled")lastEnabledVoiceProvider=voiceOutputConfig.provider;
+  $("voice-output").checked=voiceOutputConfig.auto_play&&voiceOutputConfig.provider!=="disabled";$("voice-output-provider").value=voiceOutputConfig.provider;refreshBrowserVoices();
+  renderVoiceOutputToggle();
+  $("voice-output-qwen").value=voiceOutputConfig.provider==="qwen3-tts"?voiceOutputConfig.voice:"";
+  $("voice-output-hume").value=voiceOutputConfig.provider==="hume-octave"?voiceOutputConfig.voice:"";
+  $("voice-output-eleven").value=voiceOutputConfig.provider==="elevenlabs"?voiceOutputConfig.voice:"";
+  $("voice-browser-field").hidden=! ["browser-native","disabled"].includes(voiceOutputConfig.provider);
+  $("voice-qwen-field").hidden=voiceOutputConfig.provider!=="qwen3-tts";
+  $("voice-chatterbox-field").hidden=voiceOutputConfig.provider!=="chatterbox-turbo";
+  $("voice-hume-field").hidden=voiceOutputConfig.provider!=="hume-octave";
+  $("voice-eleven-field").hidden=voiceOutputConfig.provider!=="elevenlabs";
+  renderVoicePitchAvailability(voiceOutputConfig.provider);
+  if(voiceOutputConfig.provider==="hume-octave")loadHumeVoiceShelf();
+  if(voiceOutputConfig.provider==="elevenlabs")loadElevenLabsVoiceShelf();
+  $("voice-output-voice").disabled=voiceOutputConfig.provider!=="browser-native";renderVoiceTuning();
+  if(voiceOutputConfig.provider==="browser-native"&&voiceOutputConfig.voice&&!$("voice-output-voice").value)
     voiceOutputStatus(`configured voice “${voiceOutputConfig.voice}” is unavailable · browser default will answer`)}
-async function saveVoiceOutputConfig(){const provider=$("voice-output").checked?"browser-native":"disabled";
-  const voice=$("voice-output-voice").value;try{const response=await fetch("/api/voice/config",{method:"POST",
-    headers:{"Content-Type":"application/json"},body:JSON.stringify({provider,voice})});const result=await response.json();
+async function saveVoiceOutputConfig(){const provider=$("voice-output-provider").value,auto_play=$("voice-output").checked&&provider!=="disabled";
+  const voice=provider==="qwen3-tts"?$("voice-output-qwen").value:
+    provider==="chatterbox-turbo"?"private persona reference":
+    provider==="hume-octave"?$("voice-output-hume").value:
+    provider==="elevenlabs"?$("voice-output-eleven").value:$("voice-output-voice").value;
+  const tuning={rate_scale:Number($("voice-rate").value),pitch_scale:Number($("voice-pitch").value),volume_scale:Number($("voice-volume").value)};
+  try{const response=await fetch("/api/voice/config",{method:"POST",
+    headers:{"Content-Type":"application/json"},body:JSON.stringify({provider,voice,auto_play,...tuning})});const result=await response.json();
     if(!response.ok||result.error)throw new Error(result.error||response.statusText);applyVoiceOutputConfig(result.voice_output_config);
-    voiceOutputStatus(provider==="disabled"?"output disabled":`local voice ready · ${voice||"browser default"}`)
+    voiceOutputStatus(!auto_play?"automatic reply voice off":`local voice ready · ${voice||"browser default"}`)
   }catch(error){voiceOutputStatus(`voice choice did not save · ${error.message||error}`)}}
 if("speechSynthesis" in window){window.speechSynthesis.onvoiceschanged=refreshBrowserVoices}
 function voiceOutputStatus(text){$("voice-output-story").textContent=text}
+function effectiveVoicePolicy(){const policy={...(lastState?.voice_output||{})},house=voiceOutputConfig.household||{};
+  policy.rate=Math.max(.5,Math.min(2,Number(policy.rate||1)*voiceScaleValue(house.rate_scale)*voiceScaleValue(voiceOutputConfig.rate_scale)));
+  policy.pitch=Math.max(0,Math.min(2,Number(policy.pitch||1)*voiceScaleValue(house.pitch_scale)*voiceScaleValue(voiceOutputConfig.pitch_scale)));
+  if(activeVoiceOutputProvider()!=="browser-native")policy.pitch=1;
+  policy.volume=Math.max(0,Math.min(1,Number(policy.volume||1)*voiceScaleValue(house.volume_scale)*voiceScaleValue(voiceOutputConfig.volume_scale)));
+  return policy}
+function projectSpokenText(value){return String(value||"").replace(/<act>[\s\S]*?<\/act>/gi," ")
+  .replace(/```[\s\S]*?```/g," ").replace(/^\s*\*[^*\n]{2,600}\*\s*$/gm," ")
+  .replace(/\[([^\]]+)\]\([^)]+\)/g,"$1").replace(/https?:\/\/\S+/g," a link ")
+  .replace(/[\u{1F1E6}-\u{1FAFF}\u2600-\u27BF]/gu," ").replace(/[*_~`]/g,"")
+  .replace(/\s+/g," ").trim()}
 function postVoiceOutputReceipt(event,reason="",evidence={}){
-  const policy=lastState?.voice_output||{};
+  const policy=effectiveVoicePolicy();
   fetch("/api/voice/output",{method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({event,provider:activeVoiceOutputProvider(),reason,policy,evidence})
   }).catch(()=>{})
@@ -2995,11 +3801,11 @@ function stopVoiceOutput(reason="output stopped",evidence={}){
   if(hadStarted)postVoiceOutputReceipt("interrupted",reason,evidence)
 }
 function speakVoiceOutput(text){
-  if(!$("voice-output").checked||!String(text||"").trim())return;
+  text=projectSpokenText(text);if(!$("voice-output").checked||!text)return;
   const provider=voiceOutputProviders[activeVoiceOutputProvider()];
   if(!provider.available()){voiceOutputStatus("local voice is unavailable in this browser");return}
   if(voiceOutputSpeaking)stopVoiceOutput("superseded by a new reply");
-  const generation=++voiceOutputGeneration,policy=lastState?.voice_output||{};
+  const generation=++voiceOutputGeneration,policy=effectiveVoicePolicy();
   outputInterruptPressure=0;outputLastVoiceDemand=0;
   voiceOutputSpeaking=true;
   provider.speak(text,policy,{
@@ -3019,7 +3825,7 @@ function beginStreamingVoiceOutput(requestedAt=performance.now()){
   const provider=voiceOutputProviders[activeVoiceOutputProvider()];
   if(!provider.available()){voiceOutputStatus("local voice is unavailable in this browser");return null}
   if(voiceOutputSpeaking||voiceOutputSession)stopVoiceOutput("superseded by a new reply");
-  const generation=++voiceOutputGeneration,policy=lastState?.voice_output||{};
+  const generation=++voiceOutputGeneration,policy=effectiveVoicePolicy();
   voiceOutputSession={generation,policy,buffer:"",queued:0,finished:false,started:false,
     requestedAt,firstVisibleMs:null};
   outputInterruptPressure=0;outputLastVoiceDemand=0;
@@ -3027,7 +3833,7 @@ function beginStreamingVoiceOutput(requestedAt=performance.now()){
   return voiceOutputSession
 }
 function queueStreamingVoiceClause(text){
-  const session=voiceOutputSession,clause=String(text||"").trim();
+  const session=voiceOutputSession,clause=projectSpokenText(text);
   if(!session||!clause)return;
   session.queued++;
   voiceOutputProviders[activeVoiceOutputProvider()].speak(clause,session.policy,{
@@ -3053,7 +3859,7 @@ function feedStreamingVoiceOutput(text,{final=false}={}){
   session.buffer+=String(text||"");
   // The model's own linguistic boundary releases speech. No character count
   // or wall-clock delay decides when the mouth begins.
-  const boundary=/^([\s\S]*?[,.!?;:]["'\u2019\u201d)]*(?:\s+|$))/;
+  const boundary=/^([\s\S]*?[.!?;:]["'\u2019\u201d)]*(?:\s+|$))/;
   let match;
   while((match=session.buffer.match(boundary))){
     queueStreamingVoiceClause(match[1]);session.buffer=session.buffer.slice(match[1].length)}
@@ -3134,6 +3940,7 @@ function stopCamera(){
   if(cameraStream) cameraStream.getTracks().forEach(track=>track.stop());
   cameraStream=null;cameraPrevious=null;cameraPressure=0;cameraLastFrame=0;
   cameraLastFeatures=null;cameraBaseline.ready=false;
+  cameraAnchorFrame=null;cameraEpisode=null;
   cameraSubstrate=newCameraSubstrate();
   if(hadCamera)postSubstrateInactive("camera");
   stopSubstrateMirrorIfIdle();
@@ -3182,12 +3989,14 @@ function cameraFrame(video,now){
       edge_density:edgeDensity,stability:1,brightness_delta:0,edge_change:0,
       presence_change:1,attention_request:1};
     const policy=sensoryPolicy();cameraLastFeatures=features;
+    cameraAnchorFrame=captureCameraFrame(video,"ambient-camera-opening.jpg");
     recordCameraSubstrate(features,0,now);
     renderAfferentEdge("camera-edge",{pressure:policy.threshold,
       boundary:policy.threshold,policy,
       evidence:"opening view · presence 1.000 · explicit attention 1.000",
       outcome:"crossed · establishing the visual field",tone:"crossed"});
-    if(!cameraBusy)admitCameraFrame(video,features,policy.threshold);
+    if(!cameraBusy)admitCameraEpisode(
+      features,policy.threshold,[cameraAnchorFrame]);
   }else if(cameraLastFrame){
     let delta=0;for(let i=0;i<lum.length;i++)delta+=Math.abs(lum[i]-cameraPrevious[i]);
     const dt=Math.min(1,(now-cameraLastFrame)/1000);
@@ -3209,27 +4018,64 @@ function cameraFrame(video,now){
       outcome:cameraPressure>=advanced.policy.threshold
         ?"crossed · frame entering perception":"local · accumulating and decaying",
       tone:cameraPressure>=advanced.policy.threshold?"crossed":""});
-    if(cameraPressure>=advanced.policy.threshold&&!cameraBusy)
-      admitCameraFrame(video,features,cameraPressure);
+    if(cameraEpisode){
+      cameraEpisode.evidence+=demand*dt;
+      if(demand>cameraEpisode.peakDemand){
+        cameraEpisode.peakDemand=demand;
+        cameraEpisode.peak=captureCameraFrame(video,"ambient-camera-peak.jpg")
+      }
+      const settled=features.stability>=.94
+        &&demand<=advanced.policy.threshold*.18;
+      const saturated=cameraEpisode.evidence>=advanced.policy.threshold
+        *(1.2+(1-features.stability));
+      if((settled||saturated)&&!cameraBusy){
+        const endpoint=captureCameraFrame(video,"ambient-camera-after.jpg");
+        const frames=episodeFrames(cameraEpisode,endpoint);
+        const episodePressure=Math.max(cameraEpisode.pressure,cameraPressure);
+        cameraEpisode=null;cameraAnchorFrame=endpoint;
+        admitCameraEpisode(features,episodePressure,frames)
+      }
+    }else if(cameraPressure>=advanced.policy.threshold&&!cameraBusy){
+      const onset=captureCameraFrame(video,"ambient-camera-onset.jpg");
+      cameraEpisode={before:cameraAnchorFrame,onset,peak:onset,
+        peakDemand:demand,evidence:demand*dt,pressure:cameraPressure};
+      cameraPressure=0;
+      renderAfferentEdge("camera-edge",{pressure:advanced.policy.threshold,
+        boundary:advanced.policy.threshold,policy:advanced.policy,
+        evidence:"change crossed · visual episode accumulating",
+        outcome:"crossed · waiting for trajectory or new stability",
+        tone:"crossed"})
+    }
   }
   cameraPrevious=lum;cameraLastFrame=now;scheduleCameraFrame(video);
 }
-async function admitCameraFrame(video,features,pressure){
+function captureCameraFrame(video,name){
+  const scale=Math.min(1,640/Math.max(1,video.videoWidth));
+  cameraCapture.width=Math.max(1,Math.round(video.videoWidth*scale));
+  cameraCapture.height=Math.max(1,Math.round(video.videoHeight*scale));
+  cameraCapture.getContext("2d").drawImage(
+    video,0,0,cameraCapture.width,cameraCapture.height);
+  return {name,data_url:cameraCapture.toDataURL("image/jpeg",.72)}
+}
+
+function episodeFrames(episode,endpoint){
+  const ordered=[episode.before,episode.onset,episode.peak,endpoint].filter(Boolean);
+  return ordered.filter((frame,index)=>
+    ordered.findIndex(candidate=>candidate.data_url===frame.data_url)===index)
+    .slice(0,4)
+}
+
+async function admitCameraEpisode(features,pressure,images){
   cameraBusy=true;cameraPressure=0;
   const policy=sensoryPolicy();
   renderAfferentEdge("camera-edge",{pressure,boundary:policy.threshold,policy,
     evidence:`novelty ${edgeNumber(features.novelty)} · motion ${edgeNumber(features.motion)} · lightΔ ${edgeNumber(features.brightness_delta)} · edgeΔ ${edgeNumber(features.edge_change)}`,
     outcome:"crossed · transducer occupied",tone:"crossed"});
-  const scale=Math.min(1,640/Math.max(1,video.videoWidth));
-  cameraCapture.width=Math.max(1,Math.round(video.videoWidth*scale));
-  cameraCapture.height=Math.max(1,Math.round(video.videoHeight*scale));
-  cameraCapture.getContext("2d").drawImage(video,0,0,cameraCapture.width,cameraCapture.height);
-  const data_url=cameraCapture.toDataURL("image/jpeg",.72);
   cameraStatus("Visual change admitted; perception is looking…");
   try{
     const response=await fetch("/api/perception/camera",{method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({image:{name:"ambient-camera.jpg",data_url},
+      body:JSON.stringify({images,
         novelty:features.novelty,pressure,features})});
     const result=await response.json();
     if(!response.ok)throw new Error(result.error||`camera perception ${response.status}`);
@@ -3254,6 +4100,23 @@ async function admitCameraFrame(video,features,pressure){
   }finally{cameraBusy=false}
 }
 
+function currentCameraImage(){
+  const video=$("camera-feed");
+  if(!cameraWatching||!video.videoWidth||!video.videoHeight)return null;
+  const scale=Math.min(1,640/Math.max(1,video.videoWidth));
+  cameraCapture.width=Math.max(1,Math.round(video.videoWidth*scale));
+  cameraCapture.height=Math.max(1,Math.round(video.videoHeight*scale));
+  cameraCapture.getContext("2d").drawImage(
+    video,0,0,cameraCapture.width,cameraCapture.height);
+  return {name:"ambient-camera-current.jpg",
+    data_url:cameraCapture.toDataURL("image/jpeg",.72)}
+}
+
+function currentCameraGrounding(){
+  const current=currentCameraImage();
+  return current?[current]:[]
+}
+
 function audioStatus(text){$("audio-story").textContent=text}
 async function stopMicrophone(){
   const hadAudio=audioWatching;
@@ -3266,6 +4129,7 @@ async function stopMicrophone(){
   if(audioContext)await audioContext.close().catch(()=>{});
   audioStream=null;audioContext=null;audioAnalyser=null;audioSource=null;
   audioProcessor=null;audioSink=null;audioPressure=0;voicePressure=0;
+  voiceLastLikelihood=0;
   speechCapture=null;speechPreRoll=[];speechPreSamples=0;
   audioLastFrame=0;audioPreviousSpectrum=null;audioLastDemand=0;
   audioArmed=true;audioEpisodePeak=0;
@@ -3397,32 +4261,52 @@ function receiveSpeechSamples(samples){
   while(speechPreSamples>wanted&&speechPreRoll.length>1)
     speechPreSamples-=speechPreRoll.shift().length;
 }
-function beginSpeechCapture(features,policy){
+function beginSpeechCapture(features,policy,boundary){
   speechCapture={chunks:speechPreRoll.splice(0),samples:speechPreSamples,
-    evidence:0,continuity:policy.threshold,voiced:0,frames:0,
+    evidence:0,continuity:boundary,boundary,voiced:0,frames:0,
     peakOnset:Number(features.onset||0),lastFeatures:features};
-  speechPreSamples=0;voicePressure=0;
+    speechPreSamples=0;voicePressure=0;voiceLastLikelihood=0;
   audioStatus("Speech boundary crossed; listening until its continuity resolves…");
 }
 function advanceSpeechSegmentation(features,voiceLikelihood,dt,policy){
-  if(!$('voice-turns').checked){voicePressure=0;return}
+  if(!$('voice-turns').checked){voicePressure=0;voiceLastLikelihood=0;return}
   if(!speechCapture){
-    const advanced=advanceSensoryPressure(voicePressure,voiceLikelihood,dt);
+    // A short human utterance has a voiced leading edge, not enough duration
+    // to fill the ambient acoustic accumulator. Its positive rise therefore
+    // contributes an impulse while onset and level change bend a separate
+    // speech boundary. Ambient pressure cannot impersonate this channel.
+    const rise=Math.max(0,voiceLikelihood-voiceLastLikelihood);
+    const advanced=advanceSensoryPressure(voicePressure,voiceLikelihood,dt,rise);
+    const articulation=clamp(Number(features.onset||0)
+      +Number(features.level_change||0));
+    const boundary=policy.threshold*(.72-.18*articulation);
     voicePressure=advanced.pressure;
-    if(voicePressure>=policy.threshold&&!speechUploadBusy)
-      beginSpeechCapture(features,policy);
+    voiceLastLikelihood=voiceLikelihood;
+    if(voicePressure>=boundary&&!speechUploadBusy)
+      beginSpeechCapture(features,policy,boundary);
     return;
   }
   const capture=speechCapture;
+  const priorLikelihood=voiceLastLikelihood;
+  const fallingEdge=clamp((priorLikelihood-voiceLikelihood)
+    /Math.max(.01,capture.boundary));
+  const silenceDepth=clamp(1-voiceLikelihood/Math.max(.01,capture.boundary));
+  // A resolved phrase has both a falling vocal edge and deepening silence.
+  // Those two signals bend the same continuity decay that opened the segment;
+  // ordinary intra-phrase dips retain the body's slower rhythm-shaped memory.
+  const releaseGain=1+2.4*fallingEdge*silenceDepth+1.2*silenceDepth*silenceDepth;
   capture.evidence+=voiceLikelihood*dt;
-  capture.continuity=capture.continuity*Math.exp(-dt/policy.retention_s)
+  capture.continuity=capture.continuity*Math.exp(-dt*releaseGain/policy.retention_s)
     +voiceLikelihood*policy.permeability*dt;
   capture.voiced+=voiceLikelihood;capture.frames++;
+  voiceLastLikelihood=voiceLikelihood;
   capture.peakOnset=Math.max(capture.peakOnset,Number(features.onset||0));
   capture.lastFeatures=features;
-  const resolved=capture.continuity<policy.threshold*.22
-    &&voiceLikelihood<policy.threshold*.28
-    &&capture.evidence>=policy.threshold*.32;
+  // Release follows the boundary that opened the segment. Evidence strength
+  // belongs to transcription/admission downstream; requiring it for closure
+  // stranded brief utterances after their continuity had already decayed.
+  const resolved=capture.continuity<capture.boundary/Math.E
+    &&voiceLikelihood<capture.boundary/Math.E;
   const resourceBoundary=capture.samples*2>=7.5*1024*1024;
   if((resolved||resourceBoundary)&&!speechUploadBusy&&!audioBusy&&!turnWorkerActive)
     finishSpeechCapture(features,resolved?"continuity resolved":"resource boundary");
@@ -3445,7 +4329,7 @@ function blobDataUrl(blob){return new Promise((resolve,reject)=>{const reader=ne
   reader.readAsDataURL(blob)})}
 async function finishSpeechCapture(features,reason){
   const capture=speechCapture;if(!capture||speechUploadBusy)return;
-  speechCapture=null;speechUploadBusy=true;voicePressure=0;
+  speechCapture=null;speechUploadBusy=true;voicePressure=0;voiceLastLikelihood=0;
   try{
     const duration=capture.samples/Math.max(1,audioContext?.sampleRate||48000);
     const voicedRatio=clamp(capture.voiced/Math.max(1,capture.frames));
@@ -3458,7 +4342,8 @@ async function finishSpeechCapture(features,reason){
       headers:{"Content-Type":"application/json"},body:JSON.stringify({
         data_url,mime_type:"audio/wav",features:speechFeatures,
         pressure:sensoryPolicy().threshold,speaker:PRIMARY_USER,auto_turn:true,
-        user_persona:speakingAs.id})});
+        user_persona:speakingAs.id,
+        grounding_images:currentCameraGrounding()})});
     const result=await response.json();
     if(!response.ok)throw new Error(result.error||`speech perception ${response.status}`);
     const heard=result.transcript?.text||"";
@@ -3558,7 +4443,8 @@ async function sendTurn() {
   const text = $("say").value.trim();
   if ((!text && !pendingImages.length) || $("send").disabled) return;
   stopVoiceOutput("interrupted Â· new typed turn");
-  const sentImages=pendingImages.slice();
+  const sentImages=pendingImages.slice(0,4);
+  const groundingImages=sentImages.length<4?currentCameraGrounding():[];
   const speakingAs=selectedUserPersona();
   pendingImages=[];renderPendingImages();
   $("say").value = ""; resizeComposer(); $("send").disabled = true;
@@ -3568,6 +4454,7 @@ async function sendTurn() {
     const res = await fetch("/api/turn", {method:"POST",
       headers:{"Content-Type":"application/json"},
       body: JSON.stringify({message:text,images:sentImages,
+        grounding_images:groundingImages,
         user_persona:speakingAs.id})});
     const r = await res.json();
     if (r.error) { pendingImages=sentImages;renderPendingImages();
@@ -3603,11 +4490,13 @@ function sendTurnStream() {
   const text=$("say").value.trim();
   if(!text&&!pendingImages.length)return;
   stopVoiceOutput("interrupted Â· new typed turn");
-  const sentImages=pendingImages.slice();pendingImages=[];renderPendingImages();
+  const sentImages=pendingImages.slice(0,4);
+  const groundingImages=sentImages.length<4?currentCameraGrounding():[];
+  pendingImages=[];renderPendingImages();
   const speakingAs=selectedUserPersona();
   $("say").value="";resizeComposer();
   addMsg("user",text||"shared image material",speakingAs.name,sentImages);
-  turnQueue.push({text,sentImages,speakingAs});updateTurnQueueUI();
+  turnQueue.push({text,sentImages,groundingImages,speakingAs});updateTurnQueueUI();
   drainTurnQueue();
 }
 
@@ -3625,12 +4514,13 @@ async function drainTurnQueue() {
   }
 }
 
-async function runQueuedTurn({text,sentImages,speakingAs}) {
+async function runQueuedTurn({text,sentImages,groundingImages,speakingAs}) {
   const turnStarted=performance.now();
   try{
     const res=await fetch("/api/turn/stream",{method:"POST",
       headers:{"Content-Type":"application/json"},
       body:JSON.stringify({message:text,images:sentImages,
+        grounding_images:groundingImages,
         user_persona:speakingAs.id})});
     if(!res.ok){const failed=await res.json();throw new Error(failed.error||res.status)}
     if(!res.body)throw new Error("streaming response body unavailable");
@@ -3673,6 +4563,7 @@ function renderTurnResult(r,text,voiceAlreadyQueued=false){
   renderState(r.state);
   refreshIntentionLoom();
   refreshWritingDesk();
+  refreshPrivateJournal();
   refreshResearchDesk();
   refreshAtelier();
   if(!persisted){addMsg("persona",r.reply,personaLabel());
@@ -3728,17 +4619,57 @@ $("say").addEventListener("drop",async e=>{
 $("attach").onclick=()=>$("image-picker").click();
 $("camera").onclick=startCamera;
 $("microphone").onclick=startMicrophone;
+const AFFERENT_AUTOSTART_KEY="jnsq.afferents.autostart";
+$("afferent-autostart").checked=localStorage.getItem(AFFERENT_AUTOSTART_KEY)==="true";
+$("afferent-autostart").onchange=()=>{
+  localStorage.setItem(AFFERENT_AUTOSTART_KEY,String($("afferent-autostart").checked));
+};
+async function autoStartLiveAfferents(){
+  if(!$("afferent-autostart").checked)return;
+  if(!cameraStream)await startCamera();
+  if(!audioStream)await startMicrophone();
+}
 $("voice-turns").onchange=()=>{
   if(!$("voice-turns").checked){speechCapture=null;speechPreRoll=[];
-    speechPreSamples=0;voicePressure=0;
+    speechPreSamples=0;voicePressure=0;voiceLastLikelihood=0;
     if(audioWatching)audioStatus("Microphone live for ambient hearing; spoken segments stay out of conversation.")}
   else if(audioWatching)audioStatus("Voice channel open; rhythm-admitted utterances may enter conversation.");
 };
 $("voice-output").onchange=async()=>{
+  renderVoiceOutputToggle();
   if(!$("voice-output").checked)stopVoiceOutput("output disabled");
+  else if($("voice-output-provider").value==="disabled")$("voice-output-provider").value=lastEnabledVoiceProvider;
   await saveVoiceOutputConfig()
 };
-$("voice-output-voice").onchange=saveVoiceOutputConfig;
+$("voice-output-provider").onchange=()=>{const provider=$("voice-output-provider").value;
+  if(provider!=="disabled")lastEnabledVoiceProvider=provider;$("voice-output").checked=provider!=="disabled";
+  renderVoiceOutputToggle();
+  $("voice-browser-field").hidden=! ["browser-native","disabled"].includes(provider);
+  $("voice-qwen-field").hidden=provider!=="qwen3-tts";
+  $("voice-chatterbox-field").hidden=provider!=="chatterbox-turbo";
+  $("voice-hume-field").hidden=provider!=="hume-octave";
+  $("voice-eleven-field").hidden=provider!=="elevenlabs";
+  renderVoicePitchAvailability(provider);
+  if(provider==="hume-octave")loadHumeVoiceShelf();
+  if(provider==="elevenlabs")loadElevenLabsVoiceShelf()};
+$("voice-hume-library").onchange=()=>{const item=humeVoiceShelf.find(row=>row.id===$("voice-hume-library").value);
+  if(item){$("voice-output-hume").value=item.reference;$("voice-hume-label").value=item.label}
+  $("voice-hume-delete").disabled=!item};
+$("voice-hume-save").onclick=saveHumeVoiceShelf;
+$("voice-hume-delete").onclick=deleteHumeVoiceShelf;
+$("voice-eleven-library").onchange=()=>{const item=elevenLabsVoiceShelf.find(row=>row.id===$("voice-eleven-library").value);
+  if(item){$("voice-output-eleven").value=item.voice_id;$("voice-eleven-label").value=item.label}
+  $("voice-eleven-delete").disabled=!item};
+$("voice-eleven-save").onclick=saveElevenLabsVoiceShelf;
+$("voice-eleven-delete").onclick=deleteElevenLabsVoiceShelf;
+$("voice-output-reference").onchange=async event=>{const file=event.target.files?.[0];if(!file)return;
+  voiceOutputStatus("storing private voice reference…");try{const response=await fetch("/api/voice/reference",{method:"POST",headers:{"Content-Type":"audio/wav"},body:file});
+    const result=await response.json();if(!response.ok||result.error)throw new Error(result.error||response.statusText);
+    voiceOutputStatus(`private reference ready · ${Math.round(result.bytes/1024)} KB`)}catch(error){voiceOutputStatus(`reference not stored · ${error.message||error}`)}finally{event.target.value=""}};
+for(const [id,label] of [["voice-rate","voice-rate-value"],["voice-pitch","voice-pitch-value"],["voice-volume","voice-volume-value"]])
+  $(id).oninput=()=>{$(label).textContent=`${Math.round(Number($(id).value)*100)}%`};
+$("voice-save").onclick=saveVoiceOutputConfig;
+$("voice-reset").onclick=()=>{voiceOutputConfig.rate_scale=1;voiceOutputConfig.pitch_scale=1;voiceOutputConfig.volume_scale=1;renderVoiceTuning();saveVoiceOutputConfig()};
 $("salience-pause").onchange=()=>{
   if($("salience-pause").checked){if(salienceStream)salienceStream.close();salienceStream=null;
     $("salience-status").textContent="observatory display paused"}
@@ -3773,12 +4704,17 @@ $("memory-next").onclick=()=>{if(memoryPage<memoryPages){memoryPage++;refreshMem
 $("agency-submit").onclick=admitAgencyText;
 $("intention-loom-submit").onclick=offerIntentionCue;
 $("writing-desk-submit").onclick=()=>admitWritingDesk("text");
+$("private-journal-submit").onclick=appendPrivateJournal;
 $("atelier-submit").onclick=admitAtelier;
+$("atelier-open-now").onclick=openAtelierNow;
 $("atelier-probe").onclick=probeAtelierRenderer;
 $("research-submit").onclick=offerResearchInterest;
 $("research-topic").addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();offerResearchInterest()}});
-$("autonomous-works-filter").onchange=renderAutonomousWorks;
+$("research-open").onclick=openForegroundResearch;
+$("research-url").addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();openForegroundResearch()}});
+$("autonomous-works-filter").onchange=()=>{renderAutonomousWorks();renderAutonomousActivity()};
 $("autonomous-works-stage").onchange=renderAutonomousWorks;
+$("autonomous-activity-status").onchange=renderAutonomousActivity;
 $("autonomous-works-refresh").onclick=refreshAutonomousWorks;
 window.addEventListener("pagehide",()=>{stopVoiceOutput("page closed");stopCamera();stopMicrophone();stopAtelierCanvasLoops();stopAtelier3DLoops();stopAtelierAudioPlayers("page closed");
   if(salienceStream)salienceStream.close()});
@@ -3820,8 +4756,45 @@ setInspectorOpen(localStorage.getItem(BODY_OPEN_KEY) === "true", false);
 setReceiptsOpen(localStorage.getItem(RECEIPTS_OPEN_KEY) === "true", false);
 $("bodyToggle").onclick = () => setInspectorOpen($("cockpit-main").classList.contains("inspector-collapsed"));
 $("receiptsToggle").onclick = () => setReceiptsOpen($("receipts-panel").classList.contains("collapsed"));
+$("bodyLabToggle").disabled=!CONFIG.body_workshop_url;
+$("bodyLabToggle").title=CONFIG.body_workshop_url
+  ?"Open the Testy-first compatibility workshop"
+  :"3D lab unavailable: this cockpit has no room host";
+$("bodyLabToggle").onclick=openBodyLab;
+$("bodyLabClose").onclick=closeBodyLab;
+$("bodyLabOverlay").addEventListener("click",event=>{
+  if(event.target===$("bodyLabOverlay"))closeBodyLab()
+});
+document.addEventListener("keydown",event=>{
+  if(event.key==="Escape"&&$("bodyLabOverlay").classList.contains("open"))closeBodyLab()
+});
+// Body functions are grouped by role, then each function remains independently
+// collapsible. Both layers remember their own state.
+const bodyGroups=[
+  {id:"cosmetic",label:"Cosmetic",open:true,panels:["appearance","voice-output-control"]},
+  {id:"perception",label:"Perception",open:true,panels:["afferent-rack"]},
+  {id:"creative",label:"Creative / autonomous",panels:["private-journal","intention-loom","writing-desk","atelier","research-desk","agency-workbench","autonomous-works"]},
+  {id:"logs",label:"Logs & archives",panels:["document-library","conversation-archive","last-turn-signals"]},
+  {id:"metrics",label:"Metrics & state",panels:["organs-panel","emotional-state","body-state","rhythm-panel","interference-observatory","salience-observatory","altered-state-panel","memory-observatory","room-substrate"]}
+];
+for(const group of bodyGroups){
+  const section=document.createElement("section");section.className="body-group";section.dataset.group=group.id;
+  const toggle=document.createElement("button");toggle.type="button";toggle.className="body-group-toggle";
+  toggle.innerHTML=`<span>${group.label}</span><span class="body-group-count">${group.panels.length}</span>`;
+  const content=document.createElement("div");content.className="body-group-content";
+  for(const id of group.panels){const panel=$(id);if(panel)content.appendChild(panel)}
+  section.append(toggle,content);$("inspector").appendChild(section);
+  const key=`jnsq.bodyGroup.${group.id}`;const stored=localStorage.getItem(key);
+  const open=stored===null?Boolean(group.open):stored==="open";
+  section.classList.toggle("collapsed",!open);toggle.setAttribute("aria-expanded",String(open));
+  toggle.onclick=()=>{const closed=section.classList.toggle("collapsed");
+    toggle.setAttribute("aria-expanded",String(!closed));localStorage.setItem(key,closed?"closed":"open")};
+}
+// Catch any future body panel not yet assigned so it remains reachable.
+const metricsContent=document.querySelector('[data-group="metrics"] .body-group-content');
+document.querySelectorAll("#inspector > .panel").forEach(panel=>metricsContent.appendChild(panel));
 // collapsible body-function sections: heading toggles, choice persists
-document.querySelectorAll("#inspector > .panel").forEach(p => {
+document.querySelectorAll("#inspector .body-group-content > .panel").forEach(p => {
   const head = p.querySelector(":scope > .panel-heading, :scope > .salience-head") || p.querySelector(":scope > h2");
   if (!head) return;
   const h2 = head.tagName === "H2" ? head : head.querySelector("h2");
@@ -3863,11 +4836,12 @@ fetchState().then(()=>{
   loadUserPersonas().catch(error=>{
     $("speaker-choice-note").textContent=`RP identities unavailable: ${error.message||error}`;
   });
-  refreshSalience();refreshMemoryPanel();refreshAutonomousWorks();refreshAgency();refreshIntentionLoom();refreshWritingDesk();refreshAtelier();refreshResearchDesk();refreshDocuments();refreshArchive();startSalienceStream()
+  syncHostPresentationRuntime()
 });
 fetchOrgans();
 bindAppearance();
 fetchTheme();
+autoStartLiveAfferents();
 // Event-driven refresh: user actions repaint directly; returning to the
 // cockpit catches background changes. No arbitrary state polling loop.
 window.addEventListener("focus", () => {
@@ -3882,6 +4856,13 @@ document.addEventListener("visibilitychange", () => {
     fetchState().catch(()=>{});
 });
 window.addEventListener("message", event => {
+  if(event.source!==window.parent)return;
+  if(event.data&&event.data.type==="jnsq-host-presentation"){
+    document.body.dataset.hostPresentation=
+      event.data.visible===true?"visible":"hidden";
+    syncHostPresentationRuntime();
+    return;
+  }
   if (event.data && event.data.type === "jnsq-theme-refresh") fetchTheme();
 });
 </script>

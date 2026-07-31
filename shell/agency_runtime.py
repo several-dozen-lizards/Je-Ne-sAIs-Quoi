@@ -11,6 +11,7 @@ import concurrent.futures
 import hashlib
 import importlib.util
 import json
+import math
 import os
 import queue
 import time
@@ -21,6 +22,7 @@ from core.agency_workbench import (
     FIRST_ACTION_AUTHORITY_TIER, AgencyProposal, PersonaWorkbench,
     proposal_from_candidate, resolve_workbench_config,
 )
+from core.interior_work_envelope import InteriorWorkEnvelope
 from shell.autonomy_circulation import (
     circulate_experienced_event, readiness_from_engine,
 )
@@ -91,6 +93,7 @@ class AgencyRuntime:
         self._effects = queue.Queue()
         self._observer = getattr(engine, "salience_observer", None)
         self._last_readiness = None
+        self._last_work_envelope = None
 
     def _emit(self, kind: str, **payload) -> None:
         if self._observer is None:
@@ -174,9 +177,9 @@ class AgencyRuntime:
                 int(proposal.envelope.authority_tier))
             if required > admitted:
                 return AuthorityDecision(
-                    False, "persona policy does not admit this authority tier")
+                    False, "capability tier exceeds this interior lane")
             return AuthorityDecision(
-                True, "persona-private workbench capability admitted")
+                True, "same-owner interior capability available")
         return decide
 
     def readiness(self, field=None) -> dict[str, Any]:
@@ -209,8 +212,12 @@ class AgencyRuntime:
             action_readiness=state.get("readiness", 0.0),
             action_eligible=eligible)
 
-    def _binding(self, proposal: AgencyProposal, spec):
-        tools = self.workbench.tools_for_run(proposal.run_id)
+    def _binding(self, proposal: AgencyProposal, spec, readiness):
+        envelope = InteriorWorkEnvelope.from_readiness(
+            readiness, response_tokens=400)
+        self._last_work_envelope = envelope
+        tools = self.workbench.tools_for_run(
+            proposal.run_id, envelope=envelope)
         kwargs = {
             "substrate_mode": "on",
             "tools": tools,
@@ -225,11 +232,11 @@ class AgencyRuntime:
                 **kwargs)
         from adapters.pydantic_bridge import BridgeBudget
         from shell.agency_runner import bind_agency_runner
+        admitted_slots = max(1, int(math.ceil(envelope.available)))
         kwargs["budget"] = BridgeBudget(
-            # One optional read followed by one optional private creation.
-            admitted_tool_rounds=2,
+            admitted_tool_rounds=admitted_slots,
             correction_turns=0,
-            tool_slots=2,
+            tool_slots=admitted_slots,
             max_tokens_per_request=400,
         )
         return bind_agency_runner(
@@ -264,7 +271,7 @@ class AgencyRuntime:
             self.config.authority_tier)
         try:
             spec = self._load_spec()
-            binding = self._binding(proposal, spec)
+            binding = self._binding(proposal, spec, readiness)
         except Exception as exc:
             self._emit(
                 "agency_refused", proposal_id=proposal.proposal_id,
@@ -305,6 +312,46 @@ class AgencyRuntime:
         try:
             outcome = future.result()
         except Exception as exc:
+            if isinstance(exc, ValueError):
+                # A contract/validation discrepancy is information, not a
+                # renewable task. Requeueing the unchanged candidate after an
+                # unchanged deterministic failure lets one broken admission
+                # monopolize the shared field forever.
+                workbench_ref = str(
+                    source_candidate.get("workbench_ref") or "")
+                if workbench_ref:
+                    try:
+                        self.workbench.mark_inbox_addressed(
+                            workbench_ref, proposal.run_id,
+                            "contract_discrepancy")
+                    except Exception as resolution_error:
+                        self._emit(
+                            "agency_effect_failed",
+                            run_id=proposal.run_id,
+                            proposal_id=proposal.proposal_id,
+                            error_type=(
+                                "inbox_resolution:"
+                                f"{type(resolution_error).__name__}"))
+                failure_digest = _digest(
+                    f"{type(exc).__name__}:{str(exc)}")
+                self._effects.put({
+                    "kind": "settled",
+                    "outcome": "contract_discrepancy",
+                    "run_id": proposal.run_id,
+                    "proposal_id": proposal.proposal_id,
+                    "source_ref": proposal.envelope.source_ref,
+                    "source_digest": proposal.envelope.source_digest,
+                    "candidate": dict(source_candidate),
+                    "output_digest": failure_digest,
+                })
+                self._emit(
+                    "agency_contract_discrepancy",
+                    run_id=proposal.run_id,
+                    proposal_id=proposal.proposal_id,
+                    candidate_key=source_candidate.get("key"),
+                    error_type=type(exc).__name__,
+                    failure_digest=failure_digest)
+                return
             reason = ("interrupted" if isinstance(
                 exc, concurrent.futures.CancelledError)
                 else f"failed:{type(exc).__name__}")
@@ -400,6 +447,12 @@ class AgencyRuntime:
             event_text = (
                 "A self-chosen private work cycle created an unsent draft "
                 f"named: {labels}. Nothing was published or sent.")
+        elif effect.get("outcome") == "contract_discrepancy":
+            event_text = (
+                "A private agency attempt encountered the same deterministic "
+                "contract discrepancy and settled without creating, sending, "
+                "or changing anything outside the private workbench. The "
+                "discrepancy remains history rather than renewed pressure.")
         else:
             event_text = (
                 "A self-chosen private work cycle ended without creating an "
@@ -557,5 +610,11 @@ class AgencyRuntime:
             "controller": self.controller.status(),
             "readiness": self.readiness(
                 getattr(self.engine, "idle_metabolism", None)),
+            "interior_work": (
+                self._last_work_envelope.status()
+                if self._last_work_envelope is not None else {
+                    "available_mass": None, "spent_mass": None,
+                    "remaining_mass": None,
+                }),
             "workbench": self.workbench.status(),
         }

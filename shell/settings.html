@@ -6,6 +6,7 @@
 <title>JNSQ settings</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Alegreya:wght@400;600;700&family=Bebas+Neue&family=Caveat:wght@400;600;700&family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Lexend:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&family=Permanent+Marker&family=Playfair+Display:wght@400;600;700&family=Quicksand:wght@400;500;600;700&family=Roboto+Slab:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Cormorant+Garamond:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Nunito:wght@400;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="/assets/hex_color.js"></script>
 <style>
@@ -119,7 +120,13 @@ table{width:100%;border-collapse:collapse;margin-top:12px;font-size:.8rem}th,td{
         <label>Font<select id="houseFont"><option value="system">System Sans</option><option value="serif">Source Serif</option>
           <option value="display">Cormorant</option><option value="mono">IBM Plex Mono</option>
           <option value="humanist">Atkinson Hyperlegible</option><option value="rounded">Nunito</option>
-          <option value="geometric">Space Grotesk</option></select></label>
+          <option value="geometric">Space Grotesk</option><option value="inter">Inter</option>
+          <option value="lexend">Lexend</option><option value="quicksand">Quicksand</option>
+          <option value="condensed">Bebas Neue</option><option value="alegreya">Alegreya</option>
+          <option value="baskerville">Libre Baskerville</option><option value="playfair">Playfair Display</option>
+          <option value="slab">Roboto Slab</option><option value="cinzel">Cinzel</option>
+          <option value="handwritten">Caveat</option><option value="marker">Permanent Marker</option>
+          <option value="jetbrains">JetBrains Mono</option></select></label>
         <label>Font size <span id="houseFontScaleValue">100%</span><input type="range" min="0.8" max="1.35" step=".05" id="houseFontScale"></label>
         <label>Density<select id="houseDensity"><option>compact</option><option>cozy</option><option>roomy</option></select></label>
         <label>Background color<input type="color" id="houseBg"></label>
@@ -174,13 +181,21 @@ table{width:100%;border-collapse:collapse;margin-top:12px;font-size:.8rem}th,td{
 
   <section class="page" id="page-voice">
     <h2>Voice output</h2>
-    <p class="note">Choose each persona's speaking vessel independently. Browser-native speech stays on this
-      computer. A named browser voice is used when available; if it disappears, JNSQ reports the fallback
-      to the browser default. Changes apply immediately and never alter the persona's expression state.</p>
-    <div class="card"><h3>Interchangeable provider seam</h3><p class="note">Disabled and Browser native are
-      live now. Local and hosted synthesis engines can join the same provider contract later without changing
-      persona identity, expression formulas, or content-free playback receipts.</p></div>
-    <div id="voiceRoutes"></div>
+    <p class="note">These are household starting scales inherited by every persona. Choose an actual voice,
+      provider, and personal adjustment inside that persona's cockpit. Live body and rhythm values continue
+      to move delivery within these bounds; the sliders do not assign a mood or fixed performance.</p>
+    <div class="card"><h3>Household voice defaults</h3>
+      <div class="grid">
+        <label>Speaking pace <span id="voiceRateValue">100%</span><input id="voiceRate" type="range" min="0.65" max="1.4" step="0.01"></label>
+        <label>Pitch range <span id="voicePitchValue">100%</span><input id="voicePitch" type="range" min="0.75" max="1.25" step="0.01"></label>
+        <label>Output level <span id="voiceVolumeValue">100%</span><input id="voiceVolume" type="range" min="0" max="1.25" step="0.01"></label>
+      </div>
+      <div class="actions"><button class="btn go" id="voiceDefaultsSave">Save household defaults</button>
+        <button class="btn" id="voiceDefaultsReset">Reset to neutral</button><span class="note" id="voiceDefaultsNote"></span></div>
+    </div>
+    <div class="card"><h3>Individual voices belong with their people</h3>
+      <p class="note">Open that persona, choose <b>show body functions</b>, then use <b>voice output</b>.
+        Their provider, voice identity, and personal scales live with their body rather than household plumbing.</p></div>
   </section>
 
   <section class="page" id="page-prompts">
@@ -213,7 +228,7 @@ async function request(url,options={}){const response=await fetch(url,options);l
   try{body=await response.json()}catch(_){body={error:await response.text()}}
   if(!response.ok||body.error)throw new Error(body.error||`${response.status} ${response.statusText}`);return body}
 const clone=value=>JSON.parse(JSON.stringify(value));
-let personas={},models=[],themeDoc=null,preview=null,presetDirty=false,currentPage="account";
+let personas={},models=[],themeDoc=null,preview=null,presetDirty=false,currentPage=location.hash==="#voice"?"voice":"account";
 const dirty=new Set(),iconNotices={};
 const visionNotices={};
 const voiceNotices={};
@@ -221,7 +236,7 @@ const CONTROLS={houseBackground:"background",houseFont:"font",houseFontScale:"fo
   housePanel:"panel",houseInk:"ink",houseAccent:"accent",houseAccent2:"accent2",houseRadius:"radius",
   houseGlow:"glow",houseBackgroundOpacity:"background_opacity",houseReactive:"reactive"};
 function named(obj,name){const key=Object.keys(obj||{}).find(k=>k.toLowerCase()===String(name).toLowerCase());return key?obj[key]:null}
-const FONT_STACKS={system:'"Segoe UI",system-ui,sans-serif',serif:'"Source Serif 4",Georgia,serif',display:'"Cormorant Garamond",Georgia,serif',mono:'"IBM Plex Mono",Consolas,monospace',humanist:'"Atkinson Hyperlegible","Segoe UI",sans-serif',rounded:'Nunito,"Segoe UI",sans-serif',geometric:'"Space Grotesk","Segoe UI",sans-serif'};
+const FONT_STACKS={system:'"Segoe UI",system-ui,sans-serif',serif:'"Source Serif 4",Georgia,serif',display:'"Cormorant Garamond",Georgia,serif',mono:'"IBM Plex Mono",Consolas,monospace',humanist:'"Atkinson Hyperlegible","Segoe UI",sans-serif',rounded:'Nunito,"Segoe UI",sans-serif',geometric:'"Space Grotesk","Segoe UI",sans-serif',alegreya:'Alegreya,Georgia,serif',baskerville:'"Libre Baskerville",Georgia,serif',playfair:'"Playfair Display",Georgia,serif',slab:'"Roboto Slab",Rockwell,serif',inter:'Inter,"Segoe UI",sans-serif',lexend:'Lexend,"Segoe UI",sans-serif',quicksand:'Quicksand,"Segoe UI",sans-serif',condensed:'"Bebas Neue","Arial Narrow",sans-serif',handwritten:'Caveat,"Segoe Print",cursive',marker:'"Permanent Marker","Segoe Print",cursive',jetbrains:'"JetBrains Mono",Consolas,monospace',cinzel:'Cinzel,Georgia,serif'};
 const themeFontStack=id=>FONT_STACKS[id]||FONT_STACKS.system;
 function applyTheme(tokens){if(!tokens)return;const root=document.documentElement;
   for(const key of ["bg","panel","line","ink","dim","accent","accent2","warn","good"])
@@ -386,25 +401,65 @@ function renderVoiceRoutes(){const box=$("voiceRoutes"),voices=browserVoices();
   const entries=Object.entries(personas).filter(([,p])=>p.kind==="model_persona").sort();
   if(!entries.length){box.innerHTML='<div class="card note">No model personas yet.</div>';return}
   box.innerHTML=entries.map(([id,p])=>{const config=p.voice_output||{provider:"browser-native",voice:""};
-    const configured=config.voice||"",found=!configured||voices.some(voice=>voice.name===configured);
+    const configured=config.voice||"",found=config.provider!=="browser-native"||!configured||voices.some(voice=>voice.name===configured);
     const voiceOptions=['<option value="">Browser default</option>',...voices.map(voice=>
       `<option value="${esc(voice.name)}" ${voice.name===configured?"selected":""}>${esc(voice.name)} · ${esc(voice.lang)}${voice.localService?" · local":""}</option>`)].join("");
     const fallback=!found?`Configured voice “${esc(configured)}” is unavailable here; playback will use the browser default.`:
-      config.provider==="disabled"?"This persona is quiet.":`Speech stays in this browser through ${esc(configured||"its default voice")}.`;
+      config.provider==="disabled"?"This persona is quiet.":config.provider==="qwen3-tts"?
+      `Private Qwen synthesis · ${esc(configured||"default audition identity")}.`:config.provider==="chatterbox-turbo"?
+      "Private Chatterbox synthesis · consented persona reference.":`Speech stays in this browser through ${esc(configured||"its default voice")}.`;
     return `<div class="card voice-route"><div><h3>${esc(p.display_name||id)}</h3><div class="note">${fallback}</div></div>
-      <div class="route-controls"><div class="grid"><label>Provider<select data-voice-provider="${esc(id)}"><option value="disabled" ${config.provider==="disabled"?"selected":""}>Disabled</option><option value="browser-native" ${config.provider!=="disabled"?"selected":""}>Browser native · local</option></select></label>
-      <label>Voice<select data-voice-name="${esc(id)}" ${config.provider==="disabled"?"disabled":""}>${voiceOptions}</select></label></div>
-      <div class="actions"><button class="btn go" data-save-voice="${esc(id)}">Save voice</button><span class="note" data-voice-note="${esc(id)}">${esc(voiceNotices[id]||"")}</span></div></div></div>`}).join("");
-  box.querySelectorAll("[data-voice-provider]").forEach(select=>select.onchange=()=>{const voice=box.querySelector(`[data-voice-name="${CSS.escape(select.dataset.voiceProvider)}"]`);voice.disabled=select.value==="disabled"});
-  box.querySelectorAll("[data-save-voice]").forEach(button=>button.onclick=()=>saveVoiceRoute(button.dataset.saveVoice,button))}
-async function loadVoice(){try{personas=await request("/api/personas");renderVoiceRoutes()}
+      <div class="route-controls"><div class="grid"><label>Provider<select data-voice-provider="${esc(id)}"><option value="disabled" ${config.provider==="disabled"?"selected":""}>Disabled</option><option value="browser-native" ${config.provider==="browser-native"?"selected":""}>Browser native · local</option></select></label>
+      <label data-browser-field="${esc(id)}" ${!["browser-native","disabled"].includes(config.provider)?'hidden':''}>Browser voice<select data-browser-voice="${esc(id)}" ${config.provider==="disabled"?"disabled":""}>${voiceOptions}</select></label>
+      <label data-qwen-field="${esc(id)}" ${config.provider!=="qwen3-tts"?'hidden':''}>Stable voice description<input data-qwen-voice="${esc(id)}" maxlength="160" value="${esc(config.provider==="qwen3-tts"?configured:"")}" placeholder="Distinctive adult voice, intimate and unpolished"></label>
+      <label data-chatterbox-field="${esc(id)}" ${config.provider!=="chatterbox-turbo"?'hidden':''}>Reference voice<input data-chatterbox-reference="${esc(id)}" type="file" accept="audio/wav,.wav"><span class="note">Consented WAV · 5–15 seconds</span></label>
+      <label>Personal pace<input data-voice-rate="${esc(id)}" type="range" min="0.65" max="1.4" step="0.01" value="${Number(config.rate_scale??1)}"></label>
+      <label>Personal pitch<input data-voice-pitch="${esc(id)}" type="range" min="0.75" max="1.25" step="0.01" value="${Number(config.pitch_scale??1)}"></label>
+      <label>Personal output<input data-voice-volume="${esc(id)}" type="range" min="0" max="1.25" step="0.01" value="${Number(config.volume_scale??1)}"></label></div>
+      <div class="actions"><button class="btn go" data-save-voice="${esc(id)}">Save voice</button><button class="btn" data-audition-voice="${esc(id)}" ${!["qwen3-tts","chatterbox-turbo"].includes(config.provider)?"hidden":""}>Audition</button><span class="note" data-voice-note="${esc(id)}">${esc(voiceNotices[id]||"")}</span></div></div></div>`}).join("");
+  box.querySelectorAll("[data-voice-provider]").forEach(select=>select.onchange=()=>{const id=select.dataset.voiceProvider;
+    box.querySelector(`[data-browser-field="${CSS.escape(id)}"]`).hidden=!["browser-native","disabled"].includes(select.value);
+    box.querySelector(`[data-qwen-field="${CSS.escape(id)}"]`).hidden=select.value!=="qwen3-tts";
+    box.querySelector(`[data-chatterbox-field="${CSS.escape(id)}"]`).hidden=select.value!=="chatterbox-turbo";
+    box.querySelector(`[data-audition-voice="${CSS.escape(id)}"]`).hidden=!["qwen3-tts","chatterbox-turbo"].includes(select.value);
+    box.querySelector(`[data-browser-voice="${CSS.escape(id)}"]`).disabled=select.value==="disabled"});
+  box.querySelectorAll("[data-chatterbox-reference]").forEach(input=>input.onchange=()=>uploadVoiceReference(input.dataset.chatterboxReference,input));
+  box.querySelectorAll("[data-save-voice]").forEach(button=>button.onclick=()=>saveVoiceRoute(button.dataset.saveVoice,button));
+  box.querySelectorAll("[data-audition-voice]").forEach(button=>button.onclick=()=>auditionVoice(button.dataset.auditionVoice,button))}
+async function loadPersonaVoices(){try{personas=await request("/api/personas");renderVoiceRoutes()}
   catch(error){$("voiceRoutes").innerHTML=`<div class="card error">${esc(error.message)}</div>`}}
 async function saveVoiceRoute(id,button){const provider=document.querySelector(`[data-voice-provider="${CSS.escape(id)}"]`).value;
-  const voice=document.querySelector(`[data-voice-name="${CSS.escape(id)}"]`).value;button.disabled=true;
-  try{const result=await request(`/api/personas/${encodeURIComponent(id)}/voice-output`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({provider,voice})});
+  const voice=provider==="qwen3-tts"?document.querySelector(`[data-qwen-voice="${CSS.escape(id)}"]`).value:
+    provider==="chatterbox-turbo"?"private persona reference":document.querySelector(`[data-browser-voice="${CSS.escape(id)}"]`).value;
+  const rate_scale=Number(document.querySelector(`[data-voice-rate="${CSS.escape(id)}"]`).value);
+  const pitch_scale=Number(document.querySelector(`[data-voice-pitch="${CSS.escape(id)}"]`).value);
+  const volume_scale=Number(document.querySelector(`[data-voice-volume="${CSS.escape(id)}"]`).value);button.disabled=true;
+  try{const result=await request(`/api/personas/${encodeURIComponent(id)}/voice-output`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({provider,voice,rate_scale,pitch_scale,volume_scale})});
     voiceNotices[id]=result.restart_required?"Saved; restart required.":"Saved; the next utterance uses this choice.";await loadVoice()}
   catch(error){voiceNotices[id]=error.message;renderVoiceRoutes()}finally{button.disabled=false}}
-if("speechSynthesis" in window)window.speechSynthesis.addEventListener("voiceschanged",()=>{if(currentPage==="voice")renderVoiceRoutes()});
+async function auditionVoice(id,button){button.disabled=true;voiceNotices[id]="Synthesizing a private auditionâ€¦";renderVoiceRoutes();
+  try{const response=await fetch(`/api/personas/${encodeURIComponent(id)}/voice-output/audition`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:"I was thinking about that, and then the shape of it changed. Give me a secondâ€”there. That's what I meant."})});
+    if(!response.ok){let detail={};try{detail=await response.json()}catch{}throw new Error(detail.error||`HTTP ${response.status}`)}
+    const url=URL.createObjectURL(await response.blob()),audio=new Audio(url);audio.onended=()=>URL.revokeObjectURL(url);await audio.play();voiceNotices[id]="Private audition is playing."}
+  catch(error){voiceNotices[id]=error.message}finally{button.disabled=false;renderVoiceRoutes()}}
+async function uploadVoiceReference(id,input){const file=input.files?.[0];if(!file)return;voiceNotices[id]="Storing private reference…";
+  try{const response=await fetch(`/api/personas/${encodeURIComponent(id)}/voice-output/reference`,{method:"POST",headers:{"Content-Type":"audio/wav"},body:file});
+    const result=await response.json();if(!response.ok||result.error)throw new Error(result.error||`HTTP ${response.status}`);
+    voiceNotices[id]=`Private reference ready · ${Math.round(result.bytes/1024)} KB`}
+  catch(error){voiceNotices[id]=error.message}finally{renderVoiceRoutes()}}
+function renderVoiceDefaults(value={}){const set=(id,key)=>{$(id).value=Number(value[key]??1)};
+  set("voiceRate","rate_scale");set("voicePitch","pitch_scale");set("voiceVolume","volume_scale");
+  $("voiceRateValue").textContent=`${Math.round(Number($("voiceRate").value)*100)}%`;
+  $("voicePitchValue").textContent=`${Math.round(Number($("voicePitch").value)*100)}%`;
+  $("voiceVolumeValue").textContent=`${Math.round(Number($("voiceVolume").value)*100)}%`}
+async function loadVoice(){try{const data=await request("/api/voice/defaults");renderVoiceDefaults(data.voice_defaults||{})}
+  catch(error){$("voiceDefaultsNote").textContent=error.message}}
+async function saveVoiceDefaults(){const payload={rate_scale:Number($("voiceRate").value),pitch_scale:Number($("voicePitch").value),volume_scale:Number($("voiceVolume").value)};
+  try{const data=await request("/api/voice/defaults",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    renderVoiceDefaults(data.voice_defaults||payload);$("voiceDefaultsNote").textContent="Saved; open cockpits inherit this on their next state refresh."}
+  catch(error){$("voiceDefaultsNote").textContent=error.message}}
+for(const id of ["voiceRate","voicePitch","voiceVolume"])$(id).addEventListener("input",()=>renderVoiceDefaults({rate_scale:$("voiceRate").value,pitch_scale:$("voicePitch").value,volume_scale:$("voiceVolume").value}));
+$("voiceDefaultsSave").onclick=saveVoiceDefaults;$("voiceDefaultsReset").onclick=()=>{renderVoiceDefaults({rate_scale:1,pitch_scale:1,volume_scale:1});saveVoiceDefaults()};
 async function loadPrompts(){try{const data=await request("/api/models"),select=$("spmodel"),previous=select.value;
   select.innerHTML=(data.models||[]).map(model=>`<option value="${esc(model.name)}">${model.locality==="local"?"💻":"☁️"} ${esc(model.name)}</option>`).join("");
   if([...select.options].some(o=>o.value===previous))select.value=previous;select.onchange=()=>selectModel(select.value);

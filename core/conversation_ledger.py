@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import json
 import os
+import re
 import threading
 import uuid
 
@@ -17,25 +18,248 @@ import uuid
 SCHEMA_VERSION = 1
 TERMINAL_KINDS = {"conversation_completed", "conversation_failed",
                   "conversation_interrupted", "conversation_snapshot"}
+DEFAULT_TEXT_ARCHIVE_BYTES = 1024 * 1024
+_ARCHIVE_PART_RE = re.compile(
+    r"^(?P<date>\d{4}-\d{2}-\d{2})(?:-part-(?P<part>\d{3}))?\.txt$")
+_CONVERSATION_MARKER_RE = re.compile(r"^Conversation ID: (.+)$", re.MULTILINE)
 
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _one_line(value) -> str:
+    return " ".join(str(value or "").replace("\x00", "").splitlines()).strip()
+
+
+class TextConversationArchive:
+    """Readable, dated projection of a canonical conversation ledger.
+
+    The JSONL ledger remains the source of truth.  These files are a
+    human-openable mirror, split by date and then by a length threshold.
+    """
+
+    def __init__(self, directory: str, *, owner: str, scope: str,
+                 max_bytes: int = DEFAULT_TEXT_ARCHIVE_BYTES):
+        self.directory = os.path.abspath(directory)
+        self.owner = str(owner)
+        self.scope = str(scope)
+        self.max_bytes = max(4096, int(max_bytes))
+        self._projected = set()
+        os.makedirs(self.directory, exist_ok=True)
+        self._load_projected_ids()
+
+    def _load_projected_ids(self):
+        try:
+            names = os.listdir(self.directory)
+        except OSError:
+            return
+        for name in names:
+            if not _ARCHIVE_PART_RE.fullmatch(name):
+                continue
+            path = os.path.join(self.directory, name)
+            try:
+                with open(path, encoding="utf-8") as handle:
+                    self._projected.update(
+                        _CONVERSATION_MARKER_RE.findall(handle.read()))
+            except OSError:
+                continue
+
+    @staticmethod
+    def _archive_date(record: dict) -> str:
+        stamp = str(record.get("occurred_at")
+                    or record.get("recorded_at") or "")
+        match = re.match(r"^(\d{4}-\d{2}-\d{2})", stamp)
+        return match.group(1) if match else datetime.now(
+            timezone.utc).date().isoformat()
+
+    def _header(self, date: str) -> str:
+        return (
+            "JNSQ Conversation Archive\n"
+            f"Owner: {self.owner}\n"
+            f"Scope: {self.scope}\n"
+            f"Date: {date} (UTC)\n"
+            "Readable mirror; canonical lifecycle data remains in "
+            "conversations.jsonl.\n\n"
+        )
+
+    def _path_for(self, date: str, entry_bytes: int) -> tuple[str, str]:
+        candidates = []
+        try:
+            names = os.listdir(self.directory)
+        except OSError:
+            names = []
+        for name in names:
+            match = _ARCHIVE_PART_RE.fullmatch(name)
+            if match and match.group("date") == date:
+                candidates.append((
+                    int(match.group("part") or 1),
+                    os.path.join(self.directory, name)))
+        if not candidates:
+            return os.path.join(self.directory, f"{date}.txt"), self._header(date)
+        part, path = max(candidates)
+        try:
+            current_bytes = os.path.getsize(path)
+        except OSError:
+            current_bytes = 0
+        if current_bytes and current_bytes + entry_bytes <= self.max_bytes:
+            return path, ""
+        part += 1
+        return os.path.join(
+            self.directory, f"{date}-part-{part:03d}.txt"), self._header(date)
+
+    def render(self, records: list[dict]) -> tuple[str, str]:
+        admission = next((
+            row for row in records
+            if row.get("kind") == "conversation_admitted"), None)
+        terminal = next((
+            row for row in reversed(records)
+            if row.get("kind") in TERMINAL_KINDS), None)
+        if terminal is None:
+            return "", ""
+        base = admission or terminal
+        cid = _one_line(terminal.get("conversation_id"))
+        timestamp = str(base.get("occurred_at")
+                        or base.get("recorded_at") or "")
+        channel = _one_line(base.get("channel") or "chat")
+        source = _one_line(base.get("source") or "turn")
+        speaker = _one_line(base.get("speaker") or "Human")
+        message = str(base.get("message") or "")
+        images = list(base.get("images") or [])
+        kind = terminal.get("kind")
+        status = {
+            "conversation_completed": "completed",
+            "conversation_failed": "failed",
+            "conversation_interrupted": "interrupted",
+            "conversation_snapshot": "completed (historical snapshot)",
+        }.get(kind, _one_line(kind))
+        lines = [
+            "=" * 80,
+            f"[{timestamp}] {channel} conversation",
+            f"Source: {source}",
+            "",
+            f"{speaker}:",
+            message,
+        ]
+        if images:
+            lines.extend(["", "Shared image references:"])
+            for image in images:
+                if isinstance(image, dict):
+                    value = (image.get("name") or image.get("path")
+                             or image.get("id") or image)
+                else:
+                    value = image
+                lines.append(f"- {_one_line(value)}")
+        reply = str(terminal.get("reply") or "")
+        if not reply and kind in {"conversation_failed",
+                                  "conversation_interrupted"}:
+            reply = "".join(str(row.get("text") or "") for row in records
+                            if row.get("kind") == "conversation_delta")
+        if reply:
+            lines.extend(["", f"{_one_line(self.owner).title() or 'Assistant'}:",
+                          reply])
+            if kind != "conversation_completed":
+                lines.append("[partial reply preserved before termination]")
+        if kind == "conversation_failed":
+            lines.extend([
+                "",
+                "Failure: "
+                f"{_one_line(terminal.get('error_type'))}: "
+                f"{_one_line(terminal.get('error'))}",
+            ])
+        elif kind == "conversation_interrupted":
+            lines.extend([
+                "",
+                f"Interruption: {_one_line(terminal.get('reason'))}",
+            ])
+        lines.extend(["", f"Status: {status}", f"Conversation ID: {cid}", "", ""])
+        return cid, "\n".join(lines)
+
+    def project(self, records: list[dict]) -> bool:
+        cid, entry = self.render(records)
+        if not cid or not entry or cid in self._projected:
+            return False
+        encoded = entry.encode("utf-8")
+        terminal = next(row for row in reversed(records)
+                        if row.get("kind") in TERMINAL_KINDS)
+        date = self._archive_date(terminal)
+        path, header = self._path_for(date, len(encoded))
+        with open(path, "a", encoding="utf-8", newline="\n") as handle:
+            if header:
+                handle.write(header)
+            handle.write(entry)
+            handle.flush()
+            os.fsync(handle.fileno())
+        self._projected.add(cid)
+        return True
+
+
+def sync_text_archive(path: str, *, owner: str, scope: str = "persona",
+                      text_archive_dir: str = None,
+                      text_archive_max_bytes: int =
+                      DEFAULT_TEXT_ARCHIVE_BYTES) -> dict:
+    """Project terminal JSONL conversations without mutating the ledger."""
+    path = os.path.abspath(path)
+    archive = TextConversationArchive(
+        text_archive_dir or os.path.join(os.path.dirname(path), "chat_archives"),
+        owner=owner, scope=scope, max_bytes=text_archive_max_bytes)
+    conversations = {}
+    invalid_records = 0
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as handle:
+            for line in handle:
+                try:
+                    record = json.loads(line)
+                except (TypeError, ValueError):
+                    invalid_records += 1
+                    continue
+                cid = str(record.get("conversation_id") or "")
+                if cid:
+                    conversations.setdefault(cid, []).append(record)
+    projected = 0
+    terminal = 0
+    for records in conversations.values():
+        if any(row.get("kind") in TERMINAL_KINDS for row in records):
+            terminal += 1
+            projected += int(archive.project(records))
+    return {
+        "ledger": path,
+        "text_archive": archive.directory,
+        "terminal_conversations": terminal,
+        "projected": projected,
+        "already_projected": terminal - projected,
+        "invalid_records": invalid_records,
+    }
+
+
 class ConversationLedger:
     """One append-only JSONL stream with crash recovery and idempotent IDs."""
 
-    def __init__(self, path: str, *, owner: str, scope: str = "persona"):
+    def __init__(self, path: str, *, owner: str, scope: str = "persona",
+                 text_archive_dir: str = None,
+                 text_archive_max_bytes: int = DEFAULT_TEXT_ARCHIVE_BYTES):
         self.path = os.path.abspath(path)
         self.owner = str(owner)
         self.scope = str(scope)
         self._lock = threading.RLock()
         self._states = {}
+        self._conversation_records = {}
         self._records = 0
+        self._text_archive_error = ""
         os.makedirs(os.path.dirname(self.path), exist_ok=True)
+        archive_dir = text_archive_dir or os.path.join(
+            os.path.dirname(self.path), "chat_archives")
+        self.text_archive = TextConversationArchive(
+            archive_dir, owner=self.owner, scope=self.scope,
+            max_bytes=text_archive_max_bytes)
         self._load_state()
         self._recover_open_admissions()
+        self._sync_text_archive()
+        # Completed conversations are now represented in both durable stores;
+        # retain only genuinely open lifecycle records in runtime memory.
+        self._conversation_records = {
+            cid: records for cid, records in self._conversation_records.items()
+            if self._states.get(cid) == "conversation_admitted"}
 
     def _load_state(self):
         if not os.path.exists(self.path):
@@ -48,6 +272,8 @@ class ConversationLedger:
                     continue
                 self._records += 1
                 cid = str(record.get("conversation_id") or "")
+                if cid:
+                    self._conversation_records.setdefault(cid, []).append(record)
                 if cid and record.get("kind") != "conversation_delta":
                     self._states[cid] = record.get("kind")
 
@@ -69,9 +295,31 @@ class ConversationLedger:
                 os.fsync(handle.fileno())
             self._records += 1
             cid = str(payload.get("conversation_id") or "")
+            if cid:
+                self._conversation_records.setdefault(cid, []).append(payload)
             if cid and payload.get("kind") != "conversation_delta":
                 self._states[cid] = payload.get("kind")
+            if payload.get("kind") in TERMINAL_KINDS:
+                try:
+                    self.text_archive.project(
+                        self._conversation_records.get(cid, []))
+                    self._text_archive_error = ""
+                except OSError as error:
+                    # The canonical fsync has already succeeded.  A readable
+                    # mirror failure must not turn a completed conversation
+                    # into a false provider failure; startup sync retries it.
+                    self._text_archive_error = str(error)[:500]
+                self._conversation_records.pop(cid, None)
         return payload
+
+    def _sync_text_archive(self):
+        for cid, records in self._conversation_records.items():
+            if self._states.get(cid) in TERMINAL_KINDS:
+                try:
+                    self.text_archive.project(records)
+                    self._text_archive_error = ""
+                except OSError as error:
+                    self._text_archive_error = str(error)[:500]
 
     def _recover_open_admissions(self):
         pending = [cid for cid, kind in self._states.items()
@@ -193,4 +441,9 @@ class ConversationLedger:
         pending = sum(kind == "conversation_admitted"
                       for kind in self._states.values())
         return {"schema_version": SCHEMA_VERSION, "records": self._records,
-                "conversations": len(self._states), "pending": pending}
+                "conversations": len(self._states), "pending": pending,
+                "text_archive": self.text_archive.directory,
+                "text_archive_files": len([
+                    name for name in os.listdir(self.text_archive.directory)
+                    if _ARCHIVE_PART_RE.fullmatch(name)]),
+                "text_archive_error": self._text_archive_error}

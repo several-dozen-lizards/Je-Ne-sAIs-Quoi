@@ -125,6 +125,24 @@ def presence(names) -> dict:
     return {n: bool(os.environ.get(n)) for n in names}
 
 
+def current_key(name: str, path: str = ENV_PATH) -> str:
+    """Return the latest Settings-managed value without exposing it via HTTP.
+
+    Long-running persona processes may have inherited an older value before the
+    router replaced it in ``.env``. For an explicitly Settings-managed key, the
+    file is therefore the current source of truth; a real process-environment
+    value remains the fallback when the file has no entry.
+    """
+    name = validate_name(name)
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            parsed = _parse(f.read())
+        for kind, key, line in reversed(parsed):
+            if kind == "kv" and key == name:
+                return _value_of(line)
+    return os.environ.get(name, "")
+
+
 # Load on import: any process entry point that imports env_store gets the
 # .env applied to os.environ BEFORE it constructs model clients. The
 # router imports this (after its sys.path shim) so children inherit the

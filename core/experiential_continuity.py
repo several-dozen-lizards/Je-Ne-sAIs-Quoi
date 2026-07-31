@@ -351,10 +351,15 @@ class ExperientialContinuity:
         return list(chosen.values())
 
     def snapshot(self, *, max_movements: int = MAX_MOVEMENTS,
-                 max_standing: int = MAX_STANDING) -> dict[str, Any]:
+                 max_standing: int = MAX_STANDING,
+                 organs: set[str] | frozenset[str] | tuple[str, ...] |
+                 list[str] | None = None) -> dict[str, Any]:
         movement: list[ContinuityEntry] = []
         standing: list[ContinuityEntry] = []
         unavailable = []
+        requested_organs = (
+            frozenset(str(value) for value in organs)
+            if organs is not None else None)
         adapters = {
             "agency": self._agency,
             "intention_loom": self._loom,
@@ -366,6 +371,8 @@ class ExperientialContinuity:
         }
         for name, store in self.stores.items():
             if store is None:
+                continue
+            if requested_organs is not None and name not in requested_organs:
                 continue
             try:
                 adapters[name](store, movement, standing)
@@ -390,6 +397,7 @@ class ExperientialContinuity:
             "policy": {
                 "read_only_projection": True,
                 "metadata_only": True,
+                "candidate_scoped": requested_organs is not None,
                 "availability_is_not_commitment": True,
                 "artifact_content_included": False,
                 "absence_is_not_evidence_of_activity": True,
@@ -405,6 +413,9 @@ class ExperientialContinuity:
             "standing_count": len(standing),
             "latest_movement_at": movement[0].at if movement else None,
             "unavailable_organs": [item["organ"] for item in unavailable],
+            "requested_organs": (
+                sorted(requested_organs)
+                if requested_organs is not None else []),
             "snapshot_sha256": hashlib.sha256(digest_source).hexdigest(),
             "rendered": bool(movement or standing),
         }

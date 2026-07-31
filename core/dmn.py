@@ -22,6 +22,7 @@ SALIENCE_LOW = 0.3
 SALIENCE_NORMAL = 0.5
 SALIENCE_ELEVATED = 0.7
 SALIENCE_URGENT = 1.0
+CANDIDATE_FLOOR = 0.05
 
 EVENT_FEATURE_WEIGHTS = {
     "novelty": 0.42,
@@ -337,6 +338,10 @@ class DMNQueue:
         self.observer = observer
         for item in items or []:
             item = dict(item)
+            # Persisted candidates from before temporal provenance existed have
+            # a trustworthy first offer but an `updated` value that may only
+            # describe the last salience-decay pass.
+            item.setdefault("last_offered", item.get("born"))
             if item.get("source") == "altered_consent":
                 # Re-score unresolved persisted requests when this authority
                 # dimension first lands; no request or decision is rewritten.
@@ -390,9 +395,12 @@ class DMNQueue:
                         event_ids.append(event_id)
                 item["perception_event_ids"] = event_ids
             item = {**existing, **item}
+        last_offered = now if existing else item.get("last_offered", now)
         item.update({"key": key,
-                     "salience": max(0.0, min(1.0, float(salience))),
-                     "born": item.get("born", now), "updated": now})
+                      "salience": max(0.0, min(1.0, float(salience))),
+                      "born": item.get("born", now),
+                      "last_offered": last_offered,
+                      "updated": now})
         self._seq += 1
         kept.append((-item["salience"], self._seq, item))
         heapq.heapify(kept)
@@ -421,7 +429,8 @@ class DMNQueue:
                       float(now) - float(item.get("updated", now)),
                       self.half_life_s)
 
-    def decay(self, floor: float = 0.05, now: float = None, rate=None):
+    def decay(self, floor: float = CANDIDATE_FLOOR,
+              now: float = None, rate=None):
         now = time.time() if now is None else float(now)
         keep, dropped = [], 0
         for _neg, seq, item in self._heap:
@@ -476,6 +485,37 @@ class DMNQueue:
             heapq.heapify(self._heap)
             selection = {"effective_salience": max(0.0, min(1.0, score)),
                          **meta}
+            alternatives = [
+                value for ranked_index, value in enumerate(ranked)
+                if ranked_index != index
+            ]
+            runner_up = max(
+                (value[0] for value in alternatives), default=None)
+            # Preserve the already-computed, text-free selection evidence for
+            # the winning organ. Async consequences otherwise cannot tell a
+            # weak opportunity from a well-supported quiet choice without
+            # reconstructing it from the observatory history.
+            receipt_keys = {
+                "effective_salience", "base_salience", "source_key",
+                "source_satiety", "scope_satiety", "combined_satiety",
+                "rested_salience", "action_eligible", "action_readiness",
+                "action_contribution", "document_reader_eligible",
+                "document_reader_readiness", "document_reader_satiety",
+            }
+            safe_selection = {
+                key: value for key, value in selection.items()
+                if key in receipt_keys
+            }
+            winner["selection_receipt"] = {
+                **safe_selection,
+                "candidate_count": len(ranked),
+                "runner_up_effective_salience": (
+                    max(0.0, min(1.0, runner_up))
+                    if runner_up is not None else None),
+                "effective_margin": (
+                    round(score - runner_up, 6)
+                    if runner_up is not None else None),
+            }
         self._notify("candidate_won", winner,
                      [row[2] for row in sorted(self._heap)], now,
                      selection=selection)
@@ -552,6 +592,19 @@ class IdleMetabolism:
         inputs = {"recall_score": float(recall_score),
                   "emotional_charge": float(emotional_charge),
                   "warmth": warmth}
+        emotional_snapshot = dict(
+            memory.get("emotional_snapshot") or {})
+        def witnessed(name):
+            try:
+                value = float(emotional_snapshot.get(name, 0.0))
+            except (TypeError, ValueError):
+                value = 0.0
+            return max(0.0, min(1.0, value)) if math.isfinite(value) else 0.0
+        play_affinity = max(
+            witnessed("play"), .6 * witnessed("joy"))
+        # Descriptive provenance for PD1-S only. It is deliberately absent
+        # from `components`, so it cannot alter live salience.
+        inputs["play_affinity"] = play_affinity
         components = {"recall_score": 0.45 * inputs["recall_score"],
                       "emotional_charge": 0.25 * inputs["emotional_charge"],
                       "warmth": 0.30 * inputs["warmth"]}
@@ -559,6 +612,8 @@ class IdleMetabolism:
             components["floor_lift"] = salience - sum(components.values())
         return self.queue.put({"kind": "drift", "key": key,
                                "seed_id": key,
+                               "satiety_key": f"memory:{key}",
+                               "play_affinity": play_affinity,
                                "node": (memory.get("content") or "")[:240],
                                "entities": list(memory.get("entities") or [])[:4]},
                                salience, now=now,
@@ -728,18 +783,28 @@ class IdleMetabolism:
         if scoped:
             return scoped
         kind = str((item or {}).get("kind") or "unknown")
+        if kind == "drift":
+            memory_key = str(
+                (item or {}).get("key")
+                or (item or {}).get("seed_id") or "").strip()
+            if memory_key:
+                return f"memory:{memory_key}"
         source = str((item or {}).get("source") or "")
         return f"{kind}:{source}" if source else kind
 
     def attention_score(self, item: dict, *, now: float = None,
                         action_readiness: float = 0.0,
-                        action_eligible: bool = False):
+                        action_eligible: bool = False,
+                        scope_satiety: float = 0.0):
         """Return consequence-shaped selection score plus its full receipt."""
         now = time.time() if now is None else float(now)
         base = self.queue._effective(item, now)
         source = self.source_key(item)
-        satiety = self.satiety.warmth(source, now)
-        rested = base / (1.0 + satiety)
+        source_satiety = self.satiety.warmth(source, now)
+        scope_satiety = max(0.0, min(1.0, float(scope_satiety)))
+        combined_satiety = 1.0 - (
+            (1.0 - source_satiety) * (1.0 - scope_satiety))
+        rested = base / (1.0 + combined_satiety)
         readiness = max(0.0, min(1.0, float(action_readiness))) \
             if action_eligible else 0.0
         action_contribution = rested * readiness
@@ -747,7 +812,9 @@ class IdleMetabolism:
         return score, {
             "base_salience": round(base, 6),
             "source_key": source,
-            "source_satiety": round(satiety, 6),
+            "source_satiety": round(source_satiety, 6),
+            "scope_satiety": round(scope_satiety, 6),
+            "combined_satiety": round(combined_satiety, 6),
             "rested_salience": round(rested, 6),
             "action_eligible": bool(action_eligible),
             "action_readiness": round(readiness, 6),

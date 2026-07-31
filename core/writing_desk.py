@@ -24,10 +24,11 @@ MAX_SEED_CHARS = AGENCY_TASK_BUDGET * 40
 MAX_REVISION_CHARS = AGENCY_TASK_BUDGET * 20
 MAX_READ_CHARS = AGENCY_TASK_BUDGET * 8
 MAX_LABEL_CHARS = AGENCY_SOURCE_BUDGET
-RESOLUTIONS = frozenset({"paused", "completed", "abandoned"})
+RESOLUTIONS = frozenset({"paused", "completed", "abandoned", "archived"})
 SEED_OWNERSHIPS = frozenset({"human_admitted",
                              "persona_chosen_research_handoff",
-                             "persona_chosen_conversation"})
+                             "persona_chosen_conversation",
+                             "persona_project_handoff"})
 ANCHOR_RE = re.compile(
     r"^(?:(?:doc_|arc_)[0-9a-f]{16}#[1-9][0-9]*|"
     r"res_[0-9a-f]{16}#1)$")
@@ -399,13 +400,26 @@ class WritingDesk:
             if self._action_for_run(run_id):
                 raise ValueError("this writing desk run already committed an action")
             project = self.project(project_id)
-            if project["state"] != "paused":
-                raise ValueError("only a paused writing project may resume")
+            if project["state"] not in {"paused", "archived"}:
+                raise ValueError(
+                    "only a paused or archived writing project may return")
             return self._append(self.index, {
                 "kind": "project_resumed", "project_id": project_id,
                 "run_id": run_id, "ownership": "persona_private",
+                "previous_state": project["state"],
                 "resumed_at": float(self.now_fn()),
             })
+
+    def archive_project(self, run_id: str, project_id: str) -> dict:
+        """Remove owned work from circulation without deleting its revisions."""
+        return self.resolve_project(run_id, project_id, "archived")
+
+    def restore_project(self, run_id: str, project_id: str) -> dict:
+        """Return an archived project to the open working set."""
+        project = self.project(project_id)
+        if project["state"] != "archived":
+            raise ValueError("only an archived writing project may be restored")
+        return self.resume_project(run_id, project_id)
 
     def record_receipt(self, record: Mapping[str, Any]) -> dict:
         """Append content-free model/action accounting."""
@@ -415,6 +429,7 @@ class WritingDesk:
             "model_requests", "provider_http_attempts", "input_tokens",
             "output_tokens", "total_tokens", "estimated_cost_usd",
             "readiness", "affinity", "source_satiety", "desk_satiety",
+            "movement_count", "work_envelope",
             "created_at",
         }
         value = {key: item for key, item in dict(record or {}).items()
@@ -432,9 +447,15 @@ class WritingDesk:
             "receipts": self.receipt_records(limit=30),
             "policy": {
                 "inspect": "admitted seeds, owned projects, admitted anchors",
-                "create": "one append-only project action per field win",
+                "create": (
+                    "resource-shaped append-only movement sequence per field "
+                    "win"),
+                "fixed_movement_quota": False,
+                "archive": "owner-controlled recoverable removal from circulation",
+                "restore": "owner-controlled return to the working set",
+                "human_grant_required": False,
                 "overwrite": False,
-                "delete": False,
+                "irreversible_delete": False,
                 "publish": False,
                 "message": False,
                 "external_effects": False,

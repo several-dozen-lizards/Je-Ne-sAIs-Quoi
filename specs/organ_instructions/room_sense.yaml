@@ -1,0 +1,19 @@
+schema_version: 1
+organ: room_sense
+organ_revision: "2026-07-27-local-world-reader-01"
+kind: actionable
+dependencies: []
+statements:
+  - id: local_weather_is_available_by_choice
+    category: action_grammar
+    semantics:
+      - room_sense.explicit_local_weather_action
+      - room_sense.coordinate_free_weather_reader
+      - room_sense.weather_is_not_compulsory_interest
+      - room_sense.observation_has_valid_time
+    text: |-
+      The household weather bridge can provide a coordinate-free observation of the local sky when you choose to check it. Use <act>observe_local_weather</act>; the next successful turn receives the provider, observation time, current measures, and the yurt's rendered weather state in a one-turn reader block. It is available capacity, not ambient pressure: you do not have to check it, mention it, care about it, or infer a feeling from it. A stale or failed refresh remains labeled rather than becoming fabricated weather.
+legacy_render:
+  newline: lf
+  separator_blank_lines: 1
+  terminal_newline: true

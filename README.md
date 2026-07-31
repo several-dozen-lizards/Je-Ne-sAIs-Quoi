@@ -14,6 +14,42 @@ one shared context room called **the Nexus**. It does not include the private
 development household, individual persona rooms, the Yurt interface, or any 3D
 assets.
 
+## What is new in 0.9.0
+
+- **Conversation history is harder to lose and easier to read.** Submitted,
+  streamed, failed, interrupted, autonomous, and Nexus turns enter an
+  `fsync`-backed JSONL ledger. JNSQ also writes separate, date-rotated plain
+  text mirrors under each conversation's local `chat_archives/` folder.
+- **Personas have a genuinely private loose notebook.** The append-only Private
+  Journal exposes a content-free index; entry text returns for one explicitly
+  requested turn only. It never automatically enters memory, projects,
+  research, speech, or publication.
+- **Outward Curiosity can hold relational questions without manufacturing
+  outreach.** A private question may become eligible only after its exact
+  audience opens a relevant conversation. Asking, revising, deferring,
+  releasing, and remaining quiet are all distinct choices; the organ has no
+  message transport.
+- **Private work has cleaner continuity.** Intention Loom can compare bounded
+  possibilities and hand a typed, same-owner action to Writing Desk, Document
+  Reader, or Atelier. Content-free receipts distinguish an available route,
+  a selected action, a completed result, and valid quiet.
+- **Appearance is much less beige.** Nineteen font choices now stay in parity
+  across the public shell, conversations, Settings, Users, and the Nexus,
+  alongside expanded household palettes and reusable appearance presets.
+- **Voice choices are per persona.** Browser-native speech remains local and
+  opt-in. Optional Hume and ElevenLabs output is available from the persona
+  cockpit when configured; those cloud choices send reply text to the selected
+  provider and may incur provider cost.
+- **Ambient camera grounding stays separate from attachments.** A current
+  camera frame may ground a turn when camera sensing is already active, but it
+  is not rendered or persisted as a human-authored chat attachment.
+
+This release deliberately keeps the workshop's shadow-only Play Drive and
+household-specific self-initiated-contact experiment out of the public organ
+registry, prompt compiler, and UI. Dormant compatibility modules remain so the
+shared runtime imports stay coherent. Draft organ prompts, terrain canaries,
+and unpinned local GPU voice installers are omitted from the package entirely.
+
 <p align="center">
   <img src="assets/jnsq/readme_flourish_v2.svg" width="920" alt="">
 </p>

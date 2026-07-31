@@ -120,6 +120,32 @@ def _organ_path(model: str, organ: str) -> str:
     return os.path.join(SP_DIR, "organs", m, f"{o}.txt")
 
 
+def _purpose_path(model: str, purpose: str) -> str:
+    m, p = (model or "").strip(), (purpose or "").strip()
+    if not _MODEL_RE.match(m):
+        raise ValueError(f"model name must be a lowercase slug (got '{model}')")
+    if not _MODEL_RE.match(p):
+        raise ValueError(f"purpose must be a lowercase slug (got '{purpose}')")
+    return os.path.join(SP_DIR, "purposes", m, f"{p}.txt")
+
+
+def load_purpose(model: str, purpose: str, family: str = None) -> str:
+    """Resolve an operational frame used only for one routed purpose."""
+    try:
+        own = _read(_purpose_path(model, purpose))
+    except ValueError:
+        own = None
+    if own is not None:
+        return own
+    if family:
+        fam = _read(os.path.join(
+            SP_DIR, "purposes", f"_family_{family}", f"{purpose}.txt"))
+        if fam is not None:
+            return fam
+    return _read(os.path.join(
+        SP_DIR, "purposes", "_default", f"{purpose}.txt")) or ""
+
+
 def load_organ(model: str, organ: str, family: str = None) -> str:
     """Resolve one organ's fragment for <model>: model -> family ->
     default -> empty. Empty = 'this organ adds nothing on this model'."""
@@ -154,7 +180,7 @@ def load_organ(model: str, organ: str, family: str = None) -> str:
     return ""
 
 
-def compose(model: str, family: str, enabled) -> str:
+def compose(model: str, family: str, enabled, *, purpose: str = None) -> str:
     """The full system prompt a persona carries THIS turn: the base
     (model/family/default) then the fragment of every ENABLED organ that
     has one, in REGISTRY order (deterministic, not enabled-set order).
@@ -165,6 +191,10 @@ def compose(model: str, family: str, enabled) -> str:
     base = load(model, family)
     if base.strip():
         parts.append(base)
+    if purpose:
+        frame = load_purpose(model, purpose, family)
+        if frame.strip():
+            parts.append(frame)
     en = set(enabled or ())
     for oid in REGISTRY:  # registry order = stable composition
         if oid in en:

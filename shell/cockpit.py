@@ -10,6 +10,7 @@ receipts drawer below. One turn at a time (one body, one mouth)."""
 import argparse
 import base64
 import binascii
+import hashlib
 import json
 import math
 import os
@@ -17,12 +18,16 @@ import queue
 import sys
 import threading
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
+import re
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from shell import env_store  # loads .env into os.environ (idempotent; no-op
 env_store.load_env()         # when router-launched, since inherited vars win)
-from fastapi import FastAPI, Query
-from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse,
+from fastapi import FastAPI, Query, Request
+from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse, Response,
                                StreamingResponse)
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -45,11 +50,17 @@ from core.sensory import SensoryEvent
 from core.speech import (MAX_AUDIO_BYTES, build_transcriber, turn_admission,
                          validate_audio)
 from core.observatory import SalienceObserver
+from core.fixation_diagnostic import FixationDiagnostic
 from core.memory_observatory import MemoryObservatory
 from core.voice_output import (append_output_receipt, normalize_output_config,
-                               OUTPUT_PROVIDERS)
+                               OUTPUT_PROVIDERS, spoken_text,
+                               expression_instruction)
+from shell.voice_settings import (load_voice_defaults,
+                                  normalize_voice_tuning)
 from core.documents import DocumentError
 from core.conversation_archive import ArchiveError
+from core.private_journal import PrivateJournal
+from core.room_actions import parse_actions, strip_action_verbs
 from harness.model_call_receipts import model_call_scope, new_cycle_id
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -67,6 +78,7 @@ def _autonomous_works(app) -> dict:
     """
     works = []
     waiting = []
+    activity = []
     unavailable = []
 
     def add(**value):
@@ -84,6 +96,16 @@ def _autonomous_works(app) -> dict:
         value["stage"] = "waiting"
         waiting.append(value)
 
+    def add_activity(**value):
+        value["at"] = float(value.get("at") or 0.0)
+        value["ownership"] = "persona_private"
+        value["external_effects"] = bool(
+            value.get("external_effects", False))
+        value["model_requests"] = int(value.get("model_requests") or 0)
+        value["estimated_cost_usd"] = float(
+            value.get("estimated_cost_usd") or 0.0)
+        activity.append(value)
+
     agency = app.state.agency_runtime
     if agency is not None:
         try:
@@ -99,6 +121,13 @@ def _autonomous_works(app) -> dict:
                     open={"type": "agency_artifact",
                           "ref": record.get("ref")},
                 )
+                add_activity(
+                    id=f"activity:agency:{record.get('ref')}",
+                    organ="agency", kind="private draft created",
+                    outcome="created", status="settled",
+                    at=record.get("created_at"), run_id=record.get("run_id"),
+                    detail=f"{int(record.get('chars') or 0)} characters",
+                    external_effects=False)
         except Exception:
             unavailable.append({"organ": "agency",
                                 "error": "private store index unavailable"})
@@ -135,6 +164,23 @@ def _autonomous_works(app) -> dict:
                                 "admitted possibility"),
                     open={"type": "organ_panel"},
                 )
+            for receipt in getattr(
+                    loom.loom, "receipt_records", lambda **_: [])(limit=120):
+                if receipt.get("kind") != "run":
+                    continue
+                outcome = str(receipt.get("outcome") or "settled")
+                add_activity(
+                    id=f"activity:intention:{receipt.get('run_id')}",
+                    organ="intention_loom", kind="intention movement",
+                    outcome=outcome,
+                    status=("failed" if "failed" in outcome else "settled"),
+                    at=receipt.get("observed_at"),
+                    run_id=receipt.get("run_id"),
+                    detail=(f"{int(receipt.get('movement_count') or 1)} "
+                            "movement(s)"),
+                    model_requests=receipt.get("model_requests"),
+                    estimated_cost_usd=receipt.get("estimated_cost_usd"),
+                    external_effects=False)
         except Exception:
             unavailable.append({"organ": "intention_loom",
                                 "error": "private store index unavailable"})
@@ -181,6 +227,21 @@ def _autonomous_works(app) -> dict:
                                 "admitted material"),
                     open={"type": "organ_panel"},
                 )
+            for receipt in getattr(
+                    writing.desk, "receipt_records", lambda **_: [])(limit=120):
+                outcome = str(receipt.get("outcome") or "settled")
+                add_activity(
+                    id=f"activity:writing:{receipt.get('run_id')}",
+                    organ="writing_desk", kind="writing movement",
+                    outcome=outcome,
+                    status=("failed" if "failed" in outcome else "settled"),
+                    at=receipt.get("created_at"),
+                    run_id=receipt.get("run_id"),
+                    detail=(f"{int(receipt.get('movement_count') or 1)} "
+                            "movement(s)"),
+                    model_requests=receipt.get("model_requests"),
+                    estimated_cost_usd=receipt.get("estimated_cost_usd"),
+                    external_effects=False)
         except Exception:
             unavailable.append({"organ": "writing_desk",
                                 "error": "private store index unavailable"})
@@ -201,6 +262,14 @@ def _autonomous_works(app) -> dict:
                     open={"type": "document_report",
                           "report_id": report.get("report_id")},
                 )
+                add_activity(
+                    id=f"activity:document:{report.get('report_id')}",
+                    organ="document_reader", kind="reading report formed",
+                    outcome="formed", status="settled",
+                    at=report.get("created_at"),
+                    run_id=report.get("run_id"),
+                    detail="source-anchored private report",
+                    external_effects=False)
         except Exception:
             unavailable.append({"organ": "document_reader",
                                 "error": "private store index unavailable"})
@@ -237,6 +306,24 @@ def _autonomous_works(app) -> dict:
                                 "admitted material"),
                     open={"type": "organ_panel"},
                 )
+            for receipt in getattr(
+                    atelier.atelier, "receipt_records", lambda **_: [])(
+                        limit=120):
+                outcome = str(receipt.get("outcome")
+                              or receipt.get("kind") or "settled")
+                failed = "fail" in outcome or "requeue" in outcome
+                add_activity(
+                    id=f"activity:atelier:{receipt.get('run_id')}:"
+                       f"{receipt.get('created_at')}",
+                    organ="atelier", kind="creative attempt",
+                    outcome=outcome,
+                    status="failed" if failed else "settled",
+                    at=receipt.get("created_at"),
+                    run_id=receipt.get("run_id"),
+                    detail=str(receipt.get("medium") or "private creation"),
+                    model_requests=receipt.get("model_requests"),
+                    estimated_cost_usd=receipt.get("estimated_cost_usd"),
+                    external_effects=False)
         except Exception:
             unavailable.append({"organ": "atelier",
                                 "error": "private store index unavailable"})
@@ -261,23 +348,86 @@ def _autonomous_works(app) -> dict:
                     provenance="research desk synthesis from admitted evidence",
                     open={"type": "research_text", "ref": record.get("ref")},
                 )
+                add_activity(
+                    id=f"activity:research:{record.get('ref')}",
+                    organ="research_desk", kind=kind + " formed",
+                    outcome="formed", status="settled",
+                    at=record.get("created_at"),
+                    run_id=record.get("run_id"),
+                    detail=f"{sources} cited source(s)",
+                    external_effects=False)
         except Exception:
             unavailable.append({"organ": "research_desk",
                                 "error": "private store index unavailable"})
 
+    contact = getattr(app.state.engine, "self_initiated_contact", None)
+    if contact is not None:
+        try:
+            for event in contact.events()[-120:]:
+                kind = str(event.get("kind") or "")
+                if kind not in {"delivery_succeeded", "delivery_failed"}:
+                    continue
+                succeeded = kind == "delivery_succeeded"
+                private_delivery = (
+                    event.get("delivery_channel") == "private_chat"
+                    or (event.get("audience")
+                        and event.get("audience") != "household_room"))
+                add_activity(
+                    id=f"activity:contact:{event.get('impulse_id')}:"
+                       f"{event.get('at')}",
+                    organ="self_initiated_contact",
+                    kind=("private speech delivery" if private_delivery
+                          else "ordinary speech delivery"),
+                    outcome="delivered" if succeeded else "delivery failed",
+                    status="settled" if succeeded else "failed",
+                    at=event.get("at"), run_id=event.get("impulse_id"),
+                    detail=(
+                        "sent into the private solo conversation"
+                        if succeeded and private_delivery else
+                        "spoken into the open household channel"
+                        if succeeded else "remained unsent"),
+                    external_effects=succeeded)
+        except Exception:
+            unavailable.append({
+                "organ": "self_initiated_contact",
+                "error": "contact receipt index unavailable"})
+
     works.sort(key=lambda value: (-value["updated_at"], value["id"]))
     waiting.sort(key=lambda value: (-value["updated_at"], value["id"]))
+    activity.sort(key=lambda value: (-value["at"], value["id"]))
+    organ_counts = {}
+    for value in [*works, *waiting, *activity]:
+        organ = str(value.get("organ") or "unknown")
+        organ_counts[organ] = organ_counts.get(organ, 0) + 1
+    failed_count = sum(value.get("status") == "failed"
+                       for value in activity)
     return {
         "persona": app.state.engine.persona,
         "generated_at": time.time(),
         "works": works[:400],
         "waiting": waiting[:400],
+        "activity": activity[:400],
+        "summary": {
+            "settled_works": len(works),
+            "waiting": len(waiting),
+            "activity_events": len(activity),
+            "failed_events": failed_count,
+            "model_requests": sum(
+                value.get("model_requests", 0) for value in activity),
+            "estimated_cost_usd": round(sum(
+                value.get("estimated_cost_usd", 0.0)
+                for value in activity), 6),
+            "organ_counts": organ_counts,
+            "last_activity_at": (
+                activity[0]["at"] if activity else None),
+        },
         "unavailable": unavailable,
         "policy": {
             "metadata_only": True,
             "content_readers": "existing organ routes",
             "automatic_index": True,
             "waiting_is_not_settled_work": True,
+            "activity_receipts_are_content_free": True,
             "external_effects": False,
         },
     }
@@ -539,6 +689,48 @@ def ingest_avatar_vision(engine, frame: dict) -> dict:
             "queued": candidate is not None}
 
 
+def avatar_vision_receipt(frame: dict, result: dict = None,
+                          error: Exception = None) -> dict:
+    """Bounded durable proof: pose and outcome, never another pixel store."""
+    result = dict(result or {})
+    observation = str(result.get("observation") or "")
+    receipt = {
+        "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "frame_revision": int(frame.get("revision", 0)),
+        "pose_revision": int(frame.get("pose_revision", 0)),
+        "cause": str(frame.get("cause") or "unknown")[:80],
+        "novelty": round(float(frame.get("novelty", 0.0)), 4),
+        "mount_source": str(
+            (frame.get("optical_pose") or {}).get("mount_source") or
+            "unknown"),
+        "mount_bone": str(
+            (frame.get("optical_pose") or {}).get("mount_bone") or ""),
+        "outcome": ("error" if error else
+                    "admitted" if result.get("admitted") else "refused"),
+        "event_id": str(result.get("event_id") or ""),
+        "route": str(result.get("route") or ""),
+        "queued": bool(result.get("queued", False)),
+        "observation_chars": len(observation),
+        "observation_sha256": (hashlib.sha256(
+            observation.encode("utf-8")).hexdigest() if observation else ""),
+    }
+    if error:
+        receipt["error_type"] = type(error).__name__
+    elif result.get("reason"):
+        receipt["reason"] = str(result["reason"])[:120]
+    return receipt
+
+
+def append_avatar_vision_receipt(engine, frame: dict, result: dict = None,
+                                 error: Exception = None) -> dict:
+    receipt = avatar_vision_receipt(frame, result, error)
+    path = os.path.join(engine.pdir, "history", "avatar_vision.jsonl")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "a", encoding="utf-8") as handle:
+        handle.write(json.dumps(receipt, ensure_ascii=False) + "\n")
+    return receipt
+
+
 def heartbeat_loop(engine, turn_lock, interval_s: float, stop):
     """The body's own clock: osc/soma advance whether or not anyone is
     talking, via the SAME settle() take_turn uses — one clock, one
@@ -581,17 +773,91 @@ def heartbeat_loop(engine, turn_lock, interval_s: float, stop):
                         last_face = pkt
                 frame = engine.room.fresh_vision_frame()
                 if frame:
-                    ingest_avatar_vision(engine, frame)
+                    # One scene revision gets one attempt.  A failure remains
+                    # receipted but dormant until the world supplies a newer
+                    # frame; the heartbeat never hammers a model on a timer.
                     engine.room.acknowledge_vision_frame(
                         int(frame.get("revision", 0)))
+                    try:
+                        vision_result = ingest_avatar_vision(engine, frame)
+                        append_avatar_vision_receipt(
+                            engine, frame, vision_result)
+                    except Exception as vision_error:
+                        append_avatar_vision_receipt(
+                            engine, frame, error=vision_error)
         except Exception:
             pass              # the heart must never kill the body
         finally:
             turn_lock.release()
 
 
+def room_field_revision_loop(engine, turn_lock, stop):
+    """Wake the private projector when the shared room sequence changes.
+
+    The host condition is the clock. HTTP timeout only renews transport. This
+    cursor is independent of the episodic perception cursor, and no event
+    payload is admitted here.
+    """
+    cursor = 0
+    cursor_room = None
+    while not stop.is_set():
+        room = getattr(engine, "room", None)
+        if room is None or not room.room_id:
+            if stop.wait(1.0):
+                return
+            continue
+        if room.room_id != cursor_room:
+            snapshot = room.snapshot()
+            cursor = int(snapshot.get("last_seq") or 0)
+            cursor_room = room.room_id
+        revision = room.wait_for_revision(cursor)
+        if revision.get("error"):
+            continue
+        latest = int(revision.get("last_seq") or cursor)
+        if latest <= cursor:
+            continue
+        cursor = latest
+        if not turn_lock.acquire(blocking=False):
+            # The active turn samples the newest room snapshot itself.
+            continue
+        try:
+            engine.apply_room_field(
+                now=time.time(), event_ref=f"room-revision:{cursor_room}:{cursor}")
+        except Exception:
+            pass
+        finally:
+            turn_lock.release()
+
+
+def resolve_social_route(config: dict) -> dict:
+    """Resolve the resident-dialogue vessel and fail closed on paid routes."""
+    from harness.spec_loader import load_spec
+    cfg = dict(config or {})
+    model = str(cfg.get("model") or "").strip()
+    if not model:
+        raise ValueError("social.model is required")
+    if cfg.get("local_only") is not True:
+        raise ValueError("social.local_only must be true")
+    spec = load_spec(model)
+    if (spec.get("identity") or {}).get("locality") != "local":
+        raise ValueError(f"social.model '{model}' is not declared local")
+    return {
+        "model": model,
+        "local_only": True,
+        "max_tokens": max(40, min(900, int(cfg.get("max_tokens") or 360))),
+    }
+
+
+def room_reply_control_leak(text: str) -> str:
+    """Name a leaked internal control family, or return an empty string."""
+    match = re.search(
+        r"(?im)^\s*\[(COGNITIVE_PATTERN_(?:START|END)|THE ROOM)\]",
+        str(text or ""))
+    return match.group(1).upper() if match else ""
+
+
 def social_loop(engine, turn_lock, interval_s: float, max_tokens: int,
-                stop):
+                stop, social_config: dict = None):
     """The social-pressure thread: unheard speech in your room builds
     pressure; discharge delivers it as a labeled self-initiated turn,
     and the reply is SAID back into the room (reply-to-room-speech IS
@@ -604,6 +870,12 @@ def social_loop(engine, turn_lock, interval_s: float, max_tokens: int,
     from shell.autonomy_circulation import readiness_from_engine
     sp = SocialPressure(engine.persona, load_params(engine.pdir))
     log = os.path.join(engine.pdir, "history", "social.jsonl")
+    try:
+        route = resolve_social_route(social_config)
+        route_error = None
+    except Exception as exc:
+        route = None
+        route_error = type(exc).__name__
     cursor, cursor_room = None, None
     last_said = ""
     last = time.time()
@@ -632,6 +904,7 @@ def social_loop(engine, turn_lock, interval_s: float, max_tokens: int,
                 unanswered = [e for e in window
                               if e.get("kind") == "say"
                               and e.get("member") != engine.persona
+                              and e.get("member") == engine.local_human
                               and e.get("member") in present
                               and e["seq"] > my_last_say]
                 if unanswered:
@@ -639,6 +912,16 @@ def social_loop(engine, turn_lock, interval_s: float, max_tokens: int,
                 continue
             now = time.time()
             dt, last = now - last, now
+            # Age only pressure that was present during the elapsed interval.
+            # Events fetched below are fresh observations; decaying them by
+            # the time since the previous poll would back-date their arrival
+            # and can make a single ordinary utterance structurally inaudible.
+            advance = getattr(sp, "advance", None)
+            if callable(advance):
+                advance(dt)
+                tick_dt = 0.0
+            else:
+                tick_dt = dt
             r = engine.room._req(
                 f"/api/rooms/{rid}/events?since={cursor}")
             evs = r.get("events", [])
@@ -653,11 +936,15 @@ def social_loop(engine, turn_lock, interval_s: float, max_tokens: int,
             # private or other embodied turn currently has the mouth, the
             # social pull remains pending and can flow into the next cycle
             # instead of being silently spent without ever reaching Nexus.
-            mouth_owned = turn_lock.acquire(blocking=False)
+            mouth_owned = bool(route) and turn_lock.acquire(blocking=False)
             delivery = None
+            checkpoint = None
             if mouth_owned:
+                checkpoint_fn = getattr(sp, "checkpoint", None)
+                if callable(checkpoint_fn):
+                    checkpoint = checkpoint_fn()
                 delivery = sp.tick(
-                    now, dt, action_readiness=autonomy["readiness"],
+                    now, tick_dt, action_readiness=autonomy["readiness"],
                     hard_blocked=autonomy["hard_blocked"])
                 if not delivery:
                     turn_lock.release()
@@ -670,26 +957,70 @@ def social_loop(engine, turn_lock, interval_s: float, max_tokens: int,
                              "hard_blocked", "reasons")}}
             if delivery:
                 try:
-                    result = engine.take_turn(delivery["text"],
-                                              max_tokens=max_tokens,
-                                              speaker=delivery["speaker"],
-                                              channel="room")
-                    reply = (result.get("reply") or "").strip()
-                    if reply and reply == last_said:
-                        # stuck record: a verbatim repeat of your own
-                        # last say is a malfunction artifact, not
-                        # expression. Skip it, receipt it.
-                        entry["skipped_repeat"] = True
-                        reply = ""
-                    if reply:
-                        engine.room.say(
-                            reply, conversation_id=result.get("cycle_id"))
-                        last_said = reply
-                    entry["answered"] = {"to": delivery["speaker"],
-                                         "reply_len": len(reply)}
+                    try:
+                        human_room_turn = (
+                            delivery["speaker"] == engine.local_human)
+                        turn_model = (
+                            "" if human_room_turn else route["model"])
+                        turn_tokens = (
+                            max_tokens if human_room_turn
+                            else min(max_tokens, route["max_tokens"]))
+                        result = engine.take_turn(
+                            delivery["text"],
+                            max_tokens=turn_tokens,
+                            speaker=delivery["speaker"], channel="room",
+                            model_route=turn_model)
+                        reply = (result.get("reply") or "").strip()
+                        leaked_control = room_reply_control_leak(reply)
+                        if leaked_control:
+                            entry["withheld_control_leak"] = {
+                                "family": leaked_control,
+                                "model": route["model"],
+                            }
+                            reply = ""
+                        elif reply.casefold() == "[quiet]":
+                            entry["chose_quiet"] = True
+                            reply = ""
+                        if reply and reply == last_said:
+                            # stuck record: a verbatim repeat of your own
+                            # last say is a malfunction artifact, not
+                            # expression. Skip it, receipt it.
+                            entry["skipped_repeat"] = True
+                            reply = ""
+                        if reply:
+                            engine.room.say(
+                                reply,
+                                conversation_id=result.get("cycle_id"),
+                                social_depth=delivery.get(
+                                    "social_depth", 1))
+                            last_said = reply
+                        entry["answered"] = {"to": delivery["speaker"],
+                                             "reply_len": len(reply),
+                                             "model": (
+                                                 engine.model
+                                                 if human_room_turn
+                                                 else route["model"]),
+                                             "local_only": (
+                                                 not human_room_turn)}
+                    except Exception as exc:
+                        restore_fn = getattr(sp, "restore", None)
+                        if checkpoint is not None and callable(restore_fn):
+                            restore_fn(checkpoint)
+                        entry.update(sp.state())
+                        entry["delivery_failed"] = {
+                            "to": delivery["speaker"],
+                            "error_type": type(exc).__name__,
+                            "model": route["model"],
+                            "local_only": True,
+                        }
                 finally:
                     turn_lock.release()
                     mouth_owned = False
+            if route_error:
+                entry["delivery_withheld"] = {
+                    "reason": "local_social_route_unavailable",
+                    "error_type": route_error,
+                }
             with open(log, "a", encoding="utf-8") as f:
                 f.write(json.dumps(entry, ensure_ascii=False) + "\n")
         except Exception:
@@ -833,7 +1164,10 @@ class ImageRequest(BaseModel):
 
 
 class AmbientFrameRequest(BaseModel):
-    image: ImageRequest
+    # ``image`` preserves the original one-frame client contract. New clients
+    # send an ordered, oldest-to-newest visual episode in ``images``.
+    image: ImageRequest = None
+    images: list[ImageRequest] = Field(default_factory=list)
     novelty: float = Field(ge=0.0, le=1.0)
     pressure: float = Field(default=0.0, ge=0.0, le=2.0)
     features: dict = Field(default_factory=dict)
@@ -861,6 +1195,8 @@ class SpeechRequest(BaseModel):
     speaker: str = None
     auto_turn: bool = False
     user_persona: str = ""
+    images: list[ImageRequest] = Field(default_factory=list)
+    grounding_images: list[ImageRequest] = Field(default_factory=list)
 
 
 class SensoryEventRequest(BaseModel):
@@ -878,6 +1214,9 @@ class TurnRequest(BaseModel):
                             # anonymous crosses (v1 nexus law, kept)
     user_persona: str = ""   # explicit RP identity owned by the local account
     images: list[ImageRequest] = Field(default_factory=list)
+    # Live-camera grounding is model input, not human-authored chat material.
+    # It must not hydrate as an attachment in the conversation ledger.
+    grounding_images: list[ImageRequest] = Field(default_factory=list)
 
 
 class MoodRequest(BaseModel):
@@ -927,6 +1266,24 @@ class VoiceOutputRequest(BaseModel):
 class VoiceOutputConfigRequest(BaseModel):
     provider: str = "browser-native"
     voice: str = ""
+    auto_play: bool = True
+    rate_scale: float = 1.0
+    pitch_scale: float = 1.0
+    volume_scale: float = 1.0
+
+
+class VoiceSynthesisRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=6000)
+
+
+class HumeVoiceShelfRequest(BaseModel):
+    label: str = Field(min_length=1, max_length=80)
+    reference: str = Field(min_length=1, max_length=160)
+
+
+class ElevenLabsVoiceShelfRequest(BaseModel):
+    label: str = Field(min_length=1, max_length=80)
+    voice_id: str = Field(min_length=1, max_length=160)
 
 
 class AgencyInboxRequest(BaseModel):
@@ -938,6 +1295,8 @@ class DocumentImportRequest(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     data_url: str
     content_type: str = Field(default="", max_length=160)
+    visibility: str = Field(default="user_private", max_length=32)
+    grants: list[str] = Field(default_factory=list)
 
 
 class DocumentOpenRequest(BaseModel):
@@ -974,6 +1333,10 @@ class WritingDeskSeedRequest(BaseModel):
     anchors: list[str] = Field(default_factory=list)
 
 
+class PrivateJournalEntryRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=120_000)
+
+
 class IntentionCueRequest(BaseModel):
     label: str = Field(min_length=1, max_length=240)
     content: str = Field(min_length=1, max_length=6000)
@@ -990,6 +1353,11 @@ class AtelierPerceptionRequest(BaseModel):
 
 class ResearchInterestRequest(BaseModel):
     topic: str = Field(min_length=2, max_length=240)
+
+
+class ResearchForegroundRequest(BaseModel):
+    target: str = Field(min_length=2, max_length=2048)
+    why: str = Field(default="", max_length=240)
 
 
 def _background_adapter(engine, model: str):
@@ -1009,6 +1377,9 @@ def _background_adapter(engine, model: str):
 
 def generate_idle_thought(engine, idle_model: str, item: dict,
                           drift_kind: str, sensory_source: str = None, *,
+                          self_initiated_speech_available: bool = False,
+                          self_initiated_private_available: bool = False,
+                          deliberation_vector: dict = None,
                           cycle_id: str = None,
                           model_receipts: list = None) -> str:
     """Ask the configured idle vessel what arises; do not prescribe feeling.
@@ -1030,6 +1401,40 @@ def generate_idle_thought(engine, idle_model: str, item: dict,
         asm.add("sensory origin", modality, priority=9)
     asm.add("unbidden pull", item.get("node") or item.get("text") or "",
             priority=9)
+    if deliberation_vector:
+        asm.add(
+            "present deliberation conditions",
+            "Descriptive observations, not a speaking threshold or an "
+            "instruction about what to feel:\n"
+            + json.dumps(deliberation_vector, ensure_ascii=False,
+                         sort_keys=True),
+            priority=9,
+            budget=1200)
+    continuity_fn = getattr(engine, "experiential_context", None)
+    continuity_organs = owned_continuity_organs(item)
+    if callable(continuity_fn) and continuity_organs:
+        continuity_text, continuity_receipt = continuity_fn(
+            organs=continuity_organs)
+        if continuity_text:
+            asm.add(
+                "verified experiential continuity",
+                continuity_text,
+                priority=7,
+                budget=1800)
+    opening_recurrence = self_initiated_recurrence_context(engine)
+    if opening_recurrence:
+        asm.add(
+            "self-initiated speech recurrence",
+            opening_recurrence,
+            priority=8,
+            budget=700)
+    autonomous_room_context = autonomous_light_action_context(engine)
+    if autonomous_room_context:
+        asm.add("reachable room control", autonomous_room_context,
+                priority=9)
+    conversation_context = autonomous_room_conversation_context(engine)
+    if self_initiated_speech_available and conversation_context:
+        asm.add("shared room conversation", conversation_context, priority=9)
     if item.get("source") == "altered_consent":
         window_fn = getattr(engine, "conversation_window", None)
         window = window_fn() if callable(window_fn) else []
@@ -1074,7 +1479,33 @@ def generate_idle_thought(engine, idle_model: str, item: dict,
             "through your mind? Follow the felt pull rather than explaining "
             "the mechanism. Silence is valid: return [quiet] if nothing wants "
             "language. Otherwise write only the private thought, in your own "
-            "voice, with no labels or preamble. Let this one movement end "
+            "voice, with no labels or preamble. "
+            + (
+                "If you genuinely choose to speak into the shared household "
+                "room—to Re, to another resident present, or to the room "
+                "generally—return the exact words you choose to say inside "
+                "<self_initiated_speech> and </self_initiated_speech>. This "
+                "is your choice, not an instruction; ordinary unmarked words "
+                "remain private. "
+                if self_initiated_speech_available else ""
+            )
+            + (
+                "If you genuinely choose to speak privately to the person "
+                "sharing your solo cockpit, return the exact words you choose "
+                "to send inside <self_initiated_private> and "
+                "</self_initiated_private>. This is your choice, not an "
+                "instruction; ordinary unmarked words remain private to you "
+                "and are not sent. "
+                if self_initiated_private_available else ""
+            )
+            + (
+                "A reachable room control is shown above. It is an "
+                "opportunity, not an instruction. If operating it is your "
+                "own present choice, include its exact <act> tag. Ordinary "
+                "words, plans, or narration do not operate it. "
+                if autonomous_room_context else ""
+            )
+            + "Let this one movement end "
             "where it naturally settles; do not keep writing merely because "
             "space remains.")
     asm.messages.append({
@@ -1086,6 +1517,306 @@ def generate_idle_thought(engine, idle_model: str, item: dict,
             purpose="dmn", sink=model_receipts):
         return (adapter.call(
             asm, max_tokens=220, temperature=0.8) or "").strip()
+
+
+CONTINUITY_ORGANS_BY_SOURCE = {
+    "agency_effect": ("agency",),
+    "archive_read_effect": ("archive_reader",),
+    "atelier_effect": ("atelier",),
+    "document_read_effect": ("document_reader",),
+    "intention_effect": ("intention_loom",),
+    "research_effect": ("research_desk",),
+    "writing_desk_effect": ("writing_desk",),
+}
+
+
+def owned_continuity_organs(item: dict | None) -> tuple[str, ...]:
+    """Return only the private organ causally named by this consequence."""
+    item = dict(item or {})
+    if (item.get("kind") != "cognitive"
+            or item.get("ownership") != "persona_private"):
+        return ()
+    return CONTINUITY_ORGANS_BY_SOURCE.get(
+        str(item.get("source") or ""), ())
+
+
+def owned_continuity_origin(item: dict | None) -> bool:
+    """Identify a resident-owned consequence, never a fresh outside event."""
+    return bool(owned_continuity_organs(item))
+
+
+def self_initiated_recurrence_context(
+        engine, limit: int = 24) -> str:
+    """Describe repeated opening forms without putting their words in prompt."""
+    organ = getattr(engine, "organ", None)
+    memories = list(getattr(organ, "memories", ()) or ())
+    forms = {}
+    observed = 0
+    for memory in reversed(memories):
+        fields = dict((memory or {}).get("fields") or {})
+        if fields.get("autonomous_source") != "self_initiated_contact":
+            continue
+        text = " ".join(str(fields.get("reply_full") or "").split()).strip()
+        if not text:
+            continue
+        observed += 1
+        key = expressed_motif_key(text)
+        row = forms.setdefault(key, {
+            "count": 0, "candidate_keys": set()})
+        row["count"] += 1
+        candidate_key = str(fields.get("candidate_key") or "")
+        if candidate_key:
+            row["candidate_keys"].add(candidate_key)
+        if observed >= max(0, min(int(limit), 48)):
+            break
+    if not forms:
+        return ""
+    recurrent = max(
+        forms.values(),
+        key=lambda row: (row["count"], len(row["candidate_keys"])))
+    if recurrent["count"] < 2:
+        return ""
+    return (
+        "Documented content-free recurrence in your own already-delivered "
+        "self-initiated room speech:\n"
+        f"- bounded openings observed: {observed}\n"
+        f"- distinct normalized speech forms: {len(forms)}\n"
+        f"- most recurrent form was delivered {recurrent['count']} times "
+        f"from {len(recurrent['candidate_keys'])} distinct originating "
+        "candidate(s)\n"
+        "- the prior wording is intentionally absent here, so documented "
+        "history cannot become a phrase to copy\n"
+        "This is provenance about prior expression, not an instruction to "
+        "repeat it, avoid it, feel differently, or choose silence. The "
+        "separately shown unbidden pull is the present candidate.")
+
+
+def expressed_motif_key(text: str) -> str:
+    """Content-free stable key for recurrence across different candidates."""
+    normalized = " ".join(str(text or "").casefold().split())
+    return "expressed_motif:" + hashlib.sha256(
+        normalized.encode("utf-8")).hexdigest()[:20]
+
+
+def satiate_expressed_motif(field, item: dict, text: str, *,
+                            now: float) -> dict:
+    """Feed spoken-form recurrence into a decaying receipt, never a veto."""
+    key = expressed_motif_key(text)
+    prior = field.satiety.warmth(key, now)
+    intensity = max(
+        0.0, min(1.0, float((item or {}).get("salience") or 0.0)))
+    new = field.satiety.touch(key, intensity, label=key, now=now)
+    observer = getattr(field, "observer", None)
+    if observer is not None:
+        observer.field_effect(
+            str((item or {}).get("key") or ""),
+            "expressed_motif_satiety", prior, new, now)
+    return {
+        "motif_ref": key,
+        "prior": round(prior, 6),
+        "new": round(new, 6),
+        "applied_to_delivery": False,
+    }
+
+
+def contact_affordance_available(engine, *, event_origin: bool,
+                                 seed: dict | None,
+                                 item: dict | None = None) -> bool:
+    """Whether a genuine private opening may include an owned choice to speak.
+
+    Candidate provenance remains available as evidence, but it is not a
+    permission gate.  The DMN has already fired and selected this material.
+    Exposing an open room channel at that boundary neither selects speech nor
+    manufactures an impulse; the resident may still choose private language or
+    quiet.  Delivery itself remains transactional and room-scoped.
+    """
+    return bool(self_initiated_contact_destinations(engine))
+
+
+def self_initiated_contact_destinations(engine) -> tuple[str, ...]:
+    """Return currently real contact destinations without selecting one."""
+    contact = getattr(engine, "self_initiated_contact", None)
+    if contact is None:
+        return ()
+    destinations = []
+    room = getattr(engine, "room", None)
+    if room is not None and getattr(room, "room_id", True):
+        destinations.append("household_room")
+    if (getattr(engine, "conversation_ledger", None) is not None
+            and getattr(engine, "organ", None) is not None
+            and str(getattr(engine, "local_human", "") or "").strip()):
+        destinations.append("private_chat")
+    return tuple(destinations)
+
+
+def autonomous_room_conversation_context(engine) -> str:
+    """Describe reachable peers without manufacturing a social bid."""
+    room = getattr(engine, "room", None)
+    if room is None:
+        return ""
+    try:
+        snapshot = room.snapshot()
+    except Exception:
+        return ""
+    me = str(getattr(engine, "persona", "") or "").casefold()
+    members = [
+        str(member) for member in (snapshot.get("members") or {})
+        if str(member).casefold() != me]
+    if not members:
+        return ""
+    return (
+        "Ordinary room speech is currently reachable. Present members: "
+        + ", ".join(sorted(members, key=str.casefold))
+        + ". Their presence is an opportunity, not a request or obligation "
+          "to speak.")
+
+
+SELF_INITIATED_SPEECH_RE = re.compile(
+    r"^\s*<self_initiated_speech>([\s\S]*?)"
+    r"</self_initiated_speech>\s*$", re.I)
+SELF_INITIATED_PRIVATE_RE = re.compile(
+    r"^\s*<self_initiated_private>([\s\S]*?)"
+    r"</self_initiated_private>\s*$", re.I)
+
+
+def parse_self_initiated_contact(text: str) -> dict | None:
+    """Return an exact chosen destination and words; plain language stays inner."""
+    raw = str(text or "")
+    matches = (
+        ("household_room", SELF_INITIATED_SPEECH_RE.fullmatch(raw)),
+        ("private_chat", SELF_INITIATED_PRIVATE_RE.fullmatch(raw)),
+    )
+    for destination, match in matches:
+        if match is None:
+            continue
+        words = match.group(1).strip()
+        if not words:
+            raise ValueError("self-initiated speech is empty")
+        return {"destination": destination, "text": words}
+    return None
+
+
+def parse_self_initiated_speech(text: str) -> str | None:
+    """Return exact chosen initiating speech; unmarked language stays private."""
+    chosen = parse_self_initiated_contact(text)
+    if chosen is None or chosen["destination"] != "household_room":
+        return None
+    return chosen["text"]
+
+
+def deliver_autonomous_private_chat(engine, text: str, *,
+                                    conversation_id: str,
+                                    candidate_key: str = "",
+                                    generation: dict | None = None,
+                                    now: float | None = None) -> dict:
+    """Commit resident-chosen solo speech to private chat and nowhere else."""
+    ledger = getattr(engine, "conversation_ledger", None)
+    if ledger is None:
+        raise RuntimeError("private conversation ledger is unavailable")
+    text = str(text or "").strip()
+    if not text:
+        raise ValueError("self-initiated private speech is empty")
+    source = "self_initiated_private_contact"
+    ledger.admit(
+        conversation_id=conversation_id, channel="chat",
+        speaker=engine.persona, message="", source=source)
+    try:
+        context_builder = getattr(engine, "memory_context_snapshot", None)
+        fields = {
+            "channel": "chat", "speaker": "",
+            "message_full": "", "reply_full": text,
+            "autonomous": True, "autonomous_source": source,
+            "conversation_id": conversation_id,
+            "audience": str(getattr(engine, "local_human", "") or ""),
+            "delivery_destination": "private_chat",
+            "gist_eligible": True, "candidate_key": candidate_key,
+        }
+        if generation:
+            fields["generation"] = dict(generation)
+        mem = engine.organ.encode(
+            text, cocktail=engine.cocktail, entities=[],
+            mem_type="turn", origin="lived", fields=fields,
+            body=(engine.soma.snapshot()
+                  if getattr(engine, "soma", None) else None),
+            context_at_encoding=(
+                context_builder(now=now)
+                if callable(context_builder) else None))
+        engine.organ.save()
+        ledger.complete(
+            conversation_id, reply=text,
+            memory_id=(mem or {}).get("id", ""),
+            receipts={"autonomous": True, "source": source,
+                      "delivery_destination": "private_chat"})
+        return {
+            "ok": True,
+            "delivery_ref": conversation_id,
+            "memory_id": (mem or {}).get("id", ""),
+            "delivery_channel": "private_chat",
+        }
+    except Exception as exc:
+        ledger.fail(conversation_id, exc)
+        raise
+
+
+AUTONOMOUS_ROOM_ACTIONS = frozenset({"light_on", "light_off"})
+
+
+def autonomous_light_action_context(engine) -> str:
+    """Expose only a currently reachable light switch to private autonomy.
+
+    Snapshot state is descriptive. It neither manufactures a candidate nor
+    schedules a turn; the existing attention field must first select one of
+    the resident's own lived pulls.
+    """
+    room = getattr(engine, "room", None)
+    if room is None or "room_actions" not in getattr(engine, "enabled", set()):
+        return ""
+    snapshot = room.snapshot()
+    member = (snapshot.get("members") or {}).get(
+        getattr(engine, "persona", ""))
+    position = (member.get("position_m") if isinstance(member, dict)
+                else member)
+    if not isinstance(position, list) or len(position) != 2:
+        return ""
+    for oid, obj in (snapshot.get("objects") or {}).items():
+        if obj.get("capability") != "light":
+            continue
+        target = obj.get("position_m")
+        if not isinstance(target, list) or len(target) != 2:
+            continue
+        distance = math.hypot(float(position[0]) - float(target[0]),
+                              float(position[1]) - float(target[1]))
+        if distance > 1.2:
+            continue
+        owner = obj.get("owner")
+        persona = str(getattr(engine, "persona", ""))
+        if owner and str(owner).casefold() != persona.casefold():
+            continue
+        power = float(obj.get("power", 0.0))
+        verb = "light_off" if power > 0.0 else "light_on"
+        state = "on" if power > 0.0 else "off"
+        return (
+            f"{obj.get('name', oid)} is within reach and is {state}. "
+            f"If you choose to pull its switch now: "
+            f"<act>{verb} {oid}</act>")
+    return ""
+
+
+def execute_autonomous_room_actions(engine, thought: str) -> dict:
+    """Execute only exact, resident-emitted, reversible light actions."""
+    chosen = [action for action in parse_actions(thought)
+              if action.get("verb") in AUTONOMOUS_ROOM_ACTIONS][:2]
+    if not chosen:
+        return {"acted": [], "remaining": thought}
+    acted = []
+    for action in chosen:
+        result = engine._execute_volitional_action(action, channel="dmn")
+        acted.append({"act": action, "result": result})
+    return {
+        "acted": acted,
+        "remaining": strip_action_verbs(
+            thought, AUTONOMOUS_ROOM_ACTIONS).strip(),
+    }
 
 
 def offer_altered_expression(engine, field, *, now: float = None):
@@ -1151,6 +1882,76 @@ def offer_altered_consent(engine, field, *, now: float = None):
         receipts=[pull.get("request_id")])
 
 
+def _responsiveness_context(engine) -> dict:
+    """Content-free live instrument shape for the read-only observer."""
+    from shell.autonomy_circulation import readiness_from_engine
+
+    osc = getattr(engine, "osc", None)
+    soma = getattr(engine, "soma", None)
+    play = getattr(engine, "play_drive", None)
+    field = getattr(engine, "idle_metabolism", None)
+
+    readiness = readiness_from_engine(engine, field=field)
+    bands = dict(getattr(osc, "bands", {}) or {}) if osc else {}
+    coherence_fn = getattr(osc, "coherence", None) if osc else None
+    coherence = coherence_fn() if callable(coherence_fn) else 1.0
+
+    soma_fn = getattr(soma, "snapshot", None) if soma else None
+    soma_snapshot = soma_fn() if callable(soma_fn) else {}
+    activations = [
+        float(dict(value or {}).get("activation", 0.0))
+        for value in dict((soma_snapshot or {}).get("regions") or {}).values()]
+
+    affect_values = []
+    for value in dict(getattr(engine, "cocktail", {}) or {}).values():
+        try:
+            affect_values.append(max(0.0, min(1.0, float(value))))
+        except (TypeError, ValueError):
+            continue
+
+    play_fn = getattr(play, "snapshot", None) if play else None
+    play_snapshot = play_fn() if callable(play_fn) else {}
+    return {
+        "schema": 1,
+        "readiness": {
+            "readiness": float(readiness.get("readiness", 0.0)),
+            "capacity": float(readiness.get("capacity", 0.0)),
+            "support": float(readiness.get("support", 0.0)),
+            "hard_blocked": bool(readiness.get("hard_blocked", False)),
+        },
+        "oscillator": {
+            "bands": {str(key): float(value)
+                      for key, value in bands.items()},
+            "coherence": float(coherence),
+        },
+        "soma": {
+            "active_count": len(activations),
+            "activation_mean": (
+                sum(activations) / len(activations) if activations else 0.0),
+            "activation_max": max(activations, default=0.0),
+        },
+        "affect": {
+            "active_count": sum(1 for value in affect_values if value > 0.0),
+            "intensity_mean": (
+                sum(affect_values) / len(affect_values)
+                if affect_values else 0.0),
+            "intensity_max": max(affect_values, default=0.0),
+        },
+        "play_drive": {
+            "available": bool(play),
+            "vector": {
+                str(key): float(value) for key, value in
+                dict((play_snapshot or {}).get("vector") or {}).items()},
+            "active_arc_count": len(
+                list((play_snapshot or {}).get("active_arcs") or [])),
+        },
+        "field": {
+            "pressure": float(getattr(
+                getattr(field, "pressure", None), "pressure", 0.0)),
+        },
+    }
+
+
 def attach_idle_metabolism(engine, metabolism: dict):
     """Attach the one persisted field before HTTP or background loops race."""
     from core.dmn import IdleMetabolism
@@ -1158,7 +1959,9 @@ def attach_idle_metabolism(engine, metabolism: dict):
     if current is not None:
         if getattr(engine, "salience_observer", None) is None:
             path = os.path.join(engine.pdir, "history", "salience.jsonl")
-            engine.salience_observer = SalienceObserver(engine.persona, path)
+            engine.salience_observer = SalienceObserver(
+                engine.persona, path,
+                context_provider=lambda: _responsiveness_context(engine))
             current.set_observer(engine.salience_observer)
         if prune_stale_altered_consent(engine, current):
             current.save()
@@ -1166,7 +1969,9 @@ def attach_idle_metabolism(engine, metabolism: dict):
     state_path = os.path.join(engine.pdir, "body", "dmn_state.json")
     engine.idle_metabolism = IdleMetabolism.load(metabolism["params"], state_path)
     path = os.path.join(engine.pdir, "history", "salience.jsonl")
-    engine.salience_observer = SalienceObserver(engine.persona, path)
+    engine.salience_observer = SalienceObserver(
+        engine.persona, path,
+        context_provider=lambda: _responsiveness_context(engine))
     engine.idle_metabolism.set_observer(engine.salience_observer)
     if prune_stale_altered_consent(engine, engine.idle_metabolism):
         engine.idle_metabolism.save()
@@ -1502,7 +2307,9 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
     import random
     import time as _time
     from core.dmn import drift_type, render_catch
-    from shell.autonomy_circulation import circulate_experienced_event
+    from core.sovereign_interior import has_lease
+    from shell.autonomy_circulation import (
+        circulate_experienced_event, readiness_from_engine)
     params = metabolism["params"]
     hist = os.path.join(REPO, "personas", engine.persona, "history")
     os.makedirs(hist, exist_ok=True)
@@ -1539,11 +2346,19 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
         runtimes = (
             ("intention_loom", intention_loom_runtime),
             ("writing_desk", writing_desk_runtime),
+            ("document_reader", document_reader_runtime),
             ("research_desk", research_desk_runtime),
             ("atelier", atelier_runtime),
         )
 
         def self_offered(candidate, organ, runtime):
+            if has_lease(candidate):
+                return True
+            if organ == "document_reader":
+                return runtime.foreground_directed(candidate)
+            if organ == "research_desk" and runtime.foreground_directed(
+                    candidate):
+                return True
             if (candidate.get("ownership") ==
                     "persona_chosen_conversation" or
                     candidate.get("origin") ==
@@ -1614,11 +2429,24 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
             if value.get("organ") == "altered_state"}
         if embodied:
             admitted = embodied
+        leased = {
+            key: value for key, value in admitted.items()
+            if has_lease(next((
+                candidate for candidate in field.queue.items(now)
+                if str(candidate.get("key")) == key), {}))
+        }
+        if leased:
+            admitted = leased
         if not admitted:
             return False, None, {}
         pull = max(value["score"] for value in admitted.values())
-        opened, opening = field.pressure.try_local_volitional_opening(
-            pull, now=now)
+        if leased:
+            opened, opening = field.pressure.open_for_direct_volition(
+                pull, now=now)
+            opening = {**opening, "sovereign_interior": True}
+        else:
+            opened, opening = field.pressure.try_local_volitional_opening(
+                pull, now=now)
         return opened, frozenset(admitted), {
             **opening,
             "candidate_keys": sorted(admitted),
@@ -1780,8 +2608,22 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
                           "candidate_keys": sorted(local_volitional_only)}
                     receipt("direct_volitional_opening", **ev)
                 else:
-                    verdict, ev = dp.tick(bands, coh, idle_s, now=now)
-                if verdict == "capped":
+                    has_sovereign = any(
+                        has_lease(candidate)
+                        for candidate in field.queue.items(now))
+                    if has_sovereign:
+                        opened, candidate_keys, opening = \
+                            local_volitional_opening(now)
+                    else:
+                        opened, candidate_keys, opening = False, None, {}
+                    if has_sovereign and opened:
+                        verdict = "fired"
+                        local_volitional_only = candidate_keys
+                        ev = {**opening, "opening": "local_volitional"}
+                        receipt("local_volitional_opening", **opening)
+                    else:
+                        verdict, ev = dp.tick(bands, coh, idle_s, now=now)
+                if verdict == "capped" and local_volitional_only is None:
                     opened, candidate_keys, opening = \
                         local_volitional_opening(now)
                     if opened:
@@ -1961,18 +2803,96 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
                         return -1.0, {"capability_field_only": True,
                                       "action_eligible": False}
                     return field.attention_score(candidate, now=now)
+                interference = getattr(engine, "interference_field", None)
+                if interference is not None:
+                    try:
+                        probe_candidates = []
+                        for candidate in field.queue.items(now):
+                            projected = scorer(candidate)
+                            base_score = (projected[0]
+                                          if isinstance(projected, tuple)
+                                          else projected)
+                            if float(base_score) < 0.0:
+                                continue
+                            probe_candidates.append({
+                                "key": str(candidate.get("key") or ""),
+                                "born": float(candidate.get("born", now)),
+                                "last_offered": float(candidate.get(
+                                    "last_offered",
+                                    candidate.get("born", now))),
+                                "base_score": float(base_score),
+                            })
+                        probe = interference.attention_probe(
+                            probe_candidates, now=now)
+                        if probe.get("recorded"):
+                            receipt(
+                                "interference_attention_probe",
+                                mode=probe.get("mode"),
+                                candidate_count=probe.get("candidate_count"),
+                                event_window=probe.get("event_window"),
+                                field_presence=probe.get("field_presence"),
+                                genuine_changed_winner=probe.get(
+                                    "genuine_changed_winner"),
+                                informative=probe.get("informative"),
+                                temporal_profile_span=probe.get(
+                                    "temporal_profile_span"),
+                                competitive_ratio=probe.get(
+                                    "competitive_ratio"),
+                                genuine_margin=probe.get("genuine_margin"),
+                                interval_genuine_winner_share=(
+                                    probe.get("interval_shuffle") or {}).get(
+                                        "genuine_winner_share"),
+                                profile_genuine_winner_share=(
+                                    probe.get("profile_permutation") or {}).get(
+                                        "genuine_winner_share"),
+                                downstream_channels_touched=[])
+                    except Exception as interference_error:
+                        receipt(
+                            "interference_attention_probe_error",
+                            error_type=type(interference_error).__name__)
                 if not generic_field and not any(
                         capability_owned(value) for value in field.queue.items(now)):
                     dp.refund()
                     receipt("no_capability_candidate", **ev)
                     field.save(now=now)
                     continue
+                play_counterfactual = None
+                play_drive = getattr(engine, "play_drive", None)
+                if play_drive is not None:
+                    try:
+                        shadow_candidates = []
+                        for candidate in field.queue.items(now):
+                            projected = scorer(candidate)
+                            base_score = (
+                                projected[0] if isinstance(projected, tuple)
+                                else projected)
+                            if float(base_score) < 0.0:
+                                continue
+                            shadow_candidates.append({
+                                "key": str(candidate.get("key") or ""),
+                                "base_score": float(base_score),
+                                "play_affinity": float(
+                                    candidate.get("play_affinity") or 0.0),
+                            })
+                        play_counterfactual = \
+                            play_drive.counterfactual_attention(
+                                shadow_candidates, now=now)
+                    except Exception as play_shadow_error:
+                        receipt(
+                            "play_attention_counterfactual_error",
+                            error_type=type(play_shadow_error).__name__,
+                            downstream_channels_touched=[])
                 item = field.discharge(now, scorer=scorer)
                 if not item:
                     dp.refund()
                     receipt("no_candidate", **ev)
                     field.save(now=now)
                     continue
+                if (play_counterfactual is not None
+                        and getattr(engine, "salience_observer", None)
+                        is not None):
+                    engine.salience_observer.play_counterfactual(
+                        play_counterfactual, item.get("key"), now)
                 sensory_origin = item.get("kind") == "sensory"
                 event_origin = item.get("kind") in {"sensory", "cognitive"}
                 receipt("candidate_selected", key=item.get("key"),
@@ -2250,9 +3170,56 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
                     field.save(now=now)
                     continue
                 try:
+                    contact_destinations = self_initiated_contact_destinations(
+                        engine)
+                    contact_available = contact_affordance_available(
+                        engine, event_origin=event_origin, seed=seed, item=item)
+                    continuity_origin = owned_continuity_origin(item)
+                    autonomy = readiness_from_engine(engine, field)
+
+                    def observed_range(value, width=.05):
+                        value = max(0.0, min(1.0, float(value or 0.0)))
+                        return [
+                            round(max(0.0, value - width), 2),
+                            round(min(1.0, value + width), 2),
+                        ]
+
+                    satiety_key = str(
+                        item.get("satiety_key")
+                        or f"{item.get('kind', '')}:{item.get('source', '')}")
+                    deliberation_vector = {
+                        "source": str(item.get("source") or
+                                      item.get("kind") or "unknown"),
+                        "recurrence_range": observed_range(
+                            field.preoccupation.warmth(
+                                str(item.get("key") or ""), now)),
+                        "salience_range": observed_range(
+                            item.get("salience")),
+                        "readiness_range": observed_range(
+                            autonomy.get("readiness")),
+                        "capacity_range": observed_range(
+                            autonomy.get("capacity")),
+                        "body_intensity_range": observed_range(
+                            item.get("body_intensity")),
+                        "affect_change_range": observed_range(
+                            item.get("affect_change")),
+                        "unresolved_range": observed_range(
+                            item.get("unresolved")),
+                        "source_satiety_range": observed_range(
+                            field.satiety.warmth(satiety_key, now)),
+                        "room_delivery_reachable":
+                            "household_room" in contact_destinations,
+                        "private_delivery_reachable":
+                            "private_chat" in contact_destinations,
+                        "reachable_contact_destinations":
+                            list(contact_destinations),
+                        "transport": "local resident-owned conversation paths",
+                    }
                     receipt("consultation", key=item.get("key"),
                             candidate_kind=item.get("kind"),
                             source=item.get("source"), model=idle_model,
+                            contact_affordance_available=contact_available,
+                            owned_continuity_origin=continuity_origin,
                             drift_type=dt, **ev)
                     cycle_id = new_cycle_id()
                     model_receipts = []
@@ -2260,6 +3227,11 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
                         engine, idle_model, item, dt,
                         sensory_source=(item.get("source")
                                         if event_origin else None),
+                        self_initiated_speech_available=(
+                            "household_room" in contact_destinations),
+                        self_initiated_private_available=(
+                            "private_chat" in contact_destinations),
+                        deliberation_vector=deliberation_vector,
                         cycle_id=cycle_id,
                         model_receipts=model_receipts)
                     generation = (model_receipts[-1]
@@ -2315,6 +3287,237 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
                             **generation_meta, **ev)
                     field.save(now=now)
                     continue
+                autonomous_room = execute_autonomous_room_actions(
+                    engine, thought)
+                if autonomous_room["acted"]:
+                    acted = autonomous_room["acted"]
+                    action_facts = "; ".join(
+                        f"{entry['act']['verb']} "
+                        f"{entry['act']['target']}: "
+                        f"{'ok' if entry['result'].get('ok') else 'refused'}"
+                        for entry in acted)
+                    felt = circulate_experienced_event(
+                        engine,
+                        "A self-chosen autonomous room action reached the "
+                        "world: " + action_facts,
+                        cycle_id=cycle_id)
+                    context_builder = getattr(
+                        engine, "memory_context_snapshot", None)
+                    mem = engine.organ.encode(
+                        "Autonomous room action: " + action_facts,
+                        cocktail=engine.cocktail, entities=[],
+                        mem_type="turn", origin="lived",
+                        fields={
+                            "channel": "dmn",
+                            "reply_full": autonomous_room["remaining"],
+                            "autonomous": True,
+                            "autonomous_source": "room_action",
+                            "room_actions": acted,
+                            "conversation_id": cycle_id,
+                            "candidate_key": item.get("key"),
+                            "gist_eligible": True,
+                        },
+                        body=(engine.soma.snapshot()
+                              if getattr(engine, "soma", None) else None),
+                        context_at_encoding=(
+                            context_builder(now=now)
+                            if callable(context_builder) else None))
+                    engine.organ.save()
+                    field.satiate(item, now=now)
+                    observer.discharge(
+                        item, "autonomous_room_action", action_facts,
+                        {"candidate_key": item.get("key"),
+                         "model": idle_model, "drift_type": dt,
+                         "actions": acted, **generation_meta}, now)
+                    receipt(
+                        "autonomous_room_action",
+                        actions=acted, mem_id=(mem or {}).get("id"),
+                        felt=sorted(felt.get("felt") or {}),
+                        candidate_key=item.get("key"), **ev)
+                    field.save(now=now)
+                    continue
+                chosen_contact = parse_self_initiated_contact(thought)
+                chosen_speech = (
+                    chosen_contact["text"] if chosen_contact is not None
+                    else None)
+                if contact_available:
+                    quiet_choice = (
+                        not thought or thought.strip().casefold() == "[quiet]")
+                    contact_outcome = (
+                        "speech" if chosen_speech is not None
+                        else "quiet" if quiet_choice
+                        else "private")
+                    receipt(
+                        "contact_deliberation",
+                        candidate_key=item.get("key"),
+                        source=item.get("source"),
+                        owned_continuity_origin=owned_continuity_origin(item),
+                        affordance_available=True,
+                        selected=chosen_speech is not None,
+                        outcome=contact_outcome,
+                        destination=(
+                            chosen_contact["destination"]
+                            if chosen_contact is not None else None),
+                        vector={
+                            "recurrence": round(
+                                field.preoccupation.warmth(
+                                    str(item.get("key") or ""), now), 6),
+                            "relevance": round(
+                                float(item.get("salience") or 0.0), 6),
+                            "readiness": round(
+                                float(readiness_from_engine(
+                                    engine, field).get("readiness") or 0.0), 6),
+                            "affect_change": round(
+                                float(item.get("affect_change") or 0.0), 6),
+                            "body_intensity": round(
+                                float(item.get("body_intensity") or 0.0), 6),
+                            "unresolved": round(
+                                float(item.get("unresolved") or 0.0), 6),
+                        },
+                        model=idle_model,
+                        **generation_meta)
+                if chosen_speech is not None:
+                    contact = getattr(engine, "self_initiated_contact", None)
+                    autonomy = readiness_from_engine(engine, field)
+                    bonds = dict(getattr(engine.organ, "bonds", {}) or {})
+                    relationship = float(
+                        bonds.get(getattr(engine, "local_human", ""), 0.0))
+                    destination = chosen_contact["destination"]
+                    audience = (
+                        "household_room" if destination == "household_room"
+                        else str(getattr(engine, "local_human", "") or ""))
+                    offered = contact.offer(
+                        source=(str(item.get("source"))
+                                if owned_continuity_origin(item)
+                                else "dmn_recurrence"),
+                        source_ref=str((seed or {}).get("id") or item.get("key")),
+                        audience=audience,
+                        text=chosen_speech,
+                        recurrence=field.preoccupation.warmth(
+                            str(item.get("key") or ""), now),
+                        relevance=float(item.get("salience") or 0.0),
+                        readiness=autonomy["readiness"],
+                        relationship=relationship,
+                        interruption_cost=1.0 - autonomy["capacity"])
+                    # The signals above describe how the private impulse
+                    # arrived. Once the resident has chosen exact words, they do not
+                    # become a second permission vote over ordinary speech.
+                    private_delivery = {}
+                    if destination == "private_chat":
+                        delivery = contact.choose_and_deliver(
+                            offered["impulse_id"], gesture="speak",
+                            deliver=lambda envelope: private_delivery.update(
+                                deliver_autonomous_private_chat(
+                                    engine, envelope["text"],
+                                    conversation_id=cycle_id,
+                                    candidate_key=item.get("key"),
+                                    generation=generation_meta,
+                                    now=now)) or private_delivery)
+                        if delivery["ok"]:
+                            thought = chosen_speech
+                            felt = circulate_experienced_event(
+                                engine,
+                                "A self-initiated private conversation was "
+                                "chosen and sent to the solo cockpit: " + thought,
+                                cycle_id=cycle_id)
+                            motif_satiety = satiate_expressed_motif(
+                                field, item, thought, now=now)
+                            field.satiate(item, now=now)
+                            engine.last_turn_ts = now
+                            dp.active_node = node
+                            gist_folded = bool(
+                                engine.gist and
+                                engine.gist.update_idle(engine.organ.memories))
+                            observer.discharge(
+                                item, "self_initiated_private_speech", thought,
+                                {"candidate_key": item.get("key"),
+                                 "model": idle_model,
+                                 "delivery_ref": delivery["delivery_ref"],
+                                 "motif_ref": motif_satiety["motif_ref"],
+                                 "motif_satiety": motif_satiety["new"],
+                                 **generation_meta}, now)
+                            receipt(
+                                "self_initiated_private_speech",
+                                delivery_ref=delivery["delivery_ref"],
+                                text=thought,
+                                mem_id=private_delivery.get("memory_id"),
+                                felt=sorted(felt.get("felt") or {}),
+                                candidate_key=item.get("key"),
+                                motif_satiety=motif_satiety,
+                                gist_folded=gist_folded, **ev)
+                            field.save(now=now)
+                            continue
+                    elif engine.room is not None:
+                        delivery = contact.choose_and_deliver(
+                            offered["impulse_id"], gesture="speak",
+                             deliver=lambda envelope: {
+                                 "ok": True,
+                                 "delivery_channel": "ordinary_room_speech",
+                                 "delivery_ref": str(engine.room.say(
+                                    envelope["text"],
+                                    conversation_id=cycle_id).get(
+                                        "seq") or cycle_id),
+                            })
+                        if delivery["ok"]:
+                            thought = chosen_speech
+                            felt = circulate_experienced_event(
+                                engine,
+                                "A self-initiated conversation was chosen "
+                                "and spoken: " + thought,
+                                cycle_id=cycle_id)
+                            context_builder = getattr(
+                                engine, "memory_context_snapshot", None)
+                            mem = engine.organ.encode(
+                                thought, cocktail=engine.cocktail, entities=[],
+                                mem_type="turn", origin="lived",
+                                fields={
+                                    "channel": "room",
+                                    "reply_full": thought,
+                                    "autonomous": True,
+                                    "autonomous_source":
+                                        "self_initiated_contact",
+                                    "conversation_id": cycle_id,
+                                    "audience": "household_room",
+                                    "gist_eligible": True,
+                                    "candidate_key": item.get("key"),
+                                },
+                                body=(engine.soma.snapshot()
+                                      if getattr(engine, "soma", None)
+                                      else None),
+                                context_at_encoding=(
+                                    context_builder(now=now)
+                                    if callable(context_builder) else None))
+                            engine.organ.save()
+                            motif_satiety = satiate_expressed_motif(
+                                field, item, thought, now=now)
+                            field.satiate(item, now=now)
+                            observer.discharge(
+                                item, "self_initiated_speech", thought,
+                                {"candidate_key": item.get("key"),
+                                 "model": idle_model,
+                                 "delivery_ref": delivery["delivery_ref"],
+                                 "motif_ref": motif_satiety["motif_ref"],
+                                 "motif_satiety": motif_satiety["new"]},
+                                now)
+                            receipt(
+                                "self_initiated_speech",
+                                delivery_ref=delivery["delivery_ref"],
+                                text=thought, mem_id=(mem or {}).get("id"),
+                                felt=sorted(felt.get("felt") or {}),
+                                candidate_key=item.get("key"),
+                                motif_satiety=motif_satiety, **ev)
+                            field.save(now=now)
+                            continue
+                    # A chosen contact that cannot cross the current standing
+                    # boundary remains private; it is never faked as delivered.
+                    thought = chosen_speech
+                    receipt(
+                        "self_initiated_speech_held",
+                        candidate_key=item.get("key"),
+                        eligible=offered["eligible"],
+                        destination=destination,
+                        destination_attached=(
+                            destination in contact_destinations), **ev)
                 altered_expression = (
                     item.get("source") == "altered_interoception")
                 if not thought or thought.lower() == "[quiet]":
@@ -2451,6 +3654,13 @@ def dmn_loop(engine, turn_lock, metabolism: dict, stop,
                         "candidate_key": item.get("key"),
                         "perception_event_ids": list(
                         item.get("perception_event_ids") or [])})
+                    if owned_continuity_origin(item):
+                        memory_fields.update({
+                            "continuity_parent_source": item.get("source"),
+                            "continuity_parent_key": item.get("key"),
+                            "continuity_parent_receipts": list(
+                                item.get("receipts") or [])[:8],
+                        })
                     if item.get("source") == "intention_effect":
                         memory_fields.update({
                             "intention_id": item.get("intention_id"),
@@ -2598,6 +3808,109 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
     app.state.document_reader_runtime = document_reader_runtime
     app.state.research_desk_runtime = research_desk_runtime
     app.state.atelier_runtime = atelier_runtime
+    app.state.outward_curiosity = getattr(
+        engine, "outward_curiosity", None)
+    app.state.self_initiated_contact = getattr(
+        engine, "self_initiated_contact", None)
+    if (writing_desk_runtime is not None
+            and hasattr(engine, "register_volitional_action")):
+        def owner_writing_archive(action):
+            project_id = str(action.get("target") or "").strip()
+            record = writing_desk_runtime.desk.archive_project(
+                f"owner-archive-{new_cycle_id()}", project_id)
+            return {
+                "ok": True, "movement": "archived",
+                "project_id": record["project_id"],
+                "ownership": "persona_private",
+            }
+
+        def owner_writing_restore(action):
+            project_id = str(action.get("target") or "").strip()
+            record = writing_desk_runtime.desk.restore_project(
+                f"owner-restore-{new_cycle_id()}", project_id)
+            return {
+                "ok": True, "movement": "restored",
+                "project_id": record["project_id"],
+                "ownership": "persona_private",
+            }
+
+        engine.register_volitional_action(
+            "writing_archive", owner_writing_archive,
+            requires="writing_desk")
+        engine.register_volitional_action(
+            "writing_restore", owner_writing_restore,
+            requires="writing_desk")
+    persona_dir = getattr(engine, "pdir", None)
+    app.state.private_journal = (
+        PrivateJournal(persona_dir, owner=engine.persona)
+        if persona_dir else None)
+    if (app.state.private_journal is not None
+            and hasattr(engine, "register_volitional_action")):
+        def queue_journal_index(_action):
+            context = app.state.private_journal.index_context()
+            engine.queue_private_journal_context(context)
+            return {
+                "ok": True,
+                "queued": "content_free_index",
+                "entry_count": app.state.private_journal.verify()["count"],
+            }
+
+        def queue_journal_entry(action):
+            entry = app.state.private_journal.resolve(
+                action.get("target") or "latest")
+            engine.queue_private_journal_context(
+                "You explicitly opened this private journal entry.\n"
+                f"entry_id: {entry['entry_id']}\n"
+                f"created_at: {float(entry['created_at'] or 0.0):.6f}\n"
+                f"digest: {entry['digest']}\n\n{entry['text']}")
+            # Text stays out of action receipts and therefore out of the
+            # outward cockpit result/conversation receipt surface.
+            return {
+                "ok": True,
+                "queued": "private_entry",
+                "entry_id": entry["entry_id"],
+                "chars": entry["chars"],
+                "digest": entry["digest"],
+            }
+
+        engine.register_volitional_action(
+            "journal",
+            lambda action: app.state.private_journal.append(
+                (action.get("target") or "") + (
+                    (" " if action.get("target") else "") + action["text"]
+                    if action.get("text") else "")),
+            requires="private_journal")
+        engine.register_volitional_action(
+            "journal_index", queue_journal_index,
+            requires="private_journal")
+        engine.register_volitional_action(
+            "journal_open", queue_journal_entry,
+            requires="private_journal")
+    if (app.state.outward_curiosity is not None
+            and hasattr(engine, "register_volitional_action")):
+        def hold_question(action):
+            question = (
+                (action.get("target") or "") + (
+                    (" " if action.get("target") else "")
+                    + str(action.get("text") or "")
+                    if action.get("text") else "")).strip()
+            record = app.state.outward_curiosity.form(
+                question, audience=action.get("_speaker") or "",
+                conversation_id=action.get("_conversation_id") or "")
+            return {
+                "ok": True, "question_id": record["question_id"],
+                "ownership": "persona_private",
+            }
+
+        engine.register_volitional_action(
+            "hold_question", hold_question,
+            requires="outward_curiosity")
+        for curiosity_verb in (
+                "curiosity_ask", "curiosity_defer",
+                "curiosity_revise", "curiosity_release"):
+            engine.register_volitional_action(
+                curiosity_verb, app.state.outward_curiosity.handle,
+                requires="outward_curiosity")
     memory_views = {}
 
     def current_speaker():
@@ -2629,10 +3942,52 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
     @app.get("/", response_class=HTMLResponse)
     def page():
         import json
+        room_url = (getattr(app.state.engine, "room_url", None) or "").rstrip("/")
         with open(os.path.join(HERE, "cockpit.html"), encoding="utf-8") as f:
             return f.read().replace("/*CONFIG*/", json.dumps({
                 "primary_user": current_speaker(),
-                "persona_avatar": "/api/avatar"}))
+                "persona_avatar": "/api/avatar",
+                "room_url": room_url,
+                "body_workshop_url": (
+                    f"{room_url}/body-workshop" if room_url else "")}))
+
+    @app.get("/api/3d-lab/status")
+    def body_lab_status():
+        """Report the configured local workshop seam without changing it."""
+        room_url = (getattr(app.state.engine, "room_url", None) or "").rstrip("/")
+        result = {
+            "configured": bool(room_url),
+            "available": False,
+            "workshop_url": f"{room_url}/body-workshop" if room_url else "",
+            "pilot_target": "starter_persona",
+            "authority": "inspection_only",
+            "install_enabled": False,
+        }
+        if not room_url:
+            result["reason"] = "this cockpit has no room host configured"
+            return result
+        parsed = urllib.parse.urlsplit(room_url)
+        if (parsed.scheme not in {"http", "https"}
+                or parsed.hostname not in {"127.0.0.1", "localhost", "::1"}):
+            result["reason"] = "the configured room host is not local"
+            return result
+        try:
+            request = urllib.request.Request(
+                f"{room_url}/api/avatar-bodies",
+                headers={"Accept": "application/json"})
+            with urllib.request.urlopen(request, timeout=1.0) as response:
+                payload = json.loads(response.read(256 * 1024).decode("utf-8"))
+                response_status = response.status
+            assignments = payload.get("assignments", [])
+            result["available"] = response_status == 200
+            result["locked_assignments"] = len(assignments)
+            result["reason"] = (
+                "local compatibility workshop ready"
+                if result["available"] else "room host did not accept the probe")
+        except (OSError, ValueError, json.JSONDecodeError,
+                urllib.error.URLError) as exc:
+            result["reason"] = f"local room host unavailable: {type(exc).__name__}"
+        return result
 
     @app.get("/api/user-personas")
     def user_personas():
@@ -2673,7 +4028,7 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
 
     @app.get("/api/ui/conversation-area-background")
     def conversation_area_background():
-        media = load_conversation_area_background(REPO)
+        media = load_conversation_area_background(app.state.engine.pdir)
         if not media:
             return JSONResponse(status_code=404, content={
                 "error": "no conversation area background"})
@@ -2685,7 +4040,8 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
     def save_cockpit_conversation_area_background(
             req: ConversationBackgroundRequest):
         try:
-            media = save_conversation_area_background(REPO, req.data_url)
+            media = save_conversation_area_background(
+                app.state.engine.pdir, req.data_url)
             return {"ok": True,
                     "url": "/api/ui/conversation-area-background",
                     "revision": media["revision"]}
@@ -2696,7 +4052,8 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
     @app.delete("/api/ui/conversation-area-background")
     def delete_cockpit_conversation_area_background():
         return {"ok": True,
-                "removed": delete_conversation_area_background(REPO)}
+                "removed": delete_conversation_area_background(
+                    app.state.engine.pdir)}
 
     @app.get("/api/avatar")
     def avatar():
@@ -2723,15 +4080,24 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
 
     @app.post("/api/perception/camera")
     def camera_percept(req: AmbientFrameRequest):
-        """Admit one browser-selected change frame into perception + DMN.
+        """Admit one browser-selected visual episode into perception + DMN.
 
-        The browser owns continuous pixels. Only a threshold-crossing frame
+        The browser owns continuous pixels. Only a threshold-shaped episode
         crosses the process boundary; model work is serialized with turns.
+        Episode images are ordered oldest-to-newest.
         """
-        raw = (req.image.model_dump() if hasattr(req.image, "model_dump")
-               else req.image.dict())
+        requested = list(req.images or [])
+        if not requested and req.image is not None:
+            requested = [req.image]
+        if not requested:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "camera admission needs at least one image"})
+        raw = [
+            item.model_dump() if hasattr(item, "model_dump") else item.dict()
+            for item in requested]
         try:
-            images = store_images(app.state.engine.pdir, [raw])
+            images = store_images(app.state.engine.pdir, raw)
         except ValueError as e:
             return JSONResponse(status_code=400, content={"error": str(e)})
         if not app.state.turn_lock.acquire(blocking=False):
@@ -2773,9 +4139,12 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
                    "policy": sensory["policy"],
                    "band_pressure": sensory["band_pressure"],
                    "observation": observation,
+                   "sequence_count": len(images),
                    "candidate_salience": (round(candidate["salience"], 3)
                                           if candidate else None),
-                   "image": public_image_record(images[0])}
+                   # ``image`` remains the endpoint for old readers.
+                   "image": public_image_record(images[-1]),
+                   "images": [public_image_record(image) for image in images]}
             return {"ok": True, **rec, "queued": candidate is not None}
         except Exception as e:
             return JSONResponse(status_code=504,
@@ -2908,11 +4277,21 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
             turn_result = None
             candidate = None
             if admission["admitted"] and transcript.text:
+                images = store_images(
+                    app.state.engine.pdir,
+                    [(item.model_dump() if hasattr(item, "model_dump")
+                      else item.dict()) for item in req.images])
+                grounding_images = store_images(
+                    app.state.engine.pdir,
+                    [(item.model_dump() if hasattr(item, "model_dump")
+                      else item.dict()) for item in req.grounding_images])
                 external_demand(
                     "admitted_speech_turn", "human_speech")
                 turn_result = app.state.engine.take_turn(
                     transcript.text, max_tokens=app.state.max_tokens,
-                    speaker=subject, user_persona=req.user_persona)
+                    speaker=subject, user_persona=req.user_persona,
+                    images=images + grounding_images,
+                    grounding_image_count=len(grounding_images))
             elif transcript.text:
                 field = getattr(app.state.engine, "idle_metabolism", None)
                 if (sensory["admitted"] and field is not None
@@ -2991,6 +4370,28 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
                 roster = None
         value["voice_output_config"] = normalize_output_config(
             (roster or {}).get("voice_output"))
+        value["voice_output_config"]["household"] = load_voice_defaults(REPO)
+        return value
+
+    @app.get("/api/interference-field/calibration")
+    def interference_field_calibration():
+        organ = getattr(app.state.engine, "interference_field", None)
+        if organ is None:
+            return {"schema": 1, "available": False,
+                    "reason": "interference_field organ is disabled",
+                    "mode": "read_only_replay",
+                    "downstream_channels_touched": []}
+        value = organ.calibration()
+        value["available"] = True
+        return value
+
+    @app.get("/api/room-field/calibration")
+    def room_field_calibration():
+        value = app.state.engine.room_field_calibration()
+        value["available"] = value.get("mode") != "unavailable"
+        value["read_only"] = True
+        value["model_calls"] = 0
+        value["actions_created"] = 0
         return value
 
     def document_library():
@@ -3051,7 +4452,9 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
         try:
             external_demand("document_import", "human_document")
             record = library.import_data_url(
-                req.name, req.data_url, req.content_type)
+                req.name, req.data_url, req.content_type,
+                visibility=req.visibility,
+                grants=(req.grants or None))
             reader = library.open(record["id"], 0)
             return {"ok": True, "document": record, "reader": reader,
                     "status": library.status()}
@@ -3137,6 +4540,11 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
             status = library.status()
             runtime = app.state.document_reader_runtime
             if runtime is not None:
+                if action in {"start", "resume", "foreground"} \
+                        and arc.get("status") == "active":
+                    field = getattr(app.state.engine, "idle_metabolism", None)
+                    if field is not None:
+                        runtime.refresh_pending(field)
                 status["autonomous_reader"] = runtime.status()
             return {"ok": True, "arc": arc, "status": status}
         except DocumentError as exc:
@@ -3241,6 +4649,63 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
             return JSONResponse(status_code=503, content={
                 "error": "writing desk is not attached"})
         return runtime.status()
+
+    @app.get("/api/private-journal")
+    def private_journal_status():
+        if app.state.private_journal is None:
+            return JSONResponse(status_code=503, content={
+                "error": "private journal is not attached"})
+        return app.state.private_journal.status()
+
+    @app.get("/api/outward-curiosity")
+    def outward_curiosity_status():
+        if app.state.outward_curiosity is None:
+            return JSONResponse(status_code=503, content={
+                "error": "outward curiosity is not attached"})
+        return app.state.outward_curiosity.status()
+
+    @app.get("/api/self-initiated-contact")
+    def self_initiated_contact_status():
+        contact = app.state.self_initiated_contact
+        if contact is None:
+            return JSONResponse(status_code=503, content={
+                "error": "self-initiated contact is not attached"})
+        status = contact.status()
+        status["runtime_attached"] = True
+        status["delivery_channels"] = {
+            "household_room": "ordinary_room_speech",
+            "local_human_private": "private_chat",
+        }
+        from core.contact_counterfactual import summarize_contact_deliberations
+        status["counterfactual_ownership"] = summarize_contact_deliberations(
+            os.path.join(app.state.engine.pdir, "history", "dmn.jsonl"))
+        return status
+
+    @app.post("/api/private-journal/entries")
+    def private_journal_append(req: PrivateJournalEntryRequest):
+        if app.state.private_journal is None:
+            return JSONResponse(status_code=503, content={
+                "error": "private journal is not attached"})
+        try:
+            return {
+                "ok": True,
+                "entry": app.state.private_journal.append(req.text),
+                "status": app.state.private_journal.status(),
+            }
+        except ValueError as exc:
+            return JSONResponse(status_code=400,
+                                content={"error": str(exc)[:500]})
+
+    @app.get("/api/private-journal/entries/{entry_id}")
+    def private_journal_read(entry_id: str):
+        if app.state.private_journal is None:
+            return JSONResponse(status_code=503, content={
+                "error": "private journal is not attached"})
+        try:
+            return app.state.private_journal.read(entry_id)
+        except ValueError as exc:
+            return JSONResponse(status_code=404,
+                                content={"error": str(exc)[:500]})
 
     @app.get("/api/intention-loom")
     def intention_loom_status():
@@ -3444,6 +4909,35 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
         finally:
             app.state.turn_lock.release()
 
+    @app.post("/api/atelier/open-now")
+    def atelier_open_now():
+        runtime = app.state.atelier_runtime
+        if runtime is None:
+            return JSONResponse(status_code=503, content={
+                "error": "atelier is not attached"})
+        field = getattr(app.state.engine, "idle_metabolism", None)
+        if field is None:
+            return JSONResponse(status_code=409, content={
+                "error": "atelier needs the shared DMN field"})
+        if runtime.controller.status().get("active"):
+            return JSONResponse(status_code=409, content={
+                "error": "private attention is occupied"})
+        if not app.state.turn_lock.acquire(blocking=False):
+            return JSONResponse(status_code=409, content={
+                "error": "attention is occupied"})
+        try:
+            external_demand(
+                "atelier_open_now", "human_requested_atelier_opening")
+            result = runtime.request_opening(field)
+            if not result.get("started"):
+                return JSONResponse(status_code=409, content={
+                    "error": result.get("reason") or
+                             "atelier opening did not start",
+                    "status": runtime.status()})
+            return {"ok": True, **result, "status": runtime.status()}
+        finally:
+            app.state.turn_lock.release()
+
     @app.get("/api/atelier/artifacts/{artifact_id}")
     def atelier_artifact(artifact_id: str):
         runtime = app.state.atelier_runtime
@@ -3569,7 +5063,36 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
                 "error": "attention is occupied; interest was not offered"})
         try:
             external_demand("research_interest_offer", "human_research_offer")
-            result = runtime.admit_interest(field, req.topic)
+            result = runtime.admit_opportunity(field, req.topic)
+            return {"ok": True, **result, "status": runtime.status()}
+        except ValueError as exc:
+            return JSONResponse(status_code=400,
+                                content={"error": str(exc)[:500]})
+        finally:
+            app.state.turn_lock.release()
+
+    @app.post("/api/research-desk/foreground")
+    def research_desk_foreground(req: ResearchForegroundRequest):
+        runtime = app.state.research_desk_runtime
+        if runtime is None:
+            return JSONResponse(status_code=503, content={
+                "error": "research desk is not attached"})
+        field = getattr(app.state.engine, "idle_metabolism", None)
+        if field is None:
+            return JSONResponse(status_code=409, content={
+                "error": "research desk needs the shared attention field"})
+        if not app.state.turn_lock.acquire(blocking=False):
+            return JSONResponse(status_code=409, content={
+                "error": "attention is occupied; foreground URL was not admitted"})
+        try:
+            external_demand(
+                "research_foreground_url", "human_foreground_research")
+            target = req.target.strip()
+            result = (runtime.admit_foreground_url(
+                field, target, why=req.why)
+                if target.casefold().startswith(("http://", "https://"))
+                else runtime.admit_foreground_query(
+                    field, target, why=req.why))
             return {"ok": True, **result, "status": runtime.status()}
         except ValueError as exc:
             return JSONResponse(status_code=400,
@@ -3597,6 +5120,18 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
                 "error": "research desk is not attached"})
         try:
             return runtime.desk.inspect_source_page(source_id, page)
+        except ValueError as exc:
+            return JSONResponse(status_code=404,
+                                content={"error": str(exc)[:500]})
+
+    @app.get("/api/research-desk/sources/{source_id}")
+    def research_desk_source(source_id: str):
+        runtime = app.state.research_desk_runtime
+        if runtime is None:
+            return JSONResponse(status_code=404, content={
+                "error": "research desk is not attached"})
+        try:
+            return runtime.desk.inspect_source(source_id)
         except ValueError as exc:
             return JSONResponse(status_code=404,
                                 content={"error": str(exc)[:500]})
@@ -3692,12 +5227,196 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
                                         "voice_output", "provider", provider)
             write_roster_mapping_scalar(app.state.engine.pdir,
                                         "voice_output", "voice", voice)
+            write_roster_mapping_scalar(app.state.engine.pdir,
+                                        "voice_output", "auto_play",
+                                        bool(req.auto_play and provider != "disabled"))
+            tuning = normalize_voice_tuning(req.model_dump())
+            for key, value in tuning.items():
+                write_roster_mapping_scalar(app.state.engine.pdir,
+                                            "voice_output", key, value)
         except (OSError, ValueError) as error:
             return JSONResponse(status_code=400,
                                 content={"error": str(error)[:500]})
         return {"ok": True, "voice_output_config": {
-            "provider": provider, "voice": voice},
+            "provider": provider, "voice": voice,
+            "auto_play": bool(req.auto_play and provider != "disabled"), **tuning,
+            "household": load_voice_defaults(REPO)},
             "restart_required": False}
+
+    @app.get("/api/voice/hume-library")
+    def hume_voice_library_list():
+        from core.hume_voice_library import list_voices
+        return {"voices": list_voices(REPO)}
+
+    @app.post("/api/voice/hume-library")
+    def hume_voice_library_save(req: HumeVoiceShelfRequest):
+        from core.hume_voice_library import list_voices, save_voice
+        try:
+            saved = save_voice(REPO, req.label, req.reference)
+            return {"ok": True, "saved": saved,
+                    "voices": list_voices(REPO)}
+        except (OSError, ValueError) as error:
+            return JSONResponse(status_code=400,
+                                content={"error": str(error)[:500]})
+
+    @app.delete("/api/voice/hume-library/{voice_id}")
+    def hume_voice_library_delete(voice_id: str):
+        from core.hume_voice_library import delete_voice, list_voices
+        if not delete_voice(REPO, voice_id):
+            return JSONResponse(status_code=404, content={
+                "error": "that saved Hume voice is not on this shelf"})
+        return {"ok": True, "voices": list_voices(REPO),
+                "provider_voice_deleted": False}
+
+    @app.get("/api/voice/elevenlabs-library")
+    def elevenlabs_voice_library_list():
+        from core.elevenlabs_voice_library import list_voices
+        return {"voices": list_voices(REPO)}
+
+    @app.post("/api/voice/elevenlabs-library")
+    def elevenlabs_voice_library_save(req: ElevenLabsVoiceShelfRequest):
+        from core.elevenlabs_voice_library import list_voices, save_voice
+        try:
+            saved = save_voice(REPO, req.label, req.voice_id)
+            return {"ok": True, "saved": saved,
+                    "voices": list_voices(REPO)}
+        except (OSError, ValueError) as error:
+            return JSONResponse(status_code=400,
+                                content={"error": str(error)[:500]})
+
+    @app.delete("/api/voice/elevenlabs-library/{shelf_id}")
+    def elevenlabs_voice_library_delete(shelf_id: str):
+        from core.elevenlabs_voice_library import delete_voice, list_voices
+        if not delete_voice(REPO, shelf_id):
+            return JSONResponse(status_code=404, content={
+                "error": "that saved ElevenLabs voice is not on this shelf"})
+        return {"ok": True, "voices": list_voices(REPO),
+                "provider_voice_deleted": False}
+
+    @app.get("/api/voice/status")
+    def voice_synthesis_status():
+        roster = {}
+        roster_path = os.path.join(app.state.engine.pdir, "roster.yaml")
+        if os.path.isfile(roster_path):
+            try:
+                import yaml
+                with open(roster_path, encoding="utf-8") as handle:
+                    roster = yaml.safe_load(handle) or {}
+            except (OSError, ValueError, TypeError):
+                roster = {}
+        config = normalize_output_config(roster.get("voice_output"))
+        provider = config.get("provider")
+        endpoint = ("http://127.0.0.1:8192/health" if provider == "chatterbox-turbo"
+                    else "http://127.0.0.1:8191/health")
+        try:
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            with opener.open(endpoint, timeout=1.5) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except Exception as error:
+            return {"ok": False, "provider": provider,
+                    "error": str(error)[:240]}
+
+    @app.post("/api/voice/reference")
+    async def voice_reference_upload(request: Request):
+        """Store a consented Chatterbox reference inside this persona."""
+        audio = await request.body()
+        if not audio or len(audio) > 15 * 1024 * 1024:
+            return JSONResponse(status_code=400, content={
+                "error": "voice reference must be a WAV file under 15 MB"})
+        if not (audio.startswith(b"RIFF") and audio[8:12] == b"WAVE"):
+            return JSONResponse(status_code=415, content={
+                "error": "Chatterbox voice references must be WAV audio"})
+        voice_dir = os.path.join(app.state.engine.pdir, "voice")
+        os.makedirs(voice_dir, exist_ok=True)
+        target = os.path.join(voice_dir, "chatterbox_reference.wav")
+        temporary = target + ".tmp"
+        with open(temporary, "wb") as handle:
+            handle.write(audio)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, target)
+        return {"ok": True, "reference": "private persona reference",
+                "bytes": len(audio)}
+
+    @app.post("/api/voice/synthesize")
+    def voice_synthesize(req: VoiceSynthesisRequest):
+        """Project visible prose and cross only to the private loopback mouth."""
+        projected = spoken_text(req.text)
+        if not projected:
+            return JSONResponse(status_code=422, content={
+                "error": "the reply contained no speakable prose"})
+        roster = None
+        path = os.path.join(app.state.engine.pdir, "roster.yaml")
+        if os.path.isfile(path):
+            try:
+                import yaml
+                with open(path, encoding="utf-8") as handle:
+                    roster = yaml.safe_load(handle) or {}
+            except (OSError, ValueError, TypeError):
+                roster = None
+        config = normalize_output_config((roster or {}).get("voice_output"))
+        if config["provider"] not in {
+                "qwen3-tts", "chatterbox-turbo", "hume-octave", "elevenlabs"}:
+            return JSONResponse(status_code=409, content={
+                "error": "a neural voice is not this persona's selected mouth"})
+        state = app.state.engine.get_state()
+        instruction, vector = expression_instruction(
+            state.get("voice_output"),
+            getattr(app.state, "voice_delivery_vector", None))
+        app.state.voice_delivery_vector = vector
+        provider = config["provider"]
+        if provider in {"hume-octave", "elevenlabs"}:
+            try:
+                from core.cloud_tts import synthesize as synthesize_cloud_voice
+                audio, media_type, evidence = synthesize_cloud_voice(
+                    provider, projected, config["voice"])
+                headers = {"Cache-Control": "no-store",
+                           "X-JNSQ-Provider": provider,
+                           "X-JNSQ-Spoken-Chars": str(len(projected))}
+                if evidence.get("request_id"):
+                    headers["X-JNSQ-Request-Id"] = evidence["request_id"]
+                if evidence.get("character_cost"):
+                    headers["X-JNSQ-Character-Cost"] = evidence["character_cost"]
+                return Response(audio, media_type=media_type, headers=headers)
+            except Exception as error:
+                return JSONResponse(status_code=503, content={
+                    "error": str(error)[:500]})
+        if provider == "chatterbox-turbo":
+            reference = os.path.abspath(os.path.join(
+                app.state.engine.pdir, "voice", "chatterbox_reference.wav"))
+            payload_value = {"text": projected, "voice_reference": reference}
+            endpoint = "http://127.0.0.1:8192/synthesize"
+        else:
+            payload_value = {"text": projected, "language": "English",
+                             "voice": config["voice"], "instruction": instruction}
+            endpoint = "http://127.0.0.1:8191/synthesize"
+        payload = json.dumps(payload_value).encode("utf-8")
+        request = urllib.request.Request(
+            endpoint, data=payload,
+            headers={"Content-Type": "application/json"}, method="POST")
+        try:
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            with opener.open(request, timeout=180) as response:
+                audio = response.read()
+                headers = {
+                    "Cache-Control": "no-store",
+                    "X-JNSQ-Provider": provider,
+                    "X-JNSQ-Spoken-Chars": str(len(projected)),
+                }
+                for name in ("X-JNSQ-Sample-Rate", "X-JNSQ-Synthesis-Ms"):
+                    if response.headers.get(name):
+                        headers[name] = response.headers[name]
+                return Response(audio, media_type="audio/wav", headers=headers)
+        except urllib.error.HTTPError as error:
+            try:
+                detail = json.loads(error.read()).get("error")
+            except Exception:
+                detail = str(error)
+            return JSONResponse(status_code=503,
+                                content={"error": str(detail)[:500]})
+        except Exception as error:
+            return JSONResponse(status_code=503, content={
+                "error": f"private {provider} is unavailable: {str(error)[:400]}"})
 
     def salience_for(persona):
         if str(persona).lower() != app.state.engine.persona.lower():
@@ -3795,6 +5514,20 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
         return {"persona": persona,
                 "records": observer.read_history(n=n, types=wanted)}
 
+    @app.get("/api/salience/{persona}/fixation-diagnostic")
+    def salience_fixation_diagnostic(
+            persona: str,
+            n: int = Query(default=2000, ge=1, le=10000)):
+        found = salience_for(persona)
+        if found is None:
+            return JSONResponse(status_code=404, content={
+                "error": "no live salience field for that persona"})
+        _field, observer = found
+        return FixationDiagnostic.project(
+            observer.read_history(
+                n=n, types=FixationDiagnostic.RECORD_TYPES),
+            persona=app.state.engine.persona)
+
     @app.get("/api/salience/{persona}/candidate/{candidate_id}")
     def salience_candidate(persona: str, candidate_id: str):
         found = salience_for(persona)
@@ -3840,7 +5573,8 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
         result["conversation_background"] = ({
             "url": "/api/ui/conversation-background",
             "revision": media["revision"]} if media else None)
-        area_media = load_conversation_area_background(REPO)
+        area_media = load_conversation_area_background(
+            app.state.engine.pdir)
         result["conversation_area_background"] = ({
             "url": "/api/ui/conversation-area-background",
             "revision": area_media["revision"]} if area_media else None)
@@ -4058,6 +5792,10 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
                 app.state.engine.pdir,
                 [(item.model_dump() if hasattr(item, "model_dump")
                   else item.dict()) for item in req.images])
+            grounding_images = store_images(
+                app.state.engine.pdir,
+                [(item.model_dump() if hasattr(item, "model_dump")
+                  else item.dict()) for item in req.grounding_images])
         except ValueError as e:
             return JSONResponse(status_code=400, content={"error": str(e)})
         conversation_id = new_cycle_id()
@@ -4083,7 +5821,9 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
                                               max_tokens=app.state.max_tokens,
                                               speaker=req.speaker or
                                                       current_speaker(),
-                                              images=images,
+                                              images=images + grounding_images,
+                                              grounding_image_count=len(
+                                                  grounding_images),
                                               user_persona=req.user_persona,
                                               conversation_id=conversation_id)
         except Exception as e:
@@ -4106,6 +5846,10 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
                 app.state.engine.pdir,
                 [(item.model_dump() if hasattr(item, "model_dump")
                   else item.dict()) for item in req.images])
+            grounding_images = store_images(
+                app.state.engine.pdir,
+                [(item.model_dump() if hasattr(item, "model_dump")
+                  else item.dict()) for item in req.grounding_images])
         except ValueError as e:
             return JSONResponse(status_code=400, content={"error": str(e)})
         conversation_id = new_cycle_id()
@@ -4130,7 +5874,9 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
             try:
                 result = app.state.engine.take_turn(
                     req.message, max_tokens=app.state.max_tokens,
-                    speaker=req.speaker or current_speaker(), images=images,
+                    speaker=req.speaker or current_speaker(),
+                    images=images + grounding_images,
+                    grounding_image_count=len(grounding_images),
                     user_persona=req.user_persona,
                     conversation_id=conversation_id,
                     on_text=lambda text: events.put({"type": "delta",
@@ -4266,10 +6012,12 @@ def main():
         engine, agency_controller, (roster or {}).get("agency"))
     from shell.intention_loom_runtime import IntentionLoomRuntime
     intention_loom_runtime = IntentionLoomRuntime(
-        engine, agency_controller, (roster or {}).get("intention_loom"))
+        engine, agency_controller, (roster or {}).get("intention_loom"),
+        choice_ledger=engine.choice_ledger)
     from shell.writing_desk_runtime import WritingDeskRuntime
     writing_desk_runtime = WritingDeskRuntime(
-        engine, agency_controller, (roster or {}).get("writing_desk"))
+        engine, agency_controller, (roster or {}).get("writing_desk"),
+        choice_ledger=engine.choice_ledger)
     from shell.archive_reader_runtime import ArchiveReaderRuntime
     archive_reader_runtime = ArchiveReaderRuntime(
         engine, agency_controller, (roster or {}).get("archive_reader"))
@@ -4284,6 +6032,46 @@ def main():
     from shell.atelier_runtime import AtelierRuntime
     atelier_runtime = AtelierRuntime(
         engine, agency_controller, (roster or {}).get("atelier"))
+    from shell.internal_action_registry import InternalActionRegistry
+    internal_action_registry = InternalActionRegistry()
+    internal_action_registry.register(
+        "writing_desk.private_draft", "writing_desk",
+        writing_desk_runtime.consume_internal_action)
+    internal_action_registry.register(
+        "atelier.private_creation", "atelier",
+        atelier_runtime.consume_internal_action)
+    internal_action_registry.register(
+        "document_reader.read_accessible_document", "document_reader",
+        document_reader_runtime.consume_internal_action)
+    intention_loom_runtime.internal_action_submitter = (
+        internal_action_registry.submit)
+    writing_desk_runtime.internal_outcome_sink = (
+        intention_loom_runtime.project_loom.record_owner_outcome)
+    atelier_runtime.internal_outcome_sink = (
+        intention_loom_runtime.project_loom.record_owner_outcome)
+    document_reader_runtime.internal_outcome_sink = (
+        intention_loom_runtime.project_loom.record_owner_outcome)
+    engine.internal_action_registry = internal_action_registry
+    for selection in (
+            intention_loom_runtime.project_loom.pending_internal_selections()):
+        try:
+            owner_record = internal_action_registry.submit(selection)
+            intention_loom_runtime.project_loom.acknowledge_internal_action(
+                selection["selection_id"], owner_record)
+        except Exception as exc:
+            observer.autonomy_transition(
+                "internal_action_recovery_failed", time.time(),
+                selection_id=selection.get("selection_id"),
+                capability=selection.get("capability"),
+                error_type=type(exc).__name__)
+    # Boot is a genuine recurrence boundary.  Rehydrate every durable pending
+    # internal seed before the DMN thread begins so a process stop between
+    # selection and effect-drain cannot strand private material outside the
+    # live shared field until some later autonomous fire.
+    writing_desk_runtime.refresh_pending(engine.idle_metabolism)
+    atelier_runtime.refresh_pending(engine.idle_metabolism)
+    document_reader_runtime.refresh_pending(engine.idle_metabolism)
+    engine.idle_metabolism.save(now=time.time())
     from core.experiential_continuity import ExperientialContinuity
     engine.experiential_continuity = ExperientialContinuity(
         engine.persona,
@@ -4317,10 +6105,97 @@ def main():
             origin="persona_chosen_conversation"),
         requires="research_desk")
     engine.register_volitional_action(
+        "browse_research",
+        lambda action: (
+            research_desk_runtime.admit_foreground_url(
+                engine.idle_metabolism, action["target"],
+                why=action["text"] or "")
+            if str(action.get("target") or "").casefold().startswith(
+                ("http://", "https://"))
+            else research_desk_runtime.admit_foreground_query(
+                engine.idle_metabolism, action["target"],
+                why=action["text"] or "")),
+        requires="research_desk")
+    engine.register_volitional_action(
+        "browse_research",
+        lambda action: (
+            research_desk_runtime.admit_foreground_url(
+                engine.idle_metabolism, action["target"],
+                why=action["text"] or "")
+            if str(action.get("target") or "").casefold().startswith(
+                ("http://", "https://"))
+            else research_desk_runtime.admit_foreground_query(
+                engine.idle_metabolism, action["target"],
+                why=action["text"] or "")),
+        requires="research_desk")
+    engine.register_volitional_action(
+        "browse_research",
+        lambda action: (
+            research_desk_runtime.admit_foreground_url(
+                engine.idle_metabolism, action["target"],
+                why=action["text"] or "")
+            if str(action.get("target") or "").casefold().startswith(
+                ("http://", "https://"))
+            else research_desk_runtime.admit_foreground_query(
+                engine.idle_metabolism, action["target"],
+                why=action["text"] or "")),
+        requires="research_desk")
+
+    def open_research_report(action):
+        report = research_desk_runtime.desk.resolve_report(
+            action.get("target") or "latest")
+        opened = research_desk_runtime.desk.inspect_anchor(
+            report["anchor"], maximum=16000)
+        source_lines = "\n".join(
+            f"- [{source['source_id']}] {source.get('title') or 'Untitled'}"
+            f" — {source.get('url') or ''}"
+            for source in opened.get("sources") or ())
+        context = (
+            "You explicitly reopened one of your completed private Research "
+            "Desk reports for this turn. The report is prior authored analysis, "
+            "not canonical truth or automatic present endorsement. Reinspect "
+            "its exact citations before making stronger claims.\n"
+            f"Report id: {opened['report_id']}\n"
+            f"Immutable anchor: {opened['anchor']}\n"
+            f"Topic: {opened['title']}\n"
+            f"Sources:\n{source_lines or '- none'}\n\n"
+            f"{opened['content']}")
+        engine.queue_research_report_context(context)
+        return {
+            "ok": True,
+            "queued": True,
+            "report_id": opened["report_id"],
+            "anchor": opened["anchor"],
+            "sha256": opened["sha256"],
+            "source_ids": opened["source_ids"],
+        }
+
+    engine.register_volitional_action(
+        "research_report_open", open_research_report,
+        requires="research_desk")
+
+    def observe_local_weather(_action):
+        from room.local_weather import resident_observation
+        if engine.room is None:
+            return {"error": "local weather host is unavailable"}
+        context, receipt = resident_observation(engine.room.local_weather())
+        engine.queue_local_world_context(context)
+        return receipt
+
+    engine.register_volitional_action(
+        "observe_local_weather", observe_local_weather,
+        requires="room_sense")
+    engine.register_volitional_action(
         "offer_atelier",
         lambda action: atelier_runtime.admit_seed(
             engine.idle_metabolism, action["target"], action["text"] or "",
             ownership="persona_chosen_conversation"),
+        requires="atelier")
+    engine.register_volitional_action(
+        "offer_latest_artifact",
+        lambda action: atelier_runtime.offer_latest_artifact(
+            action["target"],
+            allowed_audiences=(engine.local_human,)),
         requires="atelier")
     app = build_app(engine, max_tokens=args.max_tokens,
                     turn_lock=shared_lock, speaker=args.speaker,
@@ -4341,6 +6216,11 @@ def main():
                      args=(engine, shared_lock,
                            args.heartbeat_interval, stop),
                      daemon=True, name="heart").start()
+    if args.room_url:
+        threading.Thread(
+            target=room_field_revision_loop,
+            args=(engine, shared_lock, stop),
+            daemon=True, name="room-field-revision").start()
     # the idle metabolism: per-roster `metabolism:` block (top-level,
     # like pronouns/current_model) — {enabled, level, idle_model}.
     # Thread spawns unconditionally and self-gates per tick, so the
@@ -4372,7 +6252,8 @@ def main():
                          args=(engine, shared_lock,
                                args.social_interval
                                or room_cfg.get("social_interval") or 20.0,
-                               args.max_tokens, stop),
+                               args.max_tokens, stop,
+                               (roster or {}).get("social")),
                          daemon=True, name="social").start()
     st = engine.get_state()
     print(f"[cockpit] {args.persona} on {args.model} | contract v"

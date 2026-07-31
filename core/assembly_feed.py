@@ -8,6 +8,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from adapters.assembly import PromptAssembly
+from core.awareness_aperture import attention_budget, render_processing_field
 from core.agency_projection import AGENCY_SOURCE_BUDGET
 
 
@@ -169,7 +170,17 @@ def build_turn_assembly(*, identity: str, cocktail: dict,
                          document_context: str = "",
                          document_budget: int = 900,
                          archive_context: str = "",
-                         experiential_context: str = "",
+                         private_journal_context: str = "",
+                         private_journal_budget: int = 800,
+                         research_report_context: str = "",
+                         research_report_budget: int = 1200,
+                         local_world_context: str = "",
+                         outward_curiosity_context: str = "",
+                          experiential_context: str = "",
+                          social_handoff: str = "",
+                          include_emotional_state: bool = True,
+                          include_recalled_memories: bool = True,
+                          awareness_aperture: dict = None,
                          system_prompt: str = "",
                          prompt_core: str = "") -> PromptAssembly:
     asm = PromptAssembly()
@@ -186,6 +197,8 @@ def build_turn_assembly(*, identity: str, cocktail: dict,
         asm.add("system_prompt", system_prompt, priority=11, stable=True)
     if not prompt_core:
         asm.add("identity", identity, priority=10, stable=True)
+    if social_handoff:
+        asm.add("social_handoff", social_handoff, priority=10, budget=700)
     if floor:
         # the mechanical floor: highest priority, never budgeted away
         asm.add("company_floor", FLOOR_TEXT, priority=10, stable=True)
@@ -203,36 +216,48 @@ def build_turn_assembly(*, identity: str, cocktail: dict,
         asm.add("user_persona", user_persona_context,
                 priority=9, budget=500)
     if visual_field:
-        asm.add("visual_field", visual_field, priority=9, budget=420)
+        asm.add("visual_field", visual_field, priority=9,
+                budget=attention_budget(420, "external",
+                                        awareness_aperture))
     if sensory_field:
         asm.add("external_sensory_field", sensory_field,
-                priority=9, budget=520)
+                priority=9, budget=attention_budget(
+                    520, "external", awareness_aperture))
     if perceptual_appearance:
         # Raw sensory evidence retains its own higher-priority block.  This
         # separate seat describes endogenous/top-down appearance conditions
         # without laundering them into an external observation.
         asm.add("perceptual_appearance", perceptual_appearance,
-                priority=8, budget=260)
-    asm.add("emotional_state", render_emotional_state(cocktail),
-            priority=8, budget=120)
+                priority=8, budget=attention_budget(
+                    260, "internal", awareness_aperture))
+    if include_emotional_state:
+        asm.add("emotional_state", render_emotional_state(cocktail),
+                priority=8, budget=attention_budget(
+                    120, "internal", awareness_aperture))
     # continuity stack: just-now (perception) > gist (story) sit ABOVE
     # surfaced memories (recall) — the nearer past outranks the deeper
     if window:
         asm.add("just_now", render_just_now(window, persona),
-                priority=9, budget=800, keep_tail=True)
+                priority=9, budget=attention_budget(
+                    800, "internal", awareness_aperture), keep_tail=True)
     if experiential_context:
         # Read-only joins over existing persona-private ledgers.  This is
         # evidence of availability/choice/action, not a second memory store.
         asm.add("experiential_continuity", experiential_context,
-                priority=8, budget=1200)
+                priority=8, budget=attention_budget(
+                    1200, "internal", awareness_aperture))
     if gist:
-        asm.add("story_so_far", render_gist(gist), priority=6, budget=450)
+        asm.add("story_so_far", render_gist(gist), priority=6,
+                budget=attention_budget(
+                    450, "internal", awareness_aperture))
     if body:
         asm.add("body_sensation", body, priority=8,
-                budget=SOMA_READOUT_BUDGET)
+                budget=attention_budget(
+                    SOMA_READOUT_BUDGET, "internal", awareness_aperture))
     if rhythm:
         asm.add("body_rhythm", rhythm, priority=7,
-                budget=RHYTHM_READOUT_BUDGET)
+                budget=attention_budget(
+                    RHYTHM_READOUT_BUDGET, "internal", awareness_aperture))
     if entities:
         # who's-who cards: structured knowledge about people the
         # message names — LOOKUP tier, above surfaced memories,
@@ -250,14 +275,49 @@ def build_turn_assembly(*, identity: str, cocktail: dict,
         # that distinction visible to both the persona and receipts.
         asm.add("conversation_archive", archive_context,
                 priority=7, budget=1100)
-    asm.add("surfaced_memories", render_memories(recalled),
-            priority=6, budget=600)
+    if private_journal_context:
+        # This content exists here only because the persona explicitly opened
+        # an entry or requested the content-free index. It is a one-turn
+        # private reader seat, not memory, diary recurrence, or circulation.
+        asm.add("private_journal_reader", private_journal_context,
+                priority=9, budget=max(400, min(
+                    int(private_journal_budget), 24000)))
+    if research_report_context:
+        # A completed report returns only through an explicit resident action.
+        # This one-turn private reader is neither autobiographical memory nor
+        # evidence that the report's conclusions are presently endorsed.
+        asm.add("research_report_reader", research_report_context,
+                priority=9, budget=max(600, min(
+                    int(research_report_budget), 24000)))
+    if local_world_context:
+        # Host-observed public conditions enter only after an explicit
+        # resident action. They are neither autobiographical memory nor a
+        # compulsory interest.
+        asm.add("local_world_reader", local_world_context,
+                priority=9, budget=650)
+    if outward_curiosity_context:
+        # A question is present only because this matching person has already
+        # opened a conversation. The block offers alternatives; it cannot send.
+        asm.add("outward_curiosity", outward_curiosity_context,
+                priority=9, budget=700)
+    if include_recalled_memories:
+        asm.add("surfaced_memories", render_memories(recalled),
+                priority=6, budget=attention_budget(
+                    600, "internal", awareness_aperture))
     if my_life:
         asm.add("recent_diary",
                 "From your own recent diary (your words, your voice):\n"
-                + my_life, priority=5, budget=400)
+                + my_life, priority=5,
+                budget=attention_budget(
+                    400, "internal", awareness_aperture))
     if room:
-        asm.add("the_room", room, priority=7, budget=300)
+        asm.add("the_room", room, priority=7,
+                budget=attention_budget(
+                    300, "external", awareness_aperture))
+    processing_field = render_processing_field(awareness_aperture)
+    if processing_field:
+        asm.add("processing_field", processing_field,
+                priority=7, budget=240)
     asm.messages.append({"role": "user", "content": user_message})
     return asm
 

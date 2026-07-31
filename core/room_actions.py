@@ -7,8 +7,14 @@ Grammar (tiny, fine-tune-inheritable):
   <act>move_to OBJECT</act>
   <act>look_at OBJECT_OR_PERSON</act>
   <act>turn_toward OBJECT_OR_PERSON</act>
+  <act>inspect OBJECT_OR_PERSON</act>
   <act>sit OBJECT</act>
   <act>stand</act>
+  <act>gesture attentive|weary|guarded|open|curious_tilt</act>
+  <act>release_gesture</act>
+  <act>body_motion MOTION</act>
+  <act>light_on OBJECT</act>
+  <act>light_off OBJECT</act>
   <act>contact OBJECT</act>
   <act>read OBJECT</act>
   <act>travel ROOM</act>
@@ -16,7 +22,23 @@ Grammar (tiny, fine-tune-inheritable):
   <act>offer_intention LABEL :: possibility to offer</act>
   <act>offer_writing LABEL :: material to offer</act>
   <act>offer_research TOPIC</act>
+  <act>browse_research URL_OR_PUBLIC_QUERY :: why it matters</act>
+  <act>browse_research URL_OR_PUBLIC_QUERY :: why it matters</act>
+  <act>browse_research URL_OR_PUBLIC_QUERY :: why it matters</act>
+  <act>browse_research URL_OR_PUBLIC_QUERY :: why it matters</act>
   <act>offer_atelier LABEL :: material to offer</act>
+  <act>offer_latest_artifact EXACT_IN_HOUSE_AUDIENCE</act>
+  <act>journal :: private words to append</act>
+  <act>journal_index</act>
+  <act>journal_open latest|ENTRY_ID</act>
+  <act>research_report_open latest|REPORT_ID|REPORT_ANCHOR</act>
+  <act>writing_archive PROJECT_ID</act>
+  <act>writing_restore PROJECT_ID</act>
+  <act>hold_question :: PRIVATE QUESTION</act>
+  <act>curiosity_ask QUESTION_ID</act>
+  <act>curiosity_defer QUESTION_ID</act>
+  <act>curiosity_revise QUESTION_ID :: NEW QUESTION</act>
+  <act>curiosity_release QUESTION_ID</act>
 
 Pure module: parse + strip only. Execution lives with the RoomClient
 caller. Unknown verbs parse as {"verb": "?", ...} and execute as errors —
@@ -24,9 +46,23 @@ the world refuses, the refusal is a percept, that's honest too."""
 import re
 
 ACT_RE = re.compile(r"<act>(.*?)</act>", re.DOTALL)
-VERBS = {"move_to", "look_at", "turn_toward", "sit", "stand", "contact", "read", "travel", "write", "say",
+VERBS = {"move_to", "look_at", "turn_toward", "inspect", "sit", "stand",
+         "gesture", "release_gesture", "body_motion",
+         "light_on", "light_off",
+         "contact", "read", "travel",
+         "write", "say",
          "offer_intention", "offer_writing", "offer_research",
-         "offer_atelier", "approve_altered_state", "decline_altered_state",
+         "browse_research",
+         "browse_research",
+         "browse_research",
+         "browse_research",
+         "offer_atelier", "offer_latest_artifact",
+         "journal", "journal_index", "journal_open",
+         "research_report_open",
+         "writing_archive", "writing_restore",
+         "hold_question", "curiosity_ask", "curiosity_defer",
+         "curiosity_revise", "curiosity_release",
+         "approve_altered_state", "decline_altered_state",
          "defer_altered_state", "end_altered_state"}
 
 

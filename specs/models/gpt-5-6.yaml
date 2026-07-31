@@ -1,17 +1,12 @@
-# gpt-5-6 — user-added OpenAI-compatible model, scaffolded by the
-# factory 2026-07-12. One wire shape, many servers: LM Studio, llama.cpp,
-# vLLM, OpenRouter, Together, Groq. KEY LAW: api_key_env below NAMES
-# an environment variable — the value NEVER goes in this file. Local
-# servers typically need no key at all (unset env -> no auth header).
-# NOTHING here is verified — run the harness MECHANICAL TIER before
-# trusting anything (llama3-1-8b's template-risk lesson applies doubly to
-# servers that silently apply their own chat template).
+# gpt-5-6 — GPT-5.6 Sol vessel. The local name remains stable for
+# roster/history continuity; the OpenAI API endpoint is the discovered,
+# callable variant ID rather than the retired bare gpt-5.6 alias.
 identity:
   name: "gpt-5-6"
   family: "openai_chat"
-  base_model: "gpt-5.6 (user-added)"
+  base_model: "gpt-5.6 Sol"
   provider: "openai_compat"
-  endpoint: "gpt-5.6"
+  endpoint: "gpt-5.6-sol"
   base_url: "https://api.openai.com/v1"
   api_key_env: "OPENAI_API_KEY"
   locality: "api"
@@ -51,8 +46,8 @@ runtime:
   cost: "depends on server (free local / $ hosted)"
   latency_class: "unknown"
 quirks:
-  - "user-added via the factory; nothing verified — mechanical tier first"
-  - "server may apply its own chat template — watch for template drift"
+  - "stable JNSQ name gpt-5-6 resolves to the discovered gpt-5.6-sol API ID"
+  - "Sol, Terra, and Luna are distinct API model IDs, not reasoning-effort settings"
 harness:
   last_mechanical_pass: null
   fidelity_floor_results: {}

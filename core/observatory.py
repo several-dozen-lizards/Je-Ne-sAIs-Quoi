@@ -13,6 +13,7 @@ import os
 import queue
 import threading
 import time
+import math
 
 
 def _stamp(now):
@@ -28,10 +29,15 @@ def _round(value):
     return round(float(value), 6)
 
 
+def _private_ref(value):
+    return "candidate_" + hashlib.sha256(
+        str(value or "").encode("utf-8")).hexdigest()[:16]
+
+
 class SalienceObserver:
     """Durable transition recorder with a genuinely read-only field view."""
 
-    def __init__(self, persona: str, path: str):
+    def __init__(self, persona: str, path: str, context_provider=None):
         self.persona = str(persona)
         self.path = path
         self.seq = 0
@@ -40,7 +46,49 @@ class SalienceObserver:
         self._snapshot_signature = None
         self._lock = threading.RLock()
         self._subscribers = set()
+        self.context_provider = context_provider
         os.makedirs(os.path.dirname(path), exist_ok=True)
+
+    def _responsiveness_context(self):
+        """Read bounded numeric instruments; observer failure stays inert."""
+        if not callable(self.context_provider):
+            return {}
+        try:
+            value = self.context_provider()
+            return dict(value or {}) if isinstance(value, dict) else {}
+        except Exception:
+            return {}
+
+    @staticmethod
+    def _competition(winner, beaten, selection=None):
+        winner_total = max(0.0, float(winner.get("salience", 0.0)))
+        alternatives = [max(0.0, float(item.get("salience", 0.0)))
+                        for item in (beaten or [])]
+        runner_up = max(alternatives, default=0.0)
+        values = [winner_total, *alternatives]
+        total = sum(values)
+        shares = [value / total for value in values if value > 0.0] \
+            if total > 0.0 else []
+        entropy = -sum(share * math.log(share) for share in shares)
+        normalized_entropy = (
+            entropy / math.log(len(values))
+            if len(values) > 1 and len(shares) > 1 else 0.0)
+        sources = {
+            str(item.get("source") or item.get("kind") or "unknown")
+            for item in [winner, *(beaten or [])]}
+        selected_score = dict(selection or {}).get("effective_salience")
+        return {
+            "candidate_count": len(values),
+            "source_count": len(sources),
+            "winner_salience": _round(winner_total),
+            "runner_up_salience": _round(runner_up),
+            "winner_margin": _round(winner_total - runner_up),
+            "runner_up_ratio": _round(
+                runner_up / winner_total if winner_total > 0.0 else 0.0),
+            "salience_entropy": _round(normalized_entropy),
+            "selected_effective_salience": (
+                _round(selected_score) if selected_score is not None else None),
+        }
 
     def _publish(self):
         self.revision += 1
@@ -172,14 +220,20 @@ class SalienceObserver:
     def candidate_expired(self, item, final_value, now):
         candidate = self.candidate(item, salience=final_value, now=now)
         record = self._emit("candidate_expired", now, candidate=candidate,
-                            reason="cooled_out")
+                            reason="cooled_out",
+                            responsiveness={
+                                "release_edge": "cooled_out",
+                                "state": self._responsiveness_context()})
         self.meta.pop(str(item.get("key") or ""), None)
         return record
 
     def candidate_withdrawn(self, item, reason, now):
         record = self._emit(
             "candidate_withdrawn", now,
-            candidate=self.candidate(item, now=now), reason=str(reason))
+            candidate=self.candidate(item, now=now), reason=str(reason),
+            responsiveness={
+                "release_edge": "withdrawn",
+                "state": self._responsiveness_context()})
         self.meta.pop(str(item.get("key") or ""), None)
         return record
 
@@ -188,7 +242,11 @@ class SalienceObserver:
             "candidate_won", now,
             candidate=self.candidate(winner, now=now),
             beaten=[self.candidate(item, now=now) for item in beaten],
-            selection=dict(selection or {}))
+            selection=dict(selection or {}),
+            responsiveness={
+                "competition": self._competition(
+                    winner, beaten, selection=selection),
+                "state": self._responsiveness_context()})
 
     def field_effect(self, candidate_key, quantity, prior, new, now):
         return self._emit("field_effect", now,
@@ -198,7 +256,10 @@ class SalienceObserver:
     def candidate_requeued(self, item, reason, now):
         return self._emit("candidate_requeued", now,
                           candidate=self.candidate(item, now=now),
-                          reason=str(reason))
+                          reason=str(reason),
+                          responsiveness={
+                              "release_edge": "requeued",
+                              "state": self._responsiveness_context()})
 
     def discharge(self, item, outcome, response, prompt_receipt, now):
         response_text = str(response or "").strip()
@@ -210,7 +271,44 @@ class SalienceObserver:
             "discharge", now, candidate_key=str(item.get("key") or ""),
             outcome=str(outcome), model_response_digest=_digest(response, 200),
             quiet_exact=quiet_exact, quiet_trailing=quiet_trailing,
-            prompt_receipt=prompt_receipt)
+            prompt_receipt=prompt_receipt,
+            responsiveness={
+                "release_edge": "discharge",
+                "state": self._responsiveness_context()})
+
+    def play_counterfactual(self, projection, actual_winner_key, now):
+        """Persist one already-computed content-free, unapplied comparison."""
+        value = dict(projection or {})
+        actual_ref = _private_ref(actual_winner_key)
+        counterfactual_ref = value.get("counterfactual_winner_ref")
+        eligible = int(value.get("eligible_count") or 0)
+        original_margin = float(value.get("original_margin") or 0.0)
+        counterfactual_margin = float(
+            value.get("counterfactual_margin") or 0.0)
+        return self._emit(
+            "play_attention_counterfactual", now,
+            schema=int(value.get("schema") or 1),
+            owner=self.persona,
+            ownership="persona_private",
+            mode="shadow",
+            applied=False,
+            downstream_channels_touched=[],
+            external_effects=False,
+            eligibility=str(value.get("eligibility") or ""),
+            candidate_count=int(value.get("candidate_count") or 0),
+            eligible_count=eligible,
+            play_event_count=int(value.get("play_event_count") or 0),
+            attention_delta=_round(value.get("attention_delta") or 0.0),
+            actual_winner_ref=actual_ref,
+            original_winner_ref=value.get("original_winner_ref"),
+            counterfactual_winner_ref=counterfactual_ref,
+            changed_winner=bool(
+                eligible > 0 and counterfactual_ref
+                and counterfactual_ref != actual_ref),
+            original_margin=_round(original_margin),
+            counterfactual_margin=_round(counterfactual_margin),
+            margin_delta=_round(counterfactual_margin - original_margin),
+            candidates=list(value.get("candidates") or [])[:48])
 
     def admission_boundary(self, evidence, score, boundary, policy,
                            oscillator, outcome, now, event_id=None):

@@ -2,7 +2,8 @@
 
 This runtime owns no clock and no second attention field.  Human-admitted
 seeds and open projects recur only at a real DMN fire, compete in the shared
-field, and may produce one host-validated append-only desk action.  WD1 is
+field, and may produce a resource-shaped sequence of host-validated,
+append-only desk movements. WD1 is
 strictly local-model-only and has no provider fallback path.
 """
 from __future__ import annotations
@@ -19,6 +20,11 @@ from typing import Any, Callable, Mapping
 
 from adapters.model_events import collect_legacy_text
 from core.agency_projection import AgencyTaskEnvelope
+from core.interior_work_envelope import InteriorWorkEnvelope
+from core.sovereign_interior import lease_fields
+from core.volitional_choice import (
+    ChoiceLedger, OwnerChoiceRejected, witness_projection,
+)
 from core.writing_desk import WritingDesk
 from harness.model_call_receipts import (
     model_call_scope, new_cycle_id, record_model_call,
@@ -103,7 +109,7 @@ def parse_desk_proposal(text: str) -> dict[str, str]:
             break
     if proposal is None:
         raise ValueError("writing desk model did not return one JSON object")
-    allowed = {"action", "title", "form", "content"}
+    allowed = {"action", "title", "form", "content", "orientation"}
     unknown = set(proposal) - allowed
     if unknown:
         raise ValueError(
@@ -116,7 +122,33 @@ def parse_desk_proposal(text: str) -> dict[str, str]:
         "title": str(proposal.get("title") or "").strip(),
         "form": str(proposal.get("form") or "").strip(),
         "content": str(proposal.get("content") or "").strip(),
+        "orientation": str(proposal.get("orientation") or "").strip(),
     }
+
+
+def parse_desk_movements(text: str) -> list[dict[str, str]]:
+    """Parse one movement or an explicitly ordered private movement sequence."""
+    text = re.sub(r"<think>.*?</think>", "", str(text or ""),
+                  flags=re.I | re.S).strip()
+    decoder = json.JSONDecoder()
+    value = None
+    for index, char in enumerate(text):
+        if char not in "[{":
+            continue
+        try:
+            decoded, _end = decoder.raw_decode(text[index:])
+        except (TypeError, ValueError):
+            continue
+        if isinstance(decoded, (dict, list)):
+            value = decoded
+            break
+    if isinstance(value, dict) and set(value) == {"movements"}:
+        value = value["movements"]
+    if isinstance(value, dict):
+        return [parse_desk_proposal(json.dumps(value))]
+    if not isinstance(value, list) or not value:
+        raise ValueError("writing desk model did not return movements")
+    return [parse_desk_proposal(json.dumps(item)) for item in value]
 
 
 class WritingDeskRuntime:
@@ -124,18 +156,21 @@ class WritingDeskRuntime:
 
     def __init__(self, engine, controller, raw_config=None, *,
                  desk: WritingDesk = None, adapter_factory: Callable = None,
-                 spec_loader: Callable = None):
+                 spec_loader: Callable = None,
+                 choice_ledger: ChoiceLedger = None):
         self.engine = engine
         self.controller = controller
         self.config = resolve_writing_desk_config(
             raw_config, getattr(engine, "model", ""))
         self.desk = desk or WritingDesk(engine.pdir)
+        self.choice_ledger = choice_ledger or ChoiceLedger(engine.pdir)
         self._adapter_factory = adapter_factory
         self._spec_loader = spec_loader
         self._adapter = None
         self._effects = queue.Queue()
         self._observer = getattr(engine, "salience_observer", None)
         self._last_readiness = None
+        self.internal_outcome_sink = None
 
     def _emit(self, kind: str, **payload) -> None:
         if self._observer is None:
@@ -225,8 +260,7 @@ class WritingDeskRuntime:
                         now: float, readiness: Mapping[str, Any] = None):
         state = dict(readiness or self.readiness(field))
         eligible = self.eligible(candidate) \
-            and "writing_desk" in getattr(self.engine, "enabled", set()) \
-            and not state.get("hard_blocked")
+            and "writing_desk" in getattr(self.engine, "enabled", set())
         desk_satiety = field.satiety.warmth("writing_desk", now)
         readiness_value = (
             max(0.0, min(1.0, _finite(state.get("readiness"))))
@@ -234,7 +268,7 @@ class WritingDeskRuntime:
         score, meta = field.attention_score(
             dict(candidate), now=now,
             action_readiness=readiness_value,
-            action_eligible=eligible)
+            action_eligible=eligible, scope_satiety=desk_satiety)
         return score, {
             **meta, "writing_desk_eligible": eligible,
             "writing_desk_readiness": round(readiness_value, 6),
@@ -271,6 +305,7 @@ class WritingDeskRuntime:
         candidate.update({
             "seed_id": record["seed_id"],
             "satiety_key": f"writing_desk_seed:{record['seed_id']}",
+            **lease_fields(record, origin="writing_desk_seed"),
         })
         return candidate
 
@@ -329,6 +364,43 @@ class WritingDeskRuntime:
             ownership=record.get("ownership"),
             duplicate=record.get("duplicate", False))
         return {"record": record, "candidate": candidate}
+
+    def consume_internal_action(self, selection: Mapping[str, Any]) -> dict:
+        """Owner-validate one wrapper-local draft handoff without executing it."""
+        selection = dict(selection or {})
+        if selection.get("capability") != "writing_desk.private_draft" \
+                or selection.get("owner") != "writing_desk":
+            raise ValueError("internal action is not owned by Writing Desk")
+        if selection.get("authority_scope") \
+                != "wrapper_local_private_reversible" \
+                or selection.get("external_effects") is not False \
+                or selection.get("tool_binding") is not None \
+                or selection.get("scheduler_slot") is not None:
+            raise ValueError("internal writing action exceeded wrapper authority")
+        payload = dict(selection.get("payload") or {})
+        provenance = dict(payload.get("project_loom_provenance") or {})
+        allowed_provenance = {
+            "proposal_id", "orientation_id", "candidate_id", "selection_mode"}
+        if not set(provenance).issubset(allowed_provenance) \
+                or not {"proposal_id", "candidate_id"}.issubset(provenance) \
+                or any(not str(value or "").strip()
+                       for value in provenance.values()):
+            raise ValueError("internal writing action provenance is incomplete")
+        label = str(payload.get("label") or "").strip()
+        content = str(payload.get("content") or "").strip()
+        if not label or not content:
+            raise ValueError("internal writing action needs bounded private material")
+        record = self.desk.admit_seed(
+            label, content=content,
+            ownership="persona_project_handoff")
+        self._emit(
+            "writing_desk_internal_action_admitted",
+            selection_id=selection.get("selection_id"),
+            seed_id=record.get("seed_id"),
+            duplicate=record.get("duplicate", False),
+            capability="writing_desk.private_draft",
+            ownership="persona_project_handoff")
+        return record
 
     def _inspect_anchor(self, anchor: str, maximum: int = 5200) -> dict:
         """Resolve only an exact admitted anchor; never search or accept paths."""
@@ -398,7 +470,8 @@ class WritingDeskRuntime:
                 + inspected["content"])
         return project, source, "\n\n".join(pieces)
 
-    def _assembly(self, candidate: Mapping[str, Any], spec):
+    def _assembly(self, candidate: Mapping[str, Any], spec, *,
+                  witnessed: bool = False):
         project, source, material = self._source_material(candidate)
         if project is None:
             actions = "quiet or start"
@@ -413,13 +486,22 @@ class WritingDeskRuntime:
                 "title/form must be empty. For complete, pause, abandon, or "
                 "quiet, title, form, and content must be empty.")
             summary = f"Open writing project {project['project_id']}."
+        orientation_contract = (
+            " Also describe your present, revisable orientation toward the "
+            "fork in orientation. It is evidence you encounter, not a score "
+            "or justification forced to agree with the action."
+            if witnessed else "")
         task = (
             "This is your private writing desk. The material won attention "
             "through your ordinary field; it is not an order to produce. "
             "Notice what form, if any, the material appears to want now. "
-            f"Choose exactly one action from: {actions}. {action_contract} "
-            "Return exactly one JSON object and no prose outside it, with "
-            "exactly these keys: action, title, form, content. Nothing will "
+            f"Choose one action, or an ordered sequence of actions, from: "
+            f"{actions}. {action_contract} "
+            f"{orientation_contract} Return exactly one JSON object and no "
+            "prose outside it. For one movement use exactly these keys: "
+            "action, title, form, content, orientation. For a sequence use "
+            "exactly one movements key containing objects with those exact "
+            "keys. Do not pad a sequence: stop when the work settles. Nothing will "
             "be published or sent. Do not claim any external effect."
         )
         source_digest = str(source.get("source_digest") or _digest(source))
@@ -459,7 +541,9 @@ class WritingDeskRuntime:
                 normalized[key] = float(usage[key])
         return normalized
 
-    def _commit(self, context, candidate, proposal, project, source):
+    def _commit(self, context, candidate, proposal, project, source, *,
+                run_id=None):
+        commit_run_id = str(run_id or context.run_id)
         action = proposal["action"]
         is_seed = candidate.get("source") == "writing_desk_seed"
         if is_seed and action not in {"quiet", "start"}:
@@ -472,17 +556,17 @@ class WritingDeskRuntime:
                     or not proposal["content"]:
                 raise ValueError("start proposal is missing title, form, or content")
             record = self.desk.start_project(
-                context.run_id, proposal["title"], proposal["form"],
+                commit_run_id, proposal["title"], proposal["form"],
                 proposal["content"], source=source)
             self.desk.resolve_seed(
-                candidate["seed_id"], context.run_id, "project_started",
+                candidate["seed_id"], commit_run_id, "project_started",
                 project_id=record["project_id"])
             return "started", record
         if action == "revise":
             if proposal["title"] or proposal["form"] or not proposal["content"]:
                 raise ValueError("revision proposal has an invalid shape")
             return "revised", self.desk.append_revision(
-                context.run_id, project["project_id"], proposal["content"])
+                commit_run_id, project["project_id"], proposal["content"])
         if action in {"complete", "pause", "abandon"}:
             if proposal["title"] or proposal["form"] or proposal["content"]:
                 raise ValueError("resolution proposal must not carry draft content")
@@ -491,12 +575,12 @@ class WritingDeskRuntime:
                 "abandon": "abandoned",
             }[action]
             return resolution, self.desk.resolve_project(
-                context.run_id, project["project_id"], resolution)
+                commit_run_id, project["project_id"], resolution)
         if proposal["title"] or proposal["form"] or proposal["content"]:
             raise ValueError("quiet proposal must not carry draft content")
         if is_seed:
             record = self.desk.resolve_seed(
-                candidate["seed_id"], context.run_id, "quiet")
+                candidate["seed_id"], commit_run_id, "quiet")
         else:
             record = {"project_id": project["project_id"]}
         return "quiet", record
@@ -521,9 +605,6 @@ class WritingDeskRuntime:
         if not self._candidate_current(candidate):
             return {"started": False, "reason": "stale_candidate"}
         readiness = self.readiness(getattr(self.engine, "idle_metabolism", None))
-        if readiness.get("hard_blocked"):
-            return {"started": False, "reason": "state_blocked",
-                    "readiness": readiness}
         capability = self.capability()
         if not capability["usable"]:
             self._emit(
@@ -532,8 +613,10 @@ class WritingDeskRuntime:
                 model=self.config.model)
             return {"started": False, "reason": capability["reason"]}
         spec = self._load_spec()
+        projection = witness_projection(candidate, readiness)
         try:
-            product, project, source = self._assembly(candidate, spec)
+            product, project, source = self._assembly(
+                candidate, spec, witnessed=projection["witness"])
         except Exception as exc:
             return {"started": False, "reason": type(exc).__name__}
         proposal_id = _digest({
@@ -542,6 +625,15 @@ class WritingDeskRuntime:
             "state_ref": product.state_ref,
         })
         run_id = f"writing-desk-{proposal_id}"
+        options = (
+            ["quiet", "start"] if candidate.get("source") == "writing_desk_seed"
+            else ["quiet", "revise", "complete", "pause", "abandon"])
+        episode = (
+            self.choice_ledger.open_fork(
+                owner="writing_desk", run_id=run_id, candidate=candidate,
+                options=options, projection=projection)
+            if projection["witness"] else None)
+        episode_id = (episode or {}).get("episode_id")
         adapter = self._model_adapter(spec)
         identity = dict(spec.get("identity") or {})
 
@@ -574,15 +666,63 @@ class WritingDeskRuntime:
                         {"error_type": type(exc).__name__}, status="failed")
                     raise
             context.cancellation.raise_if_cancelled()
-            if context.live_epoch() != context.captured_epoch:
-                raise concurrent.futures.CancelledError(
-                    "external demand changed before writing desk commit")
-            proposal = parse_desk_proposal(text)
-            outcome, record = self._commit(
-                context, candidate, proposal, project, source)
+            proposals = parse_desk_movements(text)
+            envelope = InteriorWorkEnvelope.from_readiness(
+                readiness, response_tokens=self.config.max_tokens)
+            admitted_proposals = []
+            for proposal in proposals:
+                if not envelope.admit(proposal):
+                    break
+                admitted_proposals.append(proposal)
+                if proposal["action"] in {
+                        "quiet", "complete", "pause", "abandon"}:
+                    break
+            if not admitted_proposals:
+                raise ValueError("interior work envelope admitted no movement")
+            if candidate.get("source") == "writing_desk_seed":
+                admitted_proposals = admitted_proposals[:1]
+            proposal = admitted_proposals[0]
+            if episode_id:
+                self.choice_ledger.commit_choice(
+                    episode_id, action=proposal["action"],
+                    orientation=proposal.get("orientation") or "")
+            movements = []
+            current_project = project
+            try:
+                for index, movement in enumerate(admitted_proposals):
+                    movement_run_id = (
+                        context.run_id if index == 0
+                        else f"{context.run_id}:movement:{index + 1}")
+                    outcome, record = self._commit(
+                        context, candidate, movement, current_project, source,
+                        run_id=movement_run_id)
+                    movements.append({
+                        "outcome": outcome, "record": record,
+                        "run_id": movement_run_id})
+                    if record.get("project_id"):
+                        current_project = self.desk.project(
+                            record["project_id"], include_content=True)
+            except Exception as exc:
+                if episode_id:
+                    self.choice_ledger.settle_owner(
+                        episode_id, accepted=False, outcome="rejected",
+                        reason=f"{type(exc).__name__}: {exc}")
+                    raise OwnerChoiceRejected(
+                        episode_id, f"{type(exc).__name__}: {exc}") from exc
+                raise
+            outcome = movements[-1]["outcome"]
+            record = movements[-1]["record"]
+            if episode_id:
+                self.choice_ledger.settle_owner(
+                    episode_id, accepted=True, outcome=outcome,
+                    durable_ref=str(record.get("project_id") or ""))
             usage = self._usage(events)
             return AgencyRunOutcome(
                 result={"outcome": outcome, "record": record,
+                        "movements": movements,
+                        "movement_count": len(movements),
+                        "work_envelope": envelope.status(),
+                        "choice_episode_id": episode_id,
                         "usage": usage,
                         "provider_http_attempts": attempts},
                 metrics={"model_requests": 1,
@@ -593,7 +733,8 @@ class WritingDeskRuntime:
 
         try:
             future = self.controller.start(
-                run_id, runner, proposal_id=proposal_id)
+                run_id, runner, proposal_id=proposal_id,
+                interruptible=False)
         except Exception as exc:
             return {"started": False, "reason": type(exc).__name__}
         future.add_done_callback(lambda done: self._completed(
@@ -612,6 +753,22 @@ class WritingDeskRuntime:
             outcome = future.result()
             result = dict(getattr(outcome, "result", {}) or {})
         except Exception as exc:
+            if isinstance(exc, OwnerChoiceRejected):
+                self._effects.put({
+                    "kind": "settled", "run_id": run_id,
+                    "proposal_id": proposal_id, "candidate": dict(candidate),
+                    "outcome": "owner_rejected", "project_id": None,
+                    "record_digest": _digest({
+                        "episode_id": exc.episode_id,
+                        "reason": str(exc)}),
+                    "choice_episode_id": exc.episode_id,
+                    "usage": {}, "provider_http_attempts": 1,
+                    "model": self.config.model,
+                    "provider": capability.get("provider"),
+                    "locality": capability.get("locality"),
+                    "readiness": readiness.get("readiness", 0.0),
+                })
+                return
             self._effects.put({
                 "kind": "retry", "run_id": run_id,
                 "proposal_id": proposal_id, "candidate": dict(candidate),
@@ -626,8 +783,11 @@ class WritingDeskRuntime:
             "kind": "settled", "run_id": run_id,
             "proposal_id": proposal_id, "candidate": dict(candidate),
             "outcome": result.get("outcome") or "quiet",
+            "movement_count": int(result.get("movement_count") or 1),
+            "work_envelope": dict(result.get("work_envelope") or {}),
             "project_id": record.get("project_id"),
             "record_digest": _digest(record),
+            "choice_episode_id": result.get("choice_episode_id"),
             "usage": usage,
             "provider_http_attempts": int(
                 result.get("provider_http_attempts") or 1),
@@ -673,6 +833,12 @@ class WritingDeskRuntime:
                     "A private writing-desk pull settled without a project "
                     "change. Nothing was published, sent, or overwritten.")
                 novelty = 0.0
+            elif outcome == "owner_rejected":
+                event_text = (
+                    "A witnessed private writing choice was refused by the "
+                    "Writing Desk owner. No project changed; the unresolved "
+                    "choice and refusal remain durable.")
+                novelty = .35
             else:
                 event_text = (
                     f"A self-chosen private writing-desk action {outcome} "
@@ -696,6 +862,8 @@ class WritingDeskRuntime:
                 "provider": effect.get("provider"),
                 "locality": effect.get("locality"),
                 "model_requests": 1,
+                "movement_count": effect.get("movement_count", 1),
+                "work_envelope": effect.get("work_envelope", {}),
                 "provider_http_attempts": effect.get(
                     "provider_http_attempts", 1),
                 **usage, "estimated_cost_usd": 0.0,
@@ -703,6 +871,16 @@ class WritingDeskRuntime:
                 "source_satiety": project_satiety,
                 "desk_satiety": desk_satiety,
             })
+            if self.internal_outcome_sink is not None \
+                    and source_candidate.get("seed_id"):
+                try:
+                    self.internal_outcome_sink(
+                        source_candidate["seed_id"],
+                        run_id=effect["run_id"], outcome=outcome,
+                        durable_ref=effect.get("project_id") or "",
+                        usage={**usage, "estimated_cost_usd": 0.0})
+                except ValueError:
+                    pass
             candidate = field.offer_cognitive_event(
                 "writing_desk_effect", event_text,
                 {"novelty": novelty,
@@ -714,6 +892,11 @@ class WritingDeskRuntime:
                 raw_ref=effect.get("record_digest"),
                 ownership="persona_private",
                 receipts=[effect.get("record_digest")])
+            if effect.get("choice_episode_id"):
+                self.choice_ledger.encounter_consequence(
+                    effect["choice_episode_id"],
+                    candidate_key=str(candidate.get("key") or ""))
+                candidate["choice_episode_id"] = effect["choice_episode_id"]
             admitted.append(candidate)
             self._emit(
                 "writing_desk_field_reentry", run_id=effect["run_id"],
@@ -721,6 +904,34 @@ class WritingDeskRuntime:
                 project_id=effect.get("project_id"),
                 desk_satiety_before=prior_desk_satiety,
                 desk_satiety_after=desk_satiety)
+        for episode in self.choice_ledger.pending_consequences(
+                "writing_desk"):
+            outcome = str(episode.get("outcome") or "unknown")
+            accepted = bool(episode.get("accepted"))
+            event_text = (
+                f"A previously witnessed private writing choice returned after "
+                f"restart. Its owner {'accepted' if accepted else 'refused'} "
+                f"the selected branch; the durable outcome is {outcome}.")
+            try:
+                felt = circulate_experienced_event(self.engine, event_text)
+            except Exception:
+                felt = {}
+            candidate = field.offer_cognitive_event(
+                "choice_consequence", event_text,
+                {"novelty": .35,
+                 "affect_change": _finite((felt or {}).get(
+                     "affect_change"), 0.0),
+                 "body_intensity": _finite((felt or {}).get(
+                     "body_change"), 0.0),
+                 "relationship": 0.0, "unresolved": 0.0},
+                key=f"choice_consequence:{episode['episode_id']}", now=now,
+                raw_ref=episode["episode_id"], ownership="persona_private",
+                receipts=[episode["episode_id"]])
+            candidate["choice_episode_id"] = episode["episode_id"]
+            self.choice_ledger.encounter_consequence(
+                episode["episode_id"],
+                candidate_key=str(candidate.get("key") or ""))
+            admitted.append(candidate)
         if admitted:
             field.save(now=now)
             if self._observer is not None:
@@ -742,4 +953,5 @@ class WritingDeskRuntime:
             "readiness": self.readiness(
                 getattr(self.engine, "idle_metabolism", None)),
             "desk": self.desk.status(),
+            "choice_junction": self.choice_ledger.status(),
         }

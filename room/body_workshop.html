@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>JNSQ Body Compatibility Workshop</title>
+  <style>
+    :root{color-scheme:dark;--ink:#edf6ef;--muted:#9cb1a2;--line:#33483b;
+      --panel:#121b17;--deep:#09100d;--green:#7feda7;--gold:#e7c56c;
+      font-family:Inter,ui-sans-serif,system-ui,sans-serif}
+    *{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at 80% 0,#183226 0,transparent 36rem),var(--deep);color:var(--ink)}
+    main{width:min(1120px,calc(100% - 2rem));margin:1.2rem auto 3rem}
+    h1{font-size:clamp(1.8rem,4vw,3.4rem);line-height:1;margin:.35rem 0 .8rem;max-width:850px}
+    h2{font-size:1.05rem;letter-spacing:.08em;text-transform:uppercase;color:var(--green)}
+    p{line-height:1.6}.eyebrow,.quiet{color:var(--muted)}
+    .guard{border:1px solid #735f2a;background:#241f10;padding:1rem 1.2rem;border-radius:14px;color:#f4dfa5}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(235px,1fr));gap:1rem;margin:1rem 0 2rem}
+    .card,.workbench{background:color-mix(in srgb,var(--panel) 92%,transparent);border:1px solid var(--line);border-radius:18px;padding:1.1rem;box-shadow:0 20px 50px #0004}
+    .name{font-size:1.2rem;font-weight:750}.asset{font-family:ui-monospace,monospace;color:var(--green);overflow-wrap:anywhere}
+    .badge{display:inline-block;border:1px solid var(--line);border-radius:99px;padding:.2rem .55rem;margin-top:.7rem;font-size:.75rem;color:var(--muted)}
+    .workbench{display:grid;grid-template-columns:minmax(240px,.7fr) minmax(300px,1.3fr);gap:1.25rem}
+    label{display:block;color:var(--muted);margin-bottom:.45rem}select,button{width:100%;font:inherit;color:var(--ink);background:#0b130f;border:1px solid #47604f;border-radius:10px;padding:.75rem}
+    button{margin-top:.75rem;background:#183d28;border-color:#3d8b58;cursor:pointer;font-weight:750}button:hover{background:#205234}
+    dl{display:grid;grid-template-columns:max-content 1fr;gap:.45rem .85rem}dt{color:var(--muted)}dd{margin:0}
+    pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#08100c;padding:1rem;border-radius:12px;border:1px solid #26372d;max-height:25rem;overflow:auto}
+    .empty{color:var(--muted);font-style:italic}.error{color:#ff9d91}
+    .upload{margin:1.25rem 0;padding-top:1rem;border-top:1px solid var(--line)}
+    input[type=file]{width:100%;color:var(--muted);margin:.35rem 0}
+    input[type=number]{width:100%;font:inherit;color:var(--ink);background:#0b130f;border:1px solid #47604f;border-radius:10px;padding:.6rem}
+    .candidate{border-left:3px solid var(--gold);padding-left:.8rem;margin:.8rem 0}
+    .candidate button{width:auto;padding:.4rem .7rem;margin:.45rem 0 0}
+    .mapping-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:.8rem}
+    .mapping-grid label{margin:0}.offsets{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem}
+    .preview-shell{margin-top:1rem;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#050a07}
+    .preview-shell iframe{display:block;width:100%;height:clamp(340px,48vh,500px);border:0}
+    details.builder{margin:1rem 0 1.5rem;padding:0}
+    details.builder>summary{cursor:pointer;padding:1rem 1.1rem;color:var(--green);font-weight:750;letter-spacing:.04em}
+    details.builder>summary small{display:block;margin:.25rem 0 0;color:var(--muted);font-weight:400;letter-spacing:0}
+    .builder-inner{padding:0 1.1rem 1.1rem}.builder-layout{display:grid;grid-template-columns:minmax(280px,.72fr) minmax(320px,1fr);gap:1rem}
+    .builder-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.7rem}
+    .builder-controls label{padding:.65rem;border:1px solid var(--line);border-radius:12px;background:#0a120e}
+    .builder-controls label span{display:flex;justify-content:space-between;gap:.5rem;color:var(--ink);font-size:.86rem}
+    input[type=range]{width:100%;accent-color:var(--green)}
+    input[type=color]{width:100%;height:2.4rem;background:#0b130f;border:1px solid #47604f;border-radius:9px}
+    input[type=text]{width:100%;font:inherit;color:var(--ink);background:#0b130f;border:1px solid #47604f;border-radius:10px;padding:.7rem}
+    .builder-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:.45rem}.builder-actions button{margin:.35rem 0 0;padding:.55rem}
+    .capability-strip{display:flex;flex-wrap:wrap;gap:.4rem;margin:.7rem 0}.capability-strip .badge{margin:0}
+    .builder-preview{min-height:400px}.builder-preview iframe{height:400px}
+    @media(max-width:720px){.workbench{grid-template-columns:1fr}}
+    @media(max-width:820px){.builder-layout{grid-template-columns:1fr}.builder-controls{grid-template-columns:1fr}.builder-preview{min-height:480px}.builder-preview iframe{height:480px}}
+  </style>
+</head>
+<body><main>
+  <div class="eyebrow">JNSQ2 · 3D systems bench · read-only</div>
+  <h1>Body compatibility workshop</h1>
+  <p class="guard"><strong>The household keeps the bodies it has.</strong> New body work is inspected as a separate candidate for Testy first. This workshop cannot install, replace, or reassign a body.</p>
+
+  <details id="legacyBuilder" class="card builder">
+    <summary>Legacy schematic recipe editor
+      <small>Optional procedural reference only. The MPFB candidate workflow is below.</small>
+    </summary>
+    <div class="builder-inner">
+    <h2>Parametric body builder · experimental</h2>
+    <p>Shape a separate <strong>jnsq-humanoid-01</strong> bench body. Every control below changes rendered geometry or material. Recipes are reversible, Testy-only, and cannot become anyone's current body.</p>
+    <div class="builder-layout">
+      <div>
+        <label for="builderRecipe">Saved recipe</label>
+        <select id="builderRecipe"><option value="">new unsaved recipe</option></select>
+        <label for="builderName">Recipe name</label>
+        <input id="builderName" type="text" maxlength="64" value="Testy builder draft">
+        <h3>Body proportions</h3>
+        <div id="builderControls" class="builder-controls"></div>
+        <h3>Face geometry</h3>
+        <p class="quiet">Neutral-centered vectors; identity geometry remains separate from expression.</p>
+        <div id="facialControls" class="builder-controls"></div>
+        <div class="mapping-grid">
+          <label for="bodyColor">Body color<input id="bodyColor" type="color" value="#69d49a"></label>
+          <label for="accentColor">Accent color<input id="accentColor" type="color" value="#c9ffe0"></label>
+        </div>
+        <div class="builder-actions">
+          <button id="builderUndo" type="button">Undo</button>
+          <button id="builderRedo" type="button">Redo</button>
+          <button id="builderReset" type="button">Reset</button>
+        </div>
+        <button id="builderSave" type="button">Save reversible recipe</button>
+        <div id="builderState" class="quiet">Opening the sealed builder…</div>
+        <div class="capability-strip">
+          <span class="badge">proportions · full</span>
+          <span class="badge">surface · full</span>
+          <span class="badge">face · detailed vector preview</span>
+          <span class="badge">expressions · unavailable</span>
+          <span class="badge">wardrobe · unavailable</span>
+        </div>
+      </div>
+      <div class="preview-shell builder-preview">
+        <iframe id="builderFrame" title="Sealed Testy parametric body builder" allow="fullscreen"></iframe>
+      </div>
+    </div>
+    </div>
+  </details>
+
+  <h2>Current assignments</h2>
+  <div id="assignments" class="grid"><div class="empty">Reading the resolver…</div></div>
+
+  <section class="workbench">
+    <div>
+      <h2>Candidate inspection</h2>
+      <p>Choose an existing GLB to exercise the compatibility pipeline. It remains where it is and nobody wears it.</p>
+      <label for="asset">Candidate asset</label>
+      <select id="asset"></select>
+      <button id="inspect" type="button">Inspect alongside Testy</button>
+      <div class="upload">
+        <label for="upload">Quarantine a new GLB</label>
+        <input id="upload" type="file" accept=".glb,model/gltf-binary">
+        <button id="stage" type="button">Stage and inspect for Testy</button>
+        <div id="uploadState" class="quiet">Local quarantine only.</div>
+      </div>
+      <dl>
+        <dt>Pilot</dt><dd id="pilot">Testy</dd>
+        <dt>Authority</dt><dd>inspection only</dd>
+        <dt>Install</dt><dd>disabled</dd>
+      </dl>
+    </div>
+    <div>
+      <h2>Compatibility report</h2>
+      <div id="summary" class="empty">No candidate inspected yet.</div>
+      <pre id="report" hidden></pre>
+      <h2>Staged candidates</h2>
+      <div id="candidates" class="empty">Reading quarantine…</div>
+      <section id="mapper" hidden>
+        <h2>Semantic adapter</h2>
+        <p id="mapperIntro" class="quiet"></p>
+        <div id="roleFields" class="mapping-grid"></div>
+        <h2>Expressions</h2>
+        <div id="expressionFields" class="mapping-grid"></div>
+        <section id="humanMorphSection" hidden>
+          <h2>Human body controls · live preview</h2>
+          <p class="quiet">These paired morphs come from MakeHuman's deformation system. They affect only this sealed Testy candidate and are not an identity or assignment.</p>
+          <div id="humanMorphFields" class="builder-controls"></div>
+          <div id="fittedAssetState" class="quiet"></div>
+          <button id="saveHumanRecipe" type="button">Save current human shape as recipe</button>
+          <div id="humanRecipeState" class="quiet">Choose a recipe name above; expressions are never included.</div>
+        </section>
+        <section id="expressionPreviewSection" hidden>
+          <h2>Transient expressions · live preview</h2>
+          <p class="quiet">These pose channels return to neutral and do not change the saved identity shape.</p>
+          <div id="expressionPreviewFields" class="builder-controls"></div>
+          <button id="resetExpressions" type="button">Return expressions to neutral</button>
+        </section>
+        <h2>Optical origin</h2>
+        <label for="opticalNode">Camera follows node</label>
+        <select id="opticalNode"></select>
+        <div class="mapping-grid">
+          <label for="forwardAxis">Local forward direction
+            <select id="forwardAxis"></select>
+          </label>
+          <label for="upAxis">Local up direction
+            <select id="upAxis"></select>
+          </label>
+        </div>
+        <label>Offset in metres</label>
+        <div class="offsets">
+          <input id="opticalX" type="number" step="0.01" min="-10" max="10" aria-label="Optical X offset">
+          <input id="opticalY" type="number" step="0.01" min="-10" max="10" aria-label="Optical Y offset">
+          <input id="opticalZ" type="number" step="0.01" min="-10" max="10" aria-label="Optical Z offset">
+        </div>
+        <button id="saveMapping" type="button">Save reversible Testy adapter</button>
+        <div id="mappingState" class="quiet">Not saved.</div>
+        <button id="launchPreview" type="button" hidden>Launch sealed 3D preview</button>
+        <div id="previewShell" class="preview-shell" hidden>
+          <iframe id="previewFrame" title="Sealed Testy candidate preview" allow="fullscreen"></iframe>
+        </div>
+      </section>
+    </div>
+  </section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const ROLE_FIELDS=["hips","chest","neck","head","jaw","left_eye","right_eye","left_hand","right_hand","left_foot","right_foot"];
+const EXPRESSION_FIELDS=["blink","blink_left","blink_right","mouth_open","smile","frown","pucker","mouth_wide"];
+const HUMAN_MORPH_CONTROLS=[
+  ["body_frame","Body frame","JNSQ_BodyFrame_Feminine","JNSQ_BodyFrame_Masculine"],
+  ["stature","Stature","JNSQ_Stature_Short","JNSQ_Stature_Tall"],
+  ["body_mass","Body mass","JNSQ_BodyMass_Light","JNSQ_BodyMass_Full"],
+  ["muscularity","Muscularity","JNSQ_Muscularity_Soft","JNSQ_Muscularity_Strong"],
+  ["proportions","Proportions","JNSQ_Proportions_Compact","JNSQ_Proportions_Elongated"],
+  ["shoulder_width","Shoulder width","JNSQ_ShoulderWidth_Narrow","JNSQ_ShoulderWidth_Wide"],
+  ["hip_width","Hip width","JNSQ_HipWidth_Narrow","JNSQ_HipWidth_Wide"],
+  ["torso_length","Torso length","JNSQ_TorsoLength_Short","JNSQ_TorsoLength_Long"],
+  ["arm_length","Arm length","JNSQ_ArmLength_Short","JNSQ_ArmLength_Long"],
+  ["leg_length","Leg length","JNSQ_LegLength_Short","JNSQ_LegLength_Long"],
+  ["head_scale","Head scale","JNSQ_HeadScale_Small","JNSQ_HeadScale_Large"],
+  ["jaw_width","Jaw width","JNSQ_JawWidth_Narrow","JNSQ_JawWidth_Wide"],
+  ["chin_height","Chin height","JNSQ_ChinHeight_Short","JNSQ_ChinHeight_Long"],
+  ["cheekbones","Cheekbones","JNSQ_Cheekbones_Soft","JNSQ_Cheekbones_Prominent"],
+  ["nose_size","Nose size","JNSQ_NoseSize_Small","JNSQ_NoseSize_Large"],
+  ["nose_curve","Nose curve","JNSQ_NoseCurve_Concave","JNSQ_NoseCurve_Convex"],
+  ["nose_tip_angle","Nose tip angle","JNSQ_NoseTip_Down","JNSQ_NoseTip_Up"],
+  ["nostril_angle","Nostril angle","JNSQ_NostrilAngle_Down","JNSQ_NostrilAngle_Up"],
+  ["nostril_width","Nostril width","JNSQ_NostrilWidth_Narrow","JNSQ_NostrilWidth_Wide"],
+  ["nose_projection","Nose projection","JNSQ_NoseProjection_Recessed","JNSQ_NoseProjection_Forward"],
+  ["nose_vertical","Nose height","JNSQ_NoseVertical_Low","JNSQ_NoseVertical_High"],
+  ["septum_angle","Septum angle","JNSQ_SeptumAngle_Low","JNSQ_SeptumAngle_High"],
+  ["jaw_angle","Jaw angle","JNSQ_JawAngle_Raised","JNSQ_JawAngle_Dropped"],
+  ["jaw_projection","Jaw projection","JNSQ_JawProjection_Recessed","JNSQ_JawProjection_Forward"],
+  ["jaw_definition","Jaw definition","JNSQ_JawDefinition_Soft","JNSQ_JawDefinition_Angular"],
+  ["chin_projection","Chin projection","JNSQ_ChinProjection_Recessed","JNSQ_ChinProjection_Prominent"],
+  ["eye_size","Eye size","JNSQ_EyeSize_Small","JNSQ_EyeSize_Large"],
+  ["eye_spacing","Eye spacing","JNSQ_EyeSpacing_Close","JNSQ_EyeSpacing_Wide"],
+  ["mouth_width","Mouth width","JNSQ_MouthWidth_Narrow","JNSQ_MouthWidth_Wide"],
+  ["ear_size","Ear size","JNSQ_EarSize_Small","JNSQ_EarSize_Large"],
+  ["brow_height","Brow height","JNSQ_BrowHeight_Low","JNSQ_BrowHeight_High"]
+];
+const TRANSIENT_EXPRESSIONS=[
+  ["blink_left","Left blink","JNSQ_Expr_BlinkLeft"],
+  ["blink_right","Right blink","JNSQ_Expr_BlinkRight"],
+  ["mouth_open","Mouth open","JNSQ_Expr_MouthOpen"],
+  ["smile","Smile","JNSQ_Expr_Smile"],
+  ["frown","Frown","JNSQ_Expr_Frown"],
+  ["pucker","Pucker","JNSQ_Expr_Pucker"],
+  ["mouth_wide","Mouth wide","JNSQ_Expr_MouthWide"]
+];
+const AXES=[["1,0,0","+X"],["-1,0,0","−X"],["0,1,0","+Y"],["0,-1,0","−Y"],["0,0,1","+Z"],["0,0,-1","−Z"]];
+const BUILDER_FIELDS=[
+  ["height","Height"],["shoulder_width","Shoulders"],["hip_width","Hips"],
+  ["torso_length","Torso"],["limb_length","Limbs"],["head_scale","Head"],
+  ["eye_scale","Eyes"],["roughness","Roughness"],["metallic","Metallic"]
+];
+const FACE_FIELDS=[
+  ["nose_size","Nose size"],["nose_curve","Bridge curve"],
+  ["nose_tip_angle","Tip angle"],["nostril_angle","Nostril angle"],
+  ["nostril_width","Nostril width"],["nose_projection","Nose projection"],
+  ["nose_vertical","Nose height"],["septum_angle","Septum angle"],
+  ["jaw_width","Jaw width"],["jaw_angle","Jaw angle"],
+  ["jaw_projection","Jaw projection"],["jaw_definition","Jaw definition"],
+  ["chin_height","Chin height"],["chin_projection","Chin projection"]
+];
+const BUILDER_DEFAULT={name:"Testy builder draft",body_family:"jnsq-humanoid-01",pilot_target:"starter_persona",
+  parameters:{height:.5,shoulder_width:.5,hip_width:.5,torso_length:.5,limb_length:.5,head_scale:.5,eye_scale:.5},
+  face:Object.fromEntries(FACE_FIELDS.map(([key])=>[key,.5])),
+  surface:{body_color:"#69d49a",accent_color:"#c9ffe0",roughness:.62,metallic:.08}};
+let activeCandidate=null;
+let activeCandidateMeta=null,activeHumanMorphs=[],humanPreviewReady=false;
+let recipeIdentity=Object.fromEntries(HUMAN_MORPH_CONTROLS.map(([id])=>[id,.5])),recipeSourceCandidate=null;
+let activeRecipe=null,builderReady=false,builderHistory=[],builderFuture=[],builderLast="";
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+async function json(url){const response=await fetch(url);const data=await response.json();if(!response.ok)throw new Error(data.error||`HTTP ${response.status}`);return data}
+function assignmentCard(item){return `<article class="card"><div class="name">${esc(item.member)}</div><div class="asset">${esc(item.current_asset||"renderer fallback")}</div><span class="badge">locked current assignment</span></article>`}
+async function boot(){try{const data=await json("/api/avatar-bodies");$("assignments").innerHTML=data.assignments.map(assignmentCard).join("")||'<div class="empty">No room members found.</div>';$("pilot").textContent=data.candidate_policy.pilot_target;$("asset").innerHTML=data.assets.map(a=>`<option value="${esc(a)}">${esc(a)}</option>`).join("");const testy=data.assignments.find(a=>a.member.toLowerCase()===data.candidate_policy.pilot_target.toLowerCase());if(testy?.current_asset)$("asset").value=testy.current_asset}catch(error){$("assignments").innerHTML=`<div class="error">${esc(error.message)}</div>`}}
+async function loadCandidates(){try{const data=await json("/api/avatar-bodies/candidates");$("candidates").className="";$("candidates").innerHTML=data.candidates.map(c=>`<div class="candidate"><strong>${esc(c.original_name)}</strong><br><span class="quiet">${esc(c.state)} · pilot ${esc(c.pilot_target)} · install disabled</span><br><button type="button" data-map-candidate="${esc(c.candidate_id)}">Map candidate</button></div>`).join("")||'<div class="empty">No staged candidates.</div>'}catch(error){$("candidates").className="error";$("candidates").textContent=error.message}}
+function selectOptions(values,selected){return `<option value="">unmapped</option>`+values.map(value=>`<option value="${esc(value)}"${value===selected?' selected':''}>${esc(value)}</option>`).join("")}
+function axisOptions(selected){const key=Array.isArray(selected)?selected.join(","):"";return `<option value="">unmapped</option>`+AXES.map(([value,label])=>`<option value="${value}"${value===key?' selected':''}>${label}</option>`).join("")}
+function readAxis(id){const value=$(id).value;return value?value.split(",").map(Number):null}
+function proposed(report,role){return report.role_candidates?.[role]?.[0]?.name||""}
+const clone=value=>JSON.parse(JSON.stringify(value));
+function readBuilder(){
+  const recipe={name:$("builderName").value.trim(),body_family:"jnsq-humanoid-01",pilot_target:"starter_persona",parameters:{},face:{},surface:{body_color:$("bodyColor").value,accent_color:$("accentColor").value}};
+  for(const [key] of BUILDER_FIELDS){const value=Number(document.querySelector(`[data-builder="${key}"]`).value);(key in BUILDER_DEFAULT.parameters?recipe.parameters:recipe.surface)[key]=value}
+  for(const [key] of FACE_FIELDS)recipe.face[key]=Number(document.querySelector(`[data-face="${key}"]`).value);
+  const live=readHumanMorphs(),identity={...recipeIdentity,...live};
+  recipe.identity=identity;
+  recipe.source_candidate=activeCandidateMeta||recipeSourceCandidate;
+  if(Object.keys(live).length){
+    recipe.parameters.height=identity.stature;recipe.parameters.shoulder_width=identity.shoulder_width;recipe.parameters.hip_width=identity.hip_width;recipe.parameters.torso_length=identity.torso_length;recipe.parameters.limb_length=(identity.arm_length+identity.leg_length)/2;recipe.parameters.head_scale=identity.head_scale;recipe.parameters.eye_scale=identity.eye_size;
+    for(const [key] of FACE_FIELDS)if(key in identity)recipe.face[key]=identity[key]
+  }
+  return recipe
+}
+function writeBuilder(recipe,commit=true){
+  const value=clone(recipe),face={...BUILDER_DEFAULT.face,...(value.face||{})};$("builderName").value=value.name||"Testy builder draft";$("bodyColor").value=value.surface.body_color;$("accentColor").value=value.surface.accent_color;
+  recipeIdentity={...Object.fromEntries(HUMAN_MORPH_CONTROLS.map(([id])=>[id,.5])),...(value.identity||{})};recipeSourceCandidate=value.source_candidate||null;
+  for(const [key] of BUILDER_FIELDS){const number=(key in value.parameters?value.parameters:value.surface)[key],input=document.querySelector(`[data-builder="${key}"]`);input.value=number;document.querySelector(`[data-builder-value="${key}"]`).textContent=Math.round(number*100)+"%"}
+  for(const [key] of FACE_FIELDS){const number=face[key],input=document.querySelector(`[data-face="${key}"]`);input.value=number;document.querySelector(`[data-face-value="${key}"]`).textContent=Math.round(number*100)+"%"}
+  if(commit)builderLast=JSON.stringify(readBuilder());applyBuilderPreview()
+}
+function applyBuilderPreview(){
+  if(!builderReady)return;const apply=$("builderFrame")?.contentWindow?.jnsqBodyBuilderApply;
+  if(typeof apply==="function")apply(JSON.stringify(readBuilder()))
+}
+function commitBuilderChange(){
+  const current=JSON.stringify(readBuilder());if(current===builderLast)return;
+  if(builderLast)builderHistory.push(JSON.parse(builderLast));builderLast=current;builderFuture=[];paintBuilderButtons()
+}
+function paintBuilderButtons(){$("builderUndo").disabled=!builderHistory.length;$("builderRedo").disabled=!builderFuture.length}
+async function loadBuilderRecipes(selected=""){
+  const data=await json("/api/avatar-bodies/builder/recipes"),recipes=data.recipes||[];
+  $("builderRecipe").innerHTML='<option value="">new unsaved recipe</option>'+recipes.map(r=>`<option value="${esc(r.recipe_id)}">${esc(r.name)} · ${esc(r.revision_id.slice(0,8))}</option>`).join("");
+  if(selected)$("builderRecipe").value=selected
+}
+async function selectBuilderRecipe(){
+  const id=$("builderRecipe").value;activeRecipe=id||null;builderHistory=[];builderFuture=[];
+  if(!id){writeBuilder(BUILDER_DEFAULT);$("builderState").textContent="New unsaved Testy recipe · install disabled.";paintBuilderButtons();return}
+  try{const recipe=await json(`/api/avatar-bodies/builder/recipes/${id}`);writeBuilder(recipe);if(recipe.source_candidate?.candidate_id)await openMapper(recipe.source_candidate.candidate_id,recipe.identity);$("builderState").textContent=`Loaded revision ${recipe.revision_id.slice(0,8)} · ${recipe.source_candidate?"real MPFB source restored · ":""}install disabled.`;paintBuilderButtons()}catch(error){$("builderState").className="error";$("builderState").textContent=error.message}
+}
+async function saveBuilderRecipe(){
+  const payload=readBuilder();$("builderState").className="quiet";$("builderState").textContent="Saving immutable recipe revision…";
+  try{const url=activeRecipe?`/api/avatar-bodies/builder/recipes/${activeRecipe}`:"/api/avatar-bodies/builder/recipes",response=await fetch(url,{method:activeRecipe?"PUT":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}),data=await response.json();if(!response.ok)throw new Error(data.error||`HTTP ${response.status}`);activeRecipe=data.recipe_id;builderLast=JSON.stringify(readBuilder());await loadBuilderRecipes(activeRecipe);$("builderState").className="";$("builderState").textContent=`Saved revision ${data.revision_id.slice(0,8)} · Testy bench only · install disabled.`}catch(error){$("builderState").className="error";$("builderState").textContent=error.message}
+}
+function readHumanMorphs(){const values={};document.querySelectorAll("[data-human-morph]").forEach(input=>values[input.dataset.humanMorph]=Number(input.value));return values}
+function applyHumanMorphPreview(){if(!humanPreviewReady)return;const apply=$("previewFrame").contentWindow?.jnsqHumanMorphApply;if(typeof apply==="function")apply(JSON.stringify(readHumanMorphs()))}
+function readExpressionPreview(){const values={};document.querySelectorAll("[data-expression-preview]").forEach(input=>values[input.dataset.expressionPreview]=Number(input.value));return values}
+function applyExpressionPreview(){if(!humanPreviewReady)return;const apply=$("previewFrame").contentWindow?.jnsqExpressionApply;if(typeof apply==="function")apply(JSON.stringify(readExpressionPreview()))}
+function paintExpressionPreview(morphs){
+  const available=new Set(morphs),controls=TRANSIENT_EXPRESSIONS.filter(([_id,_label,morph])=>available.has(morph));
+  $("expressionPreviewSection").hidden=!controls.length;
+  $("expressionPreviewFields").innerHTML=controls.map(([id,label])=>`<label><span>${esc(label)}<output data-expression-preview-value="${esc(id)}">0%</output></span><input data-expression-preview="${esc(id)}" type="range" min="0" max="1" step="0.01" value="0"></label>`).join("");
+  document.querySelectorAll("[data-expression-preview]").forEach(input=>input.addEventListener("input",()=>{document.querySelector(`[data-expression-preview-value="${input.dataset.expressionPreview}"]`).textContent=Math.round(Number(input.value)*100)+"%";applyExpressionPreview()}))
+}
+function paintHumanMorphs(morphs,values={}){
+  const available=new Set(morphs);activeHumanMorphs=HUMAN_MORPH_CONTROLS.filter(([_id,_label,low,high])=>available.has(low)&&available.has(high));
+  $("humanMorphSection").hidden=!activeHumanMorphs.length;
+  $("humanMorphFields").innerHTML=activeHumanMorphs.map(([id,label,low,high])=>{const value=Number(values[id]??.5);return `<label><span>${esc(label)}<output data-human-morph-value="${esc(id)}">${Math.round(value*100)}%</output></span><input data-human-morph="${esc(id)}" data-low="${esc(low)}" data-high="${esc(high)}" type="range" min="0" max="1" step="0.01" value="${value}"></label>`}).join("");
+  document.querySelectorAll("[data-human-morph]").forEach(input=>input.addEventListener("input",()=>{document.querySelector(`[data-human-morph-value="${input.dataset.humanMorph}"]`).textContent=Math.round(Number(input.value)*100)+"%";applyHumanMorphPreview()}))
+}
+async function openMapper(candidateId,identity=null){try{const data=await json(`/api/avatar-bodies/candidates/${candidateId}/mapping`),record=data.candidate,report=record.compatibility,adapter=data.adapter||{};activeCandidate=candidateId;activeCandidateMeta={candidate_id:candidateId,sha256:report.asset.sha256,original_name:record.original_name};$("mapper").dataset.candidateId=candidateId;humanPreviewReady=false;const nodes=report.mapping_options?.nodes||[],morphs=report.mapping_options?.morph_targets||[];$("mapper").hidden=false;$("mapperIntro").textContent=`${record.original_name} → ${record.pilot_target}. Proposals are evidence-ranked; nothing is installed.`;$("roleFields").innerHTML=ROLE_FIELDS.map(role=>{const selected=adapter.roles?.[role]??proposed(report,role);return `<label>${esc(role.replaceAll("_"," "))}<select data-role="${role}">${selectOptions(nodes,selected)}</select></label>`}).join("");$("expressionFields").innerHTML=EXPRESSION_FIELDS.map(role=>{const selected=adapter.expressions?.[role]??report.expression_candidates?.[role]?.[0]?.name??"";return `<label>${esc(role.replaceAll("_"," "))}<select data-expression="${role}">${selectOptions(morphs,selected)}</select></label>`}).join("")||'<div class="empty">No named morph targets observed.</div>';const restored=identity||(recipeSourceCandidate?.candidate_id===candidateId?recipeIdentity:{});paintHumanMorphs(morphs,restored);const fitted=report.fitted_assets||[];$("fittedAssetState").textContent=fitted.length?`Morph-fitted assets: ${fitted.map(item=>`${item.category} · ${item.name} · ${item.morph_targets} targets${item.rigged?" · rigged":""}`).join(" | ")}. Cloth collision remains unproven.`:"No compiler-authored fitted assets observed.";paintExpressionPreview(morphs);const optical=adapter.optical_origin||{},head=adapter.roles?.head||proposed(report,"head");$("opticalNode").innerHTML=selectOptions(nodes,optical.node||head);$("forwardAxis").innerHTML=axisOptions(optical.forward_axis_local);$("upAxis").innerHTML=axisOptions(optical.up_axis_local);const offset=optical.offset_m||[0,0,0];$("opticalX").value=offset[0];$("opticalY").value=offset[1];$("opticalZ").value=offset[2];$("mappingState").className="quiet";$("mappingState").textContent=adapter.revision_id?`Current revision ${adapter.revision_id.slice(0,8)} · ${adapter.mapping_state}${adapter.pov_ready?" · POV ready":""}`:"Unsaved proposal.";$("launchPreview").hidden=!adapter.revision_id;$("previewShell").hidden=true;$("previewFrame").src="about:blank";$("mapper").scrollIntoView({behavior:"smooth",block:"start"})}catch(error){$("mappingState").className="error";$("mappingState").textContent=error.message}}
+$("candidates").onclick=event=>{const button=event.target.closest("[data-map-candidate]");if(button)openMapper(button.dataset.mapCandidate)};
+$("inspect").onclick=async()=>{const asset=$("asset").value;if(!asset)return;$("summary").className="empty";$("summary").textContent="Inspecting metadata…";$("report").hidden=true;try{const data=await json(`/api/avatar-bodies/${encodeURIComponent(asset)}/compatibility`);const s=data.structure,c=data.capabilities;$("summary").className="";$("summary").innerHTML=`<p><strong>${esc(asset)}</strong> exposes ${s.meshes} mesh(es), ${s.skins} skin(s), ${s.animations} animation(s), and ${s.morph_targets} morph-target instance(s).</p><p>Gaze: ${esc(c.gaze)} · Blink: ${esc(c.blink)} · Speech: ${esc(c.speech_mouth)} · Wardrobe: ${esc(c.wardrobe_rigging)}</p>`;$("report").textContent=JSON.stringify(data,null,2);$("report").hidden=false}catch(error){$("summary").className="error";$("summary").textContent=error.message}};
+$("stage").onclick=async()=>{const file=$("upload").files[0];if(!file){$("uploadState").className="error";$("uploadState").textContent="Choose one GLB first.";return}$("uploadState").className="quiet";$("uploadState").textContent=`Staging ${file.name}…`;try{const response=await fetch(`/api/avatar-bodies/candidates?filename=${encodeURIComponent(file.name)}`,{method:"POST",headers:{"Content-Type":"model/gltf-binary"},body:file});const data=await response.json();if(!response.ok)throw new Error(data.error||`HTTP ${response.status}`);const s=data.compatibility.structure,c=data.compatibility.capabilities;$("uploadState").className="";$("uploadState").textContent=`Inspected for ${data.pilot_target}; install remains disabled.`;$("summary").className="";$("summary").innerHTML=`<p><strong>${esc(data.original_name)}</strong> is quarantined for ${esc(data.pilot_target)} with ${s.meshes} mesh(es), ${s.skins} skin(s), and ${s.morph_targets} morph-target instance(s).</p><p>Gaze: ${esc(c.gaze)} · Blink: ${esc(c.blink)} · Speech: ${esc(c.speech_mouth)} · Wardrobe: ${esc(c.wardrobe_rigging)}</p>`;$("report").textContent=JSON.stringify(data.compatibility,null,2);$("report").hidden=false;await loadCandidates()}catch(error){$("uploadState").className="error";$("uploadState").textContent=error.message}};
+$("saveMapping").onclick=async()=>{if(!activeCandidate)return;const roles={},expressions={};document.querySelectorAll("[data-role]").forEach(select=>{if(select.value)roles[select.dataset.role]=select.value});document.querySelectorAll("[data-expression]").forEach(select=>{if(select.value)expressions[select.dataset.expression]=select.value});const payload={roles,expressions,optical_origin:{node:$("opticalNode").value||null,offset_m:[$("opticalX").valueAsNumber,$("opticalY").valueAsNumber,$("opticalZ").valueAsNumber],forward_axis_local:readAxis("forwardAxis"),up_axis_local:readAxis("upAxis")}};$("mappingState").className="quiet";$("mappingState").textContent="Saving a new adapter revision…";try{const response=await fetch(`/api/avatar-bodies/candidates/${activeCandidate}/mapping`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}),data=await response.json();if(!response.ok)throw new Error(data.error||`HTTP ${response.status}`);$("mappingState").className="";$("mappingState").textContent=`Saved revision ${data.revision_id.slice(0,8)} · ${data.mapping_state}${data.pov_ready?" · POV ready":""} · install disabled.`;$("launchPreview").hidden=false}catch(error){$("mappingState").className="error";$("mappingState").textContent=error.message}};
+$("saveHumanRecipe").onclick=async()=>{const candidateId=activeCandidate||$("mapper").dataset.candidateId;if(!candidateId){$("humanRecipeState").className="error";$("humanRecipeState").textContent="No open source candidate; identity recipe not saved.";return}try{if(!activeCandidateMeta){const data=await json(`/api/avatar-bodies/candidates/${candidateId}/mapping`),record=data.candidate,report=record.compatibility;activeCandidateMeta={candidate_id:candidateId,sha256:report.asset.sha256,original_name:record.original_name}}recipeIdentity=readHumanMorphs();recipeSourceCandidate=activeCandidateMeta;$("humanRecipeState").className="quiet";$("humanRecipeState").textContent="Saving identity vector as an immutable recipe revision…";await saveBuilderRecipe();$("humanRecipeState").className=$("builderState").className;$("humanRecipeState").textContent=$("builderState").textContent}catch(error){$("humanRecipeState").className="error";$("humanRecipeState").textContent=error.message}};
+$("launchPreview").onclick=()=>{if(!activeCandidate)return;humanPreviewReady=false;$("previewShell").hidden=false;$("previewFrame").src=`/3d/?candidate_preview=${encodeURIComponent(activeCandidate)}`;$("previewShell").scrollIntoView({behavior:"smooth",block:"start"})};
+$("resetExpressions").onclick=()=>{document.querySelectorAll("[data-expression-preview]").forEach(input=>{input.value=0;document.querySelector(`[data-expression-preview-value="${input.dataset.expressionPreview}"]`).textContent="0%"});applyExpressionPreview()};
+$("builderControls").innerHTML=BUILDER_FIELDS.map(([key,label])=>`<label><span>${label}<output data-builder-value="${key}"></output></span><input data-builder="${key}" type="range" min="0" max="1" step="0.01"></label>`).join("");
+$("facialControls").innerHTML=FACE_FIELDS.map(([key,label])=>`<label><span>${label}<output data-face-value="${key}"></output></span><input data-face="${key}" type="range" min="0" max="1" step="0.01"></label>`).join("");
+for(const input of document.querySelectorAll("[data-builder],[data-face]")){
+  const kind=input.dataset.builder?"builder":"face",key=input.dataset[kind];
+  input.addEventListener("input",()=>{document.querySelector(`[data-${kind}-value="${key}"]`).textContent=Math.round(Number(input.value)*100)+"%";applyBuilderPreview()});
+  input.addEventListener("change",commitBuilderChange)
+}
+for(const input of [$("builderName"),$("bodyColor"),$("accentColor")]){
+  input.addEventListener("input",applyBuilderPreview);input.addEventListener("change",commitBuilderChange)
+}
+$("builderRecipe").addEventListener("change",selectBuilderRecipe);
+$("builderSave").onclick=saveBuilderRecipe;
+$("builderReset").onclick=()=>{const before=readBuilder();writeBuilder(BUILDER_DEFAULT);builderHistory.push(before);builderFuture=[];paintBuilderButtons();$("builderState").textContent="Defaults restored in preview · unsaved."};
+$("builderUndo").onclick=()=>{if(!builderHistory.length)return;builderFuture.push(readBuilder());writeBuilder(builderHistory.pop());paintBuilderButtons();$("builderState").textContent="Previous recipe state restored · unsaved."};
+$("builderRedo").onclick=()=>{if(!builderFuture.length)return;builderHistory.push(readBuilder());writeBuilder(builderFuture.pop());paintBuilderButtons();$("builderState").textContent="Later recipe state restored · unsaved."};
+window.addEventListener("message",event=>{
+  if(event.origin!==location.origin)return;
+  if(event.source===$("builderFrame").contentWindow&&event.data?.type==="jnsq-body-builder-ready"){builderReady=true;applyBuilderPreview();$("builderState").textContent="Sealed Testy builder ready · install disabled."}
+  if(event.source===$("previewFrame").contentWindow&&event.data?.type==="jnsq-human-morph-ready"){humanPreviewReady=true;applyHumanMorphPreview();applyExpressionPreview()}
+});
+writeBuilder(BUILDER_DEFAULT);paintBuilderButtons();
+$("legacyBuilder").addEventListener("toggle",()=>{
+  if($("legacyBuilder").open&&!$("builderFrame").dataset.loaded){
+    $("builderFrame").dataset.loaded="true";$("builderFrame").src="/3d/?body_builder=1"
+  }
+});
+boot();loadCandidates();loadBuilderRecipes().catch(error=>{$("builderState").className="error";$("builderState").textContent=error.message});
+</script></body></html>

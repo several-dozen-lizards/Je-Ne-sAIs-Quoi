@@ -83,6 +83,12 @@ def main():
     assert set(about_organs) == set(REGISTRY), (
         "About guide organ cards do not match the runtime registry: "
         f"about={sorted(about_organs)} registry={sorted(REGISTRY)}")
+    assert not ({"play_drive", "self_initiated_contact"} & set(REGISTRY))
+    assert not (ROOT / "specs" / "organ_instructions" /
+                "self_initiated_contact.yaml").exists()
+    assert not (ROOT / "specs" / "organ_instructions" / "drafts").exists()
+    assert not (ROOT / "room" / "world_recipes" /
+                "terrain3d_canary_01.json").exists()
     assert "local SVG/PNG" in about and "authority 0 by default" in about
     cockpit = (ROOT / "shell" / "cockpit.html").read_text(encoding="utf-8")
     assert "JNSQ cockpit" not in cockpit and 'class="brand-mark"' not in cockpit
@@ -96,7 +102,8 @@ def main():
     assert 'fetch("/api/turn/stream"' in cockpit
     assert "res.body.getReader()" in cockpit
     assert "const turnQueue = []" in cockpit
-    assert "turnQueue.push({text,sentImages,speakingAs})" in cockpit
+    assert ("turnQueue.push({text,sentImages,groundingImages,speakingAs})"
+            in cockpit)
     assert "const item=turnQueue.shift()" in cockpit
     assert "repaintQueuedTurns()" in cockpit
     contract = (ROOT / "shell" / "contract.py").read_text(encoding="utf-8")
@@ -175,7 +182,7 @@ def main():
     assert 'class="panel collapsed" id="receipts-panel"' in cockpit
     assert 'localStorage.getItem(key) !== "open"' in cockpit
     assert "scrollbar-color:var(--accent)" in cockpit
-    assert cockpit.count('class="sensory-control"') == 3
+    assert cockpit.count('class="sensory-control"') == 4
     assert "#composer .sensory-control" in cockpit
     for font in ("display", "humanist", "rounded", "geometric"):
         assert f'<option value="{font}">' in cockpit
@@ -323,6 +330,7 @@ def main():
         assert (ROOT / relative).is_file(), \
             f"public runtime transport is missing: {relative}"
     assert (ROOT / "VERSION").read_text(encoding="utf-8").strip()
+    assert "Apache License" in (ROOT / "LICENSE").read_text(encoding="utf-8")
     settings = (ROOT / "shell" / "settings.html").read_text(encoding="utf-8")
     for page in ("account", "appearance", "keys", "vision", "prompts",
                  "updates"):
@@ -330,12 +338,25 @@ def main():
     assert 'src="/users"' in settings
     assert "/api/ui/theme" in settings and "/api/env" in settings
     assert "data-vision-select" in settings and "/vision/test" in settings
-    assert ('data-page="voice"' in settings and 'id="voiceRoutes"' in settings
-            and "/voice-output" in settings)
+    assert ('data-page="voice"' in settings
+            and 'id="voiceDefaultsSave"' in settings
+            and "/api/voice/defaults" in settings
+            and 'id="voiceRoutes"' not in settings)
+    cockpit = (ROOT / "shell" / "cockpit.html").read_text(encoding="utf-8")
+    assert ('id="voice-output-provider"' in cockpit
+            and 'id="voice-rate"' in cockpit
+            and 'id="voice-pitch"' in cockpit
+            and 'id="voice-volume"' in cockpit)
+    assert '<option value="qwen3-tts">' not in cockpit
+    assert '<option value="chatterbox-turbo">' not in cockpit
+    for launcher in ("INSTALL_QWEN_TTS.bat", "START_QWEN_TTS.bat",
+                     "STOP_QWEN_TTS.bat"):
+        assert not (ROOT / launcher).exists()
     assert "public JNSQ" in settings and "may incur" in settings
     assert "cheap + reliable recommendation" in settings
     assert "organ_prompts" in settings and "/api/version/check" in settings
     assert not list(ROOT.rglob("test_*.py")), "public build contains dev tests"
+    assert not list((ROOT / "room").glob("chat_archives/*"))
     assert not (ROOT / "core" / "bench.py").exists()
     assert not (ROOT / "core" / "first_turn.py").exists()
     assert not (ROOT / "tools" / "build_distribution.py").exists()

@@ -37,7 +37,8 @@ AFFORDANCE_CHANNELS = {
 
 EVENT_KIND_WEIGHT = {"arrive": 1.0, "depart": 0.9, "say": 1.0,
                      "write": 0.9, "contact": 0.6, "read": 0.5,
-                     "sit": 0.5, "stand": 0.4, "move": 0.4}
+                     "sit": 0.5, "stand": 0.4, "move": 0.4,
+                     "light": 0.7}
 
 
 def load_bias(persona_dir: str) -> dict:
@@ -202,6 +203,13 @@ def _describe_event(e: dict, member: str = "") -> str:
         return f"{m} sat on {where}" if where else f"{m} sat on the floor"
     if k == "stand":
         return f"{m} stood up"
+    if k == "gesture":
+        gesture = d.get("gesture")
+        return (f"{m} released their held gesture" if not gesture
+                else f"{m} settled into a {gesture} gesture")
+    if k == "light":
+        state = "on" if float(d.get("power", 0.0)) > 0.0 else "off"
+        return f"{m} switched {d.get('object', 'a light')} {state}"
     if k == "move":
         if d.get("toward_member") == member:
             return f"{m} came over to you"
@@ -276,7 +284,14 @@ def render_room_block(snapshot: dict, scored_objs: list,
         for o in kept:
             near = ("within reach" if o["dist_m"] <= REACH_M
                     else "across the room")
-            lines.append(f"- {o['name']} ({near}) {_tier_phrase(o['salience'])}.")
+            source = (snapshot.get("objects") or {}).get(o["id"], {})
+            visible_state = ""
+            if source.get("capability") == "light":
+                light_state = ("on" if float(source.get("power", 0.0)) > 0.0
+                               else "off")
+                visible_state = f"; its light is {light_state}"
+            lines.append(f"- {o['name']} ({near}{visible_state}) "
+                         f"{_tier_phrase(o['salience'])}.")
     evs = [e for e in scored_events[:top_events] if e["salience"] >= 0.15]
     if evs:
         lines.append("Since you last looked around:")
@@ -300,6 +315,20 @@ def render_room_block(snapshot: dict, scored_objs: list,
         within = [o for o in objs.values()
                   if _dist(me, o["position_m"]) <= REACH_M]
         lines.append("From where you stand, right now:")
+        # Reachable controls are the immediate motor field. Keep them ahead
+        # of potentially long whole-room navigation menus so prompt budgeting
+        # cannot leave a resident perceiving a control but unable to act on it.
+        for o in within:
+            if (o.get("capability") == "light"
+                    and (not o.get("owner")
+                         or str(o.get("owner")).casefold()
+                         == str(member).casefold())):
+                if float(o.get("power", 0.0)) > 0.0:
+                    lines.append(f"<act>light_off {o['id']}</act> "
+                                 "(pull the switch; light is on)")
+                else:
+                    lines.append(f"<act>light_on {o['id']}</act> "
+                                 "(pull the switch; light is off)")
         lines.append("<act>move_to " + "|".join(sorted(objs)) + "</act>")
         sight_targets = sorted(set(objs) | set(bystanders or []))
         if sight_targets:
@@ -307,6 +336,8 @@ def render_room_block(snapshot: dict, scored_objs: list,
             lines.append(f"<act>look_at {targets}</act> (aim your gaze)")
             lines.append(f"<act>turn_toward {targets}</act> "
                          "(turn your body and recenter your gaze)")
+            lines.append(f"<act>inspect {targets}</act> "
+                         "(take one chosen step toward a clearer view)")
         if within:
             ids = "|".join(sorted(o["id"] for o in within))
             lines.append(f"<act>contact {ids}</act> (within reach now)")
@@ -324,6 +355,18 @@ def render_room_block(snapshot: dict, scored_objs: list,
                                  f" / <act>read {o['id']}</act>")
         if posture != "standing":
             lines.append("<act>stand</act> (stand up)")
+        else:
+            lines.append("<act>gesture attentive|weary|guarded|open|"
+                         "curious_tilt</act> (choose a bodily shape)")
+            lines.append(
+                "<act>body_motion acknowledge|angry_gesture|"
+                "annoyed_head_shake|cocky|dismiss|happy_gesture|hard_nod|"
+                "yes_nod|long_nod|look_away|relieved_sigh|sarcastic_nod|"
+                "no_head_shake|thoughtful_head_shake</act> "
+                "(choose one expressive movement; it plays once)")
+            if isinstance(member_rec, dict) and member_rec.get("gesture"):
+                lines.append("<act>release_gesture</act> "
+                             "(let the held shape return to felt posture)")
         # bystanders (computed above, speaker excluded) — the say
         # reaches whoever you're speaking with plus anyone else here.
         if bystanders and can_say:

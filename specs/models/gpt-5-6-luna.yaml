@@ -1,0 +1,49 @@
+# GPT-5.6 Luna sibling vessel. It deliberately shares Sol's transport,
+# context margin, and presently mapped synthetic-organ ceiling so a roster
+# switch changes the model variant rather than the surrounding organism.
+identity:
+  name: "gpt-5-6-luna"
+  family: "openai_chat"
+  base_model: "gpt-5.6 Luna"
+  provider: "openai_compat"
+  endpoint: "gpt-5.6-luna"
+  base_url: "https://api.openai.com/v1"
+  api_key_env: "OPENAI_API_KEY"
+  locality: "api"
+context:
+  window_tokens: 1050000
+  practical_window_tokens: 892500
+  block_budgets: {}
+prompt_structure:
+  system_prompt: true
+  template: "openai_messages"
+  strict_alternation: false
+  prefill_supported: false
+  stop_sequences: []
+sampling:
+  temperature:
+    mode: omit
+reasoning:
+  effort: low
+wire:
+  chat_completions:
+    include_stream_usage: true
+capabilities:
+  tool_use: false
+  vision: true
+  structured_output: "unknown"
+  streaming: true
+module_capability:
+  validated: []
+  saturates_on: []
+  ceiling_notes: "inherits the GPT-5.6 canary ceiling provisionally; variant discrepancy remains evidence"
+runtime:
+  gpu_constraints: "server-side"
+  cost: "OpenAI API"
+  latency_class: "unknown"
+quirks:
+  - "distinct discovered API model ID; do not treat Luna as a reasoning-effort setting"
+  - "shares Sol's surrounding JNSQ configuration for an interpretable variant comparison"
+harness:
+  last_mechanical_pass: null
+  fidelity_floor_results: {}

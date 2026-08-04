@@ -400,6 +400,14 @@ more continuity than the model call alone.
   Conversation history is presented as documented source, never silently
   converted into autobiographical memory. Both sides survive updates and are
   excluded from public builds.
+- A resident may also mount a read-only MCP library from **Logs & archives ->
+  external MCP library** in their cockpit. Add or paste a server, inspect its
+  advertised capabilities, and explicitly select read/search tools. The
+  connection activates live without a restart. External records remain
+  canonical on their server, are withheld from rooms and guests, and enter
+  relevant private turns as provenance-marked untrusted source material. JNSQ
+  stores only opaque exposure anchors in the present encounter, never a silent
+  bulk copy. See [MCP Library v1](docs/MCP_LIBRARY_V1.md).
 - `.env` holds optional remote-provider API keys.
 - `room/room_world.json`, `logs/`, and `jnsq_running.json` are runtime state.
 

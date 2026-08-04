@@ -588,6 +588,34 @@
                        border:1px solid var(--line);border-radius:6px;
                        padding:5px 7px; }
   .organ-save button { padding:5px 10px;font-size:12px;white-space:nowrap; }
+  .mcp-toolbar { display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:8px; }
+  .mcp-toolbar label { display:flex;align-items:center;gap:5px;color:var(--muted);font-size:11px; }
+  .mcp-server-card { border:1px solid var(--line);border-radius:7px;padding:7px;margin-top:7px;
+    background:color-mix(in srgb,var(--bg) 91%,var(--accent) 9%); }
+  .mcp-server-head { display:flex;align-items:center;gap:6px; }
+  .mcp-server-head strong { flex:1;color:var(--ink);font-size:11px; }
+  .mcp-server-head button { width:auto;padding:3px 7px;font-size:10px; }
+  .mcp-server-meta { color:var(--dim);font-size:10px;line-height:1.4;margin-top:4px; }
+  #mcp-library-editor { border-top:1px solid var(--line);margin-top:10px;padding-top:9px; }
+  .mcp-editor-grid { display:grid;grid-template-columns:1fr 1fr;gap:7px; }
+  .mcp-editor-grid label,.mcp-capability { display:flex;flex-direction:column;gap:3px;
+    color:var(--dim);font-size:10px; }
+  .mcp-editor-grid [hidden] { display:none!important; }
+  .mcp-editor-grid .wide { grid-column:1/-1; }
+  .mcp-editor-grid input,.mcp-editor-grid select,.mcp-editor-grid textarea,
+  .mcp-capability select { min-width:0;width:100%;box-sizing:border-box;background:var(--bg);
+    color:var(--ink);border:1px solid var(--line);border-radius:5px;padding:6px;font:inherit; }
+  .mcp-editor-grid textarea { min-height:56px;resize:vertical; }
+  #mcp-library-capabilities { display:grid;gap:6px;margin-top:8px; }
+  .mcp-capability { border:1px solid var(--line);border-radius:6px;padding:7px; }
+  .mcp-capability-head { display:flex;align-items:center;gap:6px;color:var(--ink);font-size:11px; }
+  .mcp-capability-map { display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:5px; }
+  .mcp-secret-row { grid-column:1/-1; }
+  .mcp-secret-row span { overflow-wrap:anywhere; }
+  @media(max-width:520px){
+    .mcp-editor-grid,.mcp-capability-map{grid-template-columns:1fr}
+    .mcp-editor-grid .wide,.mcp-secret-row{grid-column:1}
+  }
   .appearance-grid { display:grid;grid-template-columns:1fr 1fr;gap:7px 9px; }
   .appearance-grid label { color:var(--dim);font-size:11px;display:flex;
                            flex-direction:column;gap:3px; }
@@ -1082,6 +1110,59 @@
         <button id="saveOrgans" type="button">save organs</button>
       </div>
       <div id="organnote" class="quiet"></div>
+    </div>
+    <div class="panel" id="mcp-library-panel">
+      <h2>external MCP library</h2>
+      <div class="interference-boundary"><span class="interference-lamp"></span>
+        <span>RESIDENT-OWNED / READ ONLY / EXTERNAL CANON</span></div>
+      <div id="mcp-library-status" class="quiet">no external library attached</div>
+      <div id="mcp-library-servers"></div>
+      <div class="mcp-toolbar">
+        <label><input id="mcp-library-enabled" type="checkbox"> use on relevant private turns</label>
+        <button id="mcp-library-probe" type="button">test connections</button>
+        <button id="mcp-library-add" type="button">add connection</button>
+      </div>
+      <div id="mcp-library-note" class="organ-help">A test lists capability
+        metadata only; it does not search memories or read files. External records
+        can ground a relevant private turn, but remain canonical on their server
+        and never enter shared-room context.</div>
+      <div id="mcp-library-editor" hidden>
+        <div class="mcp-editor-grid">
+          <label>connection name<input id="mcp-edit-id" maxlength="64" placeholder="vale-memory"></label>
+          <label>connection type<select id="mcp-edit-transport">
+            <option value="stdio">local command (stdio)</option>
+            <option value="streamable_http">hosted URL</option>
+          </select></label>
+          <label class="wide mcp-stdio-field">exact command<input id="mcp-edit-command" placeholder="node"></label>
+          <label class="wide mcp-stdio-field">arguments, one per line<textarea id="mcp-edit-arguments" placeholder="C:/path/to/server.js"></textarea></label>
+          <label class="wide mcp-stdio-field">environment variable names, comma or line separated<textarea id="mcp-edit-environment" placeholder="GITHUB_TOKEN"></textarea></label>
+          <label class="wide mcp-http-field" hidden>Streamable HTTP URL<input id="mcp-edit-url" placeholder="https://memory.example/mcp"></label>
+          <label class="mcp-http-field" hidden>header name<input id="mcp-edit-header" value="Authorization"></label>
+          <label class="mcp-http-field" hidden>secret variable name<input id="mcp-edit-header-env" placeholder="MEMORY_MCP_TOKEN"></label>
+          <label class="wide mcp-http-field" hidden>header prefix<input id="mcp-edit-header-prefix" value="Bearer "></label>
+          <div id="mcp-secret-fields" class="wide"></div>
+          <label class="wide">paste an existing server JSON (optional)<textarea id="mcp-edit-paste" placeholder='{"command":"node","args":["server.js"],"env":{"GITHUB_TOKEN":"…"}}'></textarea></label>
+          <div class="mcp-toolbar wide"><button id="mcp-edit-fill" type="button">fill from JSON</button>
+            <span class="quiet">secret values are lifted into the local gitignored .env, never the connector file</span></div>
+        </div>
+        <div class="mcp-toolbar">
+          <button id="mcp-edit-inspect" type="button">inspect this server</button>
+          <span class="quiet">For a local server, this launches the exact command shown above once. Package runners such as npx or uvx may download that named package on their first inspection; explicit inspection gets up to one minute to start.</span>
+        </div>
+        <div id="mcp-library-capabilities"></div>
+        <label class="mcp-toolbar"><input id="mcp-edit-resources" type="checkbox"> allow matching direct resources</label>
+        <details><summary class="quiet">retrieval tuning</summary>
+          <div class="mcp-editor-grid">
+            <label>activation threshold<input id="mcp-edit-threshold" type="number" min="0.2" max="0.95" step="0.01" value="0.44"></label>
+            <label>maximum context characters<input id="mcp-edit-context" type="number" min="1200" max="24000" step="100" value="9000"></label>
+          </div>
+        </details>
+        <div class="mcp-toolbar">
+          <button id="mcp-edit-save" type="button">save connection</button>
+          <button id="mcp-edit-cancel" type="button">cancel</button>
+          <span id="mcp-edit-note" class="quiet"></span>
+        </div>
+      </div>
     </div>
     <div class="panel" id="appearance">
       <h2>appearance</h2>
@@ -1674,6 +1755,7 @@ function renderState(st) {
   renderAlteredState(st.altered_state);
   if(st.documents)renderDocumentLibrary(st.documents);
   if(st.archive)renderArchive(st.archive);
+  if(st.mcp_library)renderMCPLibrary(st.mcp_library);
   if (st.bands) {
     bars($("bands"), BANDS.map(b=>[b, st.bands[b]||0,
          b==="gamma"?"var(--warn)":b==="alpha"?"var(--good)":null]), 0.6);
@@ -3395,6 +3477,193 @@ async function fetchState() {
   refreshAgency();
 }
 
+let mcpLibraryState={enabled:false,servers:[],configuration:{enabled:false,servers:[]}};
+let mcpEditingId="";
+let mcpEditorCapabilities=[];
+let mcpEditorSecrets={};
+
+function mcpClone(value){return JSON.parse(JSON.stringify(value||{}))}
+function mcpNames(value){return [...new Set(String(value||"").split(/[\s,]+/).map(v=>v.trim()).filter(Boolean))]}
+function mcpSuggested(properties,candidates,fallback=""){
+  return candidates.find(name=>properties.includes(name))||fallback||properties[0]||""
+}
+
+function renderMCPLibrary(status){
+  mcpLibraryState=status||mcpLibraryState;
+  const summary=$("mcp-library-status"),host=$("mcp-library-servers");
+  const servers=status.servers||[],config=status.configuration||{enabled:status.enabled,servers:[]};
+  host.replaceChildren();$("mcp-library-enabled").checked=!!config.enabled;
+  summary.textContent=status.enabled
+    ?`${servers.filter(server=>server.enabled).length} read-only connection${servers.filter(server=>server.enabled).length===1?"":"s"} / external records remain canonical`
+    :servers.length?"connections saved; relevant-turn retrieval is off":"no external library connected yet";
+  for(const server of servers){
+    const card=document.createElement("div");card.className="mcp-server-card";
+    const head=document.createElement("div");head.className="mcp-server-head";
+    const title=document.createElement("strong");title.textContent=server.id;
+    const edit=document.createElement("button");edit.type="button";edit.textContent="edit";
+    edit.onclick=()=>openMCPEditor(server.id);
+    const remove=document.createElement("button");remove.type="button";remove.textContent="remove";
+    remove.onclick=()=>removeMCPServer(server.id);
+    head.append(title,edit,remove);
+    const meta=document.createElement("div");meta.className="mcp-server-meta";
+    const reach=server.reachable===true?"reachable":server.reachable===false?`unavailable (${server.error_type||"error"})`:"not tested";
+    const tools=(server.admitted_tools||[]).join(", ")||(server.resource_reads?"direct resources":"no admitted reads");
+    meta.textContent=`${server.transport==="stdio"?"local command":"hosted URL"} · ${reach} · ${tools}`;
+    card.append(head,meta);host.appendChild(card)
+  }
+  $("mcp-library-probe").disabled=!servers.some(server=>server.enabled)
+}
+
+function renderMCPSecretFields(){
+  const host=$("mcp-secret-fields");host.replaceChildren();
+  const names=mcpNames($("mcp-edit-environment").value);
+  if($("mcp-edit-transport").value==="streamable_http")names.push(...mcpNames($("mcp-edit-header-env").value));
+  for(const name of [...new Set(names)]){
+    const label=document.createElement("label");label.className="mcp-secret-row";
+    const text=document.createElement("span");text.textContent=`${name} value (leave blank if already set)`;
+    const input=document.createElement("input");input.type="password";input.autocomplete="new-password";
+    input.value=mcpEditorSecrets[name]||"";input.dataset.secret=name;
+    input.oninput=()=>{mcpEditorSecrets[name]=input.value};
+    label.append(text,input);host.appendChild(label)
+  }
+}
+
+function renderMCPCapabilities(capabilities=[],selected=[]){
+  mcpEditorCapabilities=capabilities;const host=$("mcp-library-capabilities");host.replaceChildren();
+  const prior=new Map((selected||[]).map(tool=>[tool.name,tool]));
+  if(!capabilities.length){
+    const note=document.createElement("div");note.className="quiet";
+    note.textContent="Inspect the server to choose its read/search tools.";host.appendChild(note);return
+  }
+  for(const tool of capabilities){
+    const old=prior.get(tool.name),properties=tool.input_properties||[];
+    const card=document.createElement("div");card.className="mcp-capability";card.dataset.tool=tool.name;
+    const head=document.createElement("label");head.className="mcp-capability-head";
+    const check=document.createElement("input");check.type="checkbox";check.className="mcp-tool-enabled";check.checked=!!old;
+    const name=document.createElement("strong");name.textContent=tool.name;head.append(check,name);
+    const hint=document.createElement("span");hint.className="quiet";
+    hint.textContent=tool.destructive_hint?"server marks this destructive — do not admit it":tool.read_only_hint?"server marks this read-only":"read-only status not declared";
+    head.appendChild(hint);card.appendChild(head);
+    if(tool.description){const description=document.createElement("div");description.className="mcp-server-meta";description.textContent=tool.description;card.appendChild(description)}
+    const map=document.createElement("div");map.className="mcp-capability-map";
+    const queryLabel=document.createElement("label");queryLabel.textContent="search text argument";
+    const query=document.createElement("select");query.className="mcp-tool-query";
+    const queryNames=properties.length?properties:[old?.query_argument||"query"];
+    for(const property of queryNames){const option=document.createElement("option");option.value=property;option.textContent=property;query.appendChild(option)}
+    query.value=old?.query_argument||mcpSuggested(properties,["query","text","search","q","term"],queryNames[0]);queryLabel.appendChild(query);
+    const limitLabel=document.createElement("label");limitLabel.textContent="result limit argument";
+    const limit=document.createElement("select");limit.className="mcp-tool-limit";
+    const none=document.createElement("option");none.value="";none.textContent="none";limit.appendChild(none);
+    for(const property of properties){const option=document.createElement("option");option.value=property;option.textContent=property;limit.appendChild(option)}
+    limit.value=old?.limit_argument??mcpSuggested(properties,["limit","count","max_results","maxResults"]);limitLabel.appendChild(limit);
+    map.append(queryLabel,limitLabel);card.appendChild(map);host.appendChild(card)
+  }
+}
+
+function setMCPTransportFields(){
+  const http=$("mcp-edit-transport").value==="streamable_http";
+  document.querySelectorAll(".mcp-stdio-field").forEach(node=>node.hidden=http);
+  document.querySelectorAll(".mcp-http-field").forEach(node=>node.hidden=!http);
+  renderMCPSecretFields()
+}
+
+function openMCPEditor(serverId=""){
+  const config=mcpLibraryState.configuration||{servers:[]};
+  const server=(config.servers||[]).find(value=>value.id===serverId)||{};
+  mcpEditingId=serverId;mcpEditorSecrets={};
+  $("mcp-edit-id").value=server.id||"";
+  $("mcp-edit-transport").value=server.transport||"stdio";
+  $("mcp-edit-command").value=server.command||"";
+  $("mcp-edit-arguments").value=(server.arguments||[]).join("\n");
+  $("mcp-edit-environment").value=(server.environment||[]).join("\n");
+  $("mcp-edit-url").value=server.url||"";
+  const headers=Object.entries(server.headers||{}),header=headers[0]||["Authorization",{environment:"",prefix:"Bearer "}];
+  $("mcp-edit-header").value=header[0];$("mcp-edit-header-env").value=header[1].environment||"";$("mcp-edit-header-prefix").value=header[1].prefix||"";
+  $("mcp-edit-resources").checked=!!server.resources;
+  $("mcp-edit-threshold").value=config.activation_threshold??.44;
+  $("mcp-edit-context").value=config.context_chars??9000;
+  $("mcp-edit-paste").value="";$("mcp-edit-note").textContent="";
+  const known=(server.tools||[]).map(tool=>({name:tool.name,input_properties:[tool.query_argument,tool.limit_argument].filter(Boolean),description:"saved tool mapping"}));
+  renderMCPCapabilities(known,server.tools||[]);setMCPTransportFields();
+  $("mcp-library-editor").hidden=false;$("mcp-edit-id").focus()
+}
+
+function collectMCPServer({inspection=false}={}){
+  const transport=$("mcp-edit-transport").value,id=$("mcp-edit-id").value.trim();
+  const server={id,transport,enabled:true,resources:inspection?true:$("mcp-edit-resources").checked,timeout_s:inspection?60:12,max_records:4,tools:[]};
+  if(transport==="stdio"){
+    server.command=$("mcp-edit-command").value.trim();server.arguments=$("mcp-edit-arguments").value.split(/\r?\n/).map(v=>v.trim()).filter(Boolean);server.environment=mcpNames($("mcp-edit-environment").value)
+  }else{
+    server.url=$("mcp-edit-url").value.trim();const environment=$("mcp-edit-header-env").value.trim(),name=$("mcp-edit-header").value.trim();
+    server.headers=environment&&name?{[name]:{environment,prefix:$("mcp-edit-header-prefix").value}}:{}
+  }
+  if(!inspection)document.querySelectorAll("#mcp-library-capabilities .mcp-capability").forEach(card=>{
+    if(!card.querySelector(".mcp-tool-enabled").checked)return;
+    server.tools.push({name:card.dataset.tool,query_argument:card.querySelector(".mcp-tool-query").value,limit_argument:card.querySelector(".mcp-tool-limit").value||null,fixed_arguments:{}})
+  });
+  return server
+}
+
+function collectMCPSecrets(){
+  const values={};document.querySelectorAll("#mcp-secret-fields input[data-secret]").forEach(input=>{if(input.value)values[input.dataset.secret]=input.value});return values
+}
+
+async function inspectMCPServer(){
+  const button=$("mcp-edit-inspect");button.disabled=true;$("mcp-edit-note").textContent="Connecting for capability metadata…";
+  try{
+    const server=collectMCPServer({inspection:true});
+    const response=await fetch("/api/mcp-library/inspect",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({config:{enabled:true,servers:[server]},secrets:collectMCPSecrets()})});
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    const discovered=(result.servers||[])[0];if(!discovered?.reachable)throw new Error(discovered?.error||`server unavailable (${discovered?.error_type||"connection error"})`);
+    const current=(mcpLibraryState.configuration?.servers||[]).find(value=>value.id===mcpEditingId);
+    renderMCPCapabilities(discovered.capabilities||[],current?.tools||[]);
+    $("mcp-edit-note").textContent=`Connected. Choose only the read/search tools this resident should use. ${discovered.resource_count||0} direct resources advertised.`
+  }catch(error){$("mcp-edit-note").textContent=`Inspection failed: ${error.message||error}`}
+  finally{button.disabled=false}
+}
+
+async function saveMCPConfig(config,secrets={},message="Connector settings saved live — no restart needed."){
+  const response=await fetch("/api/mcp-library",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({config,secrets})});
+  const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+  renderMCPLibrary(result);$("mcp-library-note").textContent=message;return result
+}
+
+async function saveMCPEditor(){
+  const button=$("mcp-edit-save");button.disabled=true;
+  try{
+    const server=collectMCPServer(),config=mcpClone(mcpLibraryState.configuration||{enabled:true,servers:[]});
+    config.enabled=$("mcp-library-enabled").checked;config.activation_threshold=Number($("mcp-edit-threshold").value);config.context_chars=Number($("mcp-edit-context").value);
+    const servers=(config.servers||[]).filter(value=>value.id!==mcpEditingId&&value.id!==server.id);servers.push(server);config.servers=servers;
+    await saveMCPConfig(config,collectMCPSecrets());mcpEditorSecrets={};$("mcp-library-editor").hidden=true
+  }catch(error){$("mcp-edit-note").textContent=`Save failed: ${error.message||error}`}
+  finally{button.disabled=false}
+}
+
+async function removeMCPServer(serverId){
+  if(!confirm(`Remove the ${serverId} connection? Its server and records will not be changed.`))return;
+  try{const config=mcpClone(mcpLibraryState.configuration||{});config.servers=(config.servers||[]).filter(value=>value.id!==serverId);await saveMCPConfig(config,{},`${serverId} disconnected. Its external records were untouched.`)}
+  catch(error){$("mcp-library-note").textContent=`Remove failed: ${error.message||error}`}
+}
+
+function fillMCPFromJSON(){
+  try{
+    let raw=JSON.parse($("mcp-edit-paste").value),entry=raw;
+    if(raw.mcpServers){const pair=Object.entries(raw.mcpServers)[0];if(!pair)throw new Error("mcpServers is empty");$("mcp-edit-id").value=pair[0];entry=pair[1]}
+    if(entry.url){$("mcp-edit-transport").value="streamable_http";$("mcp-edit-url").value=entry.url}
+    else{$("mcp-edit-transport").value="stdio";$("mcp-edit-command").value=entry.command||"";$("mcp-edit-arguments").value=(entry.args||entry.arguments||[]).join("\n")}
+    if(entry.env&&typeof entry.env==="object"){const names=Object.keys(entry.env);$("mcp-edit-environment").value=names.join("\n");for(const name of names){const value=String(entry.env[name]??"");if(value&&!/^\$\{[A-Z][A-Z0-9_]*\}$/.test(value))mcpEditorSecrets[name]=value}}
+    setMCPTransportFields();$("mcp-edit-note").textContent="Filled. Check the exact command and inspect it before saving."
+  }catch(error){$("mcp-edit-note").textContent=`Could not read JSON: ${error.message||error}`}
+}
+
+async function probeMCPLibrary(){
+  const button=$("mcp-library-probe");button.disabled=true;
+  $("mcp-library-status").textContent="testing declared MCP capabilities...";
+  try{const response=await fetch("/api/mcp-library/probe",{method:"POST"});const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);renderMCPLibrary(result)}
+  catch(error){$("mcp-library-status").textContent=`MCP test failed: ${error.message||error}`}
+  finally{button.disabled=false}
+}
+
 let organsDirty = false;
 
 async function fetchOrgans(note="", keepScope="") {
@@ -4702,6 +4971,19 @@ $("archive-to-desk").onclick=()=>admitWritingDesk("archive");
 $("memory-prev").onclick=()=>{if(memoryPage>1){memoryPage--;refreshMemoryPanel()}};
 $("memory-next").onclick=()=>{if(memoryPage<memoryPages){memoryPage++;refreshMemoryPanel()}};
 $("agency-submit").onclick=admitAgencyText;
+$("mcp-library-probe").onclick=probeMCPLibrary;
+$("mcp-library-add").onclick=()=>openMCPEditor();
+$("mcp-edit-transport").onchange=setMCPTransportFields;
+$("mcp-edit-environment").oninput=renderMCPSecretFields;
+$("mcp-edit-header-env").oninput=renderMCPSecretFields;
+$("mcp-edit-fill").onclick=fillMCPFromJSON;
+$("mcp-edit-inspect").onclick=inspectMCPServer;
+$("mcp-edit-save").onclick=saveMCPEditor;
+$("mcp-edit-cancel").onclick=()=>{$("mcp-library-editor").hidden=true;mcpEditorSecrets={}};
+$("mcp-library-enabled").onchange=async()=>{
+  try{const config=mcpClone(mcpLibraryState.configuration||{servers:[]});config.enabled=$("mcp-library-enabled").checked;await saveMCPConfig(config,{},config.enabled?"Relevant private turns may now consult admitted MCP reads.":"Automatic MCP retrieval is off; saved connections remain in place.")}
+  catch(error){$("mcp-library-note").textContent=`Could not change retrieval: ${error.message||error}`;$("mcp-library-enabled").checked=!!mcpLibraryState.enabled}
+};
 $("intention-loom-submit").onclick=offerIntentionCue;
 $("writing-desk-submit").onclick=()=>admitWritingDesk("text");
 $("private-journal-submit").onclick=appendPrivateJournal;
@@ -4774,7 +5056,7 @@ const bodyGroups=[
   {id:"cosmetic",label:"Cosmetic",open:true,panels:["appearance","voice-output-control"]},
   {id:"perception",label:"Perception",open:true,panels:["afferent-rack"]},
   {id:"creative",label:"Creative / autonomous",panels:["private-journal","intention-loom","writing-desk","atelier","research-desk","agency-workbench","autonomous-works"]},
-  {id:"logs",label:"Logs & archives",panels:["document-library","conversation-archive","last-turn-signals"]},
+  {id:"logs",label:"Logs & archives",panels:["document-library","conversation-archive","mcp-library-panel","last-turn-signals"]},
   {id:"metrics",label:"Metrics & state",panels:["organs-panel","emotional-state","body-state","rhythm-panel","interference-observatory","salience-observatory","altered-state-panel","memory-observatory","room-substrate"]}
 ];
 for(const group of bodyGroups){

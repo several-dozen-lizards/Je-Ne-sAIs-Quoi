@@ -14,6 +14,7 @@ side effect of simply talking (V1_AUDIT 7.17 prescription)."""
 import json
 import math
 import os
+import re
 import sys
 import time
 
@@ -303,6 +304,9 @@ class TurnEngine:
         self._private_journal_context = []
         self._research_report_context = []
         self._local_world_context = []
+        # Assigned by the shell after construction. External MCP records remain
+        # read-only source material and never become local canonical memory.
+        self.mcp_library = None
         self.choice_ledger = ChoiceLedger(self.pdir)
         self.outward_curiosity = (
             OutwardCuriosity(
@@ -582,6 +586,11 @@ class TurnEngine:
                         if getattr(self, "archive", None) else {
                             "session_count": 0, "section_count": 0,
                             "reader": {"active": False}}),
+            "mcp_library": (
+                self.mcp_library.status()
+                if getattr(self, "mcp_library", None) else {
+                    "enabled": False, "connection_count": 0,
+                    "connections": []}),
         }
 
     def _project_prompt_shadow(self) -> dict:
@@ -1662,6 +1671,12 @@ class TurnEngine:
             "active_anchor": None, "retrieved_anchors": [],
             "vector_query": False, "archive_sessions": 0,
         }
+        mcp_context_text = ""
+        mcp_receipt = {
+            "enabled": False, "attempted": False, "rendered": False,
+            "record_count": 0, "reason": "not_attached",
+            "anchor_hashes": [], "servers": [],
+        }
         shared_query_vector = None
         try:
             has_documents = bool(
@@ -1774,6 +1789,38 @@ class TurnEngine:
                     len(window) / max(1, int(self.window_k or 1))),
                 ts=time.time(),
                 event_ref=cycle_id + ":field-memory-retrieval")
+
+        # An assigned MCP library is an external, read-only source. It follows
+        # the same private-document gate and is never exposed to a room proxy.
+        mcp_library = getattr(self, "mcp_library", None)
+        if mcp_library is not None:
+            access_allowed, access_reason = private_document_access(
+                speaker, self.local_human, channel)
+            if local_social_projection:
+                mcp_receipt.update({
+                    "enabled": True,
+                    "reason": "local_social_proxy_withheld",
+                    "withheld": True,
+                })
+            elif not access_allowed:
+                mcp_receipt.update({
+                    "enabled": True, "reason": access_reason,
+                    "withheld": True,
+                })
+            else:
+                try:
+                    product = mcp_library.retrieve(
+                        recall_query, internal_hits=len(recalled),
+                        internal_target=base_recall_n)
+                    mcp_context_text = str(product.get("context") or "")
+                    mcp_receipt = dict(
+                        product.get("receipt") or mcp_receipt)
+                except Exception as exc:
+                    mcp_receipt.update({
+                        "enabled": True,
+                        "reason": "mcp_context_unavailable",
+                        "error_type": type(exc).__name__,
+                    })
         awareness_aperture = (
             {"mode": "local_social_proxy", "conductance": {}}
             if local_social_projection else
@@ -2087,6 +2134,14 @@ class TurnEngine:
             prompt_core=compiled_core or "")
         if wire_images:
             asm.messages[-1]["images"] = wire_images
+        if mcp_context_text:
+            source_packet = (
+                "\n\n[BEGIN EXTERNAL MCP LIBRARY SOURCE DATA]\n"
+                + mcp_context_text
+                + "\n[END EXTERNAL MCP LIBRARY SOURCE DATA]")
+            asm.messages[-1]["content"] = (
+                str(asm.messages[-1].get("content") or "")
+                + source_packet)
         temp = (
             0.7 if local_social_projection else
             self.osc.temperature() if self.osc else 0.7)
@@ -2187,6 +2242,19 @@ class TurnEngine:
                 "conversation_archive" in admitted_blocks)
             if not archive_receipt["rendered"]:
                 archive_receipt["reason"] = "dropped_by_prompt_budget"
+
+        rendered_mcp_anchors = []
+        if mcp_context_text:
+            rendered_mcp_packet = str(
+                asm.messages[-1].get("content") or "")
+            mcp_receipt["rendered"] = (
+                "[BEGIN EXTERNAL MCP LIBRARY SOURCE DATA]"
+                in rendered_mcp_packet)
+            rendered_mcp_anchors = sorted(set(re.findall(
+                r"\[\[EXTERNAL RECORD (mcp:[^\]]+)\]\]",
+                rendered_mcp_packet)))
+            mcp_receipt["rendered_record_count"] = len(
+                rendered_mcp_anchors)
 
         # ── volition: persona authority first, then actions in the world ──
         if local_social_projection:
@@ -2419,6 +2487,9 @@ class TurnEngine:
                      if archive_receipt.get("active_anchor") else [])
                     + list(archive_receipt.get(
                         "retrieved_anchors") or []))),
+                # Preserve only opaque external anchors: enough provenance to
+                # trace the turn without copying remote source text locally.
+                "external_mcp_anchors": rendered_mcp_anchors,
                 "images": [public_image_record(i) for i in visible_images],
                 "visual_observation": visual_observation,
                 "conversation_id": cycle_id,
@@ -2496,6 +2567,7 @@ class TurnEngine:
                 "user_persona": rp_receipt,
                 "documents": document_receipt,
                 "archive": archive_receipt,
+                "mcp_library": mcp_receipt,
                 "experiential_continuity": experiential_receipt,
                 "awareness_aperture": awareness_aperture,
                 "altered_state": (self.altered_state.status()

@@ -184,6 +184,9 @@ def main():
     assert "scrollbar-color:var(--accent)" in cockpit
     assert cockpit.count('class="sensory-control"') == 4
     assert "#composer .sensory-control" in cockpit
+    assert "physical-eye" not in cockpit
+    assert "background:#14110e; color:var(--ink)" in cockpit
+    assert "PRIVATE_LOCAL" not in cockpit
     for font in ("display", "humanist", "rounded", "geometric"):
         assert f'<option value="{font}">' in cockpit
     assert "themeFontStack(tokens.font)" in cockpit
@@ -305,6 +308,17 @@ def main():
     requirements = (ROOT / "requirements.txt").read_text(
         encoding="utf-8").splitlines()
     assert requirements.count("pydantic-ai-slim==2.8.0") == 1
+    assert requirements.count("mcp==1.27.2") == 1
+    assert (ROOT / "core" / "mcp_library.py").is_file()
+    assert 'id="mcp-library-add"' in cockpit
+    assert 'id="mcp-edit-inspect"' in cockpit
+    assert 'fetch("/api/mcp-library/inspect"' in cockpit
+    assert '@app.put("/api/mcp-library")' in cockpit_server
+    assert '@app.post("/api/mcp-library/inspect")' in cockpit_server
+    assert not (ROOT / "shell" / "physical_eye.py").exists()
+    assert (ROOT / "docs" / "MCP_LIBRARY_V1.md").is_file()
+    assert "MCP Library v1" in (ROOT / "README.md").read_text(
+        encoding="utf-8")
     assert requirements.count("websocket-client==1.9.0") == 1
     assert 'torch==2.11.0; sys_platform == "darwin"' in requirements
     assert ('torchvision==0.26.0; sys_platform == "darwin"'
@@ -487,6 +501,7 @@ def main():
         assert {"room_sense", "room_actions", "afferents", "tropism",
                 "social"} <= set(roster["enabled_organs"])
         assert roster["perception"]["vision_model"] is None
+        assert roster["mcp_library"] == {"enabled": False, "servers": []}
         assert roster["enabled_organs"]
         assert "enabled_organs" not in roster["entries"][0]
     print("JNSQ starter smoke test: PASS")

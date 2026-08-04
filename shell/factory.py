@@ -126,6 +126,11 @@ intention_loom:
   authority_tier: 0
   local_only: true
   max_tokens: 620
+mcp_library:
+  # Resident-owned external continuity remains off until an exact read-only
+  # server declaration is added. See docs/MCP_LIBRARY_V1.md.
+  enabled: false
+  servers: []
 enabled_organs: [{organs}]
 room:
   id: nexus

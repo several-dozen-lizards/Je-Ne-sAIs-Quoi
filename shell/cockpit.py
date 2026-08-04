@@ -61,6 +61,9 @@ from core.documents import DocumentError
 from core.conversation_archive import ArchiveError
 from core.private_journal import PrivateJournal
 from core.room_actions import parse_actions, strip_action_verbs
+from core.mcp_library import (MCPConfigurationError, MCPExternalLibrary,
+                              MCPLibraryConfig, load_library_mapping,
+                              save_library_mapping)
 from harness.model_call_receipts import model_call_scope, new_cycle_id
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -1289,6 +1292,13 @@ class ElevenLabsVoiceShelfRequest(BaseModel):
 class AgencyInboxRequest(BaseModel):
     label: str
     content: str
+
+
+class MCPLibraryConfigRequest(BaseModel):
+    config: dict = Field(default_factory=dict)
+    # Secret values are consumed by env_store and are never written into the
+    # resident connector declaration or returned by an API response.
+    secrets: dict[str, str] = Field(default_factory=dict)
 
 
 class DocumentImportRequest(BaseModel):
@@ -5197,6 +5207,90 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
             return JSONResponse(status_code=404,
                                 content={"error": str(exc)[:500]})
 
+    @app.get("/api/mcp-library")
+    def mcp_library_status():
+        """Describe the resident-owned connector without reading its source."""
+        library = getattr(app.state.engine, "mcp_library", None)
+        if library is None:
+            return {"enabled": False, "servers": [],
+                    "reason": "not_attached"}
+        return library.status()
+
+    def validate_mcp_secrets(values: dict[str, str]) -> dict[str, str]:
+        validated = {}
+        for raw_name, raw_value in values.items():
+            name = env_store.validate_name(raw_name)
+            value = str(raw_value or "")
+            if not value:
+                continue
+            if "\n" in value or "\r" in value:
+                raise ValueError(f"{name} must be a single line")
+            validated[name] = value
+        return validated
+
+    @app.post("/api/mcp-library/inspect")
+    def mcp_library_inspect(req: MCPLibraryConfigRequest):
+        """Explicitly connect once and return capability metadata only."""
+        if not app.state.turn_lock.acquire(blocking=False):
+            return JSONResponse(status_code=409, content={
+                "error": "attention is occupied; MCP inspection was not started"})
+        prior = {}
+        try:
+            config = MCPLibraryConfig.from_mapping(req.config).as_mapping()
+            secrets = validate_mcp_secrets(req.secrets)
+            for name, value in secrets.items():
+                prior[name] = os.environ.get(name)
+                os.environ[name] = value
+            candidate = MCPExternalLibrary(app.state.engine.pdir, config)
+            return candidate.status(probe=True)
+        except (MCPConfigurationError, ValueError) as exc:
+            return JSONResponse(status_code=400,
+                                content={"error": str(exc)[:500]})
+        finally:
+            for name, value in prior.items():
+                if value is None:
+                    os.environ.pop(name, None)
+                else:
+                    os.environ[name] = value
+            app.state.turn_lock.release()
+
+    @app.put("/api/mcp-library")
+    def mcp_library_save(req: MCPLibraryConfigRequest):
+        """Validate, persist privately, and hot-swap the connector."""
+        if not app.state.turn_lock.acquire(blocking=False):
+            return JSONResponse(status_code=409, content={
+                "error": "attention is occupied; MCP settings were not changed"})
+        try:
+            config = MCPLibraryConfig.from_mapping(req.config).as_mapping()
+            secrets = validate_mcp_secrets(req.secrets)
+            for name, value in secrets.items():
+                env_store.set_key(name, value)
+            saved = save_library_mapping(app.state.engine.pdir, config)
+            app.state.engine.mcp_library = MCPExternalLibrary(
+                app.state.engine.pdir, saved)
+            return {"ok": True,
+                    **app.state.engine.mcp_library.status()}
+        except (MCPConfigurationError, ValueError, OSError) as exc:
+            return JSONResponse(status_code=400,
+                                content={"error": str(exc)[:500]})
+        finally:
+            app.state.turn_lock.release()
+
+    @app.post("/api/mcp-library/probe")
+    def mcp_library_probe():
+        """Explicit connection/capability test; never retrieves record text."""
+        library = getattr(app.state.engine, "mcp_library", None)
+        if library is None:
+            return JSONResponse(status_code=503, content={
+                "error": "MCP library is not attached"})
+        if not app.state.turn_lock.acquire(blocking=False):
+            return JSONResponse(status_code=409, content={
+                "error": "attention is occupied; MCP probe was not started"})
+        try:
+            return library.status(probe=True)
+        finally:
+            app.state.turn_lock.release()
+
     @app.post("/api/voice/output")
     def voice_output(req: VoiceOutputRequest):
         """Record vessel behavior without storing the words it spoke."""
@@ -5991,6 +6085,12 @@ def main():
                         gist_model=((roster or {}).get("consolidation") or {})
                                    .get("gist_model"),
                         prompt_version=(entry or {}).get("prompt_version"))
+    # MCP is a resident-owned external library attachment, not a synthetic
+    # organ and not a new canonical memory store. The official SDK stays lazy
+    # until a thresholded read or an explicit capability probe.
+    engine.mcp_library = MCPExternalLibrary(
+        engine.pdir, load_library_mapping(
+            engine.pdir, (roster or {}).get("mcp_library")))
     speech_cfg = (((roster or {}).get("perception") or {}).get("speech")
                   or {})
     try:

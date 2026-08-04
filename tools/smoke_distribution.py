@@ -74,7 +74,29 @@ def main():
     assert "--panel2:color-mix(in srgb,var(--panel) 82%,var(--mint))" in shell
     assert 'class="on" type="button" data-top-page="personas"' in shell
     assert "background:color-mix(in srgb,var(--mint) 20%,var(--panel))" in shell
+    assert 'id="updateNotice" role="status"' in shell
+    assert 'fetch("/api/version/check",{cache:"no-store"})' in shell
+    assert 'href="/settings#updates"' in shell
+    assert "JNSQ will not install it while running" in shell
     about = (ROOT / "shell" / "about.html").read_text(encoding="utf-8")
+    assert 'data-guide-tab="about"' in about
+    assert 'data-guide-tab="use"' in about
+    assert 'id="mcp" data-guide="use"' in about
+    assert 'id="receipts" data-guide="about"' in about
+    about_nav = re.search(
+        r'<div class="toc-group" data-guide-nav="about">(.*?)</div>',
+        about, flags=re.DOTALL).group(1)
+    use_nav = re.search(
+        r'<div class="toc-group" data-guide-nav="use" hidden>(.*?)</div>',
+        about, flags=re.DOTALL).group(1)
+    assert 'href="#receipts"' in about_nav
+    assert 'href="#receipts"' not in use_nav
+    assert 'insertAdjacentElement("afterend",document.getElementById("receipts"))' in about
+    assert "Fastest harmless test on Windows" in about
+    assert "@modelcontextprotocol/server-everything" in about
+    assert "custom GitHub-backed server" in about
+    assert "mcp_library</td>" in about
+    assert "showHashGuide" in about
     about_organs = re.findall(
         r'<article class="card organ".*?<h3>([^<]+)</h3>', about,
         flags=re.DOTALL)
@@ -416,7 +438,10 @@ def main():
         advanced = waiting.result(timeout=3)
     assert advanced and advanced[0]["seq"] == 1
 
-    from shell.router import build_app as build_router_app
+    from shell.router import (build_app as build_router_app,
+                              public_update_available)
+    assert public_update_available("0.10.0", "0.10.1")
+    assert not public_update_available("0.11.0", "0.10.1")
     router_app = build_router_app()
     assert router_app.state.registry == {}
     assert router_app.state.local_identity["display_name"] == "User"

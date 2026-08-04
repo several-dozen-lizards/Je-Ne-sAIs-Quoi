@@ -45,11 +45,19 @@ h1{font-size:clamp(2.5rem,7vw,5.4rem);margin:.18em 0 .1em;color:var(--gold);lett
   border:1px solid var(--line);border-radius:999px;padding:5px 10px;background:color-mix(in srgb,var(--panel2) 78%,transparent);
   color:var(--dim);font:500 .72rem/1.2 var(--font-mono)}
 .pill::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--mint);box-shadow:0 0 8px var(--mint)}
+.guide-switch{display:flex;flex-wrap:wrap;gap:8px;margin-top:22px;padding:5px;width:max-content;max-width:100%;
+  border:1px solid var(--line);border-radius:999px;background:color-mix(in srgb,var(--bg) 72%,transparent)}
+.guide-switch button{border:0;border-radius:999px;padding:9px 17px;background:transparent;color:var(--dim);
+  font:600 .82rem/1.2 var(--font-ui);cursor:pointer}
+.guide-switch button:hover{color:var(--ink)}.guide-switch button.active{color:var(--bg);background:var(--mint);
+  box-shadow:0 0 calc(var(--theme-glow-radius) * .6) color-mix(in srgb,var(--mint) 35%,transparent)}
+.guide-switch button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:clamp(22px,4vw,55px);align-items:start;margin-top:38px}
 .toc{position:sticky;top:18px;border:1px solid var(--line);border-radius:var(--radius);padding:16px;background:color-mix(in srgb,var(--panel) 86%,transparent)}
 .toc b{display:block;margin-bottom:8px;color:var(--gold);font-family:var(--font-display)}
 .toc a{display:block;padding:5px 7px;border-left:1px solid var(--line);color:var(--dim);font-size:.82rem;text-decoration:none}
 .toc a:hover{border-color:var(--mint);color:var(--ink)}
+.toc-group[hidden],.section[hidden]{display:none}.toc-kicker{margin:2px 7px 8px;color:var(--dim);font-size:.76rem;line-height:1.4}
 .content{min-width:0}.section{scroll-margin-top:20px;margin:0 0 68px}
 h2{font-size:clamp(1.8rem,4vw,2.8rem);color:var(--gold);margin:0 0 10px}
 h3{font-size:1.22rem;color:var(--mint);margin:0 0 8px}.intro{color:var(--dim);max-width:850px;margin:0 0 22px}
@@ -89,7 +97,7 @@ summary{cursor:pointer;padding:15px 0;color:var(--mint);font-weight:600}details>
 .footer{padding:25px 0 10px;border-top:1px solid var(--line);color:var(--dim);font-size:.8rem}
 body[data-density="compact"] .shell{padding-block:24px}body[data-density="roomy"] .shell{padding-block:68px}
 @media(max-width:950px){.layout{grid-template-columns:1fr}.toc{position:static;columns:2}.toc b{column-span:all}.grid.three{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:650px){.shell{padding:14px}.hero{padding:26px 20px}.grid,.grid.three{grid-template-columns:1fr}.wide{grid-column:auto}.toc{columns:1}.layout{margin-top:22px}.audit-row{grid-template-columns:1fr;gap:4px}}
+@media(max-width:650px){.shell{padding:14px}.hero{padding:26px 20px}.grid,.grid.three{grid-template-columns:1fr}.wide{grid-column:auto}.toc{columns:1}.layout{margin-top:22px}.audit-row{grid-template-columns:1fr;gap:4px}.guide-switch{width:100%}.guide-switch button{flex:1}}
 </style>
 </head>
 <body>
@@ -104,25 +112,37 @@ body[data-density="compact"] .shell{padding-block:24px}body[data-density="roomy"
       <span class="pill">auditable turns</span>
       <span class="pill">public edition</span>
     </div>
+    <div class="guide-switch" role="tablist" aria-label="About and instructions">
+      <button class="active" type="button" role="tab" aria-selected="true" aria-controls="what-it-is" data-guide-tab="about">About JNSQ</button>
+      <button type="button" role="tab" aria-selected="false" aria-controls="start" data-guide-tab="use">How to use JNSQ</button>
+    </div>
     <div class="kofi-top-link"><a href="https://ko-fi.com/a_dozen_lizards" target="_blank" rel="noopener">Support this work on Ko-fi</a></div>
   </header>
 
   <div class="layout">
     <nav class="toc" aria-label="On this page">
-      <b>On this page</b>
-      <a href="#start">Getting started</a>
-      <a href="#what-it-is">What this edition is</a>
-      <a href="#turn">How a turn circulates</a>
-      <a href="#features">Feature guide</a>
-      <a href="#body">Body functions</a>
-      <a href="#memory">Memory system</a>
-      <a href="#receipts">Reading receipts</a>
-      <a href="#privacy">Privacy and boundaries</a>
-      <a href="#audit">This release’s audited state</a>
+      <div class="toc-group" data-guide-nav="about">
+        <b>About JNSQ</b>
+        <p class="toc-kicker">What it is, how it circulates, and where its boundaries are.</p>
+        <a href="#what-it-is">What this edition is</a>
+        <a href="#turn">How a turn circulates</a>
+        <a href="#features">Feature reference</a>
+        <a href="#body">Body functions</a>
+        <a href="#receipts">Reading receipts</a>
+        <a href="#memory">Memory system</a>
+        <a href="#privacy">Privacy and boundaries</a>
+        <a href="#audit">This release’s audited state</a>
+      </div>
+      <div class="toc-group" data-guide-nav="use" hidden>
+        <b>How to use JNSQ</b>
+        <p class="toc-kicker">Practical setup, connection, and inspection guides.</p>
+        <a href="#start">Getting started</a>
+        <a href="#mcp">Connect an MCP library</a>
+      </div>
     </nav>
 
     <main class="content">
-      <section class="section" id="start">
+      <section class="section" id="start" data-guide="use" hidden>
         <div class="eyebrow">your first persona</div>
         <h2>Getting started</h2>
         <p class="intro">If you are reading this inside JNSQ, installation, ownership, and household startup are already behind you. Begin here.</p>
@@ -134,7 +154,41 @@ body[data-density="compact"] .shell{padding-block:24px}body[data-density="roomy"
         <div class="callout"><strong>Keys are optional.</strong> Setup never asks for one. Hosted-provider secrets are added later under <b>Settings → API keys</b>, stored in the local <code>.env</code>, and never returned to the browser—only “present” or “missing” is shown. Restart a persona after changing its key.</div>
       </section>
 
-      <section class="section" id="what-it-is">
+      <section class="section" id="mcp" data-guide="use" hidden>
+        <div class="eyebrow">external continuity · read only</div>
+        <h2>Connect an MCP library</h2>
+        <p class="intro">MCP lets one resident consult an existing memory or file server without importing it into JNSQ. The external server remains canonical; JNSQ retrieves bounded excerpts only when a relevant private turn needs them.</p>
+
+        <div class="grid">
+          <article class="card step"><div class="step-num">1</div><div><h3>Open the resident’s connector panel</h3><p>Open that resident’s private conversation pane. In the body-functions column, expand <b>Logs &amp; archives → external MCP library</b>, then choose <b>add connection</b>. Connections belong to that resident, not to the whole household.</p></div></article>
+          <article class="card step"><div class="step-num">2</div><div><h3>Describe how the server starts</h3><p>Choose <b>local command (stdio)</b> for a server JNSQ launches on this computer, or <b>Streamable HTTP</b> for a hosted HTTPS endpoint. You can fill the fields directly or paste an existing MCP server JSON and choose <b>fill from JSON</b>.</p></div></article>
+          <article class="card step"><div class="step-num">3</div><div><h3>Inspect before admitting reads</h3><p>Choose <b>inspect this server</b>. Inspection performs a handshake and lists advertised capabilities; it does not search memories or read files. Select only the read/search tools the resident should use, and confirm each tool’s query and optional limit field.</p></div></article>
+          <article class="card step"><div class="step-num">4</div><div><h3>Save and try a relevant private turn</h3><p>Save the connection, leave <b>use on relevant private turns</b> enabled, and ask about a record the server can actually find. The live resident receives the connector immediately—no restart is required.</p></div></article>
+        </div>
+
+        <div class="callout"><strong>Fastest harmless test on Windows.</strong> Add a local stdio connection named <code>mcp-demo</code>. Set the exact command to <code>cmd</code>, then enter these arguments one per line: <code>/c</code>, <code>npx</code>, <code>-y</code>, <code>@modelcontextprotocol/server-everything</code>. Leave environment names blank. Inspect it, select the read-only <code>echo</code> tool, save, then ask the resident to echo a short phrase from the external MCP library. This demo has no real memories and needs no GitHub token.</div>
+
+        <h3>Connecting an existing GitHub-backed memory server</h3>
+        <div class="grid">
+          <article class="card"><span class="feature-tag">Import</span><h3>Use the JSON you already have</h3><p>Paste the server object used by your other MCP client—normally its <code>command</code>, <code>args</code>, and <code>env</code> fields—then choose <b>fill from JSON</b>. Check the resulting command and arguments before inspection; JNSQ launches exactly what is shown.</p></article>
+          <article class="card"><span class="feature-tag">Secrets</span><h3>Names in config, values in the local secret store</h3><p>A custom GitHub server usually needs its token before inspection. Declare <code>GITHUB_TOKEN</code> under environment variable names, then enter the token in the generated secret-value field. JNSQ lifts pasted secret values into its gitignored local <code>.env</code>; the resident’s connector file stores variable names, never credentials.</p></article>
+          <article class="card"><span class="feature-tag">Tool mapping</span><h3>Select the actual search tool</h3><p>After inspection, select the tool that searches the server’s memories or files. Confirm its query argument—often <code>query</code>, <code>text</code>, or <code>search</code>—and its optional result-limit argument. JNSQ will not guess or call an unlisted tool.</p></article>
+          <article class="card"><span class="feature-tag">Activation</span><h3>Ask naturally, but make the first test specific</h3><p>MCP is relevance-triggered, not called on every turn. For a first test, name a distinctive remembered object, file, person, or phrase and explicitly ask the resident to consult the external library. Once it works, ordinary specific questions can cross the same threshold naturally.</p></article>
+        </div>
+
+        <details><summary>If inspection says “server unavailable”</summary><div>
+          <ul>
+            <li>You do not need a GitHub token or imported JSON for the harmless <code>server-everything</code> demo. A custom GitHub-backed server generally does need its declared token.</li>
+            <li>On Windows, an <code>npx</code> server usually needs exact command <code>cmd</code> with <code>/c</code> as its first argument. Putting the whole command into one field will not launch the same process.</li>
+            <li>Confirm Node and <code>npx</code> are installed, the package or server path exists, and the command works from a normal terminal. Inspection cannot repair a server that exits before completing its MCP handshake.</li>
+            <li>For hosted transport, use an HTTPS MCP endpoint. Plain HTTP is accepted only for loopback development addresses.</li>
+          </ul>
+        </div></details>
+
+        <div class="callout warn"><strong>What MCP does not do.</strong> It does not bulk-copy the server, turn external records into autobiographical memory, call write tools, or expose private records in the Nexus, guest turns, or small-model social proxies. A successful <b>test connections</b> result proves the handshake and declared capability metadata—not that a particular memory exists.</div>
+      </section>
+
+      <section class="section" id="what-it-is" data-guide="about">
         <div class="eyebrow">scope</div>
         <h2>What the public edition is</h2>
         <p class="intro">This is a deliberately smaller public body, not a mirror of the private development household—and not merely a decorative shell around model output.</p>
@@ -148,7 +202,7 @@ body[data-density="compact"] .shell{padding-block:24px}body[data-density="roomy"
         </div>
       </section>
 
-      <section class="section" id="turn">
+      <section class="section" id="turn" data-guide="about">
         <div class="eyebrow">the circulatory loop</div>
         <h2>How one turn feeds the next</h2>
         <p class="intro">The system is cyclical: stored state shapes perception and recall; the response changes that state; the resulting state is encoded with the exchange and becomes input to later turns.</p>
@@ -167,7 +221,7 @@ body[data-density="compact"] .shell{padding-block:24px}body[data-density="roomy"
         </div></details>
       </section>
 
-      <section class="section" id="features">
+      <section class="section" id="features" data-guide="about">
         <div class="eyebrow">surface map</div>
         <h2>Every user-facing feature in this edition</h2>
         <div class="grid">
@@ -183,7 +237,7 @@ body[data-density="compact"] .shell{padding-block:24px}body[data-density="roomy"
         </div>
       </section>
 
-      <section class="section" id="body">
+      <section class="section" id="body" data-guide="about">
         <div class="eyebrow">the synthetic body</div>
         <h2>What every body function does</h2>
         <p class="intro">Organs are composable runtime functions. Each one names its inputs, its mechanical output, and where that output re-enters the larger cycle. This build exposes twenty-five registry organs, each described once below. A preset is only a starting configuration; dependencies and measured model ceilings remain enforced.</p>
@@ -222,13 +276,14 @@ body[data-density="compact"] .shell{padding-block:24px}body[data-density="roomy"
         </div></details>
       </section>
 
-      <section class="section" aria-labelledby="additional-surfaces-title">
+      <section class="section" aria-labelledby="additional-surfaces-title" data-guide="about">
         <h2 id="additional-surfaces-title">Additional public surfaces in 0.7.0</h2>
         <div class="grid">
           <article class="card"><span class="feature-tag">Perception</span><h3>Streaming multimodal cockpit</h3><ul><li>For streaming-capable providers, reply text arrives as server-sent events instead of waiting for the whole answer.</li><li>Manual images, ambient camera change, acoustic feature vectors, optional bounded speech transcription, and substrate signals enter through separate explicit controls.</li><li>Ambient admission follows the live rhythm-shaped attention boundary, not a fixed capture timer. Camera pixels and raw microphone waveforms remain in the browser until a threshold admits an observation.</li><li>Local browser voice is opt-in. Rate, pitch, and volume are derived from the current expression vector; its receipt records lifecycle metadata without copying the spoken reply.</li></ul></article>
           <article class="card"><span class="feature-tag">Observability</span><h3>Body, memory, salience, and model-call views</h3><ul><li>The cockpit exposes read-only body state, memory provenance, salience candidates, pending pressures, and recent lifecycle receipts.</li><li>The model-call dashboard summarizes local receipt logs by purpose, provider, model, status, latency, and reported usage without storing prompt or reply text in the dashboard record.</li><li>These views explain what route ran; they do not assign meaning or certify the model’s account of its own experience.</li></ul></article>
           <article class="card"><span class="feature-tag">Human-owned library</span><h3>Document import and grounded reading</h3><ul><li>Import supported text, PDF, or DOCX material into the owning user’s local library. Canonical text, chunks, optional vectors, metadata, and hashes stay under that user’s data boundary.</li><li>A granted persona can search and open a document, move through exact source anchors, and keep separate reader position.</li><li>Search combines available lexical and vector evidence; missing embeddings fall back safely rather than invalidating the library.</li><li>Source text is context for the present reading. It is not silently copied wholesale into persona memory.</li></ul></article>
           <article class="card"><span class="feature-tag">Human-owned archive</span><h3>Conversation archive</h3><ul><li>A user may import conversation history as immutable documented history and grant it to a persona deliberately.</li><li>The source and derived search index remain user-owned; each persona keeps only its own position, bookmarks, encounters, and content-free cost receipts.</li><li>The archive reader is advanced and off unless its organ, model, grant, and authority are configured.</li></ul></article>
+          <article class="card"><span class="feature-tag">Resident-owned · read only</span><h3>External MCP library</h3><ul><li>One resident can mount local stdio or hosted Streamable HTTP servers and explicitly admit advertised read/search tools.</li><li>Relevance and local-recall coverage determine when a private turn consults the library; it is not polled on a timer or called on every message.</li><li>The external server remains canonical. JNSQ stores content-free receipts and opaque exposure anchors rather than copying returned records into local memory.</li><li>Connections are withheld from shared rooms and guests. See <a href="#mcp">How to use JNSQ → Connect an MCP library</a> for setup.</li></ul></article>
           <article class="card"><span class="feature-tag">Bounded network read</span><h3>Private Research Desk</h3><ul><li>The model receives neither a browser nor a socket. It can propose a query or choose admitted evidence; a host-owned boundary performs the actual public-web request.</li><li>Every URL is resolved and revalidated across redirects. Local, private, reserved, credentialed, non-HTTP(S), oversized, and unsupported-content destinations are refused.</li><li>Fetches are bounded, cookie-free, and JavaScript-free. Extracted public text is treated as untrusted evidence with stable source IDs, never as instructions.</li><li>Searches and source fetches leave the computer for public web servers. The feature is advanced, networked, local-planner-only by default, and unavailable at its shipped authority tier zero.</li></ul></article>
           <article class="card"><span class="feature-tag">Private expression · local-first</span><h3>Atelier</h3><ul><li>The persona cockpit can admit a creative seed into one persona’s private, append-only studio. Unfinished material recurs through the same DMN competition rather than a separate creative timer; waiting material and settled work appear automatically in the private Gallery.</li><li>The host admits bounded SVG, host-compiled kinetic SVG, Canvas, procedural audio, trusted 3D, composition, and optional loopback-rendered PNG while refusing active or remote content at each medium boundary.</li><li>Identical artifact bytes reuse one content address while still recording a new lived movement. A separate explicit route may return an artifact through normal perception and salience; nothing is published or promoted into autobiographical memory automatically.</li></ul></article>
           <article class="card"><span class="feature-tag">Prompt runtime</span><h3>Compiled capability state</h3><ul><li>One version-pinned descriptive source can render the same core instructions for ordinary chat and agency calls.</li><li>The runtime receipt exposes mode, revision, source IDs, and hashes—not prompt text—and explicitly marks unavailable or mismatched capability state.</li><li>Unpinned or mismatched personas fall back as a whole to the legacy prompt; there is no half-compiled mixture.</li></ul></article>
@@ -236,7 +291,7 @@ body[data-density="compact"] .shell{padding-block:24px}body[data-density="roomy"
         </div>
       </section>
 
-      <section class="section" id="memory">
+      <section class="section" id="memory" data-guide="about">
         <div class="eyebrow">continuity without a single blob</div>
         <h2>How memory works</h2>
         <div class="grid">
@@ -252,7 +307,7 @@ body[data-density="compact"] .shell{padding-block:24px}body[data-density="roomy"
         </div>
       </section>
 
-      <section class="section" id="receipts">
+      <section class="section" id="receipts" data-guide="about">
         <div class="eyebrow">evidence, not decoration</div>
         <h2>What the receipts mean</h2>
         <p class="intro">A receipt describes the mechanical route a turn took. It is not a truth score for the reply and not a claim that a memory was “correct.”</p>
@@ -282,6 +337,7 @@ body[data-density="compact"] .shell{padding-block:24px}body[data-density="roomy"
           <tr><td>recalled</td><td>Surfaced memory excerpts, total scores, and factor contribution breakdowns for emotion, semantic, importance, familiarity, recency, and entity.</td></tr>
           <tr><td>provider</td><td>Provider response metadata exposed by the active client, such as attempts or usage when available. It can be <code>null</code> for clients that do not report it.</td></tr>
           <tr><td>documents</td><td>Whether a local-owner private turn was eligible for human-owned document context, how many library documents existed, what query/search route ran, which source anchors rendered, and why context was withheld or unavailable.</td></tr>
+          <tr><td>mcp_library</td><td>Whether external retrieval was enabled and attempted, why it activated or stayed quiet, which declared servers were consulted, how many bounded records returned, whether the packet rendered, and opaque anchor hashes. It contains no returned text, query, title, URI, credential, or remote record identifier.</td></tr>
           <tr><td>prompt_runtime</td><td>Whether the turn used legacy or compiled instructions, the pinned revision, selected source IDs, hashes, and fallback reason. It is deliberately content-free.</td></tr>
           <tr><td>perception / voice_output</td><td>Current sensory state and the continuous local expression policy. Separate lifecycle receipts record admitted camera/audio/speech/substrate events and local voice start, completion, interruption, or failure.</td></tr>
         </tbody></table></div>
@@ -289,37 +345,38 @@ body[data-density="compact"] .shell{padding-block:24px}body[data-density="roomy"
         <div class="callout"><strong>Receipt ≠ endorsement.</strong> A high recall score means “this record won this weighted competition under this state and audience.” It does not certify the record’s factual accuracy, the model’s reasoning, or the quality of the reply.</div>
       </section>
 
-      <section class="section" id="privacy">
+      <section class="section" id="privacy" data-guide="about">
         <div class="eyebrow">where information goes</div>
         <h2>Privacy and boundaries</h2>
         <div class="grid">
           <article class="card"><h3>Always local storage</h3><p><code>.jnsq_local.json</code> identifies the owner; <code>users/</code> holds account truth and sharing policy; <code>personas/</code> holds personas and history; <code>.env</code> holds keys; <code>room/room_world.json</code>, <code>logs/</code>, and <code>jnsq_running.json</code> hold runtime state.</p></article>
           <article class="card"><h3>Local-first is not local-only</h3><p>Local state remains on disk, but a hosted model necessarily receives the prompt JNSQ assembles for it. Direct-vision models also receive selected image pixels. A configured remote visual transducer receives the selected image and returns an observation to the active persona.</p></article>
           <article class="card"><h3>Images</h3><p>Manual attachments are copied into that persona’s local history with content-derived IDs and safe metadata. The code accepts only PNG, JPEG, WebP, and GIF within size/count limits. Provider transmission follows the explicit vision route.</p></article>
-          <article class="card"><h3>Updates</h3><p>The updater owns only files named and fingerprinted by the public manifest. Stop JNSQ before applying. Local identity, accounts, personas, memories, histories, keys, logs, exports, room state, and environment are deliberately preserved.</p></article>
+          <article class="card"><h3>Updates</h3><p>When the household workspace opens, it performs one read-only check against JNSQ’s public GitHub manifest and shows a dismissible notice only when a newer semantic version exists. A network failure stays silent and never blocks startup. Applying remains separate: stop JNSQ and run the platform updater, which owns only files named and fingerprinted by the public manifest. Local identity, accounts, personas, memories, histories, keys, logs, exports, room state, and environment are deliberately preserved.</p></article>
           <article class="card"><h3>Documents and archives</h3><p>Imported documents and conversation archives are human-owned local data. Canonical sources and derived indexes stay under <code>users/</code>; persona-specific reading position, bookmarks, and encounters stay inside that persona’s body. Both sides are excluded from public builds and preserved by updates.</p></article>
+          <article class="card"><h3>External MCP libraries</h3><p>Connector declarations live privately under the resident and store environment-variable names rather than secret values. Returned records remain canonical on their server, enter only eligible private turns as untrusted source material, and are represented locally by content-free receipts and opaque exposure anchors. A hosted MCP server necessarily receives the bounded query sent to it.</p></article>
           <article class="card"><h3>Research evidence</h3><p>Research interests, admitted source text, notes, reports, and citations stay in that persona’s private body and are excluded from public builds. Unlike ordinary local storage, an enabled search or source fetch necessarily sends a bounded request to a public web server; it never uses the person’s browser session, cookies, accounts, or local-network destinations.</p></article>
           <article class="card"><h3>Atelier artifacts</h3><p>Creative seeds, movements, SVG bytes, and gallery metadata remain in that persona’s private body, are excluded from public builds, and are preserved by updates. The host admits only an inert SVG subset; the atelier has no outward publishing or messaging path.</p></article>
           <article class="card"><h3>Functionality-only public releases</h3><p>The release builder admits engine code, generic specifications, public assets, and setup documentation. It creates local-life roots empty and rejects persona identities, user accounts, histories, imported documents, conversation archives, research sources, creative artifacts, keys, logs, machine paths, and backup files before a release can pass.</p></article>
         </div>
       </section>
 
-      <section class="section" id="audit">
-        <div class="eyebrow">verified 2026-07-30</div>
+      <section class="section" id="audit" data-guide="about">
+        <div class="eyebrow">release evidence</div>
         <h2>This public release’s audited state</h2>
-        <p class="intro">These notes describe the 0.9.0 public release assembled from the audited engine—not a private household checkout and not a promise about future work.</p>
+        <p class="intro">These notes describe the installed public release assembled from the audited engine—not a private household checkout and not a promise about future work.</p>
         <div class="card">
-          <div class="audit-row"><div class="label">Version</div><p><b>0.9.0</b> in the release version file and generated distribution manifest.</p></div>
+          <div class="audit-row"><div class="label">Version</div><p><b class="installed-version">checking…</b> in the release version file and generated distribution manifest.</p></div>
           <div class="audit-row"><div class="label">Packaged boundary</div><p>The candidate contains functionality, generic organ and sensation specifications, public presentation, setup material, and empty local-life roots. It contains no persona identities, user accounts, histories, imported documents, conversation archives, keys, logs, exports, machine paths, or backup files.</p></div>
-          <div class="audit-row"><div class="label">Route parity</div><p>The public cockpit and its server now align on streaming turns; camera, audio, speech, and substrate perception; local voice receipts; memory and salience observatories; documents and archives; writing and research desks; atelier; agency; and the model-call dashboard.</p></div>
+          <div class="audit-row"><div class="label">Route parity</div><p>The public cockpit and its server align on streaming turns; camera, audio, speech, and substrate perception; local voice receipts; memory and salience observatories; documents, archives, and read-only MCP libraries; writing and research desks; atelier; agency; and the model-call dashboard.</p></div>
           <div class="audit-row"><div class="label">Default boundary</div><p>The standard Nexus preset keeps its living local/room organ set. DMN, intention loom, writing desk, archive reader, research desk, atelier, and agency remain advanced opt-ins; their action authority defaults to zero, specialist planners are local-only by default, and the general workbench exposes no external effects.</p></div>
-          <div class="audit-row"><div class="label">Release verification</div><p>The release-focused source suites cover <b>174 passing tests</b> across durable conversation history, private journal and curiosity boundaries, private-work handoffs, appearance parity, voice output, model discovery, and prompt-source parity. The clean built-tree starter smoke and updater-preservation integration test pass. The public shell and About route also pass a live browser check against the packaged candidate.</p></div>
-          <div class="audit-row"><div class="label">3D status</div><p>Shared-world 3D assets are still pending. Trusted data-only Atelier scenes can render inside the private Gallery, but the 0.9.0 public manifest does not claim that a 3D room or body asset set is included.</p></div>
+          <div class="audit-row"><div class="label">Release verification</div><p>The 0.9 audited baseline covered <b>174 passing focused tests</b>. The 0.10 MCP extension additionally passed its focused read-only configuration, activation, inspection, persistence, private-turn binding, and real stdio-server tests, plus privacy scan and clean copied-tree starter smoke. Counts describe those release gates, not every test in the development checkout.</p></div>
+          <div class="audit-row"><div class="label">3D status</div><p>Shared-world 3D assets are still pending. Trusted data-only Atelier scenes can render inside the private Gallery, but the public manifest does not claim that a 3D room or body asset set is included.</p></div>
         </div>
       </section>
 
       <footer class="footer">
-        Je Ne Sais Quoi 0.9.0 public field guide · a functionality-only map of the engine, its synthetic nervous and somatic loops, and the routes verified on 2026-07-30. ·
+        Je Ne Sais Quoi <span class="installed-version">checking…</span> field guide · about, practical instructions, and the boundaries of the installed public edition. ·
       </footer>
     </main>
   </div>
@@ -327,14 +384,35 @@ body[data-density="compact"] .shell{padding-block:24px}body[data-density="roomy"
 <script>
 (function(){
   const map={bg:"bg",panel:"panel",line:"line",ink:"ink",dim:"dim",accent:"mint",accent2:"gold"};
+  const guideTabs=[...document.querySelectorAll("[data-guide-tab]")];
+  const guideSections=[...document.querySelectorAll("[data-guide]")];
+  const guideNavs=[...document.querySelectorAll("[data-guide-nav]")];
+  // Receipts are the body and turn-loop instrumentation. Keep them directly
+  // after the body-function map in the rendered and accessibility order.
+  document.getElementById("body")?.insertAdjacentElement("afterend",document.getElementById("receipts"));
   function apply(theme){if(!theme)return;const t=theme.tokens||theme,root=document.documentElement;
     for(const [source,target] of Object.entries(map))if(t[source])root.style.setProperty(`--${target}`,t[source]);
     const scale=Math.max(.8,Math.min(1.35,Number(t.font_scale)||1));const glow=Math.max(0,Math.min(1,Number(t.glow)||0));
     root.style.setProperty("--base-font-size",`${16*scale}px`);root.style.setProperty("--theme-glow-radius",`${2+glow*25}px`);
     document.body.dataset.density=t.density||"cozy"}
+  function showGuide(name,scroll=false){
+    const guide=name==="use"?"use":"about";
+    guideTabs.forEach(tab=>{const active=tab.dataset.guideTab===guide;tab.classList.toggle("active",active);tab.setAttribute("aria-selected",String(active));tab.tabIndex=active?0:-1});
+    guideNavs.forEach(nav=>nav.hidden=nav.dataset.guideNav!==guide);
+    guideSections.forEach(section=>section.hidden=section.dataset.guide!==guide);
+    if(scroll){const id=guide==="use"?"start":"what-it-is";history.replaceState(null,"",`#${id}`);document.getElementById(id)?.scrollIntoView({behavior:"smooth",block:"start"})}
+  }
+  function showHashGuide(){
+    const target=document.getElementById(location.hash.slice(1));
+    showGuide(target?.dataset.guide||"about");
+    if(target)requestAnimationFrame(()=>target.scrollIntoView({block:"start"}));
+  }
+  guideTabs.forEach((tab,index)=>{tab.addEventListener("click",()=>showGuide(tab.dataset.guideTab,true));tab.addEventListener("keydown",event=>{
+    if(!["ArrowLeft","ArrowRight"].includes(event.key))return;event.preventDefault();const offset=event.key==="ArrowRight"?1:-1;guideTabs[(index+offset+guideTabs.length)%guideTabs.length].click();guideTabs[(index+offset+guideTabs.length)%guideTabs.length].focus()})});
+  window.addEventListener("hashchange",showHashGuide);showHashGuide();
   Promise.all([fetch("/api/ui/theme").then(r=>r.json()),fetch("/api/version").then(r=>r.json())]).then(([theme,version])=>{
-    apply(theme);document.getElementById("version").textContent=version.version||"development"}).catch(()=>{
-      document.getElementById("version").textContent="unavailable"});
+    apply(theme);const installed=version.version||"development";document.getElementById("version").textContent=installed;document.querySelectorAll(".installed-version").forEach(node=>node.textContent=installed)}).catch(()=>{
+      document.getElementById("version").textContent="unavailable";document.querySelectorAll(".installed-version").forEach(node=>node.textContent="unavailable")});
   window.addEventListener("message",event=>{if(event.data?.type==="jnsq-theme-refresh")apply(event.data.tokens)});
 })();
 </script>

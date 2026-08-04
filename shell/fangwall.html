@@ -63,6 +63,16 @@ header{height:74px;display:flex;align-items:center;gap:18px;padding:0 24px;
 #status{margin-left:auto;color:var(--dim);font-size:.82rem;display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;text-align:right}
 #status a{color:var(--mint);text-underline-offset:2px}
 #status a:hover{color:var(--gold)}
+#updateNotice{position:fixed;z-index:14;top:84px;right:14px;width:min(400px,calc(100vw - 28px));
+  border:1px solid color-mix(in srgb,var(--mint) 65%,var(--line));border-radius:var(--radius);
+  background:color-mix(in srgb,var(--panel) 96%,var(--bg));padding:14px 16px;
+  box-shadow:0 16px 52px #0009,0 0 20px color-mix(in srgb,var(--mint) 20%,transparent)}
+#updateNotice[hidden]{display:none}#updateNotice .update-title{color:var(--gold);
+  font:600 1.08rem/1.2 var(--font-display)}#updateMessage{margin:6px 0 0;color:var(--ink);font-size:.82rem;line-height:1.45}
+#updateNotice .update-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:11px}
+#updateNotice .update-link{border:1px solid var(--line);border-radius:7px;padding:6px 9px;
+  background:var(--panel2);color:var(--mint);font-size:.78rem;text-decoration:none}
+#updateDismiss{border:1px solid var(--line);border-radius:7px;padding:6px 9px;background:transparent;color:var(--dim)}
 .top-page{display:none;height:calc(100% - 74px)}.top-page.on{display:block}
 .app{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr);min-width:0;position:relative}
 #page-settings iframe,#page-about iframe{width:100%;height:100%;border:0;background:var(--bg)}
@@ -145,11 +155,20 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
 .look-editor input[type=color]{height:38px;padding:3px}.look-editor .note{grid-column:1/-1}
 @media(max-width:760px){header{height:auto;min-height:104px;flex-wrap:wrap;padding:12px 16px;gap:7px 12px}
   .top-page{height:calc(100% - 104px)}#status{position:absolute;right:14px;top:14px}
+  #updateNotice{top:114px}
   .persona-home{padding:18px}.chat-panel{min-height:0}.panel-head .model{display:none}
   .model-form{grid-template-columns:1fr}.model-form .wide{grid-column:auto}.or-row{grid-template-columns:1fr}.or-row>span{padding:0}}
 </style>
 </head>
 <body>
+<aside id="updateNotice" role="status" aria-live="polite" hidden>
+  <div class="update-title">A JNSQ update is available</div>
+  <p id="updateMessage"></p>
+  <div class="update-actions">
+    <a class="update-link" href="/settings#updates" target="_blank" rel="noopener">View update steps</a>
+    <button id="updateDismiss" type="button">Not now</button>
+  </div>
+</aside>
 <header>
   <button class="brand-home" id="homeButton" type="button" title="persona home" aria-label="Persona home"><img class="brand-icon" src="/assets/jnsq_favicon.svg" alt=""></button>
   <div class="brand">Je Ne S<span class="ai">ai</span>s Quoi</div>
@@ -618,7 +637,29 @@ async function loadHouseTheme(){try{const theme=await request("/api/ui/theme");s
 window.addEventListener("message",event=>{if(event.data?.type==="jnsq-theme-refresh")loadHouseTheme()});
 window.addEventListener("message",async event=>{if(event.data?.type==="jnsq-theme-request"&&event.source){
   try{const theme=await request("/api/ui/theme");event.source.postMessage({type:"jnsq-theme-refresh",tokens:theme.tokens},"*")}catch(_){}}});
-refresh();loadHouseTheme();
+async function checkForUpdateAtStartup(){
+  document.body.dataset.updateCheck="checking";
+  try{
+    const response=await fetch("/api/version/check",{cache:"no-store"});
+    if(!response.ok){document.body.dataset.updateCheck="unavailable";return}
+    const update=await response.json();
+    if(!update.update_available){document.body.dataset.updateCheck="current";return}
+    try{if(sessionStorage.getItem("jnsq.update.dismissed")===update.latest){document.body.dataset.updateCheck="dismissed";return}}catch(_error){}
+    const notice=$("updateNotice");notice.dataset.latest=update.latest;
+    $("updateMessage").textContent=
+      `Version ${update.latest} is current; this installation is ${update.version}. `+
+      `JNSQ will not install it while running. Stop JNSQ, then run ${update.updater_name||"the platform updater"}.`;
+    notice.hidden=false;
+    document.body.dataset.updateCheck="available";
+  }catch(_error){
+    // Offline, blocked, or unavailable GitHub must never become a boot failure.
+    document.body.dataset.updateCheck="unavailable";
+  }
+}
+$("updateDismiss").onclick=()=>{const notice=$("updateNotice");
+  try{sessionStorage.setItem("jnsq.update.dismissed",notice.dataset.latest||"")}catch(_error){}
+  notice.hidden=true;document.body.dataset.updateCheck="dismissed"};
+refresh();loadHouseTheme();checkForUpdateAtStartup();
 </script>
 <script>
 // —— canvas starfield: subpixel-smooth drift + twinkle ——

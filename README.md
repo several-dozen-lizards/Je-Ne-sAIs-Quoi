@@ -213,6 +213,11 @@ only in the gitignored `.env` file on that computer.
 
 Double-click `UPDATE_JNSQ.bat` on Windows or open `UPDATE_JNSQ.command` on
 macOS to check GitHub.
+JNSQ also performs the same read-only manifest check when the household
+workspace opens. If GitHub advertises a newer semantic version, a dismissible
+notice shows the installed and current versions plus a link to these update
+steps. An unavailable network stays silent and never blocks startup; JNSQ does
+not download or install anything while it is running.
 The updater compares the installed version and verifies SHA-256 fingerprints
 for the public engine. When a patch is available it copies only managed files
 whose contents changed, retires only files previously declared engine-owned,

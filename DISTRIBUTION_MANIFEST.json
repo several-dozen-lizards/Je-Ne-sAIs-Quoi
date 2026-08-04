@@ -1,6 +1,6 @@
 {
   "format": 2,
-  "version": "0.10.0",
+  "version": "0.10.1",
   "files": 237,
   "contains_personal_data": false,
   "empty_local_roots": [
@@ -139,7 +139,7 @@
     "INSTALL_JNSQ.bat": "0cc6e306cd124acb5346f20fbc9cd5023b0db3c89f19c4ba91e7550f55e21ffd",
     "INSTALL_JNSQ.command": "b446e48bf74614d798483a8571c1a47e66814b402c2142f78d521471125ec378",
     "LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
-    "README.md": "8f8caa1b06aaea4ac2e6b70b3601b19eb3b3b048a3149431ca1df0140773fe01",
+    "README.md": "ae8876997617cc013cf241d3f8744aa4ee6e7feb0ce4c4f9e63e65a79b1bf47e",
     "requirements.txt": "40b4a017f69a84663e1b97a23185e78383c2fad6efea60a123bc01cbde7329e3",
     "room/__init__.py": "7095f6cbb0b61f7374669ec93cce972dd6d3c4a45d18cba7f0eb5ba85932f62d",
     "room/body_workshop.html": "890e4b34e13ae4140b9f628a23f0564142e298266b0e6a6434d0df13959070a7",
@@ -150,7 +150,7 @@
     "room/viewer.html": "d9a199e938cf37c669820d3f47d25bbb8d79c3aefc55d949727d6313d08b6f1f",
     "SETUP_JNSQ.ps1": "63edf344db43d92e1b342ce7bb013be20730e687ddecf33b83ee0da2ea8868e2",
     "shell/__init__.py": "51a9a935ce8b9bc0977e2cfcd74db27fe52a47420a9131ac6b8aa8479f172b2a",
-    "shell/about.html": "727c6a97947a21f1edd8b99e8fe3f24345ace63042d1d309e643bd175b960405",
+    "shell/about.html": "cefb01f879370884fd44d41ff3c6697c78cc7674b47e97edc57975e392fd10e1",
     "shell/agency_controller.py": "74fef528c95b577be09ad5a2b29227118b01729321e2e036558a3f6cd33dba19",
     "shell/agency_runner.py": "932783c07b961e7e45941da3c5657ddc339594296f73f91b2c059bbe7d6f86c0",
     "shell/agency_runtime.py": "2c8914f50c10c2aad2dfa33e45d856660e2d11543612499408f7aa20ab03572b",
@@ -168,7 +168,7 @@
     "shell/document_reader_runtime.py": "05c88408abf4d70636b2f6e8f83387037994ed460dd7970728dfc3e5766a5324",
     "shell/env_store.py": "e32e0fade285c871e200d45644eefc22dc7be11851ed0e7ad98e4d6597d78c46",
     "shell/factory.py": "e611b7969f37bfdcff109722c9fbaeca675976c31ff3c2ad3692895457810ece",
-    "shell/fangwall.html": "f21f7e250d3a0b4de48c301e0457f8ab573c29accde0554149827ba463ec702d",
+    "shell/fangwall.html": "e26f4c4cf647b859b263de78643c4b441a5e1c3a303ffc3d8f1ac352e3200327",
     "shell/first_run.py": "814911687ef93cc76bf42c2aed763a69fcc2f94a7a93406083cb20f7081dd946",
     "shell/image_input.py": "e3ce1d1d8d1fccee3423ba81bfb82010710e1c6fb436b0a522ca4e177a5522d0",
     "shell/intention_loom_runtime.py": "fe3a642377ed25db4cc60f857739f9d5157c086c856ef2e6a56b8fe23bd6dd0d",
@@ -181,7 +181,7 @@
     "shell/qwen_tts_server.py": "10bb956da4d4a065208c1c9f08ae0d11e1d0c061da2f16f64fe92f8a61f41437",
     "shell/qwen_tts_service.py": "5a58e9387e697bdd316ae9cc8f37df5662e009371e222a0cd4170937f25d93e6",
     "shell/research_desk_runtime.py": "b1e51368fe8f6466e608881dad11065f2e936355200282ef3001ca1c7b8210c4",
-    "shell/router.py": "c47b8fbfde16aa5328980291cafabfb0129d1330773b099b4f220bff15640988",
+    "shell/router.py": "2391dfc25951e3c09ba9d9c54004e7a8cd6b375f926863ca0855a78c68e27aef",
     "shell/settings.html": "60cc09d63387a56ad8872b3b3ebd7914d3dd5820ae311d6e4b68db63c8169062",
     "shell/system_prompts.py": "858d50b8e0d42acd9189e98cefe221d2f990e07f4a5be12f7b26154618cbc30b",
     "shell/ui_background.py": "ae9743af1c5d601603ec0ee76162dec8b2e990c62cf45923f0e31bccc4aadc09",
@@ -235,7 +235,7 @@
     "STOP_NEXUS.command": "c53d630ce28f8b21b773a63041d34b421c26f21ac8626e8c2d220aa632b9d638",
     "tools/install_atelier_gpu.ps1": "cd9fcdaa25d6963fc9bcc11b0b163fd6466c93bf96222baa1231eacefaaee25f",
     "tools/setup_jnsq_macos.py": "a4a5a13d8c0c29df7889a29254ebd84f741c1a1bbebf548d0f370df84fd9828b",
-    "tools/smoke_distribution.py": "50d2766f9de8cdf31ff00b92958450691905870fe7b27da7fb066464b1039dc2",
+    "tools/smoke_distribution.py": "ab3dddef447a28b9bf5fd71ed59a95947829d0e0c26ac8627711550be6171daf",
     "tools/update_jnsq.py": "973b35a6f1447eb9f1307987b592da94bc4dab6d80e40be0e304ad79f40f9f47",
     "tools/verify_atelier_3d.py": "ce8ef2f2152f9d69a93a924556daa48748fa56c1f0465125f49f434c3e8ac883",
     "tools/verify_atelier_audio.py": "18fcc212c0fe86be9c9e2b07ac7f5e93d0da08d5ed86718751b5376b3a070be6",
@@ -246,6 +246,6 @@
     "UPDATE_JNSQ.bat": "21c0ba7c15a43eb06bc6a317ee8cf5b6910c36a53bde7ec615ea6a673ef10bdc",
     "UPDATE_JNSQ.command": "bc3ed6e255375db324c1e0fe3802b173d72c15caefbb4921762bca4d7c0afdc9",
     "UPDATE_JNSQ.ps1": "eec5ab89dac0903ce95f4d540d7bf318972aef75a1b8f3100b323bf9b6bbe543",
-    "VERSION": "dc24feb5bd35084d8ae32a4eafbec12352707d4662401fcbcc9bbd696cde77a9"
+    "VERSION": "f4d439e0b523208a09d13862c16820cc3028fd94417310ce1d53a31d14d6a2c4"
   }
 }

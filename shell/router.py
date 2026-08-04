@@ -23,6 +23,7 @@ import atexit
 import glob
 import json
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -51,6 +52,19 @@ VERSION_PATH = os.path.join(ROOT, "VERSION")
 PUBLIC_MANIFEST_URL = (
     "https://raw.githubusercontent.com/several-dozen-lizards/"
     "Je-Ne-sAIs-Quoi/main/DISTRIBUTION_MANIFEST.json")
+
+
+def semantic_public_version(value: str):
+    """Return a comparable public x.y.z tuple, or None for dev labels."""
+    match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", str(value or "").strip())
+    return tuple(int(part) for part in match.groups()) if match else None
+
+
+def public_update_available(installed: str, latest: str) -> bool:
+    """A different version is not necessarily an upgrade."""
+    current = semantic_public_version(installed)
+    remote = semantic_public_version(latest)
+    return bool(current is not None and remote is not None and remote > current)
 
 # after the sys.path shim: importing env_store loads the gitignored .env
 # into os.environ, so persona subprocesses launched below inherit any
@@ -629,7 +643,7 @@ def build_app(room_url: str = None) -> FastAPI:
 
     @app.get("/api/version/check")
     def version_check():
-        """User-invoked remote check; applying remains an offline act.
+        """Read-only startup/manual check; applying remains an offline act.
 
         JNSQ must be stopped before engine files change, so this endpoint
         reports availability only. The platform updater owns the validated
@@ -646,8 +660,13 @@ def build_app(room_url: str = None) -> FastAPI:
             if not latest:
                 raise ValueError("GitHub manifest has no version")
             current = installed_version()
+            updater_name = ("UPDATE_JNSQ.command"
+                            if sys.platform == "darwin"
+                            else "UPDATE_JNSQ.bat")
             return {"version": current, "latest": latest,
-                    "update_available": current != latest}
+                    "update_available": public_update_available(
+                        current, latest),
+                    "updater_name": updater_name}
         except Exception as error:
             return JSONResponse(status_code=502,
                                 content={"error": f"update check failed: {error}"})

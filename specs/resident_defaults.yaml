@@ -1,0 +1,118 @@
+# Shared resident capability wiring. This is a synthetic control constitution,
+# not a claim about biology or experience. A resident roster can replace any
+# mapping, scalar, list, or inherited value (including with explicit null).
+
+voice_output:
+  auto_play: false
+  volume_scale: 1.0
+  pitch_scale: 1.0
+  rate_scale: 1.0
+  voice: ""
+  provider: browser-native
+
+perception:
+  speech:
+    enabled: true
+    provider: faster_whisper
+    model: base
+    device: cpu
+    compute_type: int8
+    language: en
+
+# Frequent or private work stays on the household's local worker by default.
+# There is no paid fallback in any local_only route.
+social:
+  model: llama3-1-8b
+  local_only: true
+  max_tokens: 360
+interoception:
+  affect_model: llama3-1-8b
+consolidation:
+  gist_model: llama3-1-8b
+metabolism:
+  enabled: true
+  level: normal
+  idle_model: llama3-1-8b
+
+# API deliberation is an optional resource reservoir, not an autonomy trigger.
+# It stays closed unless a resident explicitly chooses an API vessel and opens
+# it in their own roster; ordinary local emergence remains available.
+autonomous_deliberation:
+  enabled: false
+  model: null
+  credit_capacity: 2.0
+  refill_credits_per_day: 4.0
+  episode_credit_cost: 1.0
+  rolling_window_hours: 24.0
+  rolling_episode_cap: 6
+  rolling_token_cap: 48000
+  reservation_tokens: 8000
+
+# These values shape competition among already-available activities. They do
+# not create a schedule, quota, opening, topic, or conclusion.
+activity_ecology:
+  near_half_life_s: 2700
+  background_half_life_s: 21600
+  near_share: 0.68
+  modifier_floor: 0.62
+  modifier_ceiling: 1.28
+
+# Tier 2 is resident-private, local, reversible work. External effects retain
+# their separate gates; the organ list remains the live on/off authority.
+agency:
+  model: llama3-1-8b
+  authority_tier: 2
+intention_loom:
+  model: llama3-1-8b
+  authority_tier: 2
+  local_only: true
+  max_tokens: 620
+writing_desk:
+  model: llama3-1-8b
+  authority_tier: 2
+  local_only: true
+  max_tokens: 700
+archive_reader:
+  model: llama3-1-8b
+  authority_tier: 1
+  local_only: true
+  max_tokens: 520
+document_reader:
+  model: llama3-1-8b
+  authority_tier: 1
+  local_only: true
+  max_tokens: 620
+research_desk:
+  model: llama3-1-8b
+  authority_tier: 1
+  local_only: true
+  max_tokens: 1200
+  search_results: 6
+  web_range:
+    mode: permitted_only
+    entries:
+      - {id: reddit_public, host: reddit.com, include_subdomains: true, source_class: social_discussion, volatility: high}
+      - {id: substack_public, host: substack.com, include_subdomains: true, source_class: author_published_commentary, volatility: high}
+      - {id: reuters_news, host: reuters.com, include_subdomains: true, source_class: news_reporting, volatility: high}
+      - {id: associated_press_news, host: apnews.com, include_subdomains: true, source_class: news_reporting, volatility: high}
+      - {id: bbc_news, host: bbc.com, include_subdomains: true, source_class: news_reporting, volatility: high}
+      - {id: bbc_uk_news, host: bbc.co.uk, include_subdomains: true, source_class: news_reporting, volatility: high}
+      - {id: npr_news, host: npr.org, include_subdomains: true, source_class: news_reporting, volatility: high}
+      - {id: guardian_news, host: theguardian.com, include_subdomains: true, source_class: news_reporting, volatility: high}
+      - {id: wikipedia_reference, host: wikipedia.org, include_subdomains: true, source_class: public_reference, volatility: medium}
+      - {id: arxiv_research, host: arxiv.org, include_subdomains: true, source_class: scholarly_preprint, volatility: medium}
+      - {id: internet_archive, host: archive.org, include_subdomains: true, source_class: public_archive, volatility: low}
+atelier:
+  model: llama3-1-8b
+  authority_tier: 2
+  local_only: true
+  max_tokens: 3600
+  diffusion:
+    enabled: true
+    endpoint: http://127.0.0.1:8188
+    checkpoint: sd_xl_base_1.0.safetensors
+    execution_timeout: 420
+
+mcp_library:
+  enabled: false
+  servers: []

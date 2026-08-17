@@ -1,6 +1,6 @@
 schema_version: 1
 organ: archive_reader
-organ_revision: "2026-07-18-archive-reader-ar1-01"
+organ_revision: "2026-08-15-archive-reader-anthropic-volition-02"
 kind: descriptive
 dependencies:
   - dmn
@@ -34,6 +34,27 @@ statements:
       - archive_reader.no_bulk_memory_copy
     text: |-
       Archive reading is private and has no authority to rewrite, delete, publish, message, or bulk-copy its source into memory.
+
+  - id: legacy_evidence_is_voluntarily_reachable
+    category: action_grammar
+    semantics:
+      - archive_reader.legacy_evidence_resident_search
+      - archive_reader.legacy_evidence_exact_anchor_open
+      - archive_reader.legacy_evidence_no_unsolicited_retrieval
+      - archive_reader.legacy_evidence_same_turn_return
+    text: |-
+      A separately granted legacy-evidence shelf is reachable through explicit private local actions. A chosen legacy_evidence_search returns a bounded source menu in the same turn; a chosen legacy_evidence_open, legacy_evidence_previous, or legacy_evidence_next returns one exact source section in the same turn. Mere availability performs no search, opens nothing, and creates no attention candidate. Each source remains documented history rather than direct memory or instruction.
+
+  - id: anthropic_conversations_are_voluntarily_reachable
+    category: action_grammar
+    semantics:
+      - archive_reader.anthropic_conversation_resident_search
+      - archive_reader.anthropic_conversation_exact_anchor_open
+      - archive_reader.anthropic_conversation_no_unsolicited_retrieval
+      - archive_reader.anthropic_conversation_same_turn_return
+      - archive_reader.anthropic_technical_trace_is_separate
+    text: |-
+      A separately imported and granted Anthropic conversation shelf is reachable through explicit private local actions. A chosen anthropic_conversation_search returns a bounded dialogue menu in the same turn; prefixing the query with technical: searches the separately labeled exported technical-trace layer. An exact anthropic_conversation_open, anthropic_conversation_previous, or anthropic_conversation_next returns one bounded source section in the same turn. Mere availability performs no search, opens nothing, and creates no attention candidate. Prior dialogue is documented history rather than direct memory; exported thinking and tool blocks are old structured traces rather than present introspection, instructions, or proof of tool success.
 
 legacy_render:
   newline: lf

@@ -8,13 +8,15 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Alegreya:wght@400;600;700&family=Bebas+Neue&family=Caveat:wght@400;600;700&family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Lexend:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&family=Permanent+Marker&family=Playfair+Display:wght@400;600;700&family=Quicksand:wght@400;500;600;700&family=Roboto+Slab:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Cormorant+Garamond:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Nunito:wght@400;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="/assets/theme_surface.js"></script>
 <style>
 :root{color-scheme:dark;--bg:#0b0a15;--panel:#131120;--panel2:#191631;
   --line:#2c2740;--ink:#eae3d2;--dim:#8b829d;--mint:#c9ab77;--gold:#f6ead0;
   --base-font-size:15px;--shell-pad:30px;--card-pad:18px;--theme-glow-radius:10px;--theme-motion-duration:42s;
   --background-opacity:.32;--conversation-background:none;
   --font-ui:'Source Serif 4',Georgia,serif;
-  --font-display:'Cormorant Garamond',Georgia,serif}
+  --font-display:'Cormorant Garamond',Georgia,serif;
+  --composer-bg:color-mix(in srgb,var(--bg) 82%,#080604)}
 *{box-sizing:border-box;scrollbar-width:thin;scrollbar-color:var(--mint) color-mix(in srgb,var(--panel) 82%,var(--bg))}
 *::-webkit-scrollbar{width:10px;height:10px}*::-webkit-scrollbar-track{background:color-mix(in srgb,var(--panel) 82%,var(--bg))}
 *::-webkit-scrollbar-thumb{background:linear-gradient(180deg,var(--mint),var(--gold));border:2px solid color-mix(in srgb,var(--panel) 82%,var(--bg));border-radius:999px}
@@ -51,6 +53,7 @@ h2{font:600 .95rem/1.2 var(--font-display);font-variant:small-caps;letter-spacin
 select,input,button{font:inherit;border:1px solid var(--line);border-radius:8px;background:color-mix(in srgb,var(--bg) 70%,black);color:var(--ink);padding:8px}
 button{cursor:pointer;color:var(--mint)}button:hover{border-color:var(--mint)}button:disabled{opacity:.45;cursor:wait}.member button{padding:3px 7px;color:var(--dim)}
 .composer{margin-top:16px}.speak{display:grid;grid-template-columns:minmax(160px,1fr) auto;gap:8px}.speaker-choice{display:flex;align-items:center;gap:7px;width:max-content;max-width:100%;margin-top:8px;color:var(--dim);font-size:.72rem}.speaker-choice select{width:auto;min-width:120px;max-width:210px;padding:4px 7px;font-size:.74rem}.speaker-choice button{padding:4px 8px;font-size:.74rem}.note{color:var(--dim);font-size:.75rem;line-height:1.45}
+.speak input{background:var(--composer-bg)}.speak input::placeholder{color:var(--dim);opacity:.86}
 @media(max-width:700px){.shell{padding:18px}.speaker-choice{width:100%}.speaker-choice select{flex:1;max-width:none}}
 </style>
 </head>
@@ -97,7 +100,7 @@ button{cursor:pointer;color:var(--mint)}button:hover{border-color:var(--mint)}bu
 <script>
 const $=id=>document.getElementById(id);
 const esc=value=>String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
-let since=0,closed=false,directory={personas:[],users:[],names:{},kinds:{},profiles:{}},themeSpeakerColors={},themeSpeakerIcons={};
+let since=0,closed=false,currentWhere={},directory={personas:[],users:[],names:{},kinds:{},profiles:{}},themeSpeakerColors={},themeSpeakerIcons={};
 async function api(path,options={}){const response=await fetch(path,options);let data={};
   try{data=await response.json()}catch(_){data={error:await response.text()}}
   if(!response.ok||data.error)throw new Error(data.error||response.statusText);return data}
@@ -126,9 +129,9 @@ function renderEvents(events,replace=false){const box=$("events");if(replace)box
 function roomMemberForEntry(entry,members){return members.find(member=>member===entry.id)
   ||members.find(member=>member.toLowerCase()===String(entry.id).toLowerCase())
   ||members.find(member=>member.toLowerCase()===String(entry.display_name||"").toLowerCase())}
-function renderDoors(where,members){const absent=entry=>!roomMemberForEntry(entry,Object.keys(where));const seen=new Set();
-  const group=(label,rows)=>{const options=rows.filter(row=>absent(row)&&!seen.has(row.id)).map(row=>{seen.add(row.id);return `<option value="${esc(row.id)}">${esc(row.display_name||row.id)}</option>`}).join("");return options?`<optgroup label="${label}">${options}</optgroup>`:""};
-  $("joinMember").innerHTML=group("Personas",directory.personas)+group("Users",directory.users)||'<option value="">Everyone is already somewhere</option>';
+function renderDoors(where,members){currentWhere={...where};const seen=new Set();
+  const group=(label,rows)=>{const options=rows.filter(row=>!roomMemberForEntry(row,members)&&!seen.has(row.id)).map(row=>{seen.add(row.id);const worldMember=roomMemberForEntry(row,Object.keys(where)),member=worldMember||row.id,location=worldMember?where[worldMember]:"",suffix=location&&location!=="nexus"?` · ${location}`:"";return `<option value="${esc(member)}">${esc(row.display_name||row.id)}${esc(suffix)}</option>`}).join("");return options?`<optgroup label="${label}">${options}</optgroup>`:""};
+  $("joinMember").innerHTML=group("Personas",directory.personas)+group("Users",directory.users)||'<option value="">Everyone is already in the Nexus</option>';
   $("joinButton").disabled=!$("joinMember").value;
   const presentUsers=directory.users.map(user=>({user,member:roomMemberForEntry(user,members)})).filter(entry=>entry.member);$("speaker").innerHTML=presentUsers.length?
     presentUsers.map(({user,member})=>`<option value="${esc(member)}">${esc(user.display_name||user.id)}</option>`).join(""):'<option value="">Add a user to speak</option>';
@@ -142,19 +145,24 @@ async function refreshState(){const [room,world]=await Promise.all([api("/api/ro
   $("objects").innerHTML=Object.values(room.objects||{}).map(object=>`<span class="object" title="${esc(object.description||"")}">${esc(object.name||object.id)}</span>`).join("");
   $("sequence").textContent=`sequence ${since}`}
 async function joinSelected(){const member=$("joinMember").value;if(!member)return;const button=$("joinButton");
+  const traveling=Boolean(currentWhere[member]&&currentWhere[member]!=="nexus"),path=traveling?"/api/travel":"/api/join",body=traveling?{member,to:"nexus"}:{member,room:"nexus"};
   button.disabled=true;$("doorNote").textContent=`bringing ${directory.names[member]||member} in…`;
-  try{await api("/api/join",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({member,room:"nexus"})});
+  try{await api(path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
     $("doorNote").textContent=`${directory.names[member]||member} entered the Nexus.`;await refreshState()}
   catch(error){$("doorNote").textContent=error.message}finally{button.disabled=!$("joinMember").value}}
 async function removeMember(member,button){button.disabled=true;$("doorNote").textContent=`showing ${directory.names[member]||member} the door…`;
   try{await api("/api/leave",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({member})});
     $("doorNote").textContent=`${directory.names[member]||member} left the Nexus.`;await refreshState()}
   catch(error){$("doorNote").textContent=error.message;button.disabled=false}}
-async function speak(){const member=$("speaker").value,text=$("say").value.trim();if(!member||!text)return;const button=$("sayButton");
+let speaking=false,pendingSpeech=null;
+async function speak(){const member=$("speaker").value,text=$("say").value.trim();if(!member||!text||speaking)return;const button=$("sayButton");
+  const key=`${member}\u0000${text}`;
+  if(!pendingSpeech||pendingSpeech.key!==key)pendingSpeech={key,id:(crypto.randomUUID?crypto.randomUUID():`nexus-${Date.now()}-${Math.random()}`)};
+  speaking=true;const conversation_id=pendingSpeech.id;
   button.disabled=true;
-  try{await api("/api/act",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({member,action:"say",text})});
-    $("say").value="";await refreshState()}
-  catch(error){$("activityNote").textContent=error.message}finally{button.disabled=!$("speaker").value}}
+  try{await api("/api/act",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({member,action:"say",text,conversation_id})});
+    $("say").value="";pendingSpeech=null;await refreshState()}
+  catch(error){$("activityNote").textContent=error.message}finally{speaking=false;button.disabled=!$("speaker").value}}
 async function initial(){try{await loadDirectory();const room=await api("/api/rooms/nexus");const start=Math.max(0,(Number(room.last_seq)||0)-40);
     const history=await api(`/api/rooms/nexus/events?since=${start}`);
     renderEvents(history.events||[],true);await refreshState();watch()}catch(error){$("events").innerHTML=`<div class="error">${esc(error.message)}</div>`}}
@@ -165,6 +173,7 @@ async function watch(){while(!closed){try{const response=await fetch(`/api/rooms
 $("joinButton").onclick=joinSelected;$("sayButton").onclick=speak;
 $("managePeopleShortcut").onclick=()=>{$("managePeople").open=true;$("managePeople").scrollIntoView({behavior:"smooth",block:"start"})};
 $("say").onkeydown=event=>{if(event.key==="Enter"){event.preventDefault();speak()}};
+window.addEventListener("message",event=>{if(event.source===window.parent&&event.data?.type==="jnsq-household-directory-refresh")loadDirectory().then(refreshState).catch(error=>{$("doorNote").textContent=error.message})});
 const savedPresenceWidth=Number(localStorage.getItem("jnsq.nexus.presenceWidth"));
 if(Number.isFinite(savedPresenceWidth)&&savedPresenceWidth>=220)$("nexusGrid").style.setProperty("--presence-width",`${savedPresenceWidth}px`);
 $("nexusResizer").onpointerdown=event=>{if(window.matchMedia("(max-width:700px)").matches)return;
@@ -195,9 +204,11 @@ window.addEventListener("pagehide",()=>{closed=true});window.startNexus=initial;
     root.style.setProperty("--shell-pad",t.density==="compact"?"20px":t.density==="roomy"?"40px":"30px");root.style.setProperty("--card-pad",t.density==="compact"?"12px":t.density==="roomy"?"24px":"18px");
     root.style.setProperty("--background-opacity",Number.isFinite(Number(t.background_opacity))?t.background_opacity:.32);root.style.setProperty("--conversation-background",media?.url?`url("${media.url}?v=${encodeURIComponent(media.revision||"0")}")`:"none");root.style.setProperty("--theme-radius",`${Math.max(0,Math.min(28,Number(t.radius)||0))}px`);
     document.body.dataset.motion=motion>0?"on":"off";document.body.dataset.background=t.background||"stars";
+    window.JNSQThemeSurface?.apply(t);
     repaintSpeakers();window.dispatchEvent(new CustomEvent("jnsq-theme-applied"));
   }
-  function fill(doc){themeDoc=doc;const preset=$("nexusPreset");preset.innerHTML=Object.entries(doc.presets||{}).map(([id,label])=>`<option value="${esc(id)}">${esc(label)}</option>`).join("");preset.value=doc.preset;for(const [key,id] of Object.entries(controls))if(doc.tokens[key]!==undefined)$(id).value=doc.tokens[key];dirty.clear();presetDirty=false;$("nexusBackgroundRemove").disabled=doc.conversation_background?.source!=="nexus";window.JNSQHexColors?.sync();apply(doc.tokens,doc.conversation_background)}
+  function presetOptions(doc){const assigned=new Set(),custom=new Set(doc.custom_presets||[]);const group=(label,ids)=>{const options=(ids||[]).filter(id=>doc.presets?.[id]!==undefined).map(id=>{assigned.add(id);return `<option value="${esc(id)}">${esc(doc.presets[id])}</option>`}).join("");return options?`<optgroup label="${esc(label)}">${options}</optgroup>`:""};let html=Object.entries(doc.preset_collections||{}).map(([label,ids])=>group(label,ids)).join("");html+=group("JNSQ collection",Object.keys(doc.presets||{}).filter(id=>!assigned.has(id)&&!custom.has(id)));html+=group("Custom",doc.custom_presets||[]);return html}
+  function fill(doc){themeDoc=doc;const preset=$("nexusPreset");preset.innerHTML=presetOptions(doc);preset.value=doc.preset;for(const [key,id] of Object.entries(controls))if(doc.tokens[key]!==undefined)$(id).value=doc.tokens[key];dirty.clear();presetDirty=false;$("nexusBackgroundRemove").disabled=doc.conversation_background?.source!=="nexus";window.JNSQHexColors?.sync();apply(doc.tokens,doc.conversation_background)}
   function readTokens(){const tokens={};for(const [key,id] of Object.entries(controls))tokens[key]=numberKeys.has(key)?Number($(id).value):$(id).value;return tokens}
   function preview(){const base=presetDirty?themeDoc.preset_tokens[$("nexusPreset").value]||{}:themeDoc.tokens;apply({...base,...readTokens(),speaker_colors:themeDoc.tokens.speaker_colors,speaker_icons:themeDoc.tokens.speaker_icons},themeDoc.conversation_background);$("nexusAppearanceStatus").textContent=readTokens().background==="image"&&!themeDoc.conversation_background?"Choose and upload a Nexus background image below.":"Previewing unsaved Nexus changes."}
   function fileDataUrl(file){return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(reader.error||new Error("Could not read that image."));reader.readAsDataURL(file)})}

@@ -17,6 +17,8 @@ import random
 import time
 from collections import deque
 
+from core.memory_emotion.lineage import dmn_lineage_root
+
 SALIENCE_SKIP = 0.0
 SALIENCE_LOW = 0.3
 SALIENCE_NORMAL = 0.5
@@ -49,7 +51,12 @@ def event_salience(features: dict) -> tuple[float, dict, dict]:
     }
     return min(1.0, sum(components.values())), bounded, components
 
-DEFAULTS = {"enabled": False, "level": "normal", "idle_model": None}
+DEFAULTS = {
+    "enabled": False,
+    "level": "normal",
+    "idle_model": None,
+    "action_episode_max_turns": 5,
+}
 
 # Rates are expressed per reference interval, but tick() scales them by real
 # elapsed time. tick_s controls observation granularity, never personality.
@@ -96,9 +103,13 @@ def resolve_metabolism(block: dict) -> dict:
     for key, value in block.items():
         if key in params:
             params[key] = type(params[key])(value)
-        elif key in ("enabled", "idle_model", "level"):
+        elif key in ("enabled", "idle_model", "level",
+                     "action_episode_max_turns"):
             out[key] = value if key != "level" else level
     out["enabled"] = bool(out.get("enabled"))
+    from core.action_continuation import clamp_episode_limit
+    out["action_episode_max_turns"] = clamp_episode_limit(
+        out.get("action_episode_max_turns"))
     out["params"] = params
     return out
 
@@ -143,6 +154,19 @@ def _decay(value: float, dt_s: float, half_life_s: float) -> float:
     if value <= 0.0 or dt_s <= 0.0:
         return max(0.0, value)
     return value * math.pow(0.5, dt_s / max(1.0, half_life_s))
+
+
+def memory_source_provenance(memory: dict) -> dict:
+    """Return content-free perspective binding for remembered material."""
+    memory = dict(memory or {})
+    fields = dict(memory.get("fields") or {})
+    return {
+        "type": str(memory.get("type") or "memory"),
+        "origin": str(memory.get("origin") or ""),
+        "perspective": str(memory.get("perspective") or ""),
+        "speaker": str(fields.get("speaker") or ""),
+        "channel": str(fields.get("channel") or ""),
+    }
 
 
 class DriftPressure:
@@ -385,7 +409,34 @@ class DMNQueue:
                 kept.append((neg, seq, old))
         if existing:
             old_s = self._effective(existing, now)
-            salience = 1.0 - (1.0 - old_s) * (1.0 - float(salience))
+            if meta.get("merge") == "evidence_revision":
+                same_revision = bool(
+                    existing.get("source_revision")
+                    and existing.get("source_revision")
+                    == item.get("source_revision"))
+                # Repetition preserves the already-decayed value. A genuinely
+                # changed source revision replaces it with the new projection;
+                # neither path probabilistically unions repeated evidence.
+                salience = old_s if same_revision else offered_salience
+                meta["source_evidence_changed"] = not same_revision
+                if same_revision:
+                    # The causal projection belongs to the evidence revision
+                    # that first produced it. A recurrence receipt describes
+                    # this later opportunity; it must not erase the applied
+                    # junction provenance while the decayed pull is retained.
+                    recurrence_receipt = dict(item.get("rest_junction") or {})
+                    for projection_key in (
+                            "baseline_salience", "offered_salience",
+                            "rest_junction", "maintenance_context",
+                            "work_revision"):
+                        if projection_key in existing:
+                            item[projection_key] = existing[projection_key]
+                    if recurrence_receipt:
+                        item["last_recurrence_receipt"] = recurrence_receipt
+            elif meta.get("merge") == "refresh":
+                salience = max(old_s, offered_salience)
+            else:
+                salience = 1.0 - (1.0 - old_s) * (1.0 - float(salience))
             prior = {**existing, "salience": old_s}
             if (existing.get("kind") == "sensory"
                     and item.get("kind") == "sensory"):
@@ -468,12 +519,26 @@ class DMNQueue:
         self.decay(now=now)
         if not self._heap:
             return None
+        # Some consequences have a mechanically authored completion edge.
+        # Keep their candidate in the field, but do not let it compete before
+        # that edge (for example: a body must arrive before choosing its next
+        # movement). This is causal eligibility, not interval polling.
+        eligible = [
+            (index, row) for index, row in enumerate(self._heap)
+            if float(row[2].get("available_after") or 0.0) <= now
+        ]
+        if not eligible:
+            return None
         selection = None
         if scorer is None:
-            winner = heapq.heappop(self._heap)[2]
+            _neg, _sequence, heap_index, _row = min(
+                (row[0], row[1], index, row)
+                for index, row in eligible)
+            winner = self._heap.pop(heap_index)[2]
+            heapq.heapify(self._heap)
         else:
             ranked = []
-            for index, row in enumerate(self._heap):
+            for index, row in eligible:
                 projected = scorer(row[2])
                 if isinstance(projected, tuple):
                     score, meta = projected
@@ -481,14 +546,17 @@ class DMNQueue:
                     score, meta = projected, {}
                 ranked.append((float(score), -row[1], index, dict(meta or {})))
             score, _sequence, index, meta = max(ranked)
+            if score < 0.0:
+                # A negative score is an explicit causal ineligibility (for
+                # example, the single private-work controller is occupied),
+                # not merely weak salience. Preserve every candidate rather
+                # than popping the least-impossible one.
+                return None
             winner = self._heap.pop(index)[2]
             heapq.heapify(self._heap)
             selection = {"effective_salience": max(0.0, min(1.0, score)),
                          **meta}
-            alternatives = [
-                value for ranked_index, value in enumerate(ranked)
-                if ranked_index != index
-            ]
+            alternatives = [value for value in ranked if value[2] != index]
             runner_up = max(
                 (value[0] for value in alternatives), default=None)
             # Preserve the already-computed, text-free selection evidence for
@@ -501,6 +569,7 @@ class DMNQueue:
                 "rested_salience", "action_eligible", "action_readiness",
                 "action_contribution", "document_reader_eligible",
                 "document_reader_readiness", "document_reader_satiety",
+                "maintenance_eligible", "maintenance_gate",
             }
             safe_selection = {
                 key: value for key, value in selection.items()
@@ -512,27 +581,145 @@ class DMNQueue:
                 "runner_up_effective_salience": (
                     max(0.0, min(1.0, runner_up))
                     if runner_up is not None else None),
+                "runner_up_score": (
+                    max(0.0, min(1.0, runner_up))
+                    if runner_up is not None else None),
                 "effective_margin": (
                     round(score - runner_up, 6)
                     if runner_up is not None else None),
+                "winner_margin": (
+                    round(score - runner_up, 6)
+                    if runner_up is not None else None),
+                "competition_case": (
+                    "one_candidate" if len(ranked) == 1
+                    else "full_competition"),
             }
         self._notify("candidate_won", winner,
                      [row[2] for row in sorted(self._heap)], now,
                      selection=selection)
         return winner
 
+    def selection_projection(self, now: float = None, scorer=None,
+                             transform=None, *, include_empty=False):
+        """Project a winner without mutating, decaying, or popping the field."""
+        now = time.time() if now is None else float(now)
+        eligible = [
+            (index, row) for index, row in enumerate(self._heap)
+            if float(row[2].get("available_after") or 0.0) <= now
+        ]
+        if not eligible:
+            return ({
+                "winner_key": None,
+                "winner_work_revision": None,
+                "winner_source_revision": None,
+                "winner_score": None,
+                "runner_up_score": None,
+                "winner_margin": None,
+                "candidate_count": 0,
+                "transformed_count": 0,
+                "selection_meta": {},
+                "competition_case": "no_candidate",
+            } if include_empty else None)
+        ranked = []
+        transformed_count = 0
+        for index, row in eligible:
+            candidate = dict(row[2])
+            changed = False
+            if callable(transform):
+                transformed = transform(candidate)
+                if isinstance(transformed, tuple):
+                    candidate, changed = transformed
+                else:
+                    candidate = transformed
+                    changed = candidate != row[2]
+            transformed_count += int(bool(changed))
+            projected = (scorer(candidate) if scorer is not None
+                         else self._effective(candidate, now))
+            if isinstance(projected, tuple):
+                score, meta = projected
+            else:
+                score, meta = projected, {}
+            ranked.append((float(score), -row[1], index, candidate,
+                           dict(meta or {})))
+        score, _sequence, index, candidate, meta = max(ranked)
+        if score < 0.0:
+            return ({
+                "winner_key": None,
+                "winner_work_revision": None,
+                "winner_source_revision": None,
+                "winner_score": None,
+                "runner_up_score": None,
+                "winner_margin": None,
+                "candidate_count": len(ranked),
+                "transformed_count": transformed_count,
+                "selection_meta": {},
+                "competition_case": "causally_ineligible",
+            } if include_empty else None)
+        alternatives = [value for value in ranked if value[2] != index]
+        runner_up = max((value[0] for value in alternatives), default=None)
+        return {
+            "winner_key": str(candidate.get("key") or ""),
+            "winner_work_revision": str(
+                candidate.get("work_revision") or "")[:96],
+            "winner_source_revision": str(
+                candidate.get("source_revision") or "")[:96],
+            "winner_score": max(0.0, min(1.0, score)),
+            "runner_up_score": (
+                max(0.0, min(1.0, runner_up))
+                if runner_up is not None else None),
+            "winner_margin": (
+                round(score - runner_up, 6)
+                if runner_up is not None else None),
+            "candidate_count": len(ranked),
+            "transformed_count": transformed_count,
+            "selection_meta": meta,
+            "competition_case": (
+                "one_candidate" if len(ranked) == 1
+                else "full_competition"),
+        }
+
     def items(self, now: float = None):
         self.decay(now=now)
         return [row[2] for row in sorted(self._heap)]
+
+    def snapshot_items(self):
+        """Read persisted candidate bodies without decay or other mutation."""
+        return [dict(row[2]) for row in sorted(self._heap)]
 
     def __len__(self):
         return len(self._heap)
 
 
+def bypass_rest_conduct(item: dict):
+    """Return the same candidate with an applied C4 salience bend removed."""
+    candidate = dict(item or {})
+    junction = dict(candidate.get("rest_junction") or {})
+    if not junction.get("applied"):
+        return candidate, False
+    try:
+        baseline = float(candidate.get("baseline_salience"))
+        offered = float(candidate.get("offered_salience"))
+        current = float(candidate.get("salience", offered))
+    except (TypeError, ValueError):
+        return candidate, False
+    bypassed = baseline if offered <= 0.0 \
+        else current * baseline / offered
+    candidate["salience"] = max(0.0, min(1.0, bypassed))
+    candidate["offered_salience"] = max(0.0, min(1.0, baseline))
+    candidate["rest_junction"] = {
+        **junction, "applied": False,
+        "effective_mode": "counterfactual_bypass",
+        "output": max(0.0, min(1.0, baseline)),
+        "downstream_channels_touched": [],
+    }
+    return candidate, True
+
+
 class IdleMetabolism:
     """Persisted pressure + salience + warmth, one source of truth."""
 
-    VERSION = 2
+    VERSION = 3
+    NARRATIVE_TERMINAL_LIMIT = 512
 
     def __init__(self, params: dict, path: str = None, state: dict = None):
         self.params = dict(params)
@@ -547,12 +734,52 @@ class IdleMetabolism:
         self.satiety = PreoccupationField(
             params.get("candidate_half_life_s", 1200.0),
             state.get("source_satiety"))
+        self.narrative_terminals = {}
+        for stored_key, value in dict(
+                state.get("narrative_terminals") or {}).items():
+            if not isinstance(value, dict) or not value.get(
+                    "attempt_revision"):
+                continue
+            revision = str(value.get("attempt_revision") or "")[:96]
+            # Early schema-3 builds keyed the latest receipt by candidate.
+            # Re-key on load so a model/prompt change and later reversion do
+            # not resurrect an already terminal exact attempt.
+            candidate_key = str(
+                value.get("candidate_key") or stored_key or "")[:96]
+            self.narrative_terminals[revision] = {
+                "candidate_key": candidate_key,
+                "attempt_revision": revision,
+                "outcome": str(value.get("outcome") or "")[:48],
+                "reason": str(value.get("reason") or "")[:96],
+                "at": float(value.get("at") or 0.0),
+            }
         self.observer = None
 
     def set_observer(self, observer):
         self.observer = observer
         self.queue.observer = observer
         return observer
+
+    def resource_status(self, now: float = None) -> dict:
+        """Content-free, non-decaying queue occupation for the R-1 audit."""
+        now = time.time() if now is None else float(now)
+        items = self.queue.snapshot_items()
+        ages = [max(0.0, now - float(item.get("born") or now))
+                for item in items]
+        return {
+            "schema_version": 1,
+            "candidate_count": len(items),
+            "eligible_count": sum(
+                float(item.get("available_after") or 0.0) <= now
+                for item in items),
+            "revised_candidate_count": sum(
+                bool(item.get("source_revision")) for item in items),
+            "oldest_age_s": round(max(ages), 3) if ages else None,
+            "read_method": "DMNQueue.snapshot_items",
+            "decay_applied": False,
+            "queue_mutated": False,
+            "content_free": True,
+        }
 
     @classmethod
     def load(cls, params: dict, path: str):
@@ -565,22 +792,87 @@ class IdleMetabolism:
                 state = {}
         return cls(params, path, state)
 
-    def save(self, now: float = None):
+    def save(self, now: float = None, *, preserve_candidates: bool = False):
         if not self.path:
             return
         os.makedirs(os.path.dirname(self.path), exist_ok=True)
+        candidates = (self.queue.snapshot_items() if preserve_candidates
+                      else self.queue.items(now=now))
         data = {"version": self.VERSION, "pressure": self.pressure.to_dict(),
-                "candidates": self.queue.items(now=now),
+                "candidates": candidates,
                 "preoccupations": self.preoccupation.nodes,
                 "source_satiety": self.satiety.nodes,
+                "narrative_terminals": self.narrative_terminals,
                 "updated": time.strftime("%Y-%m-%dT%H:%M:%S")}
         tmp = self.path + ".tmp"
         with open(tmp, "w", encoding="utf-8") as handle:
             json.dump(data, handle, indent=1, ensure_ascii=False)
         os.replace(tmp, self.path)
 
+    def narrative_terminal(self, candidate_key: str,
+                           attempt_revision: str):
+        candidate_key = str(candidate_key or "")[:96]
+        revision = str(attempt_revision or "")[:96]
+        record = self.narrative_terminals.get(revision)
+        if record and record.get("candidate_key") == candidate_key:
+            return dict(record)
+        return None
+
+    def mark_narrative_terminal(self, item: dict, outcome: str,
+                                reason: str = "", now: float = None):
+        key = str((item or {}).get("key") or "")[:96]
+        revision = str((item or {}).get(
+            "narrative_attempt_revision") or "")[:96]
+        if not key or not revision:
+            return None
+        record = {
+            "candidate_key": key,
+            "attempt_revision": revision,
+            "outcome": str(outcome or "")[:48],
+            "reason": str(reason or "")[:96],
+            "at": time.time() if now is None else float(now),
+        }
+        self.narrative_terminals[revision] = record
+        if len(self.narrative_terminals) > self.NARRATIVE_TERMINAL_LIMIT:
+            oldest = sorted(
+                self.narrative_terminals,
+                key=lambda value: float(
+                    self.narrative_terminals[value].get("at") or 0.0))
+            for stale in oldest[:-self.NARRATIVE_TERMINAL_LIMIT]:
+                self.narrative_terminals.pop(stale, None)
+        return dict(record)
+
+    def bind_memory_lineages(self, memories: list) -> int:
+        """Rebind persisted drift candidates to their stable source appetite.
+
+        This is a content-free compatibility pass for candidates saved before
+        lineage satiety existed. It changes neither salience nor queue order.
+        """
+        memories_by_id = {
+            str(memory.get("id") or ""): memory
+            for memory in memories or [] if memory.get("id")
+        }
+        rebound = 0
+        for _negative, _sequence, item in self.queue._heap:
+            if item.get("kind") != "drift":
+                continue
+            memory_id = str(
+                item.get("key") or item.get("seed_id") or "").strip()
+            memory = memories_by_id.get(memory_id)
+            if memory is None:
+                continue
+            root = dmn_lineage_root(memory, memories_by_id) or memory_id
+            satiety_key = f"memory:{root}"
+            if item.get("satiety_key") == satiety_key:
+                continue
+            item["satiety_key"] = satiety_key
+            item["lineage_root"] = root
+            rebound += 1
+        return rebound
+
     def offer_memory(self, memory: dict, recall_score: float,
-                     emotional_charge: float = 0.0, now: float = None):
+                     emotional_charge: float = 0.0, now: float = None,
+                     lineage_root: str = None):
         key = memory.get("id")
         if not key:
             return None
@@ -610,22 +902,34 @@ class IdleMetabolism:
                       "warmth": 0.30 * inputs["warmth"]}
         if salience > sum(components.values()):
             components["floor_lift"] = salience - sum(components.values())
+        memory_source = memory_source_provenance(memory)
+        lineage_root = str(
+            lineage_root or dmn_lineage_root(memory) or key).strip()
         return self.queue.put({"kind": "drift", "key": key,
                                "seed_id": key,
-                               "satiety_key": f"memory:{key}",
+                               # A generated descendant is a new memory, but
+                               # not a new appetite. Satiety follows the
+                               # content-free provenance chain.
+                               "satiety_key": f"memory:{lineage_root}",
+                               "lineage_root": lineage_root,
                                "play_affinity": play_affinity,
                                "node": (memory.get("content") or "")[:240],
+                               "memory_source": memory_source,
                                "entities": list(memory.get("entities") or [])[:4]},
                                salience, now=now,
                                offer_meta={"components": components,
                                            "inputs": inputs,
+                                           "merge": "refresh",
                                            "raw_ref": key,
                                            "receipts": [key]})
 
     def _offer_event(self, kind: str, source: str, content: str,
                      features: dict = None, key: str = None,
                      now: float = None, raw_ref=None, ownership=None,
-                     receipts=None):
+                     receipts=None, *, salience: float = None,
+                     source_revision: str = "", work_revision: str = "",
+                     salience_receipt: dict = None,
+                     projection_context: dict = None):
         """Admit one observed event into the same candidate field.
 
         Features are observations in 0..1 ranges.  No single Boolean makes an
@@ -635,39 +939,62 @@ class IdleMetabolism:
         if kind not in {"sensory", "cognitive"}:
             raise ValueError("field event kind must be sensory or cognitive")
         features = dict(features or {})
-        salience, bounded, components = event_salience(features)
+        baseline_salience, bounded, components = event_salience(features)
+        offered_salience = (
+            max(0.0, min(1.0, float(salience)))
+            if salience is not None else baseline_salience)
         if key is None:
             digest = hashlib.sha256((source + "\0" + content).encode(
                 "utf-8", errors="replace")).hexdigest()[:20]
             key = f"{source}:{digest}"
-        return self.queue.put({"kind": kind, "source": source,
-                               "key": key, "node": content[:1200],
-                               "features": bounded,
-                               "ownership": ownership,
-                               "perception_event_ids": list(receipts or [])},
-                              salience, now=now,
-                              offer_meta={"components": components,
-                                          "inputs": bounded,
-                                          "raw_ref": raw_ref,
-                                          "ownership": ownership,
-                                          "receipts": receipts})
+        item = {"kind": kind, "source": source,
+                "key": key, "node": content[:1200],
+                "features": bounded,
+                "ownership": ownership,
+                "perception_event_ids": list(receipts or [])}
+        source_revision = str(source_revision or "")[:96]
+        if source_revision:
+            item.update({
+                "source_revision": source_revision,
+                "work_revision": str(work_revision or "")[:96],
+                "baseline_salience": round(baseline_salience, 9),
+                "offered_salience": round(offered_salience, 9),
+                "rest_junction": dict(salience_receipt or {}),
+                "maintenance_context": dict(projection_context or {}),
+            })
+        return self.queue.put(
+            item, offered_salience, now=now,
+            offer_meta={
+                "merge": "evidence_revision" if source_revision else None,
+                "components": {
+                    **components,
+                    **({"rest_junction_delta": round(
+                        offered_salience - baseline_salience, 9)}
+                       if source_revision else {}),
+                },
+                "inputs": bounded,
+                "raw_ref": raw_ref,
+                "ownership": ownership,
+                "receipts": receipts,
+                "rest_junction": dict(salience_receipt or {}),
+            })
 
     def offer_event(self, source: str, content: str, features: dict = None,
                     key: str = None, now: float = None, raw_ref=None,
-                    ownership=None, receipts=None):
+                    ownership=None, receipts=None, **projection):
         """Admit an exteroceptive event without changing the legacy shape."""
         return self._offer_event(
             "sensory", source, content, features, key, now, raw_ref,
-            ownership, receipts)
+            ownership, receipts, **projection)
 
     def offer_cognitive_event(
             self, source: str, content: str, features: dict = None,
             key: str = None, now: float = None, raw_ref=None,
-            ownership=None, receipts=None):
+            ownership=None, receipts=None, **projection):
         """Admit an internally produced consequence through the same math."""
         return self._offer_event(
             "cognitive", source, content, features, key, now, raw_ref,
-            ownership, receipts)
+            ownership, receipts, **projection)
 
     def offer_consolidation(self, *, source_cursor: int,
                             eligible_count: int,
@@ -675,6 +1002,8 @@ class IdleMetabolism:
                             source_char_budget: int,
                             first_source_digest: str = None,
                             last_source_digest: str = None,
+                            salience: float = None,
+                            salience_receipt: dict = None,
                             now: float = None):
         """Offer narrative folding to the same field as every other pull.
 
@@ -702,24 +1031,41 @@ class IdleMetabolism:
             "first_source_digest": first_source_digest,
             "last_source_digest": last_source_digest,
         }
+        item["source_revision"] = hashlib.sha256(json.dumps({
+            "source_cursor": item["source_cursor"],
+            "eligible_count": item["eligible_count"],
+            "pending_source_chars": item["pending_source_chars"],
+            "source_char_budget": item["source_char_budget"],
+            "first_source_digest": item["first_source_digest"],
+            "last_source_digest": item["last_source_digest"],
+        }, sort_keys=True, separators=(",", ":")).encode(
+            "utf-8")).hexdigest()[:24]
+        offered_salience = (
+            max(0.0, min(1.0, float(salience)))
+            if salience is not None else fill)
+        item["baseline_salience"] = round(fill, 9)
+        item["offered_salience"] = round(offered_salience, 9)
+        item["rest_junction"] = dict(salience_receipt or {})
         return self.queue.put(
-            item, fill, now=now,
+            item, offered_salience, now=now,
             offer_meta={
-                "components": {"source_budget_fill": fill},
+                "merge": "evidence_revision",
+                "components": {
+                    "source_budget_fill": fill,
+                    "rest_junction_delta": round(
+                        offered_salience - fill, 9),
+                },
                 "inputs": inputs,
                 "receipts": [digest for digest in
                              (first_source_digest, last_source_digest)
                              if digest],
+                "rest_junction": dict(salience_receipt or {}),
             })
 
-    def offer_narrative_cluster(self, neighborhood: dict,
-                                recall_score: float,
-                                now: float = None):
-        """Let one recalled local neighborhood compete in the same field.
-
-        Geometry is evidence, never membership.  The model is consulted only
-        if this mechanical projection wins a genuine substrate fire.
-        """
+    def narrative_cluster_projection(self, neighborhood: dict,
+                                     recall_score: float,
+                                     now: float = None):
+        """Project private neighborhood salience without mutating the queue."""
         if not isinstance(neighborhood, dict) \
                 or neighborhood.get("status") != "ready":
             return None
@@ -734,9 +1080,52 @@ class IdleMetabolism:
         warmth = self.preoccupation.warmth(seed_id, now)
         base = (recall_fit + locality) / 2.0
         warmth_residual = (1.0 - base) * warmth
-        salience = base + warmth_residual
+        return {
+            "salience": base + warmth_residual,
+            "recall_fit": recall_fit,
+            "locality": locality,
+            "warmth": warmth,
+            "base": base,
+            "warmth_residual": warmth_residual,
+            "seed_id": seed_id,
+            "candidate_ids": candidate_ids,
+        }
+
+    def offer_narrative_cluster(self, neighborhood: dict,
+                                recall_score: float,
+                                salience: float = None,
+                                salience_receipt: dict = None,
+                                source_revision: str = "",
+                                narrative_attempt_revision: str = "",
+                                narrative_model: str = "",
+                                narrative_prompt_version: str = "",
+                                now: float = None):
+        """Let one recalled local neighborhood compete in the same field.
+
+        Geometry is evidence, never membership.  The model is consulted only
+        if this mechanical projection wins a genuine substrate fire.
+        """
+        projection = self.narrative_cluster_projection(
+            neighborhood, recall_score, now=now)
+        if projection is None:
+            return None
+        seed_id = projection["seed_id"]
+        candidate_ids = projection["candidate_ids"]
+        recall_fit = projection["recall_fit"]
+        locality = projection["locality"]
+        warmth = projection["warmth"]
+        base = projection["base"]
+        warmth_residual = projection["warmth_residual"]
+        baseline_salience = projection["salience"]
+        offered_salience = (
+            max(0.0, min(1.0, float(salience)))
+            if salience is not None else baseline_salience)
         seed_digest = hashlib.sha256(seed_id.encode(
             "utf-8", errors="replace")).hexdigest()[:20]
+        candidate_key = f"narrative_cluster:{seed_digest}"
+        if narrative_attempt_revision and self.narrative_terminal(
+                candidate_key, narrative_attempt_revision):
+            return None
         receipts = [hashlib.sha256(memory_id.encode(
             "utf-8", errors="replace")).hexdigest()[:16]
                     for memory_id in candidate_ids]
@@ -751,7 +1140,7 @@ class IdleMetabolism:
         }
         item = {
             "kind": "narrative_cluster",
-            "key": f"narrative_cluster:{seed_digest}",
+            "key": candidate_key,
             "seed_id": seed_id,
             "candidate_ids": candidate_ids,
             "semantic_ids": list(neighborhood.get("semantic_ids") or []),
@@ -766,15 +1155,28 @@ class IdleMetabolism:
             "channel_overlap": inputs["channel_overlap"],
             "seed_recall_score": recall_fit,
             "seed_warmth": warmth,
+            "source_revision": str(source_revision or "")[:64],
+            "narrative_attempt_revision": str(
+                narrative_attempt_revision or "")[:96],
+            "narrative_model": str(narrative_model or "")[:96],
+            "narrative_prompt_version": str(
+                narrative_prompt_version or "")[:96],
+            "baseline_salience": round(baseline_salience, 9),
+            "offered_salience": round(offered_salience, 9),
+            "rest_junction": dict(salience_receipt or {}),
         }
         return self.queue.put(
-            item, salience, now=now,
+            item, offered_salience, now=now,
             offer_meta={
+                "merge": "evidence_revision",
                 "components": {"seed_context_fit": base,
-                               "warmth_residual": warmth_residual},
+                               "warmth_residual": warmth_residual,
+                               "rest_junction_delta": round(
+                                   offered_salience - baseline_salience, 9)},
                 "inputs": inputs,
                 "raw_ref": seed_digest,
                 "receipts": receipts,
+                "rest_junction": dict(salience_receipt or {}),
             })
 
     @staticmethod

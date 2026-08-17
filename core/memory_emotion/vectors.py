@@ -12,9 +12,63 @@ that a normalized matrix dot IS the index. Vectors are L2-normalized
 at embed time so dot product = cosine."""
 import json
 import os
+import shutil
 
 _model = None
 _MODEL_NAME = "all-MiniLM-L6-v2"
+_R1_OPERATOR = "memory_vector_missing_row_repair_v1"
+
+
+def _recover_interrupted_vector_repair(organ_dir: str) -> None:
+    """Restore pre-commit sidecars after a crash in the two-file swap.
+
+    A transaction marked ``committing`` may have replaced either, both, or
+    neither live file.  Its retained before-images are therefore authoritative
+    until the journal reaches ``committed``.
+    """
+    root = os.path.join(
+        organ_dir, "derived_maintenance", _R1_OPERATOR)
+    if not os.path.isdir(root):
+        return
+    live_vec = os.path.join(organ_dir, "vectors.npy")
+    live_ids = os.path.join(organ_dir, "vectors_ids.json")
+    for name in sorted(os.listdir(root)):
+        tx = os.path.join(root, name)
+        journal = os.path.join(tx, "transaction.json")
+        if not os.path.isfile(journal):
+            continue
+        try:
+            with open(journal, encoding="ascii") as handle:
+                value = json.load(handle)
+        except (OSError, TypeError, ValueError):
+            continue
+        if value.get("state") != "committing":
+            continue
+        before_vec = os.path.join(tx, "before_vectors.npy")
+        before_ids = os.path.join(tx, "before_vectors_ids.json")
+        if value.get("live_vectors_existed"):
+            if not os.path.isfile(before_vec):
+                raise RuntimeError("vector repair recovery lacks vector backup")
+            temporary = live_vec + ".r1-recovery"
+            shutil.copyfile(before_vec, temporary)
+            os.replace(temporary, live_vec)
+        elif os.path.exists(live_vec):
+            os.unlink(live_vec)
+        if value.get("live_ids_existed"):
+            if not os.path.isfile(before_ids):
+                raise RuntimeError("vector repair recovery lacks id backup")
+            temporary = live_ids + ".r1-recovery"
+            shutil.copyfile(before_ids, temporary)
+            os.replace(temporary, live_ids)
+        elif os.path.exists(live_ids):
+            os.unlink(live_ids)
+        value["state"] = "rolled_back_boot_recovery"
+        temporary = journal + ".tmp"
+        with open(temporary, "w", encoding="ascii") as handle:
+            json.dump(value, handle, sort_keys=True, separators=(",", ":"))
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, journal)
 
 
 def get_embedder():
@@ -62,6 +116,7 @@ class VectorStore:
         self._pending = []          # (id, text) awaiting embed+save
         self._embedder_healthy = None
         try:
+            _recover_interrupted_vector_repair(organ_dir)
             if os.path.exists(self.vec_path) \
                     and os.path.exists(self.ids_path):
                 import numpy as np

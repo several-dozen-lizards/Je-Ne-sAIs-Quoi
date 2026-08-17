@@ -26,6 +26,7 @@ import subprocess
 import sys
 import time
 import urllib.request
+import uuid
 import webbrowser
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -80,13 +81,42 @@ def _boot_lock(timeout: float = 180.0):
 def _read_runfile():
     if not os.path.exists(RUNFILE):
         return None
-    with open(RUNFILE, encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(RUNFILE, encoding="utf-8") as f:
+            value = json.load(f)
+    except (OSError, TypeError, ValueError):
+        return None
+    return value if isinstance(value, dict) else None
+
+
+def _legacy_runfile_path() -> str:
+    """The pre-canonical dotfile must not remain a competing authority."""
+    return os.path.join(os.path.dirname(RUNFILE), ".jnsq_running.json")
 
 
 def _write_runfile(run: dict):
-    with open(RUNFILE, "w", encoding="utf-8") as f:
-        json.dump(run, f, indent=1)
+    """Atomically publish the one authoritative household receipt."""
+    directory = os.path.dirname(RUNFILE)
+    os.makedirs(directory, exist_ok=True)
+    temporary = RUNFILE + "." + uuid.uuid4().hex + ".tmp"
+    try:
+        with open(temporary, "x", encoding="utf-8", newline="\n") as f:
+            json.dump(dict(run), f, indent=1)
+            f.write("\n")
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(temporary, RUNFILE)
+    finally:
+        try:
+            os.remove(temporary)
+        except FileNotFoundError:
+            pass
+    legacy = _legacy_runfile_path()
+    if os.path.abspath(legacy) != os.path.abspath(RUNFILE):
+        try:
+            os.remove(legacy)
+        except FileNotFoundError:
+            pass
 
 
 def _pid_alive(pid) -> bool:
@@ -254,14 +284,50 @@ def _stop_process_tree(pid) -> bool:
         return False
 
 
-def _stop_unlocked():
+def _checkpoint_household(run: dict) -> dict:
+    """Ask the router for positive resident receipts before force cleanup."""
+    port = run.get("router_port") if isinstance(run, dict) else None
+    if not port:
+        return {"verdict": "unknown", "reason": "router_port_absent"}
+    request = urllib.request.Request(
+        f"http://127.0.0.1:{port}/api/shutdown/checkpoint",
+        data=b"{}", headers={"Content-Type": "application/json"},
+        method="POST")
+    try:
+        with urllib.request.urlopen(request, timeout=35.0) as response:
+            return json.loads(response.read())
+    except Exception as exc:
+        return {
+            "verdict": "unknown",
+            "reason": f"router_checkpoint_unavailable:{type(exc).__name__}",
+        }
+
+
+def _stop_unlocked(*, expected_generation: str | None = None,
+                   expected_browser_pid: int | None = None):
     run = _read_runfile()
     if not run:
         print("No runfile — nothing recorded as running.")
         return
+    if (expected_generation is not None
+            and run.get("generation") != expected_generation):
+        print("Session close belongs to an older household generation; "
+              "the current household remains up.")
+        return {"skipped": "generation_mismatch"}
+    if (expected_browser_pid is not None
+            and run.get("session_browser_pid") != expected_browser_pid):
+        print("Session close no longer owns the current household; "
+              "the current household remains up.")
+        return {"skipped": "browser_owner_mismatch"}
+    checkpoint = _checkpoint_household(run)
+    print("  shutdown checkpoint: "
+          f"{checkpoint.get('verdict', 'unknown')}"
+          + (f" ({checkpoint.get('reason')})"
+             if checkpoint.get("reason") else ""))
     # Close the owned window first; router next (it owns persona
-    # subprocesses), then the room. A browser-watcher racing this manual
-    # stop is harmless because runfile removal is idempotent below.
+    # subprocesses), then the room. Session watchers pass an expected boot
+    # generation, revalidated under this same lock, so an old window cannot
+    # stop a replacement household after losing the race.
     for name in ("session_browser_pid", "router_pid", "room_pid",
                  "tts_pid", "chatterbox_pid", "comfy_pid"):
         pid = run.get(name)
@@ -272,13 +338,20 @@ def _stop_unlocked():
         os.remove(RUNFILE)
     except FileNotFoundError:
         pass
+    try:
+        os.remove(_legacy_runfile_path())
+    except FileNotFoundError:
+        pass
     print("Household down. Bodies persist in journals; positions reset "
           "on next boot (known v0).")
 
 
-def stop():
+def stop(*, expected_generation: str | None = None,
+         expected_browser_pid: int | None = None):
     with _boot_lock():
-        return _stop_unlocked()
+        return _stop_unlocked(
+            expected_generation=expected_generation,
+            expected_browser_pid=expected_browser_pid)
 
 
 def _boot_unlocked(open_browser: bool = True):
@@ -361,6 +434,7 @@ def _boot_unlocked(open_browser: bool = True):
 
     run = {"room_port": room_port, "router_port": router_port,
            "booted": time.strftime("%Y-%m-%dT%H:%M:%S"),
+           "generation": uuid.uuid4().hex,
            "booting": True}
     if comfy_run.get("owned") and comfy_run.get("pid"):
         run["comfy_pid"] = comfy_run["pid"]
@@ -405,9 +479,12 @@ def _boot_unlocked(open_browser: bool = True):
     if not tenants:
         print("  No personas yet — create the first one from the workspace.")
     for pid_, info in tenants.items():
-        mark = "alive" if info.get("alive") else "DOWN"
-        print(f"  {pid_:>6}: http://127.0.0.1:{info['port']}/   "
-              f"[{info['model']}] {mark}")
+        lifecycle = info.get("lifecycle") or (
+            "ready" if info.get("alive") else "stopped")
+        address = (f"http://127.0.0.1:{info['port']}/"
+                   if info.get("port") else "—")
+        print(f"  {pid_:>6}: {address}   "
+              f"[{info['model']}] {lifecycle}")
     print(f"  world:  http://127.0.0.1:{room_port}/api/world")
     if open_browser:
         webbrowser.open(f"http://127.0.0.1:{router_port}/")
@@ -446,7 +523,7 @@ def run_session() -> int:
         try:
             input()
         finally:
-            stop()
+            stop(expected_generation=run.get("generation"))
         return 0
 
     print("\n  SESSION WINDOW OWNS THE HOUSEHOLD")
@@ -456,9 +533,8 @@ def run_session() -> int:
     except KeyboardInterrupt:
         print("\nSession interrupted — stopping the household cleanly.")
     finally:
-        current = _read_runfile()
-        if current and current.get("session_browser_pid") == browser.pid:
-            stop()
+        stop(expected_generation=run.get("generation"),
+             expected_browser_pid=browser.pid)
     return 0
 
 

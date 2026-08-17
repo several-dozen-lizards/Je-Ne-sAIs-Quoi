@@ -19,7 +19,13 @@ identity:
 context:
   window_tokens: 8192
   practical_window_tokens: 6963
-  block_budgets: {}
+  # Capacity ceilings, not content targets. Relevance and current state still
+  # determine what enters each seat; this vessel declares how much it carries.
+  block_budgets:
+    just_now: 600
+    experiential_continuity: 680
+    document_library: 720
+    surfaced_memories: 420
 prompt_structure:
   system_prompt: true
   template: "openai_messages"
@@ -29,6 +35,11 @@ prompt_structure:
 sampling:
   temperature:
     mode: dynamic
+    # Preserve the oscillator-derived movement while calibrating it to this
+    # model's native 0.6 sampling neighborhood.
+    min: 0.52
+    max: 0.72
+    precision: 2
 transport:
   http:
     connect_timeout_s: 10

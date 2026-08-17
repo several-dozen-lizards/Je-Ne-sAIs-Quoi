@@ -38,7 +38,8 @@ AFFORDANCE_CHANNELS = {
 EVENT_KIND_WEIGHT = {"arrive": 1.0, "depart": 0.9, "say": 1.0,
                      "write": 0.9, "contact": 0.6, "read": 0.5,
                      "sit": 0.5, "stand": 0.4, "move": 0.4,
-                     "light": 0.7}
+                     "light": 0.7, "board_post": 0.85,
+                     "board_retract": 0.45}
 
 
 def load_bias(persona_dir: str) -> dict:
@@ -76,7 +77,7 @@ def member_pos(rec):
 
 def score_objects(snapshot: dict, substrate: dict, bias: dict,
                   member: str) -> list:
-    """Score every object in the room against this persona's substrate.
+    """Score every object and traversable place against current substrate.
     Returns [{"id", "name", "salience", "dist_m", "breakdown"}] sorted
     desc. Breakdown is the receipt — observability or it didn't happen."""
     me = member_pos((snapshot.get("members") or {}).get(member))
@@ -86,7 +87,9 @@ def score_objects(snapshot: dict, substrate: dict, bias: dict,
     obj_bias = bias.get("objects", {})
     thermal_w = float(bias.get("thermal", 0.3))
     out = []
-    for oid, obj in (snapshot.get("objects") or {}).items():
+    candidates = dict(snapshot.get("objects") or {})
+    candidates.update(snapshot.get("places") or {})
+    for oid, obj in candidates.items():
         d = _dist(me, obj["position_m"])
         proximity = 1.0 / (1.0 + d)
         thermal = min(abs(obj.get("temperature_c", AMBIENT_C) - AMBIENT_C)
@@ -98,12 +101,17 @@ def score_objects(snapshot: dict, substrate: dict, bias: dict,
                 resonance += float(w) * _chan(substrate, spec) \
                              * float(aff_bias.get(aff, 1.0))
         novelty = 0.0
-        if obj.get("pages", 0) and obj.get("capability") == "writing":
-            novelty = (min(obj["pages"], 3) / 3.0
+        if obj.get("pages", 0) and obj.get("capability") in {
+                "writing", "commons_board"}:
+            unread = (obj.get("unread_changes", obj.get("active_posts", 0))
+                      if obj.get("capability") == "commons_board"
+                      else obj["pages"])
+            novelty = (min(max(0, unread), 3) / 3.0
                        * _chan(substrate, ("cocktail", "curiosity")))
         raw = 0.35 * proximity + thermal + resonance + novelty
         sal = raw * float(obj_bias.get(oid, 1.0))
         out.append({"id": oid, "name": obj["name"],
+                    "kind": obj.get("kind", "object"),
                     "salience": round(sal, 3), "dist_m": round(d, 2),
                     "breakdown": {"proximity": round(proximity, 3),
                                   "thermal": round(thermal, 3),
@@ -196,6 +204,10 @@ def _describe_event(e: dict, member: str = "") -> str:
         where = d.get("object", "somewhere")
         return (f"{m} wrote something private at {where}" if d.get("private")
                 else f"{m} wrote a page at {where}")
+    if k == "board_post":
+        return f"{m} left something on {d.get('object', 'the commons board')}"
+    if k == "board_retract":
+        return f"{m} took down one of their posts at {d.get('object', 'the commons board')}"
     if k == "contact":
         return f"{m} touched {d.get('object', 'something')}"
     if k == "sit":
@@ -213,7 +225,23 @@ def _describe_event(e: dict, member: str = "") -> str:
     if k == "move":
         if d.get("toward_member") == member:
             return f"{m} came over to you"
-        return f"{m} moved toward {d.get('toward', 'something')}"
+        motion = d.get("motion") or {}
+        try:
+            distance = float(motion.get("distance_m") or 0.0)
+        except (TypeError, ValueError):
+            distance = 0.0
+        target = d.get("toward")
+        if target:
+            return (f"{m} began moving toward {target} along a "
+                    f"{distance:.2f} meter route")
+        if distance > 0.0:
+            return f"{m} began crossing {distance:.2f} meters"
+        return f"{m} changed position"
+    if k == "move_arrive":
+        return f"{m} came to rest at the resolved destination"
+    if k == "move_stop":
+        reason = str(d.get("reason") or "interrupted")
+        return f"{m} stopped moving ({reason.replace('_', ' ')})"
     if k == "read":
         return f"{m} read at {d.get('object', 'something')}"
     if k == "say":
@@ -259,6 +287,7 @@ def render_room_block(snapshot: dict, scored_objs: list,
                       floor: float = 0.2, doors: list = None,
                       can_act: bool = False,
                       speaker: str = None,
+                      addressed_to: list = None,
                       can_say: bool = True) -> str:
     """Scored percepts -> descriptive prose for the assembly. Numbers stay
     in the receipts; the prompt gets what attention FOUND, in words.
@@ -268,14 +297,26 @@ def render_room_block(snapshot: dict, scored_objs: list,
     if snapshot.get("description"):
         lines.append(snapshot["description"])
     members = snapshot.get("members") or {}
-    # The SPEAKER is the addressee, not scenery. Naming them as "the one
-    # speaking with you" stops the small-model collision where the person
-    # talking TO you gets read as a third-person body standing in the room
-    # (2026-07-05, receipts in v3_harvest: "it's Re saying it" while
-    # answering Re, because the room listed Re under "Also here").
+    # The speaker is the audible SOURCE, not automatically the addressee.
+    # Room broadcasts arrive through a chat-shaped transport too, but that
+    # mechanical role must not turn every utterance into a dyadic invitation.
+    addressed = {
+        str(name).casefold() for name in (addressed_to or [])
+        if str(name).strip()}
     bystanders = [m for m in members if m != member and m != speaker]
     if speaker and speaker in members and speaker != member:
-        lines.append(f"{speaker} is here, speaking with you.")
+        if str(member).casefold() in addressed:
+            lines.append(f"{speaker} is here and explicitly addressed you.")
+        elif addressed:
+            lines.append(
+                f"{speaker} spoke in the shared room to "
+                + ", ".join(sorted(addressed))
+                + "; you can hear the utterance, but it was not addressed "
+                  "to you.")
+        else:
+            lines.append(
+                f"{speaker} spoke in the shared room. The utterance is "
+                "audible; direct address to you is not established.")
     if bystanders:
         lines.append("Also here: " + ", ".join(bystanders) + ".")
     kept = [o for o in scored_objs[:top_objects] if o["salience"] >= floor]
@@ -284,7 +325,8 @@ def render_room_block(snapshot: dict, scored_objs: list,
         for o in kept:
             near = ("within reach" if o["dist_m"] <= REACH_M
                     else "across the room")
-            source = (snapshot.get("objects") or {}).get(o["id"], {})
+            source = ((snapshot.get("objects") or {}).get(o["id"])
+                      or (snapshot.get("places") or {}).get(o["id"], {}))
             visible_state = ""
             if source.get("capability") == "light":
                 light_state = ("on" if float(source.get("power", 0.0)) > 0.0
@@ -292,6 +334,8 @@ def render_room_block(snapshot: dict, scored_objs: list,
                 visible_state = f"; its light is {light_state}"
             lines.append(f"- {o['name']} ({near}{visible_state}) "
                          f"{_tier_phrase(o['salience'])}.")
+            if source.get("kind") == "place" and source.get("description"):
+                lines.append(f"  {source['description']}")
     evs = [e for e in scored_events[:top_events] if e["salience"] >= 0.15]
     if evs:
         lines.append("Since you last looked around:")
@@ -311,7 +355,13 @@ def render_room_block(snapshot: dict, scored_objs: list,
     posture = (member_rec.get("posture", "standing")
                if isinstance(member_rec, dict) else "standing")
     objs = snapshot.get("objects") or {}
-    if can_act and me is not None and objs:
+    places = snapshot.get("places") or {}
+    members = snapshot.get("members") or {}
+    destinations = {
+        **{key: value for key, value in members.items() if key != member},
+        **objs, **places,
+    }
+    if can_act and me is not None:
         within = [o for o in objs.values()
                   if _dist(me, o["position_m"]) <= REACH_M]
         lines.append("From where you stand, right now:")
@@ -329,7 +379,20 @@ def render_room_block(snapshot: dict, scored_objs: list,
                 else:
                     lines.append(f"<act>light_on {o['id']}</act> "
                                  "(pull the switch; light is off)")
-        lines.append("<act>move_to " + "|".join(sorted(objs)) + "</act>")
+        if destinations:
+            lines.append(
+                "<act>go " + "|".join(sorted(destinations)) + "</act> "
+                "(approach a chosen person, object, or place; the world "
+                "resolves a supported, body-clear stopping point)")
+        lines.append(
+            f"Your center-origin position is [{me[0]:.2f}, {me[1]:.2f}] "
+            "meters (+X east, +Y north). Exact free roaming remains "
+            "available when you want a position rather than a named target.")
+        lines.append(
+            "<act>walk X Y</act> (precision option: choose any finite room "
+            "coordinate; the world resolves unsupported ground and bodies)")
+        lines.append("<act>look_around</act> "
+                     "(survey the surroundings from where you stand)")
         sight_targets = sorted(set(objs) | set(bystanders or []))
         if sight_targets:
             targets = "|".join(sight_targets)
@@ -353,6 +416,15 @@ def render_room_block(snapshot: dict, scored_objs: list,
                 elif o.get("capability") == "writing":
                     lines.append(f"<act>write {o['id']} :: your words</act>"
                                  f" / <act>read {o['id']}</act>")
+                elif o.get("capability") == "commons_board":
+                    unread = int(o.get("unread_changes", 0) or 0)
+                    state = (f"; {unread} change(s) are new to you"
+                             if unread else "")
+                    lines.append(
+                        f"<act>board_read {o['id']}</act>{state} / "
+                        f"<act>board_post {o['id']} :: exact words you "
+                        "independently choose to leave</act> (both are "
+                        "optional; a post has no required type)")
         if posture != "standing":
             lines.append("<act>stand</act> (stand up)")
         else:

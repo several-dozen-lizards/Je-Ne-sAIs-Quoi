@@ -13,6 +13,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Alegreya:wght@400;600;700&family=Bebas+Neue&family=Caveat:wght@400;600;700&family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Lexend:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&family=Permanent+Marker&family=Playfair+Display:wght@400;600;700&family=Quicksand:wght@400;500;600;700&family=Roboto+Slab:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=IBM+Plex+Mono:wght@400;500&family=Nunito:wght@400;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="/assets/hex_color.js"></script>
+<script src="/assets/theme_surface.js"></script>
 <style>
   :root { --bg:#0b0a15; --panel:#131120; --line:#2c2740; --ink:#eae3d2;
           --dim:#8b829d; --accent:#c9ab77; --accent2:#f6ead0;
@@ -29,7 +30,8 @@
           --pulse-opacity:.15; --pattern-opacity:.09;
           --aurora-opacity:.28; --speaker-glow-size:16px;
           --background-opacity:.32; --conversation-background:none;
-          --conversation-area-opacity:.28; --conversation-area-background:none; }
+          --conversation-area-opacity:.28; --conversation-area-background:none;
+          --composer-bg:color-mix(in srgb,var(--bg) 82%,#080604); }
   * { box-sizing:border-box; scrollbar-width:thin;
       scrollbar-color:var(--accent) color-mix(in srgb,var(--panel) 82%,var(--bg)); }
   *::-webkit-scrollbar { width:10px;height:10px; }
@@ -115,6 +117,12 @@
   #column-resizer:hover::after,#column-resizer.dragging::after{top:20%;bottom:20%;background:var(--accent)}
   .header-spacer{flex:1}.layout-toggle{padding:5px 9px;background:transparent;color:var(--dim);
       border:1px solid var(--line);font-size:11px}.layout-toggle:hover{color:var(--ink);border-color:var(--accent)}
+  .creative-toggle{position:relative;padding:5px 10px;background:transparent;color:var(--dim);
+      border:1px solid var(--line);font-size:11px;transition:color .16s,border .16s,background .16s}
+  .creative-toggle:hover,.creative-toggle[aria-pressed="true"]{color:var(--accent2);border-color:var(--accent);
+      background:color-mix(in srgb,var(--accent) 13%,transparent)}
+  .creative-toggle.has-new::after{content:"";position:absolute;right:-3px;top:-3px;width:8px;height:8px;
+      border-radius:50%;background:var(--accent2);box-shadow:0 0 11px var(--accent)}
   .lab-toggle{padding:5px 9px;background:color-mix(in srgb,var(--accent) 18%,transparent);
       color:var(--accent2);border:1px solid color-mix(in srgb,var(--accent) 65%,var(--line));
       font-size:11px}.lab-toggle:hover{background:color-mix(in srgb,var(--accent) 30%,transparent)}
@@ -204,7 +212,7 @@
                   letter-spacing:.08em;text-transform:uppercase;margin-bottom:3px; }
   .msg.sys { align-self:center; color:var(--dim); font-size:12px;
              background:none; display:block; max-width:92%; text-align:center; }
-  #composer { display:grid; grid-template-columns:auto auto 1fr auto; gap:8px; }
+  #composer { display:grid; grid-template-columns:auto auto 1fr auto auto; gap:8px; }
   #speaker-choice { grid-column:1/-1;display:flex;align-items:center;gap:7px;
       color:var(--dim);font-size:11px; }
   #speaker-choice select { max-width:min(100%,280px);background:var(--bg);
@@ -218,9 +226,10 @@
     align-items:center;gap:6px;margin:0 0 9px;cursor:pointer; }
   #afferent-autostart-label input { accent-color:var(--teal); }
   #say { min-width:0; min-height:38px; max-height:160px; resize:none;
-         overflow-y:auto; background:#14110e; color:var(--ink);
+         overflow-y:auto; background:var(--composer-bg); color:var(--ink);
          font:inherit; line-height:1.4; border:1px solid var(--line);
          border-radius:6px; padding:9px 11px; transition:border .16s,box-shadow .16s; }
+  #say::placeholder { color:var(--dim);opacity:.86; }
   #composer.dragging #say { border-color:var(--accent);
       box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 28%,transparent),
                  0 0 20px color-mix(in srgb,var(--accent) 22%,transparent); }
@@ -263,6 +272,11 @@
   #composer #voice-output-toggle:has(input:focus-visible) {
     outline:2px solid var(--accent2);outline-offset:2px; }
   #composer #camera.live { color:var(--warn);border-color:var(--warn); }
+  #cancel-turn{background:transparent;color:var(--warn);border:1px solid var(--warn);
+    border-radius:7px;padding:0 11px}
+  #cancel-turn:hover{background:color-mix(in srgb,var(--warn) 12%,transparent)}
+  #cancel-turn.stopping{color:var(--dim);border-color:var(--line)}
+  #cancel-turn[hidden]{display:none}
   #audio-panel { display:none; align-items:center; gap:10px;
     padding:8px;border:1px solid var(--line);border-radius:9px;background:#0a0806; }
   #audio-panel.live { display:flex; }
@@ -321,6 +335,13 @@
   .body-group-content{display:flex;flex-direction:column;gap:8px;padding:8px;}
   .body-group.collapsed>.body-group-content{display:none;}
   .body-group-content>.panel{border-radius:10px;background:color-mix(in srgb,var(--panel) 88%,transparent);}
+  .recent-actions-head{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .recent-actions-head h2{margin:0;}
+  #recent-actions-list{display:grid;gap:6px;margin-top:8px;}
+  .recent-action{border-left:2px solid var(--line);padding:3px 0 3px 8px;}
+  .recent-action.pronounced{border-left-color:var(--accent);}
+  .recent-action-summary{font:12px/1.35 var(--font-ui);color:var(--ink);}
+  .recent-action-meta{font:10px/1.3 var(--font-mono);color:var(--dim);margin-top:2px;}
   #composer #microphone.live { color:var(--warn);border-color:var(--warn); }
   .salience-head { display:flex;align-items:center;justify-content:space-between;
     gap:8px;margin-bottom:8px; }
@@ -385,6 +406,33 @@
   .memory-controls input,.memory-controls select { min-width:0;background:var(--bg);color:var(--ink);
     border:1px solid var(--line);border-radius:5px;padding:5px;font:inherit; }
   .memory-controls .wide { grid-column:1/-1; }
+  .memory-head { display:flex;align-items:center;justify-content:space-between;gap:8px; }
+  .memory-head h2 { margin:0; }
+  #memory-curation { margin:7px 0;border:1px solid var(--line);border-radius:8px;
+    padding:7px;background:color-mix(in srgb,var(--panel) 80%,transparent); }
+  #memory-curation summary { cursor:pointer;color:var(--accent);font-size:11px; }
+  .memory-curation-toolbar { display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+    margin:7px 0;color:var(--dim);font-size:10px; }
+  .memory-curation-toolbar label { display:flex;align-items:center;gap:4px; }
+  .memory-curation-toolbar input { accent-color:var(--teal); }
+  #memory-curation-candidates { display:grid;gap:5px;max-height:260px;overflow:auto; }
+  .memory-curation-candidate { width:100%;text-align:left;background:transparent;
+    color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:6px; }
+  .memory-curation-candidate:hover { border-color:var(--accent); }
+  .memory-curation-candidate .meta-line { display:flex;gap:7px;align-items:center;
+    color:var(--dim);font-size:9px; }
+  .memory-curation-candidate .pressure { color:var(--warn); }
+  .memory-curation-candidate .digest { color:var(--ink);font-size:10px;
+    line-height:1.35;margin-top:3px; }
+  .memory-curation-actions { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:6px;margin:8px 0; }
+  .memory-curation-actions input,.memory-curation-actions textarea {
+    grid-column:1/-1;min-width:0;background:var(--bg);color:var(--ink);
+    border:1px solid var(--line);border-radius:6px;padding:6px;font:10px/1.35 var(--font-ui); }
+  .memory-curation-actions textarea { min-height:74px;resize:vertical; }
+  .memory-curation-actions button { white-space:normal; }
+  .memory-curation-actions .wide { grid-column:1/-1; }
+  .memory-curation-note { grid-column:1/-1;color:var(--dim);font-size:9px;line-height:1.35; }
   #memory-results { max-height:300px;overflow:auto;margin-top:7px; }
   .memory-record { width:100%;display:block;text-align:left;background:transparent;color:var(--muted);
     border:1px solid var(--line);border-radius:6px;padding:6px;margin:0 0 5px;cursor:pointer; }
@@ -435,6 +483,24 @@
   .atelier-expandable:hover,.atelier-expandable:focus-visible {
     box-shadow:0 0 0 2px var(--accent),0 8px 24px color-mix(in srgb,var(--accent) 22%,transparent);
     transform:translateY(-1px); }
+  #writing-modal { position:fixed;inset:0;z-index:70;display:none;
+    place-items:center;padding:clamp(12px,3vw,42px);
+    background:color-mix(in srgb,#000 76%,var(--bg) 24%);backdrop-filter:blur(10px); }
+  #writing-modal.open { display:grid; }
+  .writing-modal-dialog { width:min(760px,94vw);max-height:min(820px,90vh);
+    display:grid;grid-template-rows:auto minmax(0,1fr);overflow:hidden;
+    border:1px solid color-mix(in srgb,var(--accent) 70%,var(--line));border-radius:14px;
+    background:color-mix(in srgb,var(--panel) 97%,#000 3%);box-shadow:0 28px 100px #000; }
+  .writing-modal-head { display:flex;align-items:flex-start;gap:14px;padding:14px 16px;
+    border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--panel) 90%,var(--accent) 10%); }
+  .writing-modal-heading { flex:1;min-width:0; }
+  #writing-modal-title { color:var(--ink);font:600 17px/1.3 var(--font-display); }
+  #writing-modal-meta { margin-top:4px;color:var(--dim);font:9px/1.35 var(--font-mono); }
+  #writing-modal-close { width:auto;padding:7px 12px;flex:none; }
+  #writing-modal-body { min-height:120px;overflow:auto;white-space:pre-wrap;word-break:break-word;
+    padding:18px 20px 24px;color:var(--ink);font:400 14px/1.62 var(--font-ui);
+    scrollbar-gutter:stable; }
+  #writing-modal-body.quiet { color:var(--muted); }
   #atelier-lightbox { position:fixed;inset:0;z-index:60;display:none;
     place-items:center;padding:clamp(12px,3vw,42px);
     background:color-mix(in srgb,#000 82%,var(--bg) 18%);
@@ -469,6 +535,84 @@
   .atelier-card button { width:100%;padding:5px;font-size:9px; }
   #atelier-drill { white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto;
     margin-top:7px;color:var(--muted);font-size:10px; }
+  .creative-studio-controls{margin:8px 0;border:1px solid var(--line);border-radius:9px;
+    padding:7px 9px;background:color-mix(in srgb,var(--panel) 72%,transparent)}
+  .creative-studio-controls summary{cursor:pointer;color:var(--accent);font-size:10px;letter-spacing:.03em}
+  .creative-studio-controls[open] summary{margin-bottom:8px}
+  .creative-studio-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:6px}
+  .atelier-card-head{display:flex;align-items:center;gap:6px;margin:7px 0 2px}
+  .atelier-medium,.creative-new-badge{display:inline-flex;align-items:center;width:max-content;border-radius:999px;
+    padding:2px 6px;font:8px/1.2 var(--font-mono);letter-spacing:.06em;text-transform:uppercase}
+  .atelier-medium{color:var(--accent2);background:color-mix(in srgb,var(--accent) 18%,transparent);
+    border:1px solid color-mix(in srgb,var(--accent) 58%,var(--line))}
+  .creative-new-badge{color:var(--bg);background:var(--accent2);border:1px solid var(--accent2)}
+  .atelier-date{margin-left:auto;color:var(--dim);font:8px/1.2 var(--font-mono)}
+  .atelier-meta{color:var(--dim);font:9px/1.35 var(--font-mono);margin:0 0 7px}
+  .desk-project-title{display:block;color:var(--ink);font:600 13px/1.3 var(--font-ui);margin-bottom:4px}
+  .desk-project .atelier-meta{display:block;margin:0}
+  .desk-project .creative-new-badge{margin-top:7px}
+  .atelier-card.is-new,.desk-project-row.is-new{border-color:color-mix(in srgb,var(--accent2) 70%,var(--line));
+    box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 32%,transparent),
+      0 10px 32px color-mix(in srgb,var(--accent) 12%,transparent)}
+  #creative-surface-head{display:none}
+  body[data-creative-household-embed="true"] #creativeToggle{display:none}
+  body[data-creative-view="true"] header{box-shadow:0 10px 42px color-mix(in srgb,var(--accent) 10%,transparent)}
+  body[data-creative-view="true"] #bodyToggle{display:none}
+  body[data-creative-view="true"] #cockpit-main{grid-template-columns:minmax(0,1fr);gap:0;
+    padding:clamp(12px,2.5vw,30px);height:calc(100vh - 46px)}
+  body[data-creative-view="true"] #cockpit-main>.col:first-child,
+  body[data-creative-view="true"] #column-resizer{display:none}
+  body[data-creative-view="true"] #inspector{display:grid;grid-template-columns:minmax(0,1fr);
+    align-content:start;gap:14px;max-width:1480px;width:100%;margin:0 auto;padding:0 6px 40px;overflow-y:auto}
+  body[data-creative-view="true"] #creative-surface-head{display:block;padding:clamp(14px,2vw,24px);
+    border:1px solid color-mix(in srgb,var(--accent) 45%,var(--line));border-radius:var(--radius);
+    background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 14%,var(--panel)),
+      color-mix(in srgb,var(--panel) 92%,transparent));box-shadow:0 18px 70px color-mix(in srgb,#000 45%,transparent)}
+  .creative-kicker{color:var(--accent);font:10px/1.2 var(--font-mono);letter-spacing:.14em;text-transform:uppercase}
+  .creative-surface-title-row{display:flex;gap:20px;align-items:flex-end;justify-content:space-between;margin-top:5px}
+  .creative-surface-title-row h1{margin:0;color:var(--accent2);font:600 clamp(26px,4vw,48px)/1 var(--font-display)}
+  .creative-surface-title-row p{margin:7px 0 0;color:var(--dim);font-size:clamp(11px,1.2vw,14px)}
+  .creative-new-summary{flex:0 0 auto;color:var(--dim);font:10px/1.4 var(--font-mono);text-align:right}
+  .creative-new-summary.has-new{color:var(--accent2)}
+  .creative-filter{display:flex;gap:7px;flex-wrap:wrap;margin-top:16px}
+  .creative-filter button{padding:6px 12px;background:transparent;color:var(--dim);border:1px solid var(--line);font-size:10px}
+  .creative-filter button.on{color:var(--accent2);border-color:var(--accent);
+    background:color-mix(in srgb,var(--accent) 16%,transparent)}
+  body[data-creative-view="true"] #inspector>.body-group:not([data-group="creative"]),
+  body[data-creative-view="true"] [data-group="creative"]>.body-group-toggle,
+  body[data-creative-view="true"] [data-group="creative"] .body-group-content>.panel:not(#atelier):not(#writing-desk){display:none}
+  body[data-creative-view="true"] [data-group="creative"]{display:block;border:0;background:transparent;overflow:visible}
+  body[data-creative-view="true"] [data-group="creative"]>.body-group-content{display:grid;
+    grid-template-columns:minmax(0,1.25fr) minmax(300px,.75fr);gap:14px;padding:0;align-items:start}
+  body[data-creative-view="true"] #atelier{grid-column:1;grid-row:1}
+  body[data-creative-view="true"] #writing-desk{grid-column:2;grid-row:1;position:sticky;top:0}
+  body[data-creative-view="true"] #atelier,
+  body[data-creative-view="true"] #writing-desk{display:block!important;padding:clamp(14px,1.8vw,22px);
+    border-radius:var(--radius);background:color-mix(in srgb,var(--panel) 91%,transparent)}
+  body[data-creative-view="true"] #atelier.collapsed>.collapsible-content,
+  body[data-creative-view="true"] #writing-desk.collapsed>.collapsible-content{display:block}
+  body[data-creative-view="true"] #atelier h2.sec-toggle,
+  body[data-creative-view="true"] #writing-desk h2.sec-toggle{font-size:clamp(18px,2vw,25px);cursor:default}
+  body[data-creative-view="true"] #atelier h2.sec-toggle::after,
+  body[data-creative-view="true"] #writing-desk h2.sec-toggle::after{display:none}
+  body[data-creative-view="true"] #atelier-artifacts{grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:14px}
+  body[data-creative-view="true"] .atelier-card{border-radius:12px;padding:10px;
+    background:linear-gradient(160deg,color-mix(in srgb,var(--bg) 91%,var(--accent) 9%),var(--bg))}
+  body[data-creative-view="true"] .atelier-card img,
+  body[data-creative-view="true"] .atelier-card canvas{border-radius:9px}
+  body[data-creative-view="true"] .atelier-title{font-size:13px;line-height:1.3;white-space:normal;margin:4px 0}
+  body[data-creative-view="true"] .atelier-card button{padding:7px;font-size:10px}
+  body[data-creative-view="true"] #writing-desk-projects{gap:9px;margin-top:14px}
+  body[data-creative-view="true"] .desk-project-row{padding:8px;border:1px solid var(--line);border-radius:10px;
+    background:color-mix(in srgb,var(--bg) 90%,var(--accent) 10%)}
+  body[data-creative-view="true"] .desk-project{border:0;padding:4px;color:var(--ink);font-size:12px;line-height:1.4}
+  body[data-creative-view="true"] #writing-desk-drill{max-height:none;min-height:180px;padding:14px;
+    border:1px solid var(--line);border-radius:10px;background:var(--bg);font:12px/1.65 var(--font-ui)}
+  body[data-creative-filter="atelier"] #writing-desk,
+  body[data-creative-filter="writing"] #atelier{display:none!important}
+  body[data-creative-filter="atelier"] [data-group="creative"]>.body-group-content,
+  body[data-creative-filter="writing"] [data-group="creative"]>.body-group-content{grid-template-columns:minmax(0,1fr)}
+  body[data-creative-filter="writing"] #writing-desk{grid-column:1;grid-row:1;position:static}
   #research-items { display:grid;gap:4px;margin-top:7px; }
   #research-drill { white-space:pre-wrap;word-break:break-word;max-height:340px;overflow:auto;
     margin-top:7px;color:var(--muted);font-size:10px; }
@@ -499,6 +643,18 @@
   .autonomous-work-organ { color:var(--accent2);font-variant:small-caps;letter-spacing:.05em; }
   .autonomous-work button { padding:5px 8px;font-size:9px; }
   .autonomy-summary { display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin:8px 0; }
+  .action-turn-request { margin:0 0 8px;padding:9px 10px;border:1px solid var(--accent2);
+    border-radius:var(--radius);background:color-mix(in srgb,var(--panel) 88%,var(--accent2) 12%);
+    display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;font-size:11px; }
+  .action-turn-request[hidden] { display:none; }
+  .action-turn-request strong { display:block;color:var(--accent2);margin-bottom:2px; }
+  .action-turn-request-actions { display:flex;gap:6px; }
+  .action-turn-request-actions button { padding:5px 8px;font-size:10px;white-space:nowrap; }
+  .action-turn-capacity { margin:0 0 7px;color:var(--dim);font:10px/1.35 var(--font-mono); }
+  .action-turn-capacity.ready::before { content:"";display:inline-block;width:6px;height:6px;
+    margin-right:6px;border-radius:50%;background:var(--good);box-shadow:0 0 7px var(--good); }
+  .action-turn-capacity.held::before { content:"";display:inline-block;width:6px;height:6px;
+    margin-right:6px;border-radius:50%;background:var(--warn); }
   .autonomy-stat { border:1px solid var(--line);border-radius:7px;padding:8px;background:color-mix(in srgb,var(--bg) 82%,var(--accent) 18%); }
   .autonomy-stat-value { color:var(--ink);font-size:19px;line-height:1;font-variant-numeric:tabular-nums; }
   .autonomy-stat-label { color:var(--dim);font-size:8px;letter-spacing:.08em;text-transform:uppercase;margin-top:5px; }
@@ -514,6 +670,10 @@
   @media (max-width:900px){.autonomy-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.autonomy-dashboard-grid{grid-template-columns:1fr}}
   #archive-reader { white-space:pre-wrap;word-break:break-word;max-height:360px;overflow:auto; }
   #archive-results { display:grid;gap:4px;margin-top:7px; }
+  #legacy-evidence-reader { white-space:pre-wrap;word-break:break-word;max-height:420px;overflow:auto; }
+  #legacy-evidence-results { display:grid;gap:4px;margin-top:7px; }
+  #anthropic-conversation-reader { white-space:pre-wrap;word-break:break-word;max-height:460px;overflow:auto; }
+  #anthropic-conversation-results { display:grid;gap:4px;margin-top:7px; }
   .image-chip { position:relative; width:72px; height:58px; }
   .image-chip img,.message-images img { width:100%;height:100%;object-fit:cover;
       border-radius:8px;border:1px solid var(--line); }
@@ -634,13 +794,30 @@
   .background-upload-actions button { flex:1;padding:5px 8px;font-size:11px; }
   #themeBackgroundStatus,#themeConversationAreaStatus {
       min-height:1.25em;color:var(--dim);font-size:10px; }
+  .avatar-upload-row { display:grid;grid-template-columns:54px minmax(0,1fr);
+      gap:8px;align-items:center; }
+  .appearance-avatar-preview { width:52px;height:52px;border-radius:50%;
+      display:grid;place-items:center;overflow:hidden;background:var(--bg);
+      color:var(--accent2);border:1px solid var(--line);font-size:22px; }
+  .appearance-avatar-preview img { width:100%;height:100%;object-fit:cover; }
+  .avatar-upload-controls { display:grid;gap:6px;min-width:0; }
+  #themePersonaAvatarStatus { min-height:1.25em;color:var(--dim);font-size:10px; }
   .appearance-checks { display:flex;flex-wrap:wrap;gap:8px 12px;margin-top:8px; }
   .appearance-checks label { color:var(--dim);font-size:11px; }
   .appearance-actions { display:flex;gap:6px;margin-top:8px; }
   .appearance-actions button { padding:5px 9px;font-size:11px; }
   #themenote,#reactivenote { font-size:10px;color:var(--dim);margin-top:6px; }
   @media(max-width:720px){main{grid-template-columns:1fr;overflow:auto;height:calc(100vh - 46px)}
-    #column-resizer{display:none}#inspector{overflow:visible}main.inspector-collapsed #inspector{display:none}}
+    #column-resizer{display:none}#inspector{overflow:visible}main.inspector-collapsed #inspector{display:none}
+    body[data-creative-view="true"] #inspector{display:grid;overflow-y:auto;padding-inline:0}
+    body[data-creative-view="true"] [data-group="creative"]>.body-group-content{grid-template-columns:1fr}
+    body[data-creative-view="true"] #atelier,body[data-creative-view="true"] #writing-desk{grid-column:1;grid-row:auto;position:static}
+    .creative-surface-title-row{align-items:flex-start;flex-direction:column}
+    .creative-new-summary{text-align:left}}
+  @media(max-width:520px){
+    header{gap:6px;padding-inline:9px}.lab-toggle{display:none}.creative-toggle,.layout-toggle{font-size:10px;padding:5px 7px}
+    body[data-creative-view="true"] #atelier-artifacts{grid-template-columns:1fr}
+    .creative-studio-actions{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -670,6 +847,8 @@
   <span class="meta" id="who">connecting…</span>
   <span class="meta" id="timing"></span>
   <span class="header-spacer"></span>
+  <button class="creative-toggle" id="creativeToggle" type="button"
+          aria-pressed="false">creative work</button>
   <button class="lab-toggle" id="bodyLabToggle" type="button" aria-haspopup="dialog">experimental 3D lab</button>
   <button class="layout-toggle" id="bodyToggle" type="button" aria-expanded="false">show body functions</button>
 </header>
@@ -691,6 +870,16 @@
     <div class="panel" id="conversation-panel" style="flex:1; display:flex; flex-direction:column; min-height:0;">
       <div id="conversation-area-background" aria-hidden="true"></div>
       <h2>conversation</h2>
+      <div id="action-turn-capacity" class="action-turn-capacity held" role="status">room curiosity turns · checking capacity…</div>
+      <div id="autonomous-outcome-status" class="quiet" role="status">autonomous outcome circulation · checking…</div>
+      <div id="action-turn-request" class="action-turn-request" hidden>
+        <div><strong id="action-turn-request-title">more room turns requested</strong>
+          <span id="action-turn-request-copy"></span></div>
+        <div class="action-turn-request-actions">
+          <button id="action-turn-approve" type="button">approve 5</button>
+          <button id="action-turn-decline" type="button">decline</button>
+        </div>
+      </div>
       <div id="chat"></div>
       <div id="thought-mark" role="status" aria-live="polite" aria-label="ready">
         <img id="thought-icon" src="/assets/favicon-48.png" alt="">
@@ -708,6 +897,7 @@
         <input id="image-picker" type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden>
         <textarea id="say" rows="1" placeholder="say something…" autocomplete="off"
           aria-label="Message. Drop images here; Shift plus Enter starts a new paragraph."></textarea>
+        <button id="cancel-turn" type="button" hidden>Stop</button>
         <button id="send">Send</button>
       </div>
       <div id="voice-output-control">
@@ -739,13 +929,24 @@
         </details>
       </div>
     </div>
-    <div class="panel collapsed" id="receipts-panel">
-      <div class="panel-heading"><h2>receipts</h2><button class="collapse-toggle" id="receiptsToggle" type="button" aria-expanded="false">pull up</button></div>
-      <div class="collapsible-content" id="receipts"><div class="quiet">no turns yet</div></div>
-    </div>
   </div>
   <div id="column-resizer" role="separator" aria-orientation="vertical" aria-label="Resize body functions"></div>
   <div class="col" id="inspector">
+    <section id="creative-surface-head" aria-labelledby="creative-surface-title">
+      <div class="creative-kicker">private household shelf</div>
+      <div class="creative-surface-title-row">
+        <div>
+          <h1 id="creative-surface-title">Creative work</h1>
+          <p>Art, sound, scenes, compositions, and writing that have actually formed.</p>
+        </div>
+        <div id="creative-new-summary" class="creative-new-summary">reading the shelf…</div>
+      </div>
+      <div class="creative-filter" role="group" aria-label="Creative work type">
+        <button type="button" class="on" data-creative-filter="all">everything</button>
+        <button type="button" data-creative-filter="atelier">art &amp; sound</button>
+        <button type="button" data-creative-filter="writing">writing</button>
+      </div>
+    </section>
     <div class="panel" id="afferent-rack">
       <h2>live afferents</h2>
       <div class="perception-controls" aria-label="Perception controls">
@@ -875,16 +1076,19 @@
       <pre id="project-loom-drill" class="quiet">select a project for content-free lifecycle receipts</pre>
     </div>
     <div class="panel" id="writing-desk">
-      <h2>writing desk</h2>
+      <h2>writing</h2>
       <div class="agency-status"><span class="agency-lamp" id="writing-desk-lamp"></span>
-        <span id="writing-desk-status">reading the desk boundaryâ€¦</span></div>
-      <div class="desk-admit">
-        <input id="writing-desk-label" placeholder="name the material placed here">
-        <button id="writing-desk-submit" type="button">place</button>
-        <textarea id="writing-desk-content" placeholder="Place text here without ordering a result. It will enter the shared field and may become a project, settle quietly, or wait."></textarea>
-      </div>
-      <div class="agency-help">The desk has no timer and no outer mouth. Seeds and open projects recur only at real field fires. WD1 writes through a local model only; publish, message, overwrite, delete, and API fallback are unavailable.</div>
+        <span id="writing-desk-status">reading the desk boundary…</span></div>
       <div id="writing-desk-note" class="quiet"></div>
+      <details class="creative-studio-controls">
+        <summary>offer material to the writing desk</summary>
+        <div class="desk-admit">
+          <input id="writing-desk-label" placeholder="name the material placed here">
+          <button id="writing-desk-submit" type="button">place</button>
+          <textarea id="writing-desk-content" placeholder="Place text here without ordering a result. It will enter the shared field and may become a project, settle quietly, or wait."></textarea>
+        </div>
+        <div class="agency-help">The desk has no timer and no outer mouth. Seeds and open projects recur only at real field fires. WD1 writes through a local model only; publish, message, overwrite, delete, and API fallback are unavailable.</div>
+      </details>
       <div id="writing-desk-projects"></div>
       <pre id="writing-desk-drill" class="quiet">no writing projects yet</pre>
     </div>
@@ -902,18 +1106,23 @@
       <pre id="private-journal-drill" class="quiet">open an entry to read it</pre>
     </div>
     <div class="panel" id="atelier">
-      <h2>atelier</h2>
+      <h2>atelier works</h2>
       <div class="agency-status"><span class="agency-lamp" id="atelier-lamp"></span>
-        <span id="atelier-status">reading the creative boundaryâ€¦</span></div>
-      <div class="desk-admit">
-        <input id="atelier-label" placeholder="name the material placed here">
-        <button id="atelier-submit" type="button">place</button>
-        <textarea id="atelier-brief" placeholder="Place an image, sound, spatial pull, question, or fragment here without ordering a result. It may become form, settle quietly, or wait."></textarea>
-      </div>
-      <div class="agency-help">Place material here to offer it—not assign it—to the shared field. Describing a piece in ordinary chat does not create or store an artifact. The Atelier may choose static SVG, host-compiled kinetic SVG, trusted Canvas, procedural sound, trusted 3D, or local ComfyUI diffusion after admitted material wins attention; same-owner handoffs retain that authority and quiet is complete. Models cannot author script, animation markup, Canvas/Web Audio/WebGL calls, shaders, meshes, or URLs: they may describe bounded geometry, motion, voices, notes, primitives, materials, lights, and camera relationships, which the host couples to the current body and closes into cycles. Sound never autoplays. Private PNG metadata is stripped. Artifacts stay private unless the resident later chooses an exact in-house audience; visual perception is explicit and never automatic memory.</div>
-      <button id="atelier-open-now" type="button">try one circulating material now</button>
-      <button id="atelier-probe" type="button">check local raster renderer</button>
+        <span id="atelier-status">reading the creative boundary…</span></div>
       <div id="atelier-note" class="quiet"></div>
+      <details class="creative-studio-controls">
+        <summary>offer material &amp; studio controls</summary>
+        <div class="desk-admit">
+          <input id="atelier-label" placeholder="name the material placed here">
+          <button id="atelier-submit" type="button">place</button>
+          <textarea id="atelier-brief" placeholder="Place an image, sound, spatial pull, question, or fragment here without ordering a result. It may become form, settle quietly, or wait."></textarea>
+        </div>
+        <div class="creative-studio-actions">
+          <button id="atelier-open-now" type="button">try one circulating material now</button>
+          <button id="atelier-probe" type="button">check local raster renderer</button>
+        </div>
+        <div class="agency-help">Place material here to offer it—not assign it—to the shared field. Describing a piece in ordinary chat does not create or store an artifact. The Atelier may choose static SVG, host-compiled kinetic SVG, trusted Canvas, procedural sound, trusted 3D, or local ComfyUI diffusion after admitted material wins attention; same-owner handoffs retain that authority and quiet is complete. Models cannot author script, animation markup, Canvas/Web Audio/WebGL calls, shaders, meshes, or URLs: they may describe bounded geometry, motion, voices, notes, primitives, materials, lights, and camera relationships, which the host couples to the current body and closes into cycles. Sound never autoplays. Private PNG metadata is stripped. Artifacts stay private unless the resident later chooses an exact in-house audience; visual perception is explicit and never automatic memory.</div>
+      </details>
       <div id="atelier-artifacts"></div>
       <pre id="atelier-drill" class="quiet">no private creative artifacts yet</pre>
     </div>
@@ -934,6 +1143,29 @@
       <div id="research-note" class="quiet"></div>
       <div id="research-items"></div>
       <div id="research-drill" class="quiet">no private research notes or reports yet</div>
+      <h3>scenario lab <span class="quiet">shadow only</span></h3>
+      <div class="agency-admit">
+        <input id="scenario-feed-topic" placeholder="topic for this feed snapshot">
+        <input id="scenario-feed-urls" placeholder="permitted RSS/Atom URLs, comma separated">
+        <button id="scenario-intake" type="button">snapshot feeds</button>
+      </div>
+      <div class="agency-admit">
+        <input id="scenario-question" placeholder="one resolvable forecast question">
+        <input id="scenario-horizon" type="number" min="1" max="3650" value="180" aria-label="forecast horizon in days">
+      </div>
+      <div class="agency-admit">
+        <input id="scenario-terms" placeholder="topic terms, comma separated">
+        <input id="scenario-sources" placeholder="exact web_source IDs, comma separated">
+        <select id="scenario-lane" aria-label="scenario evidence lane">
+          <option value="baseline">baseline corpus</option>
+          <option value="targeted_discovery">targeted discovery</option>
+        </select>
+        <button id="scenario-submit" type="button">build branches</button>
+      </div>
+      <div class="agency-help">Consumes exact stored Research Desk snapshots without revisiting the network. RSS/Atom snapshots may contribute headlines; stored pages may contribute article text. Syndicated coverage is clustered, procedural stages and blocking evidence remain distinct, and targeted discovery never masquerades as baseline prevalence. The lab will not invent percentages: branches remain likelihood-not-estimated until every conditional gate has an explicit prior. Forecasts are private, append-only, and have no effect on attention, prompts, memory, speech, or autonomous choices.</div>
+      <div id="scenario-note" class="quiet">no shadow forecasts yet</div>
+      <div id="scenario-items"></div>
+      <div id="scenario-drill" class="quiet">open a forecast to inspect its evidence and branches</div>
     </div>
     <div class="panel" id="document-library">
       <h2>document library</h2>
@@ -994,8 +1226,59 @@
       <div class="agency-help">Autonomous reading has no timer. Unread sections recur only at genuine field fires, must win attention, and use the local Qwen vessel with zero paid fallbacks. Quiet is a complete outcome.</div>
       <div id="archive-results"></div>
     </div>
+    <div class="panel" id="legacy-evidence">
+      <h2>legacy evidence</h2>
+      <div class="agency-status"><span class="agency-lamp" id="legacy-evidence-lamp"></span>
+        <span id="legacy-evidence-runtime">reading the evidence boundary…</span></div>
+      <div class="document-controls">
+        <input id="legacy-evidence-search" class="wide" placeholder="search earlier-wrapper logs and records">
+        <select id="legacy-evidence-kind">
+          <option value="">all record kinds</option>
+          <option value="runtime_trace">runtime traces</option>
+          <option value="diagnostic_trace">diagnostic traces</option>
+          <option value="autonomous_record">autonomous records</option>
+          <option value="system_receipt">system receipts</option>
+          <option value="persona_record">persona records</option>
+          <option value="experimental_trace">experimental traces</option>
+        </select>
+        <button id="legacy-evidence-search-button" type="button">search</button>
+      </div>
+      <div id="legacy-evidence-status" class="quiet">evidence shelf state has not arrived yet</div>
+      <div class="document-actions">
+        <button id="legacy-evidence-previous" type="button">previous</button>
+        <span id="legacy-evidence-progress">no evidence section open</span>
+        <button id="legacy-evidence-next" type="button">next</button>
+        <button id="legacy-evidence-bookmark" type="button">bookmark</button>
+      </div>
+      <pre id="legacy-evidence-reader" class="quiet">This shelf contains typed earlier-wrapper evidence. A human may open one bounded section for the next private turn; the resident may also search and open exact anchors voluntarily during private conversation.</pre>
+      <div class="agency-help">Raw copies stay immutable and human-owned. This resident receives the exact source path, hash, record kind, and a bounded credential-redacted section from their separately granted shelf. Old diagnostics are observations by old software; old autonomous or persona records are documented outputs—not direct memory, present endorsement, or instructions. Nothing is retrieved automatically or without a human-open or resident-authored action.</div>
+      <div id="legacy-evidence-results"></div>
+    </div>
+    <div class="panel" id="anthropic-conversations">
+      <h2>Anthropic conversations</h2>
+      <div class="agency-status"><span class="agency-lamp" id="anthropic-conversation-lamp"></span>
+        <span id="anthropic-conversation-runtime">reading the Anthropic archive boundary…</span></div>
+      <div class="document-controls">
+        <input id="anthropic-conversation-search" class="wide" placeholder="search documented Anthropic conversations">
+        <select id="anthropic-conversation-layer">
+          <option value="dialogue">visible dialogue</option>
+          <option value="technical">technical traces</option>
+        </select>
+        <button id="anthropic-conversation-search-button" type="button">search</button>
+      </div>
+      <div id="anthropic-conversation-status" class="quiet">conversation shelf state has not arrived yet</div>
+      <div class="document-actions">
+        <button id="anthropic-conversation-previous" type="button">previous</button>
+        <span id="anthropic-conversation-progress">no conversation section open</span>
+        <button id="anthropic-conversation-next" type="button">next</button>
+        <button id="anthropic-conversation-bookmark" type="button">bookmark</button>
+      </div>
+      <pre id="anthropic-conversation-reader" class="quiet">This is a resident-private, read-only projection of an Anthropic export. The resident may search and open exact anchors voluntarily during private conversation; a human-opened section is available for one private turn.</pre>
+      <div class="agency-help">The 504 MiB original stays unchanged. Conversation records are preserved separately while readable packets follow message boundaries and adapt to each conversation's size. Visible dialogue and exported technical traces have different labeled layers. Old assistant text, thinking blocks, and tool records are documented source—not direct memory, present introspection, instructions, or proof that a tool succeeded. Nothing is retrieved automatically, written into the live conversation ledger, or bulk-copied into memory.</div>
+      <div id="anthropic-conversation-results"></div>
+    </div>
     <div class="panel" id="memory-observatory">
-      <h2>memory field</h2>
+      <div class="memory-head"><h2>memory field</h2><button id="memory-curation-refresh" type="button">review field</button></div>
       <div class="memory-controls">
         <input id="memory-query" class="wide" placeholder="search content, entity, or id">
         <select id="memory-layer"><option value="">all layers</option></select>
@@ -1013,6 +1296,17 @@
       </div>
       <div id="memory-status" class="quiet">waiting for observatory revision…</div>
       <div id="memory-embedder-status" class="quiet">embedder status arrives with the observatory</div>
+      <details id="memory-curation">
+        <summary>curation workbench · measurements offer attention, never a verdict</summary>
+        <div id="memory-curation-status" class="quiet">curation state has not arrived yet</div>
+        <div class="memory-curation-toolbar">
+          <button id="memory-curation-offer" type="button">offer 8 candidates in resident's next private turn</button>
+          <label><input id="memory-curation-reviewed" type="checkbox">include already reviewed records</label>
+          <span>withdrawal is reversible; permanent delete is unavailable</span>
+          <span>eligible committed quiet also opens one private resident review automatically</span>
+        </div>
+        <div id="memory-curation-candidates"><div class="quiet">open or refresh the workbench to measure candidates</div></div>
+      </details>
       <div id="memory-results"></div>
       <div id="memory-pages"><button id="memory-prev" type="button">previous</button><span class="quiet"></span><button id="memory-next" type="button">next</button></div>
       <div id="memory-drill"><div class="quiet">select a memory for payload and provenance</div></div>
@@ -1072,6 +1366,17 @@
       <div id="interference-live"></div>
       <div id="interference-calibration"></div>
     </div>
+    <div class="panel" id="rest-field-observatory">
+      <h2>rest-source laboratory</h2>
+      <div class="interference-boundary"><span class="interference-lamp"></span>
+        <span id="rest-monitor-boundary">ENGINE STATUS LOADING</span></div>
+      <div id="rest-monitor-status" class="quiet">waiting for calibration receipts…</div>
+      <div id="rest-monitor-field"></div>
+      <div id="rest-monitor-sources"></div>
+      <div id="rest-monitor-integrity"></div>
+      <div id="rest-monitor-relations"></div>
+      <div id="rest-monitor-gate"></div>
+    </div>
     <div class="panel" id="play-drive-observatory" hidden>
       <h2>play drive</h2>
       <div class="interference-boundary"><span class="interference-lamp"></span>
@@ -1090,9 +1395,21 @@
       <div id="sensations" class="chips"></div>
       <div id="bodytext" class="felt"></div>
     </div>
+    <div class="panel" id="recent-actions-panel">
+      <div class="recent-actions-head">
+        <h2>recent actions</h2>
+        <button id="recent-actions-refresh" type="button">refresh</button>
+      </div>
+      <div class="quiet">text-only body and world receipts; repeated routine movement is folded</div>
+      <div id="recent-actions-list"><div class="quiet">no recent actions yet</div></div>
+    </div>
     <div class="panel" id="last-turn-signals">
       <h2>last turn signals</h2>
       <div id="signals"><div class="quiet">—</div></div>
+    </div>
+    <div class="panel collapsed" id="receipts-panel">
+      <div class="panel-heading"><h2>receipts</h2><button class="collapse-toggle" id="receiptsToggle" type="button" aria-expanded="false">show</button></div>
+      <div class="collapsible-content" id="receipts"><div class="quiet">no turns yet</div></div>
     </div>
     <div class="panel" id="organs-panel">
       <h2>organs</h2>
@@ -1199,6 +1516,17 @@
         <label><span id="personaColorLabel">persona</span><input type="color" id="themePersona"></label>
         <label><span id="userIconLabel">local user glyph</span><input type="text" maxlength="16" id="themeUserIcon"></label>
         <label><span id="personaIconLabel">persona icon</span><input type="text" maxlength="16" id="themePersonaIcon"></label>
+        <div class="appearance-subhead"><span id="personaAvatarLabel">persona portrait</span></div>
+        <div class="background-upload avatar-upload">
+          <div class="avatar-upload-row">
+            <div id="themePersonaAvatarPreview" class="appearance-avatar-preview" aria-label="Current resident portrait"></div>
+            <div class="avatar-upload-controls">
+              <input type="file" id="themePersonaAvatarFile" accept="image/png,image/jpeg,image/webp,image/gif" aria-label="Choose a resident avatar image">
+              <button type="button" id="themePersonaAvatarUpload">Upload avatar</button>
+            </div>
+          </div>
+          <div id="themePersonaAvatarStatus">PNG, JPEG, WebP, or GIF · up to 8 MiB · stored locally with this resident.</div>
+        </div>
         <label>roundness<input type="range" min="0" max="28" step="1" id="themeRadius"></label>
         <label>glow<input type="range" min="0" max="1" step=".05" id="themeGlow"></label>
         <label>outer background image opacity<input type="range" min="0" max="1" step=".05" id="themeBackgroundOpacity"></label>
@@ -1219,7 +1547,7 @@
           <div id="themeConversationAreaStatus">PNG, JPEG, WebP, or GIF · up to 12 MB. Opacity changes only this inner picture layer, never the message cards.</div>
         </div>
       </div>
-      <p class="muted" style="margin:7px 0 0">Colors preview beside the conversation. Uploaded portraits live under Household → change look; these glyphs are their fallback.</p>
+      <p class="muted" style="margin:7px 0 0">Colors and glyphs preview beside the conversation. An uploaded portrait becomes the resident's visible mark; their glyph remains its fallback.</p>
       <div class="appearance-checks">
         <label><input type="checkbox" id="themeReactive"> state-reactive</label>
         <label><input type="checkbox" id="themeReduce"> reduce motion</label>
@@ -1237,6 +1565,21 @@
     </div>
   </div>
 </main>
+<div id="writing-modal" role="dialog" aria-modal="true"
+     aria-labelledby="writing-modal-title" aria-describedby="writing-modal-meta"
+     aria-hidden="true">
+  <div class="writing-modal-dialog">
+    <div class="writing-modal-head">
+      <div class="writing-modal-heading">
+        <div id="writing-modal-title">Writing</div>
+        <div id="writing-modal-meta"></div>
+      </div>
+      <button id="writing-modal-close" type="button"
+              aria-label="Close writing">close</button>
+    </div>
+    <div id="writing-modal-body" role="document" tabindex="0"></div>
+  </div>
+</div>
 <div id="atelier-lightbox" role="dialog" aria-modal="true"
      aria-labelledby="atelier-lightbox-title" aria-hidden="true">
   <div class="atelier-lightbox-dialog">
@@ -1251,10 +1594,24 @@
 <script>
 const CONFIG = /*CONFIG*/;
 const PRIMARY_USER = CONFIG.primary_user || "User";
+const CREATIVE_QUERY = new URLSearchParams(location.search);
+const CREATIVE_SURFACE_REQUESTED = CREATIVE_QUERY.get("surface") === "creative";
+const CREATIVE_HOUSEHOLD_EMBED = CREATIVE_QUERY.get("embedded") === "household";
+let CREATIVE_SEEN_AT = Math.max(0, Number(CREATIVE_QUERY.get("seen")) || 0);
+let creativeViewedQuery=[];
+try{const parsed=JSON.parse(CREATIVE_QUERY.get("viewed")||"[]");if(Array.isArray(parsed))creativeViewedQuery=parsed}catch(_error){}
+const CREATIVE_VIEWED_IDS = new Set(creativeViewedQuery.map(String).filter(Boolean));
 const $ = id => document.getElementById(id);
 const BANDS = ["delta","theta","alpha","beta","gamma"];
 let currentPersona = "persona", currentModel = "", themeDoc = null;
 let currentTheme = null, currentPreview = null, lastState = null;
+let creativeViewOpen = CREATIVE_SURFACE_REQUESTED;
+let creativeFilter = "all";
+let creativeAtelierItems = [];
+let creativeWritingItems = [];
+document.body.dataset.creativeView = String(creativeViewOpen);
+document.body.dataset.creativeFilter = creativeFilter;
+document.body.dataset.creativeHouseholdEmbed = String(CREATIVE_HOUSEHOLD_EMBED);
 let presetDirty = false;
 let userPersonas = [];
 const themeDirty = new Set();
@@ -1288,6 +1645,7 @@ function selectedUserPersona() {
   const persona=userPersonas.find(item=>item.id===id);
   return {id:id||"",name:persona?.name||PRIMARY_USER};
 }
+const escapeOption=value=>String(value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/\"/g,"&quot;");
 function paintUserPersonaChoice() {
   $("speaker-choice-note").textContent=selectedUserPersona().id
     ? "RP details active · canonical bedrock sheathed"
@@ -1298,7 +1656,6 @@ async function loadUserPersonas() {
   if(!response.ok||result.error)throw new Error(result.error||response.statusText);
   userPersonas=result.personas||[];
   const select=$("user-persona"),wanted=localStorage.getItem(userPersonaStorageKey())||"";
-  const escapeOption=value=>String(value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/\"/g,"&quot;");
   select.innerHTML='<option value="">Yourself</option>'+userPersonas.map(item=>
     `<option value="${escapeOption(item.id)}">${escapeOption(item.name)}</option>`).join("");
   select.value=userPersonas.some(item=>item.id===wanted)?wanted:"";
@@ -1386,6 +1743,7 @@ function applyTheme(tokens) {
   root.style.setProperty("--font-display",themeFontStack(tokens.font));
   document.body.dataset.background = tokens.background;
   document.body.dataset.conversationAreaBackground = tokens.conversation_area_background||"none";
+  window.JNSQThemeSurface?.apply(tokens);
   restyleMessages(); applyAccessibility();
   if (lastState) applyReactiveState(lastState);
 }
@@ -1456,9 +1814,16 @@ function fillAppearance(tokens) {
     || namedValue(tokens.speaker_icons||{},currentPersona) || personaLabel().slice(0,1);
   $("personaColorLabel").textContent=personaLabel();
   $("personaIconLabel").textContent=personaLabel()+" icon";
+  $("personaAvatarLabel").textContent=personaLabel()+" portrait";
   $("userColorLabel").textContent=PRIMARY_USER;
   $("userIconLabel").textContent=PRIMARY_USER+" glyph";
+  paintPersonaAvatarPreview();
   window.JNSQHexColors?.sync();
+}
+
+function paintPersonaAvatarPreview() {
+  const preview=$("themePersonaAvatarPreview");if(!preview)return;
+  paintAvatar(preview,speakerMeta(personaLabel(),"persona"));
 }
 
 function readControl(id) {
@@ -1486,14 +1851,29 @@ function previewControl(id) {
 
 function applyConversationBackground(media) {
   document.documentElement.style.setProperty("--conversation-background",media?.url?`url("${media.url}?v=${encodeURIComponent(media.revision||"0")}")`:"none");
-  if ($("themeBackgroundStatus") && media)
-    $("themeBackgroundStatus").textContent="Background image ready. Choose ‘uploaded image’, set its opacity, then Save for the scope you want.";
+  if ($("themeBackgroundStatus"))
+    $("themeBackgroundStatus").textContent=media
+      ?`${personaLabel()}’s outer image is ready.`
+      :`No outer image is stored for ${personaLabel()}. Uploads here belong only to this resident.`;
 }
 
 function applyConversationAreaBackground(media) {
   document.documentElement.style.setProperty("--conversation-area-background",media?.url?`url("${media.url}?v=${encodeURIComponent(media.revision||"0")}")`:"none");
-  if ($("themeConversationAreaStatus") && media)
-    $("themeConversationAreaStatus").textContent="Inner image ready. Choose ‘uploaded image’, set its opacity, then Save for the scope you want.";
+  if ($("themeConversationAreaStatus"))
+    $("themeConversationAreaStatus").textContent=media
+      ?`${personaLabel()}’s inner image is ready.`
+      :`No inner image is stored for ${personaLabel()}. Uploads here belong only to this resident.`;
+}
+
+async function savePersonaBackgroundSelection(key,value) {
+  const res=await fetch("/api/theme",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({scope:"persona",patch:{tokens:{[key]:value}},reset:false,replace:false})});
+  const r=await res.json();
+  if(!res.ok||r.error)throw new Error(r.error||res.statusText);
+  themeDoc=r;currentTheme=clone(r.tokens);
+  currentPreview={...(currentPreview||clone(r.tokens)),[key]:value};
+  themeDirty.delete(key);applyTheme(currentPreview);
+  return true;
 }
 
 async function uploadThemeBackground() {
@@ -1503,19 +1883,17 @@ async function uploadThemeBackground() {
   try{
     const data_url=await fileDataUrl(file);const response=await fetch("/api/ui/conversation-background",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({data_url})});
     const media=await response.json();if(!response.ok||media.error)throw new Error(media.error||response.statusText);
-    applyConversationBackground(media);currentPreview.background="image";$("themeBackground").value="image";themeDirty.add("background");applyTheme(currentPreview);
-    const saved=await saveAppearance(false);
-    $("themeBackgroundStatus").textContent=saved
-      ?`Image uploaded and ${$("themeScope").value} appearance saved.`
-      :"Image uploaded, but appearance settings did not save. Use Save to retry.";
+    applyConversationBackground(media);$("themeBackground").value="image";
+    await savePersonaBackgroundSelection("background","image");
+    $("themeBackgroundStatus").textContent=`Outer image uploaded for ${personaLabel()} only.`;
   }catch(error){$("themeBackgroundStatus").textContent=error.message}finally{button.disabled=false}
 }
 
 async function removeThemeBackground() {
   const button=$("themeBackgroundRemove");button.disabled=true;
   try{const response=await fetch("/api/ui/conversation-background",{method:"DELETE"});const result=await response.json();if(!response.ok||result.error)throw new Error(result.error||response.statusText);
-    applyConversationBackground(null);if(currentPreview.background==="image"){currentPreview.background="none";$("themeBackground").value="none";themeDirty.add("background");applyTheme(currentPreview)}
-    $("themeBackgroundFile").value="";$("themeBackgroundStatus").textContent=result.removed?"Background image removed. Save if you want this scope set to ‘none’.":"There was no uploaded background image to remove.";
+    applyConversationBackground(null);$("themeBackground").value="none";await savePersonaBackgroundSelection("background","none");
+    $("themeBackgroundFile").value="";$("themeBackgroundStatus").textContent=result.removed?`Outer image removed for ${personaLabel()} only.`:"There was no uploaded outer image for this resident.";
   }catch(error){$("themeBackgroundStatus").textContent=error.message}finally{button.disabled=false}
 }
 
@@ -1526,20 +1904,46 @@ async function uploadThemeConversationAreaBackground() {
   try{
     const data_url=await fileDataUrl(file);const response=await fetch("/api/ui/conversation-area-background",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({data_url})});
     const media=await response.json();if(!response.ok||media.error)throw new Error(media.error||response.statusText);
-    applyConversationAreaBackground(media);currentPreview.conversation_area_background="image";$("themeConversationAreaBackground").value="image";themeDirty.add("conversation_area_background");applyTheme(currentPreview);
-    const saved=await saveAppearance(false);
-    $("themeConversationAreaStatus").textContent=saved
-      ?`Inner image uploaded and ${$("themeScope").value} appearance saved.`
-      :"Inner image uploaded, but appearance settings did not save. Use Save to retry.";
+    applyConversationAreaBackground(media);$("themeConversationAreaBackground").value="image";
+    await savePersonaBackgroundSelection("conversation_area_background","image");
+    $("themeConversationAreaStatus").textContent=`Inner image uploaded for ${personaLabel()} only.`;
   }catch(error){$("themeConversationAreaStatus").textContent=error.message}finally{button.disabled=false}
 }
 
 async function removeThemeConversationAreaBackground() {
   const button=$("themeConversationAreaRemove");button.disabled=true;
   try{const response=await fetch("/api/ui/conversation-area-background",{method:"DELETE"});const result=await response.json();if(!response.ok||result.error)throw new Error(result.error||response.statusText);
-    applyConversationAreaBackground(null);if(currentPreview.conversation_area_background==="image"){currentPreview.conversation_area_background="none";$("themeConversationAreaBackground").value="none";themeDirty.add("conversation_area_background");applyTheme(currentPreview)}
-    $("themeConversationAreaFile").value="";$("themeConversationAreaStatus").textContent=result.removed?"Inner image removed. Save if you want this scope set to ‘none’.":"There was no conversation-area image to remove.";
+    applyConversationAreaBackground(null);$("themeConversationAreaBackground").value="none";await savePersonaBackgroundSelection("conversation_area_background","none");
+    $("themeConversationAreaFile").value="";$("themeConversationAreaStatus").textContent=result.removed?`Inner image removed for ${personaLabel()} only.`:"There was no uploaded inner image for this resident.";
   }catch(error){$("themeConversationAreaStatus").textContent=error.message}finally{button.disabled=false}
+}
+
+async function uploadPersonaAvatar() {
+  const file=$("themePersonaAvatarFile").files?.[0];
+  const button=$("themePersonaAvatarUpload"),status=$("themePersonaAvatarStatus");
+  if(!file){status.textContent="Choose a PNG, JPEG, WebP, or GIF first.";return}
+  button.disabled=true;status.textContent=`Uploading ${file.name}…`;
+  try{
+    const response=await fetch("/api/avatar",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({data_url:await fileDataUrl(file)})});
+    const result=await response.json();if(!response.ok||result.error)throw new Error(result.error||response.statusText);
+    CONFIG.persona_avatar=result.avatar_url;paintPersonaAvatarPreview();restyleMessages();
+    $("themePersonaAvatarFile").value="";
+    status.textContent=`${personaLabel()} portrait saved locally and applied.`;
+    if(window.parent!==window)window.parent.postMessage({type:"jnsq-theme-refresh",
+      scope:"persona-presentation",persona:CONFIG.persona,content_free:true},"*");
+  }catch(error){status.textContent=`Avatar did not change: ${error.message||error}`}
+  finally{button.disabled=false}
+}
+
+function presetOptions(doc) {
+  const assigned=new Set(),custom=new Set(doc.custom_presets||[]);
+  const group=(label,ids)=>{const options=(ids||[]).filter(id=>doc.presets?.[id]!==undefined)
+    .map(id=>{assigned.add(id);return `<option value="${escapeOption(id)}">${escapeOption(doc.presets[id])}</option>`}).join("");
+    return options?`<optgroup label="${escapeOption(label)}">${options}</optgroup>`:"";};
+  let html=Object.entries(doc.preset_collections||{}).map(([label,ids])=>group(label,ids)).join("");
+  html+=group("JNSQ collection",Object.keys(doc.presets||{}).filter(id=>!assigned.has(id)&&!custom.has(id)));
+  html+=group("Custom",doc.custom_presets||[]);return html;
 }
 
 async function fetchTheme(note="") {
@@ -1550,8 +1954,7 @@ async function fetchTheme(note="") {
   currentTheme=clone(r.tokens); currentPreview=clone(r.tokens);
   applyConversationBackground(r.conversation_background);
   applyConversationAreaBackground(r.conversation_area_background);
-  $("themePreset").innerHTML=Object.entries(r.presets)
-    .map(([id,label])=>`<option value="${id}">${label}</option>`).join("");
+  $("themePreset").innerHTML=presetOptions(r);
   $("themePreset").value=r.preset; fillAppearance(currentPreview);
   presetDirty=false; themeDirty.clear(); applyTheme(currentPreview);
   $("themenote").textContent=note||`resolved ${r.preset} · household → ${currentPersona} → ${currentModel}`;
@@ -1573,8 +1976,9 @@ async function saveAppearance(reset=false) {
     body:JSON.stringify({scope,patch,reset,replace:presetDirty})});
   const r=await res.json();
   if (!res.ok||r.error) { $("themenote").textContent="⚠ "+(r.error||res.statusText); return false; }
-  if (scope === "household" && window.parent !== window)
-    window.parent.postMessage({type:"jnsq-theme-refresh"},"*");
+  if (window.parent !== window)
+    window.parent.postMessage({type:"jnsq-theme-refresh",scope,
+      persona:currentPersona,content_free:true},"*");
   await fetchTheme(reset ? `reset ${scope} layer` : `saved ${scope} layer`);
   return true;
 }
@@ -1601,6 +2005,13 @@ function bindAppearance() {
   $("themeBackgroundRemove").onclick=removeThemeBackground;
   $("themeConversationAreaUpload").onclick=uploadThemeConversationAreaBackground;
   $("themeConversationAreaRemove").onclick=removeThemeConversationAreaBackground;
+  $("themePersonaAvatarUpload").onclick=uploadPersonaAvatar;
+  $("themePersonaAvatarFile").addEventListener("change",()=>{
+    const file=$("themePersonaAvatarFile").files?.[0];
+    $("themePersonaAvatarStatus").textContent=file
+      ?`Selected ${file.name} · upload to apply it everywhere.`
+      :"PNG, JPEG, WebP, or GIF · up to 8 MiB · stored locally with this resident.";
+  });
 }
 
 function bars(el, entries, max=1, color=null) {
@@ -1745,14 +2156,23 @@ async function alteredAction(action){
 function renderState(st) {
   currentPersona=st.display_name||st.persona||currentPersona;
   currentModel=st.model||currentModel;
+  if(/^[a-zA-Z0-9_-]{8,180}$/.test(st.conversation_thread_id||""))
+    localStorage.setItem(CONVERSATION_THREAD_KEY,st.conversation_thread_id);
   const nextVoice=st.voice_output_config||{};
   if(!voiceOutputHydrated||voiceConfigSignature(nextVoice)!==voiceConfigSignature(voiceOutputConfig))
     applyVoiceOutputConfig(nextVoice);
   $("who").textContent =
     `${st.persona} on ${st.model} · contract v${st.contract_version} · ${st.memory_count} memories`;
+  const outcomeStatus=st.autonomous_outcomes||{},outcomeCounts=outcomeStatus.counts||{};
+  const openOutcomes=Number(outcomeCounts.open||0)+Number(outcomeCounts.held||0);
+  const activeOutcomeThreads=Number(outcomeStatus.active_conversation_threads||0);
+  $("autonomous-outcome-status").textContent=outcomeStatus.status==="unavailable"
+    ?"autonomous outcome circulation · unavailable"
+    :`autonomous outcome circulation · ${openOutcomes} open consequence${openOutcomes===1?"":"s"} · ${activeOutcomeThreads} active conversation path${activeOutcomeThreads===1?"":"s"} · resident chooses delivery`;
   bars($("cocktail"),
        Object.entries(st.cocktail||{}).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k,v]));
   renderAlteredState(st.altered_state);
+  renderActionTurnRequest(st.action_turns);
   if(st.documents)renderDocumentLibrary(st.documents);
   if(st.archive)renderArchive(st.archive);
   if(st.mcp_library)renderMCPLibrary(st.mcp_library);
@@ -1779,8 +2199,72 @@ function renderState(st) {
       .map(s=>`<span class="chip">${s}</span>`).join("");
     $("bodytext").textContent = st.body||"";
   }
+  renderRecentActions(st.recent_actions||[]);
   applyReactiveState(st);
   syncConversation(st.conversation_window || []);
+}
+
+function renderRecentActions(actions){
+  const host=$("recent-actions-list");host.replaceChildren();
+  if(!actions.length){
+    const quiet=document.createElement("div");quiet.className="quiet";
+    quiet.textContent="no recent body or world actions yet";
+    host.appendChild(quiet);return
+  }
+  for(const action of actions){
+    const row=document.createElement("div");
+    row.className=`recent-action${action.pronounced?" pronounced":""}`;
+    const summary=document.createElement("div");
+    summary.className="recent-action-summary";
+    summary.textContent=action.summary||"an action completed";
+    const meta=document.createElement("div");meta.className="recent-action-meta";
+    const stamp=action.at?new Date(action.at):null;
+    const when=stamp&&!Number.isNaN(stamp.valueOf())
+      ?stamp.toLocaleString([], {month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})
+      :"time unavailable";
+    const source=action.source==="conversation"?"in conversation":"autonomous";
+    const folded=Number(action.repeat_count||1)>1
+      ?` · ${Number(action.repeat_count)} similar routine actions folded`:"";
+    meta.textContent=`${when} · ${source} · ${action.status||"completed"}${folded}`;
+    row.append(summary,meta);host.appendChild(row)
+  }
+}
+
+function renderActionTurnRequest(status){
+  const host=$("action-turn-request"),request=status?.pending;
+  const capacity=$("action-turn-capacity"),ready=status?.system_state==="ready";
+  capacity.className=`action-turn-capacity ${ready||request?"ready":"held"}`;
+  if(request){
+    capacity.textContent=`room curiosity turns · awaiting your choice · ${Number(status.block_turn_limit||5)} maximum per granted block`;
+  }else if(ready){
+    const route=status.local_model?` · local reserve ${status.local_model}`:" · verified local reserve";
+    capacity.textContent=`room curiosity turns · ready · ${Number(status.block_turn_limit||5)} maximum per block${route} · no request waiting`;
+  }else{
+    capacity.textContent=`room curiosity turns · held · no verified local reserve route`;
+  }
+  host.hidden=!request;
+  if(!request)return;
+  const turns=Number(request.requested_turns||5);
+  $("action-turn-request-title").textContent=`${currentPersona||"The resident"} is asking for another room-action block`;
+  $("action-turn-request-copy").textContent=`Approve up to ${turns} optional local turns. This adds capacity; it does not ask them to use it.`;
+  $("action-turn-approve").textContent=`approve ${turns}`;
+  $("action-turn-approve").disabled=false;
+  $("action-turn-decline").disabled=false;
+}
+
+async function resolveActionTurns(decision){
+  const approve=$("action-turn-approve"),decline=$("action-turn-decline");
+  approve.disabled=true;decline.disabled=true;
+  try{
+    const response=await fetch("/api/action-turns/resolve",{method:"POST",
+      headers:{"Content-Type":"application/json"},body:JSON.stringify({decision})});
+    const result=await response.json();
+    if(!response.ok)throw new Error(result.error||response.statusText);
+    await fetchState();
+  }catch(error){
+    $("action-turn-request-copy").textContent=`Could not ${decision}: ${error.message||error}`;
+    approve.disabled=false;decline.disabled=false;
+  }
 }
 
 function interferenceNumber(value,digits=4){
@@ -1834,8 +2318,76 @@ async function fetchInterferenceCalibration(){
   }catch(error){target.innerHTML='<div class="quiet">replay calibration unavailable</div>'}
 }
 
-let salienceStream=null,salienceSelected=null;
+function restMonitorNumber(value,digits=3){
+  const number=Number(value);return Number.isFinite(number)?number.toFixed(digits):"—"
+}
+function restMonitorDuration(seconds){
+  const value=Number(seconds);if(!Number.isFinite(value))return "—";
+  if(value<120)return `${value.toFixed(1)}s`;
+  if(value<7200)return `${(value/60).toFixed(1)}m`;
+  return `${(value/3600).toFixed(1)}h`
+}
+async function fetchRestFieldCalibration(){
+  const status=$("rest-monitor-status"),sourcesHost=$("rest-monitor-sources"),
+    integrityHost=$("rest-monitor-integrity"),relationsHost=$("rest-monitor-relations"),
+    gateHost=$("rest-monitor-gate"),fieldHost=$("rest-monitor-field"),
+    boundaryHost=$("rest-monitor-boundary");
+  try{
+    const response=await fetch("/api/rest-field/calibration"),value=await response.json();
+    if(!response.ok||!value.available){
+      status.textContent=value.reason||"rest calibration unavailable";
+      sourcesHost.innerHTML=integrityHost.innerHTML=relationsHost.innerHTML=gateHost.innerHTML=fieldHost.innerHTML="";return
+    }
+    const stream=value.stream||{},coverage=value.coverage||{},runtime=value.runtime||{},
+      gate=value.evidence_gate||{},cycle=value.cycle_integrity||{},
+      manifest=value.experiment_manifest||{},labGate=value.lab_gate||{},
+      junction=value.junction_history||{},field=runtime.field||{};
+    const conductScope=(labGate.downstream_scope||[])
+      .map(item=>String(item).replaceAll("_"," ")).join(" + ");
+    boundaryHost.textContent=labGate.engine_phase==="bounded_conduct"
+      ?`BOUNDED CONDUCT · ${conductScope||"NO AUTHORIZED JUNCTION"} · ROLLBACK BYPASS`
+      :labGate.engine_phase==="shadow"
+        ?"SHADOW ENGINE · NO DOWNSTREAM INFLUENCE"
+        :labGate.engine_phase==="authorization_mismatch"
+          ?"AUTHORIZATION MISMATCH · NO DOWNSTREAM INFLUENCE"
+        :"CALIBRATION · NO DOWNSTREAM INFLUENCE";
+    status.textContent=`${stream.receipt_count||0} content-free receipts · ${restMonitorDuration(stream.observed_span_s)} observed · runtime ${runtime.mode||"unknown"}`;
+    const dimensionCards=Object.entries(field.dimensions||{}).map(([name,value])=>`<div class="interference-cell"><b>${name.replaceAll("_"," ")}</b><span>${restMonitorNumber(value,4)}</span>${interferenceBar(value,1)}</div>`).join("");
+    fieldHost.innerHTML=`<div class="interference-grid">${dimensionCards}</div><div class="interference-meta">field events ${field.event_count||0} · junction opportunities ${junction.receipt_count||0} · applied ${junction.applied_count||0} · latest Δ ${restMonitorNumber(junction.latest?Number(junction.latest.output)-Number(junction.latest.baseline):null,5)}</div>`;
+    const sourceCards=Object.entries(value.sources||{}).map(([name,source])=>{
+      const metrics=Object.entries(source.metrics||{}).slice(0,3).map(([metric,detail])=>{
+        const distribution=detail.distribution||{},drift=detail.drift||{};
+        const delta=drift.median_delta===undefined?"":` · half Δ ${restMonitorNumber(drift.median_delta)}`;
+        return `<div class="calibration-scales">${metric.replaceAll("_"," ")} · n ${distribution.count||0} · p50 ${restMonitorNumber(distribution.p50)}${delta}</div>`
+      }).join("");
+      return `<div class="calibration-family"><b>${name.replaceAll("_"," ")}</b><div class="calibration-scales">${source.receipt_count||0} receipts · ${source.unavailable_count||0} unavailable</div>${metrics}</div>`
+    }).join("");
+    sourcesHost.innerHTML=`<div class="interference-meta">coverage ${(coverage.observed_sources||[]).length}/${(coverage.expected_sources||[]).length} · duplicates ${stream.duplicate_count||0} · rejected non-content-free ${stream.excluded_not_content_free||0}</div>${sourceCards}`;
+    integrityHost.innerHTML=`<div class="calibration-family"><b>cycle integrity</b><div class="calibration-scales">${cycle.completed_cycle_count||0} completed · ${cycle.failed_cycle_count||0} explicitly failed · ${cycle.open_or_interrupted_cycle_count||0} open/unknown · ${cycle.completed_cycles_with_missing_boundaries||0} successful with missing boundaries</div></div>`;
+    const relationships=(value.relationships?.relationships||[]).slice(0,6);
+    relationsHost.innerHTML=`<div class="calibration-family"><b>exploratory lag scan · not a candidate</b>${relationships.length?relationships.map(item=>`<div class="calibration-scales">${item.left.replaceAll("_"," ")} ↔ ${item.right.replaceAll("_"," ")} · lag ${item.selected_lag_cycles} · r ${restMonitorNumber(item.correlation)} · circular-shift p ${restMonitorNumber(item.control?.add_one_upper_tail_probability)}</div>`).join(""):"<div class=\"calibration-scales\">not enough paired variation yet</div>"}</div>`;
+    const manifestLine=manifest.valid
+      ?`frozen candidate ${String(manifest.candidate_hash||"").slice(0,12)} · cutoff ${restMonitorNumber(manifest.discovery_cutoff_at,0)}`
+      :`candidate manifest ${manifest.status||"absent"} · ${(manifest.errors||[]).join(", ").replaceAll("_"," ")}`;
+    const discoveryLine=labGate.engine_phase==="bounded_conduct"
+      ?"historical discovery replay remains descriptive; frozen controls govern this candidate"
+      :(gate.reasons||[]).filter(reason=>reason!=="candidate_not_preregistered").map(reason=>reason.replaceAll("_"," ")).join("<br>");
+    gateHost.innerHTML=`<div class="calibration-family"><b>${gate.monitoring_ready?"monitoring online":"monitor gathering"} · engine ${labGate.engine_phase||"unknown"}</b><div class="calibration-scales">${manifestLine}<br>${discoveryLine}</div><div class="interference-meta">fixed timer/turn threshold ${gate.fixed_time_or_turn_threshold_used?"used":"not used"} · conduct ${labGate.conduct_authorized?"bounded and armed":"disarmed"} · authorization ${(labGate.authorization_source||"unavailable").replaceAll("_"," ")} · rollback ${labGate.rollback_mode||"bypass"}</div></div>`;
+  }catch(error){status.textContent="rest calibration monitor unavailable"}
+}
+
+let salienceStream=null,outcomeStream=null,salienceSelected=null;
+const CONVERSATION_THREAD_KEY="jnsq.private-conversation-thread.v1";
+function conversationThreadId(){
+  let value=localStorage.getItem(CONVERSATION_THREAD_KEY)||"";
+  if(!/^[a-zA-Z0-9_-]{8,180}$/.test(value)){
+    value=`thread_${crypto.randomUUID().replaceAll("-","")}`;
+    localStorage.setItem(CONVERSATION_THREAD_KEY,value)
+  }
+  return value
+}
 let presentationRefreshInFlight=null,presentationRefreshDirty=false;
+let outcomeRefreshInFlight=null,outcomeRefreshDirty=false;
 function salienceSlug(){return String(lastState?.persona||currentPersona||"").toLowerCase()}
 function componentColor(name){let hash=0;for(const ch of String(name))
   hash=((hash<<5)-hash+ch.charCodeAt(0))|0;
@@ -1950,9 +2502,48 @@ function startSalienceStream(){
   salienceStream.onerror=()=>{$("salience-status").textContent="observatory event stream unavailable"};
 }
 
+function startOutcomeStream(){
+  if(outcomeStream){outcomeStream.close();outcomeStream=null}
+  if(!hostPresentationActive())return;
+  const threadId=conversationThreadId();
+  outcomeStream=new EventSource(
+    `/api/autonomous-outcomes/events?thread_id=${encodeURIComponent(threadId)}`);
+  outcomeStream.onopen=()=>fetch("/api/autonomous-outcomes/presence",{
+    method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({thread_id:threadId,present:true})}).catch(()=>{});
+  outcomeStream.onmessage=()=>refreshOutcomeState();
+  outcomeStream.onerror=()=>{};
+}
+
+function refreshOutcomeState(){
+  if(outcomeRefreshInFlight){
+    outcomeRefreshDirty=true;
+    return outcomeRefreshInFlight
+  }
+  outcomeRefreshDirty=false;
+  outcomeRefreshInFlight=fetchState().catch(()=>{}).finally(()=>{
+    outcomeRefreshInFlight=null;
+    if(outcomeRefreshDirty)refreshOutcomeState()
+  });
+  return outcomeRefreshInFlight
+}
+
+function stopOutcomeStream(){
+  if(outcomeStream){outcomeStream.close();outcomeStream=null}
+  const body=JSON.stringify({thread_id:conversationThreadId(),present:false});
+  if(navigator.sendBeacon){
+    navigator.sendBeacon("/api/autonomous-outcomes/presence",
+      new Blob([body],{type:"application/json"}))
+  }else{
+    fetch("/api/autonomous-outcomes/presence",{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body,keepalive:true}).catch(()=>{})
+  }
+}
+
 function hostPresentationActive(){
-  return window.parent===window||
-    document.body.dataset.hostPresentation==="visible";
+  return !document.hidden&&(window.parent===window||
+    document.body.dataset.hostPresentation==="visible");
 }
 
 function presentationRefreshes(){
@@ -1960,7 +2551,8 @@ function presentationRefreshes(){
     fetchState(),refreshSalience(),refreshMemoryPanel(),
     refreshAutonomousWorks(),refreshAgency(),refreshIntentionLoom(),
     refreshWritingDesk(),refreshPrivateJournal(),refreshAtelier(),
-    refreshResearchDesk(),refreshDocuments(),refreshArchive()
+    refreshResearchDesk(),refreshScenarioLab(),refreshDocuments(),refreshArchive(),
+    refreshLegacyEvidence(),refreshAnthropicConversations()
   ];
 }
 
@@ -1984,10 +2576,12 @@ function syncHostPresentationRuntime(){
   if(hostPresentationActive()){
     schedulePresentationRefresh();
     startSalienceStream();
+    startOutcomeStream();
     return;
   }
   presentationRefreshDirty=false;
   if(salienceStream){salienceStream.close();salienceStream=null}
+  stopOutcomeStream();
   document.body.dataset.presentationStream="closed";
   stopAtelierCanvasLoops();
   stopAtelier3DLoops();
@@ -2061,6 +2655,17 @@ function renderAutonomySummary(){
     [summary.failed_events||0,"failed safely"],
     [summary.model_requests||0,"model requests"],
   ];
+  if(summary.api_deliberation_enabled){
+    const balance=Number(summary.api_credit_balance||0),capacity=Number(summary.api_credit_capacity||0);
+    stats.push([`${balance.toFixed(2)} / ${capacity.toFixed(0)}`,"API credits"]);
+    stats.push([summary.api_episodes_remaining||0,"API episodes left"]);
+    stats.push([Number(summary.api_tokens_remaining||0).toLocaleString(),"API tokens left"])
+  }
+  const appetites=summary.activity_appetite||{};
+  (summary.activity_modes_available||[]).slice(0,3).forEach(mode=>{
+    const pull=Math.max(0,Math.min(1,Number(appetites[mode]||0)));
+    stats.push([`${Math.round(pull*100)}%`,`${mode} pull`])
+  });
   stats.forEach(([value,label])=>{
     const card=document.createElement("div");card.className="autonomy-stat";
     const amount=document.createElement("div");amount.className="autonomy-stat-value";amount.textContent=String(value);
@@ -2094,6 +2699,10 @@ async function refreshAutonomousWorks(){
     const settled=autonomousWorksState.filter(work=>work.stage==="settled").length;
     const waiting=autonomousWorksState.filter(work=>work.stage==="waiting").length;
     $("autonomous-works-note").textContent=`${settled} settled work${settled===1?"":"s"} · ${waiting} waiting in the shared field · automatic private index`;
+    if(autonomousSummary.api_deliberation_enabled)
+      $("autonomous-works-note").textContent+=` · bounded ${autonomousSummary.api_deliberation_model} deliberation with local fallback`;
+    if((autonomousSummary.activity_modes_available||[]).length)
+      $("autonomous-works-note").textContent+=` · lived balance: ${autonomousSummary.activity_modes_available.join(", ")}`;
     if((result.unavailable||[]).length)
       $("autonomous-works-note").textContent+=` · ${(result.unavailable||[]).length} store${result.unavailable.length===1?"":"s"} unavailable`;
   }catch(error){$("autonomous-works-note").textContent=`private shelf unavailable: ${error.message||error}`;
@@ -2165,7 +2774,12 @@ async function openIntention(intentionId){
     const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
     drill.classList.remove("quiet");
     const range=Array.isArray(result.uncertainty)?result.uncertainty.map(value=>Number(value).toFixed(2)).join("–"):"unknown";
-    drill.textContent=`${result.title||"untitled"}\n\n${result.statement||""}\n\nstate: ${result.state||"unknown"}\nuncertainty: ${range}\nrevisions: ${result.revision_count||1}\nlast observed basis: ${result.basis||"not recorded"}`;
+    const attention=result.attention||{},activity=result.activity||{},project=result.project_loom_shadow||{};
+    const held=(project.held_reasons||[]).join(", ").replaceAll("_"," ");
+    const failure=activity.last_failure_code
+      ?`${activity.last_failure_stage||"contract"} / ${activity.last_failure_code}`.replaceAll("_"," ")
+      :Number(activity.contract_discrepancies||0)>0?"uncategorized legacy receipt":"none";
+    drill.textContent=`${result.title||"untitled"}\n\n${result.statement||""}\n\nstate: ${result.state||"unknown"}\nuncertainty: ${range}\nrevisions: ${result.revision_count||1}\nattention exposures: ${attention.exposures||0}\nattention wins: ${attention.selections||0}\ndurable movements: ${activity.durable_movements||0}\nquiet encounters: ${activity.quiet_encounters||0}\ncontract failures: ${activity.contract_discrepancies||0}\nlast outcome: ${activity.last_outcome||"none"}\nlast contract failure: ${failure}\nprivate project: ${project.eligible?"available after a genuine win":`held · ${held||"current state"}`}\nlast observed basis: ${result.basis||"not recorded"}`;
   }catch(error){drill.classList.add("quiet");drill.textContent=`intention unavailable: ${error.message||error}`}
 }
 async function resumeIntention(intentionId){
@@ -2190,13 +2804,13 @@ function renderIntentionLoom(runtime){
   const loom=runtime.loom||{},intentions=loom.intentions||[],pending=loom.pending_cues||[];
   const open=intentions.filter(value=>value.state==="open"),paused=intentions.filter(value=>value.state==="paused");
   const unseen=[...pending,...open].reduce((total,value)=>total+Number(value.attention?.unselected_exposures||0),0);
-  $("intention-loom-note").textContent=`${pending.length} possibility cue${pending.length===1?"":"s"} waiting · ${open.length} open · ${paused.length} paused · ${unseen} observed non-selection${unseen===1?"":"s"} · neglect is visible, not corrective`;
+  $("intention-loom-note").textContent=`${pending.length} possibility cue${pending.length===1?"":"s"} waiting · ${open.length} open · ${paused.length} paused · ${unseen} lifetime observed non-selection${unseen===1?"":"s"} · neglect is visible, not corrective`;
   const host=$("intention-loom-intentions");host.innerHTML="";
   if(!intentions.length){host.innerHTML='<div class="quiet">no intentions yet</div>'}
   intentions.forEach(intention=>{const row=document.createElement("div");row.className="desk-project-row";
     const button=document.createElement("button");button.type="button";button.className="desk-project";
-    const attention=intention.attention||{};
-    button.textContent=`${intention.title||"untitled"} · ${intention.state} · v${intention.revision_count||1} · seen ${attention.exposures||0} / chosen ${attention.selections||0}`;
+    const attention=intention.attention||{},activity=intention.activity||{};
+    button.textContent=`${intention.title||"untitled"} · ${intention.state} · v${intention.revision_count||1} · exposed ${attention.exposures||0} · attention wins ${attention.selections||0} · movements ${activity.durable_movements||0} · contract failures ${activity.contract_discrepancies||0}`;
     button.onclick=()=>openIntention(intention.intention_id);row.appendChild(button);
     if(intention.state==="paused"){const resume=document.createElement("button");resume.type="button";
       resume.textContent="offer return";resume.onclick=()=>resumeIntention(intention.intention_id);row.appendChild(resume)}
@@ -2254,12 +2868,93 @@ async function offerIntentionCue(){
   finally{$("intention-loom-submit").disabled=false}
 }
 
-async function openWritingProject(projectId){
-  const drill=$("writing-desk-drill");
+function creativeItemTime(item){
+  return Math.max(0,Number(item?.updated_at||item?.created_at)||0)
+}
+function creativeItemId(item){
+  if(item?.project_id)return `writing:${item.project_id}`;
+  if(item?.artifact_id)return `atelier:${item.artifact_id}`;
+  return String(item?.id||"")
+}
+function creativeDate(epoch){
+  if(!Number(epoch))return "date unknown";
+  const value=new Date(Number(epoch)*1000),now=new Date();
+  return value.toLocaleDateString(undefined,{month:"short",day:"numeric",year:value.getFullYear()===now.getFullYear()?undefined:"numeric"})
+}
+function isNewCreativeItem(item){
+  const id=creativeItemId(item);
+  return creativeItemTime(item)>CREATIVE_SEEN_AT&&(!id||!CREATIVE_VIEWED_IDS.has(id))
+}
+function syncCreativeViewedMarkers(){
+  document.querySelectorAll("[data-creative-work-id]").forEach(card=>{
+    if(!CREATIVE_VIEWED_IDS.has(String(card.dataset.creativeWorkId||"")))return;
+    card.classList.remove("is-new");card.querySelector(".creative-new-badge")?.remove()
+  });
+  updateCreativeShelfSummary()
+}
+function markCreativeItemViewed(item,source=null){
+  const id=creativeItemId(item);if(!id||CREATIVE_VIEWED_IDS.has(id))return;
+  CREATIVE_VIEWED_IDS.add(id);
+  const card=source?.closest?.("[data-creative-work-id]");
+  card?.classList.remove("is-new");card?.querySelector(".creative-new-badge")?.remove();
+  updateCreativeShelfSummary();
+  if(window.parent!==window)window.parent.postMessage({
+    type:"jnsq-creative-viewed",persona:String(lastState?.persona||currentPersona||""),
+    work_id:id,content_free:true
+  },"*")
+}
+function updateCreativeShelfSummary(){
+  const items=[...creativeAtelierItems,...creativeWritingItems];
+  const count=items.length,newCount=items.filter(isNewCreativeItem).length;
+  const newest=items.reduce((latest,item)=>Math.max(latest,creativeItemTime(item)),0);
+  const summary=$("creative-new-summary"),toggle=$("creativeToggle");
+  summary.classList.toggle("has-new",newCount>0);
+  summary.textContent=newCount
+    ?`${newCount} new until opened · ${count} total`
+    :`${count} work${count===1?"":"s"} on this shelf`;
+  toggle.classList.toggle("has-new",!creativeViewOpen&&newCount>0);
+  toggle.textContent=creativeViewOpen?"← back to chat":(newCount?`creative work · ${newCount} new`:"creative work");
+  toggle.setAttribute("aria-label",creativeViewOpen?"Back to chat":"Open creative work");
+  if(window.parent!==window)window.parent.postMessage({
+    type:"jnsq-creative-inventory",persona:String(lastState?.persona||""),
+    newest_at:newest,new_count:newCount,total:count,content_free:true},"*")
+}
+let writingModalState=null,writingModalRequest=0;
+function closeWritingModal({restoreFocus=true}={}){
+  if(!writingModalState)return;
+  const opener=writingModalState.opener;writingModalRequest+=1;
+  $("writing-modal").classList.remove("open");
+  $("writing-modal").setAttribute("aria-hidden","true");
+  $("writing-modal-body").removeAttribute("aria-busy");
+  writingModalState=null;
+  if(restoreFocus&&opener?.isConnected)opener.focus({preventScroll:true})
+}
+async function openWritingProject(projectId,button=null){
+  const modal=$("writing-modal"),target=$("writing-modal-body");
+  const request=++writingModalRequest;
+  const fallbackTitle=button?.querySelector(".desk-project-title")?.textContent||"Writing";
+  $("writing-modal-title").textContent=fallbackTitle;
+  $("writing-modal-meta").textContent="opening this piece…";
+  target.classList.add("quiet");target.textContent="opening this piece…";
+  target.setAttribute("aria-busy","true");
+  modal.classList.add("open");modal.setAttribute("aria-hidden","false");
+  writingModalState={projectId:String(projectId),opener:button};
+  $("writing-modal-close").focus();
   try{const response=await fetch(`/api/writing-desk/projects/${encodeURIComponent(projectId)}`);
     const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
-    drill.classList.remove("quiet");drill.textContent=result.content||"";
-  }catch(error){drill.classList.add("quiet");drill.textContent=`project unavailable: ${error.message||error}`}
+    if(request!==writingModalRequest||writingModalState?.projectId!==String(projectId))return;
+    $("writing-modal-title").textContent=result.title||fallbackTitle;
+    $("writing-modal-meta").textContent=[result.form||"writing",result.state,
+      `v${result.revision_count||1}`].filter(Boolean).join(" · ");
+    target.removeAttribute("aria-busy");
+    target.classList.remove("quiet");target.textContent=result.content||"This piece is currently empty.";
+    markCreativeItemViewed({project_id:projectId},button||modal);
+  }catch(error){
+    if(request!==writingModalRequest||writingModalState?.projectId!==String(projectId))return;
+    target.removeAttribute("aria-busy");target.classList.add("quiet");
+    $("writing-modal-meta").textContent="unavailable";
+    target.textContent=`project unavailable: ${error.message||error}`
+  }
 }
 async function resumeWritingProject(projectId){
   try{const response=await fetch(`/api/writing-desk/projects/${encodeURIComponent(projectId)}/resume`,{method:"POST"});
@@ -2280,14 +2975,23 @@ function renderWritingDesk(runtime){
   }else{lamp.classList.add("blocked");$("writing-desk-status").textContent=runtime.enabled
     ?`held closed · ${runtime.capability?.reason||"capability unavailable"}`:"writing desk organ disabled"}
   const desk=runtime.desk||{},projects=desk.projects||[],pending=desk.pending_seeds||[];
+  creativeWritingItems=projects;updateCreativeShelfSummary();
   const receipts=desk.receipts||[],last=receipts.length?receipts[receipts.length-1]:null;
   $("writing-desk-note").textContent=`${pending.length} seed${pending.length===1?"":"s"} waiting · ${projects.filter(p=>p.state==="open").length} open · ${projects.filter(p=>p.state==="completed").length} completed${last?` · last ${last.outcome} via ${last.locality} · $${Number(last.estimated_cost_usd||0).toFixed(4)}`:""}`;
-  const host=$("writing-desk-projects");host.innerHTML="";
+  const host=$("writing-desk-projects"),drill=$("writing-desk-drill");host.innerHTML="";
+  drill.hidden=true;
   if(!projects.length){host.innerHTML='<div class="quiet">no writing projects yet</div>';return}
   projects.forEach(project=>{const row=document.createElement("div");row.className="desk-project-row";
+    row.dataset.creativeWorkId=creativeItemId(project);
+    const fresh=isNewCreativeItem(project);row.classList.toggle("is-new",fresh);
     const button=document.createElement("button");button.type="button";button.className="desk-project";
-    button.textContent=`${project.title||"untitled"} · ${project.form||"writing"} · ${project.state} · v${project.revision_count||1}`;
-    button.onclick=()=>openWritingProject(project.project_id);row.appendChild(button);
+    const title=document.createElement("strong");title.className="desk-project-title";title.textContent=project.title||"untitled";
+    const meta=document.createElement("span");meta.className="atelier-meta";
+    meta.textContent=`${project.form||"writing"} · ${project.state} · v${project.revision_count||1} · ${creativeDate(creativeItemTime(project))}`;
+    button.append(title,meta);
+    if(fresh){const badge=document.createElement("span");badge.className="creative-new-badge";badge.textContent="new";button.appendChild(badge)}
+    button.setAttribute("aria-haspopup","dialog");button.setAttribute("aria-controls","writing-modal");
+    button.onclick=()=>openWritingProject(project.project_id,button);row.appendChild(button);
     if(project.state==="paused"){const resume=document.createElement("button");resume.type="button";
       resume.textContent="resume";resume.onclick=()=>resumeWritingProject(project.project_id);row.appendChild(resume)}
     host.appendChild(row)})
@@ -2443,7 +3147,7 @@ async function mountAtelierCanvas(artifact,canvas){
   canvas.width=scene.width;canvas.height=scene.height;canvas.style.aspectRatio=`${scene.width}/${scene.height}`;
   canvas.setAttribute("aria-label",artifact.title||"private Canvas artifact");
   let frame=0,visible=true,stopped=false;
-  const reduced=()=>window.matchMedia("(prefers-reduced-motion: reduce)").matches||document.body.dataset.reducedMotion==="true";
+  const reduced=()=>window.matchMedia("(prefers-reduced-motion: reduce)").matches||canvas.ownerDocument.body?.dataset.reducedMotion==="true";
   const drawStill=()=>drawAtelierCanvas(canvas,scene,0);
   const schedule=()=>{
     if(stopped)return;
@@ -2453,7 +3157,8 @@ async function mountAtelierCanvas(artifact,canvas){
   const tick=now=>{frame=0;if(stopped||!visible)return;drawAtelierCanvas(canvas,scene,now/1000);schedule()};
   const intersection=new IntersectionObserver(entries=>{visible=Boolean(entries[0]?.isIntersecting);if(!visible&&frame){cancelAnimationFrame(frame);frame=0}else schedule()},{threshold:.01});
   const mutation=new MutationObserver(schedule);const media=window.matchMedia("(prefers-reduced-motion: reduce)");
-  media.addEventListener("change",schedule);mutation.observe(document.body,{attributes:true,attributeFilter:["data-reduced-motion"]});
+  const motionRoot=canvas.ownerDocument?.documentElement;
+  media.addEventListener("change",schedule);if(motionRoot)mutation.observe(motionRoot,{attributes:true,subtree:true,attributeFilter:["data-reduced-motion"]});
   drawStill();intersection.observe(canvas);schedule();
   const stop=()=>{stopped=true;if(frame)cancelAnimationFrame(frame);intersection.disconnect();mutation.disconnect();media.removeEventListener("change",schedule)};
   atelierCanvasLoops.set(artifact.artifact_id,stop);return canvas
@@ -2525,7 +3230,8 @@ function scene3DMotion(scene,target,time){
   });return state
 }
 function createScene3DRenderer(canvas,scene){
-  const gl=canvas.getContext("webgl",{alpha:false,antialias:true,preserveDrawingBuffer:true});if(!gl)throw new Error("WebGL is unavailable");
+  const shelfVisible=canvas.ownerDocument.body?.dataset.creativeView==="true";
+  const gl=canvas.getContext("webgl",{alpha:false,antialias:true,preserveDrawingBuffer:shelfVisible});if(!gl)throw new Error("WebGL is unavailable");
   const program=scene3DProgram(gl),attributes={position:gl.getAttribLocation(program,"aPosition"),normal:gl.getAttribLocation(program,"aNormal")},uniform=name=>gl.getUniformLocation(program,name),uniforms={model:uniform("uModel"),vp:uniform("uViewProjection"),camera:uniform("uCamera"),color:uniform("uColor"),roughness:uniform("uRoughness"),metallic:uniform("uMetallic"),opacity:uniform("uOpacity"),ambient:uniform("uAmbient"),lightCount:uniform("uLightCount"),lightPosition:uniform("uLightPosition[0]"),lightColor:uniform("uLightColor[0]"),lightIntensity:uniform("uLightIntensity[0]")};
   const meshes=new Map();for(const kind of new Set(scene.objects.map(object=>object.kind))){const mesh=scene3DMesh(kind),position=gl.createBuffer(),normal=gl.createBuffer(),index=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,position);gl.bufferData(gl.ARRAY_BUFFER,mesh.positions,gl.STATIC_DRAW);gl.bindBuffer(gl.ARRAY_BUFFER,normal);gl.bufferData(gl.ARRAY_BUFFER,mesh.normals,gl.STATIC_DRAW);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,index);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,mesh.indices,gl.STATIC_DRAW);meshes.set(kind,{position,normal,index,count:mesh.indices.length})}
   const eye=[scene.camera.x,scene.camera.y,scene.camera.z],target=[scene.camera.target_x,scene.camera.target_y,scene.camera.target_z],view=scene3DLookAt(eye,target),projection=scene3DPerspective(scene.camera.fov*Math.PI/180,canvas.width/canvas.height),vp=scene3DMultiply(projection,view),lightPositions=new Float32Array(9),lightColors=new Float32Array(9),lightIntensity=new Float32Array(3);scene.lights.forEach((light,index)=>{lightPositions.set([light.x,light.y,light.z],index*3);lightColors.set(scene3DHex(light.color),index*3);lightIntensity[index]=light.intensity});
@@ -2541,7 +3247,7 @@ function createScene3DRenderer(canvas,scene){
 }
 async function mountAtelier3D(artifact,canvas){
   const response=await fetch(`/api/atelier/artifacts/${encodeURIComponent(artifact.artifact_id)}`),scene=await response.json();if(!response.ok)throw new Error(scene.error||response.status);if(scene.format!=="jnsq.scene3d.v1"||!Array.isArray(scene.objects)||!Array.isArray(scene.lights)||!Array.isArray(scene.motions))throw new Error("3D scene format refused");
-  canvas.width=scene.width;canvas.height=scene.height;canvas.style.aspectRatio=`${scene.width}/${scene.height}`;canvas.setAttribute("aria-label",artifact.title||"private trusted 3D artifact");const draw=createScene3DRenderer(canvas,scene);let frame=0,visible=true,stopped=false;const reduced=()=>window.matchMedia("(prefers-reduced-motion: reduce)").matches||document.body.dataset.reducedMotion==="true";const still=()=>draw(0);const schedule=()=>{if(stopped)return;if(reduced()){if(frame){cancelAnimationFrame(frame);frame=0}still();return}if(visible&&!frame)frame=requestAnimationFrame(tick)};const tick=now=>{frame=0;if(stopped||!visible)return;draw(now/1000);schedule()};const intersection=new IntersectionObserver(entries=>{visible=Boolean(entries[0]?.isIntersecting);if(!visible&&frame){cancelAnimationFrame(frame);frame=0}else schedule()},{threshold:.01}),mutation=new MutationObserver(schedule),media=window.matchMedia("(prefers-reduced-motion: reduce)");media.addEventListener("change",schedule);mutation.observe(document.body,{attributes:true,attributeFilter:["data-reduced-motion"]});still();intersection.observe(canvas);schedule();const stop=()=>{if(stopped)return;stopped=true;if(frame)cancelAnimationFrame(frame);intersection.disconnect();mutation.disconnect();media.removeEventListener("change",schedule);draw.dispose()};atelier3DLoops.set(artifact.artifact_id,stop);return canvas
+  canvas.width=scene.width;canvas.height=scene.height;canvas.style.aspectRatio=`${scene.width}/${scene.height}`;canvas.setAttribute("aria-label",artifact.title||"private trusted 3D artifact");const draw=createScene3DRenderer(canvas,scene);let frame=0,visible=true,stopped=false;const reduced=()=>window.matchMedia("(prefers-reduced-motion: reduce)").matches||canvas.ownerDocument.body?.dataset.reducedMotion==="true";const still=()=>draw(0);const schedule=()=>{if(stopped)return;if(reduced()){if(frame){cancelAnimationFrame(frame);frame=0}still();return}if(visible&&!frame)frame=requestAnimationFrame(tick)};const tick=now=>{frame=0;if(stopped||!visible)return;draw(now/1000);schedule()};const intersection=new IntersectionObserver(entries=>{visible=Boolean(entries[0]?.isIntersecting);if(!visible&&frame){cancelAnimationFrame(frame);frame=0}else schedule()},{threshold:.01}),mutation=new MutationObserver(schedule),media=window.matchMedia("(prefers-reduced-motion: reduce)"),motionRoot=canvas.ownerDocument?.documentElement;media.addEventListener("change",schedule);if(motionRoot)mutation.observe(motionRoot,{attributes:true,subtree:true,attributeFilter:["data-reduced-motion"]});still();intersection.observe(canvas);schedule();const stop=()=>{if(stopped)return;stopped=true;if(frame)cancelAnimationFrame(frame);intersection.disconnect();mutation.disconnect();media.removeEventListener("change",schedule);draw.dispose()};atelier3DLoops.set(artifact.artifact_id,stop);return canvas
 }
 window.JNSQ_ATELIER_3D=Object.freeze({format:"jnsq.scene3d.v1",mount:mountAtelier3D,stopAll:stopAtelier3DLoops});
 const atelierAudioBuffers=new Map(),atelierAudioPlayers=new Map();
@@ -2630,7 +3336,8 @@ async function mountAtelierAudio(artifact,play,save,status){
   play.disabled=true;save.disabled=true;status.textContent="validating score…";
   const {score}=await loadAtelierAudio(artifact);play.disabled=false;save.disabled=false;
   status.textContent=`ready · ${Number(score.tempo_bpm).toFixed(1)} BPM · no autoplay`;
-  play.onclick=()=>playAtelierAudio(artifact,play,status);save.onclick=()=>saveAtelierAudio(artifact,save,status)
+  play.onclick=()=>{markCreativeItemViewed(artifact,play);playAtelierAudio(artifact,play,status)};
+  save.onclick=()=>saveAtelierAudio(artifact,save,status)
 }
 window.JNSQ_ATELIER_AUDIO=Object.freeze({
   format:"jnsq.score.v1",load:loadAtelierAudio,render:renderAtelierAudioBuffer,
@@ -2731,7 +3438,7 @@ async function saveAtelierCompositionBundle(artifact,graph,graphBytes,sources,bu
 }
 async function playAtelierComposition(artifact,graph,sources,canvas,button,status){
   if(atelierCompositionPlayers.has(artifact.artifact_id)){atelierCompositionPlayers.get(artifact.artifact_id)("stopped by you");return}
-  stopAtelierCompositions("another composition took the field");stopAtelierAudioPlayers("a composition took the field");button.disabled=true;status.textContent="joining the shared clockâ€¦";
+  stopAtelierCompositions("another composition took the field");stopAtelierAudioPlayers("a composition took the field");button.disabled=true;status.textContent="joining the shared clock…";
   try{const AudioContextClass=window.AudioContext||window.webkitAudioContext;if(!AudioContextClass)throw new Error("Web Audio clock is unavailable");
     if(!atelierAudioContext||atelierAudioContext.state==="closed")atelierAudioContext=new AudioContextClass();await atelierAudioContext.resume();
     const start=atelierAudioContext.currentTime+.06,scheduled=[];let frame=0,finished=false;
@@ -2746,10 +3453,10 @@ async function playAtelierComposition(artifact,graph,sources,canvas,button,statu
   }catch(error){status.textContent=`composition refused: ${error.message||error}`}finally{button.disabled=false}
 }
 async function mountAtelierComposition(artifact,canvas,play,status){
-  play.disabled=true;status.textContent="binding source hashesâ€¦";const bound=await atelierBoundBytes(artifact.artifact_id,artifact.sha256),graph=validateAtelierComposition(JSON.parse(new TextDecoder().decode(bound.bytes)));
+  play.disabled=true;status.textContent="binding source hashes…";const bound=await atelierBoundBytes(artifact.artifact_id,artifact.sha256),graph=validateAtelierComposition(JSON.parse(new TextDecoder().decode(bound.bytes)));
   canvas.width=graph.width;canvas.height=graph.height;canvas.style.aspectRatio=`${graph.width}/${graph.height}`;canvas.setAttribute("aria-label",artifact.title||"private cross-medium composition");
   const sources=[];try{for(const track of graph.tracks)sources.push(await loadAtelierCompositionSource(track))}catch(error){sources.forEach(source=>{try{source.dispose()}catch(_error){}});throw error}drawAtelierComposition(canvas,graph,sources,0);atelierCompositionMounts.set(artifact.artifact_id,sources);play.disabled=false;status.textContent=`ready · ${graph.tracks.length} hash-bound tracks · no autoplay`;
-  play.onclick=()=>playAtelierComposition(artifact,graph,sources,canvas,play,status);return {graph,sources,graphBytes:bound.bytes}
+  play.onclick=()=>{markCreativeItemViewed(artifact,play);playAtelierComposition(artifact,graph,sources,canvas,play,status)};return {graph,sources,graphBytes:bound.bytes}
 }
 document.addEventListener("visibilitychange",()=>{if(document.hidden)stopAtelierCompositions("page hidden")});
 window.addEventListener("pagehide",()=>{stopAtelierCompositions("page left");clearAtelierCompositionMounts()});
@@ -2780,10 +3487,10 @@ function bindAtelierLightbox(artifact,visual){
   visual.classList.add("atelier-expandable");visual.tabIndex=0;
   visual.setAttribute("role","button");
   visual.setAttribute("aria-label",`Open ${artifact.title||"this Atelier artifact"} for a larger view`);
-  visual.addEventListener("click",()=>openAtelierLightbox(artifact,visual));
+  visual.addEventListener("click",()=>{markCreativeItemViewed(artifact,visual);openAtelierLightbox(artifact,visual)});
   visual.addEventListener("keydown",event=>{
     if(event.key==="Enter"||event.key===" "){
-      event.preventDefault();openAtelierLightbox(artifact,visual)
+      event.preventDefault();markCreativeItemViewed(artifact,visual);openAtelierLightbox(artifact,visual)
     }
   })
 }
@@ -2791,7 +3498,14 @@ $("atelier-lightbox-close").onclick=()=>closeAtelierLightbox();
 $("atelier-lightbox").addEventListener("click",event=>{
   if(event.target===$("atelier-lightbox"))closeAtelierLightbox()
 });
+$("writing-modal-close").onclick=()=>closeWritingModal();
+$("writing-modal").addEventListener("click",event=>{
+  if(event.target===$("writing-modal"))closeWritingModal()
+});
 document.addEventListener("keydown",event=>{
+  if(event.key==="Escape"&&writingModalState){
+    event.preventDefault();closeWritingModal();return
+  }
   if(event.key==="Escape"&&atelierLightboxState){
     event.preventDefault();closeAtelierLightbox()
   }
@@ -2800,6 +3514,7 @@ function renderAtelier(runtime){
   const lamp=$("atelier-lamp");lamp.className="agency-lamp";
   const active=runtime.controller?.active;
   const state=runtime.atelier||{},artifacts=state.artifacts||[],pending=state.pending_seeds||[];
+  creativeAtelierItems=artifacts;updateCreativeShelfSummary();
   const receipts=state.receipts||[],last=receipts.length?receipts[receipts.length-1]:null;
   if(active&&String(active.run_id||"").startsWith("atelier-")){
     lamp.classList.add("active");$("atelier-status").textContent=`creating privately · ${active.run_id}`
@@ -2828,10 +3543,13 @@ function renderAtelier(runtime){
     ?` · ${circulating}/${pending.length} circulating in shared field${Number.isFinite(pressure)&&Number.isFinite(threshold)&&threshold>0?` · organism pressure ${pressure.toFixed(3)}/${threshold.toFixed(3)}`:""}${gate}`
     :(pending.length?" · not currently present in shared field":"");
   $("atelier-note").textContent=`${pending.length} material${pending.length===1?"":"s"} waiting${fieldText} · ${artifacts.length} private artifact${artifacts.length===1?"":"s"}${last?` · last ${last.outcome||last.kind} · $${Number(last.estimated_cost_usd||0).toFixed(4)}`:""}`;
-  closeAtelierLightbox({restoreFocus:false});stopAtelierCanvasLoops();stopAtelier3DLoops();stopAtelierAudioPlayers("gallery refreshed");stopAtelierCompositions("gallery refreshed");clearAtelierCompositionMounts();const host=$("atelier-artifacts");host.innerHTML="";
+  closeAtelierLightbox({restoreFocus:false});stopAtelierCanvasLoops();stopAtelier3DLoops();stopAtelierAudioPlayers("gallery refreshed");stopAtelierCompositions("gallery refreshed");clearAtelierCompositionMounts();const host=$("atelier-artifacts"),drill=$("atelier-drill");host.innerHTML="";
+  drill.hidden=true;
   if(!artifacts.length){host.innerHTML='<div class="quiet">no creative artifacts have taken form yet</div>';return}
-  artifacts.slice(0,12).forEach(artifact=>{
-    const card=document.createElement("div");card.className="atelier-card";
+  artifacts.forEach(artifact=>{
+    const card=document.createElement("article");card.className="atelier-card";
+    card.dataset.creativeWorkId=creativeItemId(artifact);
+    const fresh=isNewCreativeItem(artifact);card.classList.toggle("is-new",fresh);
     const isAudio=artifact.medium==="audio",isScene3D=artifact.medium==="scene3d",isComposition=artifact.medium==="composition",visual=document.createElement(isAudio?"div":(artifact.medium==="canvas"||isScene3D||isComposition)?"canvas":"img");
     if(isAudio){visual.className="atelier-audio";visual.setAttribute("role","group");visual.setAttribute("aria-label",artifact.title||"private procedural audio artifact");
       const mark=document.createElement("div");mark.className="atelier-audio-mark";mark.textContent="∿ ◇ ∿";visual.appendChild(mark);
@@ -2841,6 +3559,13 @@ function renderAtelier(runtime){
       visual.alt=artifact.title||`private ${artifact.medium||"visual"} artifact`;visual.loading="lazy"
     }
     card.appendChild(visual);
+    const head=document.createElement("div");head.className="atelier-card-head";
+    const medium=document.createElement("span");medium.className="atelier-medium";
+    medium.textContent=artifact.variant==="kinetic"?"kinetic SVG":String(artifact.medium||"work").replaceAll("_"," ");
+    head.appendChild(medium);
+    if(fresh){const badge=document.createElement("span");badge.className="creative-new-badge";badge.textContent="new";head.appendChild(badge)}
+    const date=document.createElement("span");date.className="atelier-date";date.textContent=creativeDate(artifact.created_at);head.appendChild(date);
+    card.appendChild(head);
     const title=document.createElement("div");title.className="atelier-title";
     const form=artifact.variant==="canvas"
       ?`Canvas · ${artifact.node_count||0} nodes · ${artifact.motion_count||0} cycles`
@@ -2853,8 +3578,10 @@ function renderAtelier(runtime){
       :artifact.variant==="cross_medium"
       ?`composition · ${artifact.track_count||0} tracks · ${artifact.family_count||0} families · ${Number(artifact.return_seconds||0).toFixed(1)}s return`
       :String(artifact.medium||"visual").toUpperCase();
-    title.textContent=isAudio?`${artifact.title||"untitled"} · ${form}`:`${artifact.title||"untitled"} · ${form} · ${artifact.width||"?"}×${artifact.height||"?"}`;
-    card.appendChild(title);
+    title.textContent=artifact.title||"untitled";
+    const meta=document.createElement("div");meta.className="atelier-meta";
+    meta.textContent=isAudio?form:`${form} · ${artifact.width||"?"}×${artifact.height||"?"}`;
+    card.append(title,meta);
     if(Array.isArray(artifact.offered_to)&&artifact.offered_to.length){
       const offered=document.createElement("div");offered.className="quiet";
       offered.textContent=`offered by resident to ${artifact.offered_to.join(", ")}`;
@@ -2885,17 +3612,17 @@ function renderAtelier(runtime){
     perceive.onclick=()=>perceiveAtelierArtifact(artifact,visual,perceive);
     if(artifact.medium==="canvas"){
       perceive.disabled=true;mountAtelierCanvas(artifact,visual).then(()=>{perceive.disabled=false}).catch(error=>{
-        perceive.disabled=true;$("atelier-drill").textContent=`Canvas artifact refused: ${error.message||error}`})
+        perceive.disabled=true;$("atelier-drill").hidden=false;$("atelier-drill").textContent=`Canvas artifact refused: ${error.message||error}`})
     }else if(isScene3D){
       perceive.disabled=true;mountAtelier3D(artifact,visual).then(()=>{perceive.disabled=false}).catch(error=>{
-        perceive.disabled=true;$("atelier-drill").textContent=`3D artifact refused: ${error.message||error}`})
+        perceive.disabled=true;$("atelier-drill").hidden=false;$("atelier-drill").textContent=`3D artifact refused: ${error.message||error}`})
     }
     card.appendChild(perceive);host.appendChild(card)
   })
 }
 async function probeAtelierRenderer(){
   const button=$("atelier-probe");button.disabled=true;
-  $("atelier-note").textContent="checking the loopback GPU rendererâ€¦";
+  $("atelier-note").textContent="checking the loopback GPU renderer…";
   try{const response=await fetch("/api/atelier/renderers/comfyui/probe",{method:"POST"});
     const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
     renderAtelier(result.status);$("atelier-note").textContent=result.ok
@@ -2913,7 +3640,7 @@ async function refreshAtelier(){
 async function admitAtelier(){
   const label=$("atelier-label").value.trim(),brief=$("atelier-brief").value.trim();
   if(!label||!brief){$("atelier-note").textContent="name and material are both required";return}
-  $("atelier-submit").disabled=true;$("atelier-note").textContent="placing material into the shared fieldâ€¦";
+  $("atelier-submit").disabled=true;$("atelier-note").textContent="placing material into the shared field…";
   try{const response=await fetch("/api/atelier/seeds",{method:"POST",
       headers:{"Content-Type":"application/json"},body:JSON.stringify({label,brief})});
     const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
@@ -2925,7 +3652,7 @@ async function admitAtelier(){
 }
 async function openAtelierNow(){
   const button=$("atelier-open-now");button.disabled=true;
-  $("atelier-note").textContent="opening one bounded human-requested Atelier attemptâ€¦";
+  $("atelier-note").textContent="opening one bounded human-requested Atelier attempt…";
   try{const response=await fetch("/api/atelier/open-now",{method:"POST"});
     const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
     renderAtelier(result.status);
@@ -2934,8 +3661,8 @@ async function openAtelierNow(){
   finally{button.disabled=false}
 }
 async function perceiveAtelierArtifact(artifact,visual,button){
-  const drill=$("atelier-drill");button.disabled=true;drill.classList.add("quiet");
-  drill.textContent="returning the private artifact through visionâ€¦";
+  const drill=$("atelier-drill");button.disabled=true;drill.hidden=false;drill.classList.add("quiet");
+  drill.textContent="returning the private artifact through vision…";
   try{
     if(visual.tagName==="IMG"&&!visual.complete)await new Promise((resolve,reject)=>{visual.addEventListener("load",resolve,{once:true});visual.addEventListener("error",reject,{once:true})});
     const sourceWidth=Math.max(16,Number(artifact.width)||visual.naturalWidth||visual.width||1024);
@@ -2948,11 +3675,11 @@ async function perceiveAtelierArtifact(artifact,visual,button){
     const response=await fetch(`/api/atelier/artifacts/${encodeURIComponent(artifact.artifact_id)}/perceive`,{method:"POST",
       headers:{"Content-Type":"application/json"},body:JSON.stringify({image:{name:`${artifact.artifact_id}.png`,data_url}})});
     const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
-    drill.classList.remove("quiet");drill.textContent=result.admitted
+    const story=result.admitted
       ?`seen through ${result.route} · ${result.observation||"the encounter returned without words"}`
       :`held at the sensory boundary · pressure ${Number(result.pressure||0).toFixed(3)}`;
-    refreshAtelier();refreshSalience()
-  }catch(error){drill.classList.add("quiet");drill.textContent=`artifact was not perceived: ${error.message||error}`}
+    await refreshAtelier();drill.hidden=false;drill.classList.remove("quiet");drill.textContent=story;refreshSalience()
+  }catch(error){drill.hidden=false;drill.classList.add("quiet");drill.textContent=`artifact was not perceived: ${error.message||error}`}
   finally{button.disabled=false}
 }
 
@@ -3099,6 +3826,75 @@ async function openForegroundResearch(){
   finally{$("research-open").disabled=false}
 }
 
+function scenarioProbabilityLabel(branch){
+  if(branch.probability===null||branch.probability===undefined)return "likelihood not estimated";
+  const central=`${(Number(branch.probability)*100).toFixed(1)}%`;
+  if(branch.probability_low===null||branch.probability_high===null)return central;
+  return `${central} · range ${(Number(branch.probability_low)*100).toFixed(1)}–${(Number(branch.probability_high)*100).toFixed(1)}%`
+}
+function openScenarioForecast(forecast){
+  const drill=$("scenario-drill");drill.innerHTML="";drill.classList.remove("quiet");
+  const head=document.createElement("div");head.className="research-page-head";
+  const title=document.createElement("strong");title.textContent=forecast.question||forecast.forecast_id;head.appendChild(title);drill.appendChild(head);
+  const meta=document.createElement("div");meta.className="research-page-url";
+  const signals=forecast.signals||{},calibration=forecast.probability_status||"not_estimated";
+  meta.textContent=`${forecast.corpus_lane||"baseline"} · ${forecast.horizon_days||0} days · ${calibration.replaceAll("_"," ")} · ${signals.cluster_count||0} evidence clusters · ${signals.independent_source_family_count||0} source families · shadow only`;
+  drill.appendChild(meta);
+  const gates=document.createElement("div");gates.className="desk-project";
+  gates.textContent=`gates · ${(forecast.gates||[]).map(gate=>`${gate.label}: ${String(gate.evidence_state||"not_observed").replaceAll("_"," ")}`).join(" · ")||"none"}`;
+  drill.appendChild(gates);
+  (forecast.branches||[]).forEach(branch=>{const row=document.createElement("div");row.className="desk-project";
+    row.textContent=`branch · ${branch.label} · ${scenarioProbabilityLabel(branch)}`;drill.appendChild(row)});
+  const observations=(forecast.observations||[]).slice(0,24);
+  if(observations.length){const label=document.createElement("strong");label.textContent="exact evidence observations";drill.appendChild(label)}
+  observations.forEach(observation=>{const button=document.createElement("button");button.type="button";button.className="desk-project";
+    button.textContent=`${observation.stage} · ${String(observation.direction||"").replaceAll("_"," ")} · ${observation.quote||observation.title||"stored evidence"} · ${observation.citation||""}`;
+    if(observation.source_id)button.onclick=()=>openResearchSource(observation.source_id,"");drill.appendChild(button)});
+  if(!observations.length){const empty=document.createElement("div");empty.className="quiet";empty.textContent="no topic-matching procedural observation was extracted from this evidence set";drill.appendChild(empty)}
+}
+function renderScenarioLab(status){
+  const forecasts=status.forecasts||[],cal=status.calibration||{};
+  $("scenario-note").textContent=`${forecasts.length} shadow forecast${forecasts.length===1?"":"s"} · ${cal.resolved_forecast_count||0} resolved · ${cal.scored_forecast_count||0} scored · ${status.network_authority?"network authority present":"no network authority"} · no downstream influence`;
+  const host=$("scenario-items");host.innerHTML="";
+  forecasts.slice().reverse().forEach(forecast=>{const button=document.createElement("button");button.type="button";button.className="desk-project";
+    const resolved=forecast.resolution?`resolved · ${forecast.resolution.branch_id}`:"unresolved";
+    button.textContent=`${forecast.question} · ${forecast.horizon_days}d · ${String(forecast.probability_status||"not_estimated").replaceAll("_"," ")} · ${resolved}`;
+    button.onclick=()=>openScenarioForecast(forecast);host.appendChild(button)});
+  if(!forecasts.length)host.innerHTML='<div class="quiet">no scenario tree has been built from stored evidence</div>'
+}
+async function refreshScenarioLab(){
+  try{const response=await fetch("/api/research-desk/scenarios"),result=await response.json();
+    if(!response.ok)throw new Error(result.error||response.status);renderScenarioLab(result)
+  }catch(error){$("scenario-note").textContent=`scenario lab unavailable: ${error.message||error}`}
+}
+function scenarioList(value){return [...new Set(String(value||"").split(/[\n,]+/).map(item=>item.trim()).filter(Boolean))]}
+async function createScenarioForecast(){
+  const question=$("scenario-question").value.trim();
+  const horizon_days=Number($("scenario-horizon").value||0);
+  const topic_terms=scenarioList($("scenario-terms").value);
+  const source_ids=scenarioList($("scenario-sources").value);
+  if(question.length<3||!Number.isInteger(horizon_days)||horizon_days<1||!topic_terms.length||!source_ids.length){
+    $("scenario-note").textContent="a scenario needs a resolvable question, horizon, topic terms, and exact stored source IDs";return}
+  const button=$("scenario-submit");button.disabled=true;$("scenario-note").textContent="building a private evidence tree without estimating unsupported likelihoods…";
+  try{const response=await fetch("/api/research-desk/scenarios",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question,horizon_days,topic_terms,source_ids,corpus_lane:$("scenario-lane").value})});
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    renderScenarioLab(result.status);openScenarioForecast(result.forecast);$("scenario-question").value=""
+  }catch(error){$("scenario-note").textContent=`scenario was not built: ${error.message||error}`}
+  finally{button.disabled=false}
+}
+async function snapshotScenarioFeeds(){
+  const topic=$("scenario-feed-topic").value.trim(),urls=scenarioList($("scenario-feed-urls").value);
+  if(topic.length<2||!urls.length){$("scenario-note").textContent="feed intake needs a topic and one or more permitted RSS/Atom URLs";return}
+  const button=$("scenario-intake");button.disabled=true;$("scenario-note").textContent="taking bounded immutable feed snapshots through the Research Desk web range…";
+  try{const response=await fetch("/api/research-desk/scenarios/intake",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({topic,urls,corpus_lane:$("scenario-lane").value})});
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    $("scenario-sources").value=(result.source_ids||[]).join(", ");
+    if(!$("scenario-terms").value.trim())$("scenario-terms").value=topic;
+    renderScenarioLab(result.status);$("scenario-note").textContent=`snapshot stored · ${(result.source_ids||[]).length} exact source${(result.source_ids||[]).length===1?"":"s"}${(result.failures||[]).length?` · ${(result.failures||[]).length} refused or unavailable`:""}`
+  }catch(error){$("scenario-note").textContent=`feed snapshot failed: ${error.message||error}`}
+  finally{button.disabled=false}
+}
+
 let documentLibraryState=null;
 function renderDocumentReader(reader){
   const pre=$("document-reader"),progress=$("document-progress");
@@ -3164,7 +3960,8 @@ function renderDocumentLibrary(status){
     select.appendChild(option);
   });
   const active=status.reader?.document?.id;
-  if(active)select.value=active;else if([...select.options].some(o=>o.value===prior))select.value=prior;
+  if([...select.options].some(o=>o.value===prior))select.value=prior;
+  else if(active)select.value=active;
   const scopeCounts=(status.documents||[]).reduce((counts,doc)=>{const key=doc.visibility||"user_private";counts[key]=(counts[key]||0)+1;return counts},{});
   $("document-status").textContent=`${status.document_count||0} accessible document${status.document_count===1?"":"s"} · ${scopeCounts.system_public||0} system-public · ${scopeCounts.persona_private||0} persona-private · ${scopeCounts.user_private||0} user-private · ${status.chunk_count||0} source sections · ${status.vector_rows||0} derived vectors`;
   const autonomous=status.autonomous||{},runtime=status.autonomous_reader;
@@ -3233,11 +4030,13 @@ async function importDocument(file){
 }
 async function openDocument(docId,position=0){
   if(!docId)return;
+  const button=$("document-open");button.disabled=true;
   try{const response=await fetch(`/api/documents/${encodeURIComponent(docId)}/open`,{method:"POST",
       headers:{"Content-Type":"application/json"},body:JSON.stringify({position})});
     const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
     renderDocumentReader(result.reader);if(documentLibraryState){documentLibraryState.reader=result.reader;renderDocumentReading(documentLibraryState)}
   }catch(error){$("document-status").textContent=`reader did not move: ${error.message||error}`}
+  finally{button.disabled=false}
 }
 async function navigateDocument(action){
   try{const response=await fetch("/api/documents/reader/navigate",{method:"POST",
@@ -3246,15 +4045,17 @@ async function navigateDocument(action){
     renderDocumentReader(result.reader);if(documentLibraryState){documentLibraryState.reader=result.reader;renderDocumentReading(documentLibraryState)}
   }catch(error){$("document-status").textContent=`reader did not move: ${error.message||error}`}
 }
-async function changeDocumentReadingArc(action,pace="natural"){
+async function changeDocumentReadingArc(action,pace="natural",trigger=null){
   const docId=$("document-select").value||documentLibraryState?.reader?.document?.id;if(!docId)return;
-  const button=$("document-read-through");button.disabled=true;
+  const button=trigger||$(pace==="foreground"?"document-read-now":"document-read-through");
+  const status=$("document-reading-status");let failure="";button.disabled=true;
+  status.textContent=pace==="foreground"?"requesting foreground reading…":"updating reading arc…";
   try{const response=await fetch(`/api/documents/${encodeURIComponent(docId)}/reading-arc`,{method:"POST",
       headers:{"Content-Type":"application/json"},body:JSON.stringify({action,pace})});
-    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    const result=await response.json().catch(()=>({}));if(!response.ok)throw new Error(result.error||response.status);
     renderDocumentLibrary(result.status);refreshSalience()
-  }catch(error){$("document-reading-status").textContent=`reading arc did not change: ${error.message||error}`}
-  finally{if(documentLibraryState)renderDocumentReading(documentLibraryState)}
+  }catch(error){failure=`reading arc did not change: ${error.message||error}`}
+  finally{if(documentLibraryState)renderDocumentReading(documentLibraryState);if(failure)status.textContent=failure}
 }
 async function searchDocuments(){
   const query=$("document-search").value.trim(),host=$("document-results");host.innerHTML="";
@@ -3347,7 +4148,157 @@ async function searchArchive(){
   }catch(error){host.innerHTML="";const line=document.createElement("div");line.className="quiet";line.textContent=`search unavailable: ${error.message||error}`;host.appendChild(line)}
 }
 
+let legacyEvidenceState=null;
+function renderLegacyEvidenceReader(reader){
+  const pre=$("legacy-evidence-reader"),progress=$("legacy-evidence-progress");
+  if(!reader?.active){
+    progress.textContent="no evidence section open";
+    $("legacy-evidence-previous").disabled=true;$("legacy-evidence-next").disabled=true;
+    $("legacy-evidence-bookmark").disabled=true;pre.classList.add("quiet");
+    pre.textContent="This shelf contains typed earlier-wrapper evidence. Open one bounded section to make it available to the next private turn; after that exposure it stays visible here but leaves the prompt.";
+    return;
+  }
+  pre.classList.remove("quiet");
+  pre.textContent=`[${reader.kind}] ${reader.relative}\nsha256 ${reader.sha256}\n\n${reader.content||""}`;
+  const pending=reader.pending_exposure?" · queued for next private turn":" · already exposed; reopen to queue again";
+  progress.textContent=`${reader.anchor} · ${reader.section}/${reader.total} · ${reader.access_scope}${pending}`;
+  $("legacy-evidence-previous").disabled=!reader.has_previous;
+  $("legacy-evidence-next").disabled=!reader.has_next;
+  $("legacy-evidence-bookmark").disabled=Boolean(reader.bookmarked);
+  $("legacy-evidence-bookmark").textContent=reader.bookmarked?"bookmarked":"bookmark";
+}
+function renderLegacyEvidence(status){
+  legacyEvidenceState=status;
+  const kinds=Object.entries(status.kinds||{}).map(([kind,count])=>`${kind.replaceAll("_"," ")} ${count}`).join(" · ");
+  $("legacy-evidence-status").textContent=`${status.source_count||0} immutable sources · ${status.section_count||0} bounded sections · ${kinds||"no indexed record kinds"} · ${(status.reader?.seen_count||0)} seen · ${(status.reader?.bookmark_count||0)} bookmarked`;
+  const lamp=$("legacy-evidence-lamp");lamp.className="agency-lamp";
+  if(status.granted&&status.index==="healthy"){
+    lamp.classList.add("ready");$("legacy-evidence-runtime").textContent=(status.resident_access?.ready
+      ? `${status.persona||"resident"} shelf · read-only · voluntary actions ready`
+      : `${status.persona||"resident"} shelf · read-only · human-open ready`)
+  }else{
+    lamp.classList.add("blocked");$("legacy-evidence-runtime").textContent=status.granted?"evidence index unavailable":"legacy evidence access not granted"
+  }
+  renderLegacyEvidenceReader(status.reader);
+}
+async function refreshLegacyEvidence(){
+  try{const response=await fetch("/api/legacy-evidence"),result=await response.json();
+    if(!response.ok)throw new Error(result.error||response.status);renderLegacyEvidence(result)
+  }catch(error){$("legacy-evidence-lamp").className="agency-lamp blocked";
+    $("legacy-evidence-runtime").textContent=`legacy evidence unavailable: ${error.message||error}`}
+}
+async function openLegacyEvidence(evidenceId,section=1){
+  try{const response=await fetch(`/api/legacy-evidence/${encodeURIComponent(evidenceId)}/open`,{method:"POST",
+      headers:{"Content-Type":"application/json"},body:JSON.stringify({section})});
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    if(legacyEvidenceState)legacyEvidenceState.reader=result.reader;renderLegacyEvidenceReader(result.reader);refreshLegacyEvidence()
+  }catch(error){$("legacy-evidence-status").textContent=`evidence reader did not move: ${error.message||error}`}
+}
+async function navigateLegacyEvidence(action){
+  try{const response=await fetch("/api/legacy-evidence/reader/navigate",{method:"POST",
+      headers:{"Content-Type":"application/json"},body:JSON.stringify({action})});
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    if(legacyEvidenceState)legacyEvidenceState.reader=result.reader;renderLegacyEvidenceReader(result.reader);refreshLegacyEvidence()
+  }catch(error){$("legacy-evidence-status").textContent=`evidence reader did not move: ${error.message||error}`}
+}
+async function bookmarkLegacyEvidence(){
+  try{const response=await fetch("/api/legacy-evidence/reader/bookmark",{method:"POST",
+      headers:{"Content-Type":"application/json"},body:"{}"});
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    if(legacyEvidenceState)legacyEvidenceState.reader=result.reader;renderLegacyEvidenceReader(result.reader);refreshLegacyEvidence()
+  }catch(error){$("legacy-evidence-status").textContent=`evidence bookmark did not settle: ${error.message||error}`}
+}
+async function searchLegacyEvidence(){
+  const query=$("legacy-evidence-search").value.trim(),kind=$("legacy-evidence-kind").value;
+  const host=$("legacy-evidence-results");host.innerHTML="";
+  try{const params=new URLSearchParams({q:query,kind,n:"10"});
+    const response=await fetch(`/api/legacy-evidence/search?${params}`),result=await response.json();
+    if(!response.ok)throw new Error(result.error||response.status);
+    (result.results||[]).forEach(hit=>{const button=document.createElement("button");button.type="button";button.className="document-hit";
+      button.textContent=`${hit.kind.replaceAll("_"," ")} · ${hit.relative} · ${hit.anchor} · ${(hit.excerpt||"").slice(0,180).replace(/\s+/g," ")}`;
+      button.onclick=()=>openLegacyEvidence(hit.evidence_id,hit.section);host.appendChild(button)});
+    if(!result.results?.length)host.innerHTML='<div class="quiet">no legacy evidence sections match that search</div>'
+  }catch(error){const line=document.createElement("div");line.className="quiet";line.textContent=`search unavailable: ${error.message||error}`;host.appendChild(line)}
+}
+
+let anthropicConversationState=null;
+function renderAnthropicConversationReader(reader){
+  const pre=$("anthropic-conversation-reader"),progress=$("anthropic-conversation-progress");
+  if(!reader?.active){
+    progress.textContent="no conversation section open";
+    $("anthropic-conversation-previous").disabled=true;$("anthropic-conversation-next").disabled=true;
+    $("anthropic-conversation-bookmark").disabled=true;pre.classList.add("quiet");
+    pre.textContent="This resident-private shelf is inert until a human or its resident opens an exact bounded section.";
+    return
+  }
+  pre.classList.remove("quiet");
+  pre.textContent=`[${reader.layer}] ${reader.title||"untitled conversation"}\ncreated ${reader.created_at||"unknown"}\nsource ${reader.source_sha256}\nrecord ${reader.record_sha256}\n\n${reader.content||""}`;
+  const pending=reader.pending_exposure?" · queued for next private turn":" · already exposed; reopen to queue again";
+  progress.textContent=`${reader.anchor} · ${reader.section}/${reader.total} · messages ${reader.message_start}-${reader.message_end}${pending}`;
+  $("anthropic-conversation-previous").disabled=!reader.has_previous;
+  $("anthropic-conversation-next").disabled=!reader.has_next;
+  $("anthropic-conversation-bookmark").disabled=Boolean(reader.bookmarked);
+  $("anthropic-conversation-bookmark").textContent=reader.bookmarked?"bookmarked":"bookmark";
+}
+function renderAnthropicConversations(status){
+  anthropicConversationState=status;
+  const layers=status.layers||{};
+  $("anthropic-conversation-status").textContent=`${status.conversation_count||0} conversations · ${status.message_count||0} messages · ${status.section_count||0} adaptive sections · dialogue ${layers.dialogue||0} · technical ${layers.technical||0} · ${(status.reader?.seen_count||0)} seen · ${(status.reader?.bookmark_count||0)} bookmarked`;
+  const lamp=$("anthropic-conversation-lamp");lamp.className="agency-lamp";
+  if(status.granted&&status.index==="healthy"){
+    lamp.classList.add("ready");$("anthropic-conversation-runtime").textContent=(status.resident_access?.ready
+      ? `${status.persona||"resident"} shelf · read-only · voluntary actions ready`
+      : `${status.persona||"resident"} shelf · read-only · human-open ready`)
+  }else{
+    lamp.classList.add("blocked");$("anthropic-conversation-runtime").textContent=status.granted?"Anthropic conversation index unavailable":"Anthropic conversation access not granted"
+  }
+  renderAnthropicConversationReader(status.reader);
+}
+async function refreshAnthropicConversations(){
+  try{const response=await fetch("/api/anthropic-conversations"),result=await response.json();
+    if(!response.ok)throw new Error(result.error||response.status);renderAnthropicConversations(result)
+  }catch(error){$("anthropic-conversation-lamp").className="agency-lamp blocked";
+    $("anthropic-conversation-runtime").textContent=`Anthropic conversations unavailable: ${error.message||error}`}
+}
+async function openAnthropicConversation(anchor){
+  try{const response=await fetch("/api/anthropic-conversations/open",{method:"POST",
+      headers:{"Content-Type":"application/json"},body:JSON.stringify({anchor})});
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    if(anthropicConversationState)anthropicConversationState.reader=result.reader;
+    renderAnthropicConversationReader(result.reader);refreshAnthropicConversations()
+  }catch(error){$("anthropic-conversation-status").textContent=`conversation reader did not move: ${error.message||error}`}
+}
+async function navigateAnthropicConversation(action){
+  try{const response=await fetch("/api/anthropic-conversations/reader/navigate",{method:"POST",
+      headers:{"Content-Type":"application/json"},body:JSON.stringify({action})});
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    if(anthropicConversationState)anthropicConversationState.reader=result.reader;
+    renderAnthropicConversationReader(result.reader);refreshAnthropicConversations()
+  }catch(error){$("anthropic-conversation-status").textContent=`conversation reader did not move: ${error.message||error}`}
+}
+async function bookmarkAnthropicConversation(){
+  try{const response=await fetch("/api/anthropic-conversations/reader/bookmark",{method:"POST",
+      headers:{"Content-Type":"application/json"},body:"{}"});
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    if(anthropicConversationState)anthropicConversationState.reader=result.reader;
+    renderAnthropicConversationReader(result.reader);refreshAnthropicConversations()
+  }catch(error){$("anthropic-conversation-status").textContent=`conversation bookmark did not settle: ${error.message||error}`}
+}
+async function searchAnthropicConversations(){
+  const query=$("anthropic-conversation-search").value.trim(),layer=$("anthropic-conversation-layer").value;
+  const host=$("anthropic-conversation-results");host.innerHTML="";
+  try{const params=new URLSearchParams({q:query,layer,n:"10"});
+    const response=await fetch(`/api/anthropic-conversations/search?${params}`),result=await response.json();
+    if(!response.ok)throw new Error(result.error||response.status);
+    (result.results||[]).forEach(hit=>{const button=document.createElement("button");button.type="button";button.className="document-hit";
+      button.textContent=`${hit.layer} · ${hit.title||"untitled conversation"} · ${hit.anchor} · ${(hit.excerpt||"").slice(0,180).replace(/\s+/g," ")}`;
+      button.onclick=()=>openAnthropicConversation(hit.anchor);host.appendChild(button)});
+    if(!result.results?.length)host.innerHTML='<div class="quiet">no Anthropic conversation sections match that search</div>'
+  }catch(error){const line=document.createElement("div");line.className="quiet";line.textContent=`search unavailable: ${error.message||error}`;host.appendChild(line)}
+}
+
 let memoryPage=1,memoryPages=1,memorySelected=null,memoryRefreshTimer=null;
+let memoryCurationLoading=false;
 function memoryFilterParams(){
   const params=new URLSearchParams({page:String(memoryPage),per_page:"30"});
   const fields={q:"memory-query",layer:"memory-layer",origin:"memory-origin",
@@ -3382,6 +4333,54 @@ function renderMemoryRecords(result){
   $("memory-prev").disabled=memoryPage<=1;$("memory-next").disabled=memoryPage>=memoryPages;
   memoryFacets(result.facets||{});
 }
+function renderMemoryCuration(status,result){
+  const statusLine=$("memory-curation-status"),host=$("memory-curation-candidates");host.innerHTML="";
+  const quiet=status.quiet_review||{};
+  statusLine.textContent=`${status.active||0} active · ${status.withdrawn_reversible||0} reversibly withdrawn · ${status.reviewed_at_current_digest||0} reviewed at current form · quiet review automatic (${quiet.completed||0} completed) · ${status.incomplete_transactions||0} incomplete transactions`;
+  (result.candidates||[]).forEach(record=>{const button=document.createElement("button");button.type="button";button.className="memory-curation-candidate";
+    const meta=document.createElement("div");meta.className="meta-line";
+    const pressure=document.createElement("span");pressure.className="pressure";pressure.textContent=`review pressure ${Number(record.review_pressure||0).toFixed(3)}`;
+    const kind=document.createElement("span");kind.textContent=`${record.type||"?"} · selected ${record.access_count||0}×`;
+    const anchors=document.createElement("span");anchors.textContent=(record.structural_anchors||[]).join(" · ")||"no structural anchors";
+    const digest=document.createElement("div");digest.className="digest";digest.textContent=record.content_digest||record.id;
+    meta.append(pressure,kind,anchors);button.append(meta,digest);button.onclick=()=>loadMemoryRecord(record.id);host.appendChild(button)});
+  if(!result.candidates?.length)host.innerHTML='<div class="quiet">no unreviewed active records in this projection; include reviewed records to revisit the field</div>';
+}
+async function refreshMemoryCuration(){
+  const slug=salienceSlug();if(!slug||memoryCurationLoading)return;memoryCurationLoading=true;
+  try{const include=$("memory-curation-reviewed").checked?"true":"false";
+    const [statusResponse,candidateResponse]=await Promise.all([
+      fetch(`/api/memory/${encodeURIComponent(slug)}/curation`),
+      fetch(`/api/memory/${encodeURIComponent(slug)}/curation/candidates?limit=30&include_reviewed=${include}`)]);
+    const status=await statusResponse.json(),result=await candidateResponse.json();
+    if(!statusResponse.ok)throw new Error(status.error||statusResponse.status);
+    if(!candidateResponse.ok)throw new Error(result.error||candidateResponse.status);
+    renderMemoryCuration(status,result)
+  }catch(error){$("memory-curation-status").textContent=`curation unavailable: ${error.message||error}`}
+  finally{memoryCurationLoading=false}
+}
+async function offerMemoryCuration(){
+  const status=$("memory-curation-status"),button=$("memory-curation-offer");
+  button.disabled=true;status.textContent="measuring a bounded private review packet…";
+  try{const response=await fetch(`/api/memory/${encodeURIComponent(salienceSlug())}/curation/offer`,{
+      method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({limit:8})});
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    status.textContent=result.queued
+      ?`${result.candidate_count} candidates placed in the resident's next private turn · no decision has been made`
+      :"there are no unreviewed active candidates to offer";
+  }catch(error){status.textContent=`review packet not offered: ${error.message||error}`}
+  finally{button.disabled=false}
+}
+async function applyMemoryCuration(action,id,summary="",reason=""){
+  const status=$("memory-curation-status");status.textContent=`applying ${action}…`;
+  try{const response=await fetch(`/api/memory/${encodeURIComponent(salienceSlug())}/curation/decisions`,{
+      method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action,memory_ids:[id],summary,reason})});
+    const result=await response.json();if(!response.ok)throw new Error(result.error||response.status);
+    status.textContent=`${action} committed · ${result.decision_id} · audit ${result.audit_status}`;
+    await Promise.all([refreshMemoryPanel(),refreshMemoryCuration()]);
+    await loadMemoryRecord(result.summary_memory_id||id)
+  }catch(error){status.textContent=`curation not applied: ${error.message||error}`}
+}
 async function loadMemoryRecord(id){
   memorySelected=id;const drill=$("memory-drill");
   try{const response=await fetch(`/api/memory/${encodeURIComponent(salienceSlug())}/record/${encodeURIComponent(id)}`);
@@ -3391,6 +4390,18 @@ async function loadMemoryRecord(id){
     rule.textContent=`projection: ${result.source_projection?.rule||"unknown"} · times selected by recall: ${result.access_history?.times_selected_by_recall||0} · ${result.access_history?.note||""}`;
     drill.append(heading,rule);
     (result.provenance?.gaps||[]).forEach(gap=>{const line=document.createElement("div");line.className="quiet";line.textContent=`provenance gap: ${gap}`;drill.appendChild(line)});
+    const record=result.payload||{},curation=record.fields?.curation||{},actions=document.createElement("div");actions.className="memory-curation-actions";
+    const reason=document.createElement("input");reason.placeholder="optional private reason for this decision";reason.maxLength=1000;actions.appendChild(reason);
+    if(curation.withdrawn===true){const restore=document.createElement("button");restore.type="button";restore.className="wide";restore.textContent="restore exact original to recall";restore.onclick=()=>applyMemoryCuration("restore",id,"",reason.value);actions.appendChild(restore);
+      const note=document.createElement("div");note.className="memory-curation-note";note.textContent=`withdrawn by curation · previous layer ${curation.previous_layer||"longterm"} · the original content remains canonical`;actions.appendChild(note)
+    }else if(record.layer==="archived"){const note=document.createElement("div");note.className="memory-curation-note";note.textContent="This record was archived by memory dynamics, not by curation. The workbench will not invent a restoration history for it.";actions.appendChild(note)
+    }else{const retain=document.createElement("button");retain.type="button";retain.textContent="retain as-is";retain.onclick=()=>applyMemoryCuration("retain",id,"",reason.value);
+      const withdraw=document.createElement("button");withdraw.type="button";withdraw.textContent="withdraw from recall";withdraw.onclick=()=>applyMemoryCuration("withdraw",id,"",reason.value);
+      const summary=document.createElement("textarea");summary.placeholder="write a shorter memory in your own words; the source will remain exact and reversible";summary.maxLength=6000;
+      const summarize=document.createElement("button");summarize.type="button";summarize.className="wide";summarize.textContent="make linked summary + withdraw source";summarize.onclick=()=>applyMemoryCuration("summarize",id,summary.value,reason.value);
+      const note=document.createElement("div");note.className="memory-curation-note";note.textContent="No classifier chooses for you. Retain records the review; withdraw changes recall eligibility; summary creates a new provenance-linked record and preserves this source verbatim.";
+      actions.append(retain,withdraw,summary,summarize,note)}
+    drill.appendChild(actions);
     const payload=document.createElement("pre");payload.textContent=JSON.stringify(result,null,2);drill.appendChild(payload)
   }catch(error){drill.innerHTML="";const line=document.createElement("div");line.className="quiet";
     line.textContent=`memory unavailable: ${error.message||error}`;drill.appendChild(line)}
@@ -3474,6 +4485,7 @@ function syncConversation(turns) {
 async function fetchState() {
   renderState(await (await fetch("/api/state")).json());
   fetchInterferenceCalibration();
+  fetchRestFieldCalibration();
   refreshAgency();
 }
 
@@ -3673,10 +4685,12 @@ async function fetchOrgans(note="", keepScope="") {
     <label class="organ"
       title="${o.desc}${o.deps.length ? ` — needs: ${o.deps.join(", ")}` : ""}">
       <input type="checkbox" data-organ="${o.id}"
-        ${en.has(o.id) ? "checked" : ""} ${o.blocked ? "disabled" : ""}>
+        ${en.has(o.id) ? "checked" : ""}
+        ${o.blocked || o.available === false ? "disabled" : ""}>
       <span>${o.id}</span>
       ${o.cost === "api" ? '<span class="tag">api</span>' : ""}
       ${o.loop ? '<span class="tag loop">loop</span>' : ""}
+      ${o.available === false ? '<span class="tag wall">not configured</span>' : ""}
       ${o.blocked ? '<span class="tag wall">measured wall</span>' : ""}
     </label>`).join("");
   $("organScope").value = keepScope || (r.scope === "runtime" ? "persona" : r.scope);
@@ -3722,6 +4736,7 @@ let thoughtSerial = 0;
 let pendingImages = [];
 const turnQueue = [];
 let turnWorkerActive = false;
+let activeTurnId="",activeTurnCancellable=false,activeTurnStopping=false;
 let cameraStream=null, cameraWatching=false, cameraBusy=false;
 let cameraPrevious=null, cameraPressure=0, cameraLastFrame=0;
 let cameraLastFeatures=null;
@@ -4086,7 +5101,8 @@ function speakVoiceOutput(text){
       voiceOutputStatus("output resolved");postVoiceOutputReceipt("completed")},
     error:event=>{if(generation!==voiceOutputGeneration)return;
       voiceOutputSpeaking=false;voiceOutputStatus(`output failed Â· ${event.error||"unknown"}`);
-      postVoiceOutputReceipt("failed",String(event.error||"unknown"))}
+      postVoiceOutputReceipt("failed",String(event.error||"unknown"));
+      requestHouseholdHealthCheck()}
   },voiceOutputConfig)
 }
 function beginStreamingVoiceOutput(requestedAt=performance.now()){
@@ -4267,7 +5283,15 @@ function cameraFrame(video,now){
     if(!cameraBusy)admitCameraEpisode(
       features,policy.threshold,[cameraAnchorFrame]);
   }else if(cameraLastFrame){
-    let delta=0;for(let i=0;i<lum.length;i++)delta+=Math.abs(lum[i]-cameraPrevious[i]);
+    const priorMean=cameraBaseline.mean;
+    const priorSigma=Math.sqrt(cameraBaseline.variance+1e-6);
+    const pixelFloor=Math.max(2,priorMean*255*.5);
+    let delta=0,motionMass=0,motionX=0,motionY=0;
+    for(let i=0;i<lum.length;i++){
+      const difference=Math.abs(lum[i]-cameraPrevious[i]);delta+=difference;
+      const weight=Math.max(0,difference-pixelFloor);
+      if(weight){motionMass+=weight;motionX+=(i%32)*weight;motionY+=Math.floor(i/32)*weight}
+    }
     const dt=Math.min(1,(now-cameraLastFrame)/1000);
     const motion=delta/(lum.length*255),novelty=adaptiveSurprise(motion,cameraBaseline,dt);
     const brightness=sumLum/lum.length/255,edgeDensity=edges/(lum.length-24);
@@ -4278,6 +5302,7 @@ function cameraFrame(video,now){
       edge_change:cameraLastFeatures?Math.abs(edgeDensity-cameraLastFeatures.edge_density):0};
     const demand=clamp(.42*novelty+.26*motion+.14*features.brightness_delta
       +.10*features.edge_change+.08*(1-features.stability));
+    const motionBoundary=priorMean+priorSigma*3;
     recordCameraSubstrate(features,demand,now);
     const advanced=advanceSensoryPressure(cameraPressure,demand,dt);
     cameraPressure=advanced.pressure;cameraLastFeatures=features;
@@ -4348,6 +5373,13 @@ async function admitCameraEpisode(features,pressure,images){
         novelty:features.novelty,pressure,features})});
     const result=await response.json();
     if(!response.ok)throw new Error(result.error||`camera perception ${response.status}`);
+    if(result.deferred){
+      cameraStatus("Visual episode is waiting behind current attention; the newest crossing is retained.");
+      renderAfferentEdge("camera-edge",{pressure,boundary:policy.threshold,policy,
+        evidence:`novelty ${edgeNumber(features.novelty)} · motion ${edgeNumber(features.motion)} · lightΔ ${edgeNumber(features.brightness_delta)} · edgeΔ ${edgeNumber(features.edge_change)}`,
+        outcome:"crossed · resident mailbox",tone:"crossed"});
+      return;
+    }
     cameraStatus(result.queued
       ? `Seen → salience ${Number(result.candidate_salience||0).toFixed(2)}: ${result.observation}`
       : `Seen, but DMN is not accepting candidates: ${result.observation}`);
@@ -4379,11 +5411,6 @@ function currentCameraImage(){
     video,0,0,cameraCapture.width,cameraCapture.height);
   return {name:"ambient-camera-current.jpg",
     data_url:cameraCapture.toDataURL("image/jpeg",.72)}
-}
-
-function currentCameraGrounding(){
-  const current=currentCameraImage();
-  return current?[current]:[]
 }
 
 function audioStatus(text){$("audio-story").textContent=text}
@@ -4611,8 +5638,8 @@ async function finishSpeechCapture(features,reason){
       headers:{"Content-Type":"application/json"},body:JSON.stringify({
         data_url,mime_type:"audio/wav",features:speechFeatures,
         pressure:sensoryPolicy().threshold,speaker:PRIMARY_USER,auto_turn:true,
-        user_persona:speakingAs.id,
-        grounding_images:currentCameraGrounding()})});
+        user_persona:speakingAs.id,grounding_images:[],
+        physical_eye_grounding:consumePhysicalEyeGrounding()})});
     const result=await response.json();
     if(!response.ok)throw new Error(result.error||`speech perception ${response.status}`);
     const heard=result.transcript?.text||"";
@@ -4638,6 +5665,13 @@ async function admitAudioFeatures(features,pressure){
       body:JSON.stringify({features,pressure,confidence:.45})});
     const result=await response.json();
     if(!response.ok)throw new Error(result.error||`audio perception ${response.status}`);
+    if(result.deferred){
+      audioStatus("Acoustic crossing is waiting behind current attention; the newest feature event is retained.");
+      renderAfferentEdge("audio-edge",{pressure,boundary:policy.threshold,policy,
+        evidence:`onset ${edgeNumber(features.onset)} · flux ${edgeNumber(features.spectral_flux)} · levelΔ ${edgeNumber(features.level_change)} · speech ${edgeNumber(features.speech_likelihood)} · music ${edgeNumber(features.music_likelihood)}`,
+        outcome:"crossed · resident mailbox",tone:"crossed"});
+      return;
+    }
     if(result.state){lastState=result.state;applyReactiveState(lastState)}
     audioStatus(result.admitted
       ? `Heard → pressure ${Number(result.pressure||0).toFixed(2)}: ${result.description}`
@@ -4708,12 +5742,47 @@ function setThinking(active) {
     : "/assets/favicon-48.png";
 }
 
+function updateActiveTurnControl({id="",cancellable=false,stopping=false}={}){
+  activeTurnId=id;activeTurnCancellable=Boolean(cancellable);
+  activeTurnStopping=Boolean(stopping);
+  const button=$("cancel-turn"),mark=$("thought-mark");
+  button.hidden=!activeTurnId||!activeTurnCancellable;
+  button.disabled=activeTurnStopping;
+  button.classList.toggle("stopping",activeTurnStopping);
+  button.textContent=activeTurnStopping?"Stoppingâ€¦":"Stop";
+  if(activeTurnId)mark.setAttribute("aria-label",activeTurnStopping
+    ?"stopping the current response":"waiting for the current response");
+}
+
+async function cancelActiveTurn(){
+  if(!activeTurnId||!activeTurnCancellable||activeTurnStopping)return;
+  const conversationId=activeTurnId;
+  updateActiveTurnControl({id:conversationId,cancellable:true,stopping:true});
+  try{
+    const response=await fetch(`/api/turn/${encodeURIComponent(conversationId)}/cancel`,{
+      method:"POST"});
+    const result=await response.json();
+    if(!response.ok||!result.ok)
+      throw new Error(result.error||`cancel ${response.status}`)
+  }catch(error){
+    addMsg("sys","could not stop that turn: "+error.message);
+    if(activeTurnId===conversationId)
+      updateActiveTurnControl({id:conversationId,cancellable:true,stopping:false})
+  }
+}
+
+function requestHouseholdHealthCheck(){
+  if(window.parent&&window.parent!==window)
+    window.parent.postMessage({type:"jnsq-service-health-check"},"*")
+}
+
 async function sendTurn() {
   const text = $("say").value.trim();
   if ((!text && !pendingImages.length) || $("send").disabled) return;
   stopVoiceOutput("interrupted Â· new typed turn");
   const sentImages=pendingImages.slice(0,4);
-  const groundingImages=sentImages.length<4?currentCameraGrounding():[];
+  const groundingImages=[];
+  const physicalEyeGrounding=consumePhysicalEyeGrounding(sentImages.length<4);
   const speakingAs=selectedUserPersona();
   pendingImages=[];renderPendingImages();
   $("say").value = ""; resizeComposer(); $("send").disabled = true;
@@ -4724,6 +5793,7 @@ async function sendTurn() {
       headers:{"Content-Type":"application/json"},
       body: JSON.stringify({message:text,images:sentImages,
         grounding_images:groundingImages,
+        physical_eye_grounding:physicalEyeGrounding,
         user_persona:speakingAs.id})});
     const r = await res.json();
     if (r.error) { pendingImages=sentImages;renderPendingImages();
@@ -4733,6 +5803,7 @@ async function sendTurn() {
     pendingImages=sentImages;renderPendingImages();
     addMsg("sys", "⚠ " + e);
   } finally {
+    requestHouseholdHealthCheck();
     setThinking(false);
     scrollConversationToBottom();
     $("send").disabled = false; $("say").focus();
@@ -4760,12 +5831,13 @@ function sendTurnStream() {
   if(!text&&!pendingImages.length)return;
   stopVoiceOutput("interrupted Â· new typed turn");
   const sentImages=pendingImages.slice(0,4);
-  const groundingImages=sentImages.length<4?currentCameraGrounding():[];
+  const groundingImages=[];
+  const physicalEyeGrounding=consumePhysicalEyeGrounding(sentImages.length<4);
   pendingImages=[];renderPendingImages();
   const speakingAs=selectedUserPersona();
   $("say").value="";resizeComposer();
   addMsg("user",text||"shared image material",speakingAs.name,sentImages);
-  turnQueue.push({text,sentImages,groundingImages,speakingAs});updateTurnQueueUI();
+  turnQueue.push({text,sentImages,groundingImages,physicalEyeGrounding,speakingAs});updateTurnQueueUI();
   drainTurnQueue();
 }
 
@@ -4783,14 +5855,17 @@ async function drainTurnQueue() {
   }
 }
 
-async function runQueuedTurn({text,sentImages,groundingImages,speakingAs}) {
+async function runQueuedTurn({text,sentImages,groundingImages,physicalEyeGrounding,speakingAs}) {
   const turnStarted=performance.now();
+  updateActiveTurnControl();
   try{
     const res=await fetch("/api/turn/stream",{method:"POST",
       headers:{"Content-Type":"application/json"},
       body:JSON.stringify({message:text,images:sentImages,
         grounding_images:groundingImages,
-        user_persona:speakingAs.id})});
+        physical_eye_grounding:physicalEyeGrounding,
+        user_persona:speakingAs.id,
+        conversation_thread_id:conversationThreadId()})});
     if(!res.ok){const failed=await res.json();throw new Error(failed.error||res.status)}
     if(!res.body)throw new Error("streaming response body unavailable");
     const decoder=new TextDecoder(),reader=res.body.getReader();
@@ -4802,7 +5877,10 @@ async function runQueuedTurn({text,sentImages,groundingImages,speakingAs}) {
       const lines=wire.split("\n");wire=lines.pop()||"";
       for(const line of lines){if(!line.trim())continue;
         const event=JSON.parse(line);
-        if(event.type==="delta"){
+        if(event.type==="started"){
+          updateActiveTurnControl({id:event.conversation?.id||"",
+            cancellable:event.cancellable===true,stopping:false})
+        }else if(event.type==="delta"){
           if(voiceOutputSession&&voiceOutputSession.firstVisibleMs==null)
             voiceOutputSession.firstVisibleMs=Math.round(performance.now()-turnStarted);
           if(!messageNode)messageNode=addMsg("persona","",personaLabel());
@@ -4816,6 +5894,10 @@ async function runQueuedTurn({text,sentImages,groundingImages,speakingAs}) {
           const saved=event.conversation&&event.conversation.status==="failed_saved"
             ?` (saved as ${event.conversation.id})`:"";
           throw new Error((event.error||"turn failed")+saved)
+        }else if(event.type==="cancelled"){
+          stopVoiceOutput("output stopped Â· turn cancelled");
+          const partial=reply?" Partial words were preserved.":"";
+          addMsg("sys","turn stopped by you."+partial);finished=true
         }
       }
       if(chunk.done&&!finished)throw new Error("turn stream ended before its final receipt")
@@ -4823,7 +5905,7 @@ async function runQueuedTurn({text,sentImages,groundingImages,speakingAs}) {
   }catch(error){stopVoiceOutput("output stopped Â· turn failed");
     pendingImages=[...sentImages,...pendingImages].slice(0,4);renderPendingImages();
     addMsg("sys","turn failed: "+error.message)
-  }finally{scrollConversationToBottom()}
+  }finally{updateActiveTurnControl();requestHouseholdHealthCheck();scrollConversationToBottom()}
 }
 
 function renderTurnResult(r,text,voiceAlreadyQueued=false){
@@ -4834,6 +5916,7 @@ function renderTurnResult(r,text,voiceAlreadyQueued=false){
   refreshWritingDesk();
   refreshPrivateJournal();
   refreshResearchDesk();
+  refreshScenarioLab();
   refreshAtelier();
   if(!persisted){addMsg("persona",r.reply,personaLabel());
     if(r.felt&&r.felt.why)addMsg("sys","felt: "+r.felt.why)}
@@ -4864,6 +5947,7 @@ async function setMood() {
 }
 
 $("send").onclick = sendTurnStream;
+$("cancel-turn").onclick = cancelActiveTurn;
 $("say").addEventListener("input",resizeComposer);
 $("say").addEventListener("keydown", e => {
   if (e.key==="Enter" && !e.shiftKey && !e.isComposing) {
@@ -4951,9 +6035,9 @@ $("document-open").onclick=()=>openDocument($("document-select").value,0);
 $("document-select").onchange=()=>{if(documentLibraryState)renderDocumentReading(documentLibraryState)};
 $("document-previous").onclick=()=>navigateDocument("previous");
 $("document-next").onclick=()=>navigateDocument("next");
-$("document-read-through").onclick=()=>changeDocumentReadingArc($("document-read-through").dataset.action||"start",$("document-read-through").dataset.pace||"natural");
-$("document-read-now").onclick=()=>{const button=$("document-read-now");const action=button.dataset.action;if(action)changeDocumentReadingArc(action,"foreground")};
-$("document-release-arc").onclick=()=>changeDocumentReadingArc("release");
+$("document-read-through").onclick=()=>{const button=$("document-read-through");changeDocumentReadingArc(button.dataset.action||"start",button.dataset.pace||"natural",button)};
+$("document-read-now").onclick=()=>{const button=$("document-read-now");const action=button.dataset.action;if(action)changeDocumentReadingArc(action,"foreground",button)};
+$("document-release-arc").onclick=()=>changeDocumentReadingArc("release","natural",$("document-release-arc"));
 $("document-search-button").onclick=searchDocuments;
 $("document-search").addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();searchDocuments()}});
 $("document-to-desk").onclick=()=>admitWritingDesk("document");
@@ -4963,6 +6047,18 @@ $("archive-bookmark").onclick=bookmarkArchive;
 $("archive-search-button").onclick=searchArchive;
 $("archive-search").addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();searchArchive()}});
 $("archive-to-desk").onclick=()=>admitWritingDesk("archive");
+$("legacy-evidence-previous").onclick=()=>navigateLegacyEvidence("previous");
+$("legacy-evidence-next").onclick=()=>navigateLegacyEvidence("next");
+$("legacy-evidence-bookmark").onclick=bookmarkLegacyEvidence;
+$("legacy-evidence-search-button").onclick=searchLegacyEvidence;
+$("legacy-evidence-search").addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();searchLegacyEvidence()}});
+$("legacy-evidence-kind").onchange=searchLegacyEvidence;
+$("anthropic-conversation-previous").onclick=()=>navigateAnthropicConversation("previous");
+$("anthropic-conversation-next").onclick=()=>navigateAnthropicConversation("next");
+$("anthropic-conversation-bookmark").onclick=bookmarkAnthropicConversation;
+$("anthropic-conversation-search-button").onclick=searchAnthropicConversations;
+$("anthropic-conversation-search").addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();searchAnthropicConversations()}});
+$("anthropic-conversation-layer").onchange=searchAnthropicConversations;
 [
   "memory-query","memory-layer","memory-origin","memory-type","memory-entities-state",
   "memory-source","memory-entity","memory-min-age","memory-max-age",
@@ -4970,6 +6066,10 @@ $("archive-to-desk").onclick=()=>admitWritingDesk("archive");
 ].forEach(id=>$(id).addEventListener(id==="memory-query"?"input":"change",scheduleMemoryRefresh));
 $("memory-prev").onclick=()=>{if(memoryPage>1){memoryPage--;refreshMemoryPanel()}};
 $("memory-next").onclick=()=>{if(memoryPage<memoryPages){memoryPage++;refreshMemoryPanel()}};
+$("memory-curation-refresh").onclick=()=>{$("memory-curation").open=true;refreshMemoryCuration()};
+$("memory-curation").ontoggle=()=>{if($("memory-curation").open)refreshMemoryCuration()};
+$("memory-curation-reviewed").onchange=refreshMemoryCuration;
+$("memory-curation-offer").onclick=offerMemoryCuration;
 $("agency-submit").onclick=admitAgencyText;
 $("mcp-library-probe").onclick=probeMCPLibrary;
 $("mcp-library-add").onclick=()=>openMCPEditor();
@@ -4994,12 +6094,17 @@ $("research-submit").onclick=offerResearchInterest;
 $("research-topic").addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();offerResearchInterest()}});
 $("research-open").onclick=openForegroundResearch;
 $("research-url").addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();openForegroundResearch()}});
+$("scenario-submit").onclick=createScenarioForecast;
+$("scenario-intake").onclick=snapshotScenarioFeeds;
 $("autonomous-works-filter").onchange=()=>{renderAutonomousWorks();renderAutonomousActivity()};
 $("autonomous-works-stage").onchange=renderAutonomousWorks;
 $("autonomous-activity-status").onchange=renderAutonomousActivity;
 $("autonomous-works-refresh").onclick=refreshAutonomousWorks;
+$("action-turn-approve").onclick=()=>resolveActionTurns("approve");
+$("action-turn-decline").onclick=()=>resolveActionTurns("decline");
 window.addEventListener("pagehide",()=>{stopVoiceOutput("page closed");stopCamera();stopMicrophone();stopAtelierCanvasLoops();stopAtelier3DLoops();stopAtelierAudioPlayers("page closed");
-  if(salienceStream)salienceStream.close()});
+  if(salienceStream)salienceStream.close();
+  stopOutcomeStream()});
 $("image-picker").onchange=async e=>{await chooseImages(e.target.files||[]);e.target.value=""};
 $("setmood").onclick = setMood;
 $("altered-dose").addEventListener("input",()=>{
@@ -5025,9 +6130,31 @@ function setInspectorOpen(open, persist = true) {
   $("bodyToggle").setAttribute("aria-expanded", String(open));
   if (persist) localStorage.setItem(BODY_OPEN_KEY, String(open));
 }
+function setCreativeView(open){
+  creativeViewOpen=Boolean(open);
+  document.body.dataset.creativeView=String(creativeViewOpen);
+  $("creativeToggle").setAttribute("aria-pressed",String(creativeViewOpen));
+  updateCreativeShelfSummary();
+  if(creativeViewOpen){
+    setInspectorOpen(true,false);
+    const group=document.querySelector('[data-group="creative"]');
+    group?.classList.remove("collapsed");
+    group?.querySelector(".body-group-toggle")?.setAttribute("aria-expanded","true");
+    refreshWritingDesk();refreshAtelier()
+  }else{
+    closeWritingModal({restoreFocus:false});
+    setInspectorOpen(localStorage.getItem(BODY_OPEN_KEY)==="true",false)
+  }
+}
+function setCreativeFilter(filter){
+  creativeFilter=["all","atelier","writing"].includes(filter)?filter:"all";
+  document.body.dataset.creativeFilter=creativeFilter;
+  document.querySelectorAll("[data-creative-filter]").forEach(button=>
+    button.classList.toggle("on",button.dataset.creativeFilter===creativeFilter))
+}
 function setReceiptsOpen(open, persist = true) {
   $("receipts-panel").classList.toggle("collapsed", !open);
-  $("receiptsToggle").textContent = open ? "minimize" : "pull up";
+  $("receiptsToggle").textContent = open ? "hide" : "show";
   $("receiptsToggle").setAttribute("aria-expanded", String(open));
   if (persist) localStorage.setItem(RECEIPTS_OPEN_KEY, String(open));
 }
@@ -5037,6 +6164,11 @@ if (Number.isFinite(savedInspectorWidth) && savedInspectorWidth >= 280)
 setInspectorOpen(localStorage.getItem(BODY_OPEN_KEY) === "true", false);
 setReceiptsOpen(localStorage.getItem(RECEIPTS_OPEN_KEY) === "true", false);
 $("bodyToggle").onclick = () => setInspectorOpen($("cockpit-main").classList.contains("inspector-collapsed"));
+$("creativeToggle").onclick=()=>setCreativeView(!creativeViewOpen);
+$('creative-new-summary').title="A piece stays new until that specific work is opened once.";
+document.querySelectorAll("[data-creative-filter]").forEach(button=>
+  button.onclick=()=>setCreativeFilter(button.dataset.creativeFilter));
+$('recent-actions-refresh').onclick=()=>fetchState().catch(()=>{});
 $("receiptsToggle").onclick = () => setReceiptsOpen($("receipts-panel").classList.contains("collapsed"));
 $("bodyLabToggle").disabled=!CONFIG.body_workshop_url;
 $("bodyLabToggle").title=CONFIG.body_workshop_url
@@ -5056,8 +6188,8 @@ const bodyGroups=[
   {id:"cosmetic",label:"Cosmetic",open:true,panels:["appearance","voice-output-control"]},
   {id:"perception",label:"Perception",open:true,panels:["afferent-rack"]},
   {id:"creative",label:"Creative / autonomous",panels:["private-journal","intention-loom","writing-desk","atelier","research-desk","agency-workbench","autonomous-works"]},
-  {id:"logs",label:"Logs & archives",panels:["document-library","conversation-archive","mcp-library-panel","last-turn-signals"]},
-  {id:"metrics",label:"Metrics & state",panels:["organs-panel","emotional-state","body-state","rhythm-panel","interference-observatory","salience-observatory","altered-state-panel","memory-observatory","room-substrate"]}
+  {id:"logs",label:"Logs & archives",panels:["document-library","conversation-archive","legacy-evidence","anthropic-conversations","mcp-library-panel","last-turn-signals","receipts-panel"]},
+  {id:"metrics",label:"Metrics & state",panels:["organs-panel","emotional-state","body-state","recent-actions-panel","rhythm-panel","rest-field-observatory","interference-observatory","salience-observatory","altered-state-panel","memory-observatory","room-substrate"]}
 ];
 for(const group of bodyGroups){
   const section=document.createElement("section");section.className="body-group";section.dataset.group=group.id;
@@ -5077,6 +6209,7 @@ const metricsContent=document.querySelector('[data-group="metrics"] .body-group-
 document.querySelectorAll("#inspector > .panel").forEach(panel=>metricsContent.appendChild(panel));
 // collapsible body-function sections: heading toggles, choice persists
 document.querySelectorAll("#inspector .body-group-content > .panel").forEach(p => {
+  if (p.id === "receipts-panel") return; // keeps its turn-receipt drawer state and control intact
   const head = p.querySelector(":scope > .panel-heading, :scope > .salience-head") || p.querySelector(":scope > h2");
   if (!head) return;
   const h2 = head.tagName === "H2" ? head : head.querySelector("h2");
@@ -5093,6 +6226,8 @@ document.querySelectorAll("#inspector .body-group-content > .panel").forEach(p =
     localStorage.setItem(key, closed ? "closed" : "open");
   });
 });
+setCreativeFilter(creativeFilter);
+setCreativeView(creativeViewOpen);
 $("column-resizer").onpointerdown = event => {
   if (window.matchMedia("(max-width:720px)").matches) return;
   event.preventDefault();
@@ -5134,11 +6269,19 @@ window.addEventListener("focus", () => {
 });
 document.addEventListener("visibilitychange", () => {
   if(document.hidden)stopAtelierAudioPlayers("page hidden");
-  if (!document.hidden && !turnWorkerActive)
-    fetchState().catch(()=>{});
+  syncHostPresentationRuntime();
+  if (!document.hidden && !turnWorkerActive)fetchState().catch(()=>{});
 });
 window.addEventListener("message", event => {
   if(event.source!==window.parent)return;
+  if(event.data?.type==="jnsq-creative-view-state"&&event.data.content_free===true){
+    const pid=String(event.data.persona||"").toLowerCase();
+    if(currentPersona!=="persona"&&pid&&pid!==String(currentPersona).toLowerCase())return;
+    CREATIVE_SEEN_AT=Math.max(CREATIVE_SEEN_AT,Math.max(0,Number(event.data.seen_at)||0));
+    for(const id of Array.isArray(event.data.viewed_ids)?event.data.viewed_ids:[])
+      if(id)CREATIVE_VIEWED_IDS.add(String(id));
+    syncCreativeViewedMarkers();return
+  }
   if(event.data&&event.data.type==="jnsq-host-presentation"){
     document.body.dataset.hostPresentation=
       event.data.visible===true?"visible":"hidden";

@@ -4,6 +4,7 @@ see another persona's data. Schema versioned on disk (par 2.2a)."""
 import json
 import math
 import os
+import re
 import time
 
 from .records import make_memory, age_days, now_iso
@@ -13,7 +14,9 @@ from .layers import decay_tick, flush_working
 from .dynamics import (decay_cocktail, extract_affect,
                        extract_event_affect, blend)
 from .context import ContextCueIndex, normalize_context
+from .lineage import dmn_lineage_root, is_dmn_wandering
 from .narrative import build_narrative_memory
+from .affect_atlas import AffectAtlas
 
 
 class MemoryEmotionOrgan:
@@ -35,6 +38,7 @@ class MemoryEmotionOrgan:
         self.known_entities = cfg.get("entities", [])  # declared, case-correct
         self.weights = cfg.get("recall_weights", dict(DEFAULT_WEIGHTS))
         self.state = self._load(self.state_path, {"cocktail": {}})
+        self.affect_atlas = AffectAtlas(self.dir)
         from .vectors import VectorStore
         self.vectors = VectorStore(self.dir)  # semantic sidecar
         # (derived data: regenerable, never a second source of truth)
@@ -42,11 +46,70 @@ class MemoryEmotionOrgan:
             (memory.get("id") for memory in self.memories),
             persona=os.path.basename(os.path.abspath(persona_dir)))
         self._context_cues = ContextCueIndex(self.memories)
+        # Some bounded assemblies intentionally withhold recall (notably the
+        # first startup-continuity turn). Receipt readers still need a
+        # canonical distinction between "recall did not run" and "the audit
+        # attribute was missing"; the first real recall replaces this shape.
+        self.last_recall_audit = {
+            "eligible_records": 0,
+            "semantic_candidates": 0,
+            "context_candidates": 0,
+            "candidate_union": 0,
+            "records_scored": 0,
+            "candidate_fraction": 0.0,
+            "vector_query": False,
+            "vector_covered": 0,
+            "context_covered": 0,
+            "fallback_reason": "recall_not_run",
+            "cue_ms": 0.0,
+            "score_ms": 0.0,
+            "total_ms": 0.0,
+            "audience_skipped": 0,
+            "bedrock_seated": None,
+            "dmn_lineages_collapsed": 0,
+            "access_recorded": False,
+            "cross_speaker_weighted": 0,
+        }
+        # Observer-only counterfactual. It is rebuilt by each real recall and
+        # has no route into memory selection, prompts, or access accounting.
+        self.last_recall_dispersion_shadow = None
 
     def vector_status(self) -> dict:
         """Read-only boot health + current sidecar coverage projection."""
         return self.vectors.health_status(
             memory.get("id") for memory in self.memories)
+
+    def resource_status(self) -> dict:
+        """Content-free canonical/derived agreement for the R-1 audit."""
+        vectors = self.vector_status()
+        canonical = len(self.memories)
+        context = getattr(self, "_context_cues", None)
+        context_records = int(getattr(context, "size", 0) or 0)
+        vector_covered = int(vectors.get("covered") or 0)
+        vector_gap = max(0, canonical - vector_covered)
+        gap = max(
+            0, canonical - context_records,
+            vector_gap)
+        return {
+            "schema_version": 1,
+            "canonical_records": canonical,
+            "memory_revision": int(
+                getattr(self, "_memory_revision", 0) or 0),
+            "persisted_revision": int(
+                getattr(self, "_persisted_revision", 0) or 0),
+            "context_index_records": context_records,
+            "vector_records": int(vectors.get("records") or 0),
+            "vector_covered": vector_covered,
+            "vector_rows": int(vectors.get("sidecar_rows") or 0),
+            "vector_pending": len(getattr(self.vectors, "_pending", ()) or ()),
+            "vector_gap": vector_gap,
+            "vector_healthy": vectors.get("healthy"),
+            "index_gap": gap,
+            "load_fraction": (gap / canonical if canonical else 0.0),
+            "private_authority": float(gap > 0),
+            "content_free": True,
+            "read_only": True,
+        }
 
     # ── FEEL: language -> substrate (the return half of the loop) ────
     def feel(self, user_text: str, reply_text: str, judge,
@@ -284,7 +347,10 @@ class MemoryEmotionOrgan:
                weights: dict = None, exclude=None,
                max_rank: int = 2, cue_context: dict = None,
                use_cues: bool = True,
-               semantic_query_vector=None) -> list:
+               semantic_query_vector=None, record_access: bool = True,
+               collapse_dmn_lineages: bool = True,
+               source_speakers=None,
+               dispersion_shadow: dict = None) -> list:
         """weights: optional per-call override of this persona's recall
         weights (e.g. band-biased by the bench). self.weights untouched.
         exclude: memory ids to skip ENTIRELY (the working window — if
@@ -298,14 +364,57 @@ class MemoryEmotionOrgan:
         assembly, not output politeness — what isn't there can't leak."""
         from core.people import AUDIENCE_RANK
         started = time.perf_counter()
+        self.last_recall_dispersion_shadow = None
         use_w = weights or self.weights
+        shadow_cfg = dict(dispersion_shadow or {})
+        shadow_weights = dict(shadow_cfg.get("baseline_weights") or {})
+        source_cfg = dict((getattr(self, "cfg", {}) or {}).get(
+            "source_recall") or {})
+        try:
+            unmentioned_speaker_weight = float(source_cfg.get(
+                "unmentioned_speaker_weight", 1.0))
+        except (TypeError, ValueError):
+            unmentioned_speaker_weight = 1.0
+        unmentioned_speaker_weight = max(
+            0.0, min(1.0, unmentioned_speaker_weight))
+        source_scope = {
+            str(name).strip().casefold()
+            for name in (source_speakers or ()) if str(name).strip()
+        }
+
+        def source_alignment(mem):
+            """Continuous provenance relevance, never a content veto.
+
+            An overheard utterance keeps its ordinary score when its speaker
+            is present in this turn or named in the query. Otherwise a
+            resident-scoped configuration may soften its auction weight.
+            The default of 1.0 preserves the historical open boundary.
+            """
+            fields = mem.get("fields") or {}
+            remembered = str(fields.get("speaker") or "").strip()
+            if (mem.get("type") != "observed"
+                    or fields.get("channel") != "overheard"
+                    or not remembered):
+                return 1.0
+            folded = remembered.casefold()
+            if folded in source_scope:
+                return 1.0
+            if re.search(r"(?<!\w)" + re.escape(remembered)
+                         + r"(?!\w)", query, flags=re.IGNORECASE):
+                return 1.0
+            return unmentioned_speaker_weight
+
         skip = set(exclude or ())
         eligible = []
         audience_skipped = 0
         for mem in self.memories:
             if mem.get("layer") == "archived" or mem["id"] in skip:
                 continue
-            audience = (mem.get("fields") or {}).get(
+            fields = mem.get("fields") or {}
+            if (fields.get("social_proxy") is True
+                    or fields.get("recall_eligible") is False):
+                continue
+            audience = fields.get(
                 "audience", "household")
             if AUDIENCE_RANK.get(audience, 2) > max_rank:
                 audience_skipped += 1
@@ -395,8 +504,18 @@ class MemoryEmotionOrgan:
             "total_ms": 0.0,
             "audience_skipped": audience_skipped,
             "bedrock_seated": None,
+            "dmn_lineages_collapsed": 0,
+            "access_recorded": bool(record_access),
+            "cross_speaker_weighted": 0,
+            "dispersion_shadow_status": (
+                "pending" if shadow_cfg else "not_requested"),
         }
         scored = []
+        baseline_scores = {}
+        candidate_ordinals = {
+            str(mem.get("id") or ""): ordinal
+            for ordinal, mem in enumerate(candidates)
+        }
         score_started = time.perf_counter()
         for mem in candidates:
             ov = sims.get(mem["id"])
@@ -405,14 +524,84 @@ class MemoryEmotionOrgan:
                                  weights=use_w,
                                  mem_age_days=age_days(mem),
                                  semantic_override=ov)
+            alignment = source_alignment(mem)
+            if alignment < 1.0:
+                s *= alignment
+                br = dict(br)
+                br["source_alignment"] = alignment
+                self.last_recall_audit["cross_speaker_weighted"] += 1
             scored.append((s, mem, br))
+            if shadow_cfg:
+                baseline_score, _baseline_breakdown = score_memory(
+                    mem, query=query, cocktail=cocktail or {},
+                    known_entities=self.known_entities,
+                    weights=shadow_weights or self.weights,
+                    mem_age_days=age_days(mem), semantic_override=ov)
+                baseline_scores[str(mem.get("id") or "")] = (
+                    baseline_score * alignment)
         scored.sort(key=lambda x: -x[0])
+        scored_count = len(scored)
+        if collapse_dmn_lineages:
+            memories_by_id = {
+                str(memory.get("id") or ""): memory
+                for memory in self.memories if memory.get("id")
+            }
+            collapsed = []
+            seen_lineages = set()
+            for row in scored:
+                memory = row[1]
+                if is_dmn_wandering(memory):
+                    lineage = dmn_lineage_root(memory, memories_by_id)
+                    if lineage in seen_lineages:
+                        continue
+                    seen_lineages.add(lineage)
+                collapsed.append(row)
+            self.last_recall_audit["dmn_lineages_collapsed"] = (
+                len(scored) - len(collapsed))
+            scored = collapsed
         score_done = time.perf_counter()
-        self.last_recall_audit["records_scored"] = len(scored)
+        self.last_recall_audit["records_scored"] = scored_count
         self.last_recall_audit["candidate_fraction"] = round(
-            len(scored) / eligible_count, 6) if eligible_count else 0.0
+            scored_count / eligible_count, 6) if eligible_count else 0.0
         self.last_recall_audit["score_ms"] = round(
             (score_done - score_started) * 1000.0, 3)
+        if shadow_cfg:
+            try:
+                from core.recall_dispersion import (
+                    build_recall_dispersion_shadow,
+                )
+                query_lower = query.lower()
+                shadow_rows = []
+                for score, memory, _breakdown in scored:
+                    reference = str(memory.get("id") or "")
+                    fields = memory.get("fields") or {}
+                    shadow_rows.append({
+                        "reference": reference,
+                        "current_score": score,
+                        "baseline_score": baseline_scores.get(
+                            reference, score),
+                        "named_bedrock": bool(
+                            fields.get("is_bedrock") and any(
+                                entity and entity.lower() in query_lower
+                                for entity in memory.get("entities", []))),
+                        "ordinal": candidate_ordinals.get(reference, 0),
+                    })
+                self.last_recall_dispersion_shadow = (
+                    build_recall_dispersion_shadow(
+                        shadow_rows, requested_n=n,
+                        bands=shadow_cfg.get("bands"),
+                        cycle_id=str(shadow_cfg.get("cycle_id") or "missing"),
+                        pre_excluded_claimed_bedrock_count=int(
+                            shadow_cfg.get(
+                                "pre_excluded_claimed_bedrock_count") or 0)))
+                self.last_recall_audit[
+                    "dispersion_shadow_status"] = "observed"
+            except Exception as error:
+                # An observer failure cannot interrupt canonical recall.
+                self.last_recall_audit[
+                    "dispersion_shadow_status"] = "failed"
+                self.last_recall_audit[
+                    "dispersion_shadow_error_type"] = type(error).__name__
         top = list(scored[:n])
         # THE BEDROCK SEAT (v1 retrieval-tier parity, 2026-07-12).
         # v1's retrieve_unified_importance included identity/bedrock
@@ -439,10 +628,11 @@ class MemoryEmotionOrgan:
                 self.last_recall_audit["bedrock_seated"] = beds[0][1]["id"]
         out = []
         for s, mem, br in top:
-            mem["access_count"] = mem.get("access_count", 0) + 1
-            mem["last_access"] = now_iso()
+            if record_access:
+                mem["access_count"] = mem.get("access_count", 0) + 1
+                mem["last_access"] = now_iso()
             out.append({"memory": mem, "score": round(s, 4), "breakdown": br})
-        if top:
+        if top and record_access:
             self._mark_memory_dirty()
         self.last_recall_audit["total_ms"] = round(
             (time.perf_counter() - started) * 1000.0, 3)

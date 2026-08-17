@@ -20,13 +20,18 @@ Then: GET  /                              -> status page, links to each
 """
 import argparse
 import atexit
+import concurrent.futures
 import glob
+import hmac
+import ipaddress
 import json
 import os
 import re
+import secrets
 import socket
 import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -80,6 +85,7 @@ from shell.persona_media import (load_persona_avatar, save_persona_avatar,
                                  write_roster_mapping_scalar,
                                  write_roster_scalar)  # noqa: E402
 from core.voice_output import normalize_output_config, OUTPUT_PROVIDERS  # noqa: E402
+from core.resident_config import resolve_resident_config  # noqa: E402
 from shell.voice_settings import (load_voice_defaults, save_voice_defaults,
                                   normalize_voice_tuning)  # noqa: E402
 
@@ -135,6 +141,11 @@ class VisionRouteRequest(BaseModel):
     model: str | None = None  # null disables fallback; direct vision still works
 
 
+class WorkRouteRequest(BaseModel):
+    route: str
+    model: str | None = None
+
+
 class VoiceOutputConfigRequest(BaseModel):
     provider: str = "browser-native"
     voice: str = ""
@@ -185,6 +196,11 @@ class RosterEntryRequest(BaseModel):
 class EnvKeyRequest(BaseModel):
     name: str                  # env var NAME (UPPER_SNAKE), e.g. OPENAI_API_KEY
     value: str                 # the secret — written to .env, NEVER echoed back
+
+
+class MCPLibraryConfigRequest(BaseModel):
+    config: dict = Field(default_factory=dict)
+    secrets: dict[str, str] = Field(default_factory=dict)
 
 
 class SystemPromptRequest(BaseModel):
@@ -241,6 +257,169 @@ class RelationshipRequest(BaseModel):
     note: str = ""
 
 
+# Purpose routes are deliberately explicit.  A single global "cheap model"
+# switch would hide privacy, vision-capability, and autonomous-spend
+# boundaries that differ by job.  Settings groups these into human-readable
+# work tiers, while this allowlist remains the authoritative write surface.
+WORK_ROUTE_SPECS = {
+    "social": {
+        "tier": "ambient", "section": "social", "key": "model",
+        "label": "Resident-to-resident replies", "purpose": "social_turn",
+        "organ": "social", "local_required": True,
+        "description": "Room conversation that is not a foreground human turn.",
+    },
+    "idle": {
+        "tier": "ambient", "section": "metabolism", "key": "idle_model",
+        "label": "Idle emergence", "purpose": "dmn", "organ": "dmn",
+        "local_required": True,
+        "description": "A model is spent only when accumulated pressure discharges.",
+    },
+    "autonomous_deliberation": {
+        "tier": "ambient", "section": "autonomous_deliberation",
+        "key": "model", "label": "Bounded API deliberation",
+        "purpose": "dmn", "purpose_aliases": [
+            "dmn_contact_choice", "autonomous_outcome_choice"],
+        "organ": "dmn",
+        "description": (
+            "A cheaper family-matched API vessel may answer an already-earned autonomy "
+            "opening while a persistent credit and token reservoir remains; "
+            "local idle emergence is the fallback."),
+    },
+    "avatar_vision": {
+        "tier": "ambient", "section": "perception",
+        "key": "avatar_vision_model", "label": "Avatar POV fallback",
+        "purpose": "vision", "organ": "perception", "vision": True,
+        "local_required": True, "optional": True,
+        "description": "Local pixel fallback after free renderer grounding; not a timer-polled API route.",
+    },
+    "affect": {
+        "tier": "integration", "section": "interoception",
+        "key": "affect_model", "label": "Affect interpretation",
+        "purpose": "affect", "purpose_aliases": ["affect_event"],
+        "organ": "feel",
+        "description": "Describes possible felt consequences without assigning a feeling.",
+    },
+    "gist": {
+        "tier": "integration", "section": "consolidation",
+        "key": "gist_model", "label": "Gist consolidation",
+        "purpose": "gist", "organ": "gist",
+        "description": "Compacts admitted experience for later context and recall.",
+    },
+    "shared_vision": {
+        "tier": "integration", "section": "perception",
+        "key": "vision_model", "label": "Shared-image transducer",
+        "purpose": "vision", "organ": "perception", "vision": True,
+        "optional": True,
+        "description": "Turns human-shared pixels into observable features for text-only speaking vessels.",
+    },
+    "focused_vision": {
+        "tier": "focused", "section": "perception",
+        "key": "focused_vision_model", "label": "Chosen visual engagement",
+        "purpose": "vision", "organ": "perception", "vision": True,
+        "optional": True,
+        "description": "One focused visual call only when the resident mechanically chooses to inspect.",
+    },
+    "agency": {
+        "tier": "focused", "section": "agency", "key": "model",
+        "label": "Agency workbench", "purpose": "agency", "organ": "agency",
+        "description": "Structured planning after an admitted agency handoff.",
+    },
+    "intention_loom": {
+        "tier": "projects", "section": "intention_loom", "key": "model",
+        "label": "Intention Loom", "purpose": "intention_loom",
+        "organ": "intention_loom", "local_required": True,
+        "description": "Private intention formation after a real shared-field win.",
+    },
+    "writing_desk": {
+        "tier": "projects", "section": "writing_desk", "key": "model",
+        "label": "Writing Desk", "purpose": "writing_desk",
+        "organ": "writing_desk", "local_required": True,
+        "description": "Resident-owned private writing projects.",
+    },
+    "archive_reader": {
+        "tier": "projects", "section": "archive_reader", "key": "model",
+        "label": "Archive Reader", "purpose": "archive_reader",
+        "organ": "archive_reader", "local_required": True,
+        "description": "Bounded reading of the resident's granted conversation archive.",
+    },
+    "document_reader": {
+        "tier": "projects", "section": "document_reader", "key": "model",
+        "label": "Document Reader", "purpose": "document_reader",
+        "organ": "document_reader", "local_required": True,
+        "description": "Private reading of human-granted documents.",
+    },
+    "research_desk": {
+        "tier": "projects", "section": "research_desk", "key": "model",
+        "label": "Research Desk", "purpose": "research_desk",
+        "organ": "research_desk", "local_required": True,
+        "description": "Local planning behind the bounded read-only public research door.",
+    },
+    "atelier": {
+        "tier": "projects", "section": "atelier", "key": "model",
+        "label": "Atelier", "purpose": "atelier", "organ": "atelier",
+        "local_required": True,
+        "description": "Private creative translation before any separately configured renderer.",
+    },
+}
+
+WORK_ROUTE_TIERS = [
+    {
+        "id": "ambient", "label": "Tier 0 · Ambient and frequent",
+        "description": "Local-only routes that may recur without a direct human request.",
+    },
+    {
+        "id": "integration", "label": "Tier 1 · Interpretation and integration",
+        "description": "Compact reads that connect perception, felt-state history, and recall.",
+    },
+    {
+        "id": "focused", "label": "Tier 2 · Chosen engagement",
+        "description": "Bounded work admitted by a resident's direct attention or agency.",
+    },
+    {
+        "id": "projects", "label": "Tier 3 · Private workbenches",
+        "description": "Resident-owned project work; currently held to local vessels.",
+    },
+]
+
+
+def work_route_state(roster: dict, active_model: str | None,
+                     declared_roster: dict | None = None) -> dict:
+    """Resolve configured and inherited model routes without starting work."""
+    enabled = set(roster.get("enabled_organs") or [])
+    declared_roster = roster if declared_roster is None else declared_roster
+    routes = {}
+    for route, spec in WORK_ROUTE_SPECS.items():
+        section = roster.get(spec["section"]) or {}
+        declared_section = declared_roster.get(spec["section"]) or {}
+        declared_here = spec["key"] in declared_section
+        configured = (declared_section.get(spec["key"])
+                      if declared_here else None)
+        effective = section.get(spec["key"])
+        inherited_from = None
+        if not declared_here and effective:
+            inherited_from = "household_default"
+        elif route == "affect" and not effective:
+            effective, inherited_from = active_model, "foreground"
+        elif route == "gist" and not effective:
+            effective = ((roster.get("interoception") or {})
+                         .get("affect_model") or active_model)
+            inherited_from = "affect"
+        elif route == "avatar_vision" and not effective:
+            effective = ((roster.get("perception") or {})
+                         .get("vision_model"))
+            inherited_from = "shared_vision" if effective else None
+        routes[route] = {
+            "configured": configured,
+            "effective": effective,
+            "inherited_from": inherited_from,
+            "enabled": (not spec.get("organ")
+                        or spec["organ"] in enabled),
+            "local_only": bool(section.get("local_only"))
+                          or bool(spec.get("local_required")),
+        }
+    return routes
+
+
 class UserPersonaRequest(BaseModel):
     id: str = ""
     name: str
@@ -288,6 +467,21 @@ def model_start_blocker(model: str, verify_remote: bool = True):
     return None
 
 
+def record_model_start_health(model: str, *, status: str,
+                              error=None) -> None:
+    """Project startup reachability without retaining raw provider text."""
+    try:
+        from harness.service_health import record_service_health
+        from harness.spec_loader import load_spec
+        identity = (load_spec(model).get("identity") or {})
+        provider = identity.get("provider") or identity.get("family") \
+            or "model-provider"
+        record_service_health(
+            "model_start", provider, model, status=status, error=error)
+    except Exception:
+        pass
+
+
 def _free_port() -> int:
     """Ask the OS for a genuinely free port. Small bind/close race window,
     but far more reliable than hand-picking — repeated WinError 10048 on
@@ -308,7 +502,8 @@ def discover_personas() -> dict:
         persona_dir = os.path.dirname(roster_path)
         pid = os.path.basename(persona_dir)
         with open(roster_path, encoding="utf-8") as f:
-            data = yaml.safe_load(f) or {}
+            declared_data = yaml.safe_load(f) or {}
+        data = resolve_resident_config(ROOT, declared_data)
         kind = data.get("kind", "model_persona")  # pre-kind rosters default here
         avatar = load_persona_avatar(persona_dir)
         entry = {"id": pid, "kind": kind, "dir": persona_dir,
@@ -336,6 +531,14 @@ def discover_personas() -> dict:
             entry["max_tokens"] = data.get("max_tokens")  # reply ceiling
             entry["vision_model"] = ((data.get("perception") or {})
                                      .get("vision_model"))
+            entry["avatar_vision_model"] = (
+                (data.get("perception") or {}).get(
+                    "avatar_vision_model"))
+            entry["focused_vision_model"] = (
+                (data.get("perception") or {}).get(
+                    "focused_vision_model"))
+            entry["work_routes"] = work_route_state(
+                data, entry["model"], declared_data)
             entry["voice_output"] = normalize_output_config(
                 data.get("voice_output"))
         registry[pid] = entry
@@ -348,39 +551,48 @@ def set_current_model(persona_dir: str, model: str) -> bool:
     replace — the env_store idiom. Replaces the current_model line
     in place or appends one at column 0; every other byte untouched."""
     path = os.path.join(persona_dir, "roster.yaml")
-    if not os.path.exists(path):
-        return False
-    with open(path, encoding="utf-8") as f:
-        lines = f.readlines()
-    new_line = f"current_model: {model}\n"
-    out, replaced = [], False
-    for ln in lines:
-        if ln.startswith("current_model:"):
+    tmp = path + ".tmp_curmodel"
+    try:
+        if not os.path.exists(path):
+            return False
+        with open(path, encoding="utf-8") as f:
+            lines = f.readlines()
+        new_line = f"current_model: {model}\n"
+        out, replaced = [], False
+        for ln in lines:
+            if ln.startswith("current_model:"):
+                out.append(new_line)
+                replaced = True
+            else:
+                out.append(ln)
+        if not replaced:
+            if out and not out[-1].endswith("\n"):
+                out[-1] += "\n"
             out.append(new_line)
-            replaced = True
-        else:
-            out.append(ln)
-    if not replaced:
-        if out and not out[-1].endswith("\n"):
-            out[-1] += "\n"
-        out.append(new_line)
-    text = "".join(out)
-    try:  # validate-first: a write that would corrupt is REFUSED
+        text = "".join(out)
+        # Validate before touching either durable file.
         parsed = yaml.safe_load(text)
         if not isinstance(parsed, dict) \
                 or parsed.get("current_model") != model:
             raise ValueError("round-trip mismatch")
+        with open(path + ".prev", "w", encoding="utf-8") as f:
+            f.writelines(lines)
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.replace(tmp, path)
+        return True
     except Exception as e:
+        # Windows can refuse an atomic replace while another process has the
+        # roster open. A settings request must report that conflict without
+        # taking down the router or pretending the choice was saved.
+        try:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+        except OSError:
+            pass
         print(f"[router] current_model write REFUSED ({e}); "
               f"roster untouched")
         return False
-    with open(path + ".prev", "w", encoding="utf-8") as f:
-        f.writelines(lines)
-    tmp = path + ".tmp_curmodel"
-    with open(tmp, "w", encoding="utf-8") as f:
-        f.write(text)
-    os.replace(tmp, path)
-    return True
 
 
 def set_persona_icon(persona_dir: str, icon: str) -> str:
@@ -396,6 +608,24 @@ def set_persona_icon(persona_dir: str, icon: str) -> str:
     if len(value) > 16:
         raise ValueError("persona icon must be 16 characters or fewer")
     return write_roster_scalar(persona_dir, "icon", value)
+
+
+def resolved_persona_icon(pid: str, entry: dict,
+                          model: str | None = None) -> str:
+    """Return the active Appearance glyph, with roster identity as baseline."""
+    display_name = str(entry.get("display_name") or pid)
+    fallback = str(entry.get("icon") or display_name[:1].upper() or "·")
+    try:
+        icons = (resolve_theme(ROOT, pid, model).get("tokens") or {}).get(
+            "speaker_icons") or {}
+    except (OSError, TypeError, ValueError):
+        return fallback
+    for wanted in (display_name, pid):
+        key = next((key for key in icons
+                    if str(key).casefold() == wanted.casefold()), None)
+        if key is not None and str(icons[key]).strip():
+            return str(icons[key]).strip()
+    return fallback
 
 
 class PersonaProcess:
@@ -435,30 +665,75 @@ class PersonaProcess:
     def alive(self) -> bool:
         return self.proc.poll() is None
 
-    def wait_ready(self, timeout: float = 25.0) -> bool:
-        deadline = time.time() + timeout
+    def wait_ready(self, timeout: float = 25.0, stop_event=None) -> bool:
+        deadline = (None if timeout is None else time.time() + timeout)
         url = f"http://127.0.0.1:{self.port}/api/state"
-        while time.time() < deadline:
+        while deadline is None or time.time() < deadline:
+            if stop_event is not None and stop_event.is_set():
+                return False
             if not self.alive():
                 return False
             try:
                 urllib.request.urlopen(url, timeout=1)
                 return True
             except Exception:
-                time.sleep(0.3)
+                if stop_event is not None:
+                    stop_event.wait(0.3)
+                else:
+                    time.sleep(0.3)
         return False
 
-    def stop(self):
+    def stop(self) -> bool:
         if self.alive():
             self.proc.terminate()
             try:
                 self.proc.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 self.proc.kill()
+                self.proc.wait(timeout=5)
+        return not self.alive()
+
+    def checkpoint_and_stop(self, timeout: float = 25.0) -> dict:
+        """Obtain a persona-owned clean checkpoint before terminating it."""
+        if not self.alive():
+            return {
+                "persona": self.id, "verdict": "unknown",
+                "reason": "process_not_running", "stopped": True,
+                "content_free": True,
+            }
+        request = urllib.request.Request(
+            f"http://127.0.0.1:{self.port}"
+            "/api/startup-continuity/checkpoint",
+            data=b"{}", headers={"Content-Type": "application/json"},
+            method="POST")
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                receipt = json.loads(response.read())
+        except Exception as exc:
+            return {
+                "persona": self.id, "verdict": "unknown",
+                "reason": f"checkpoint_unavailable:{type(exc).__name__}",
+                "stopped": False, "content_free": True,
+            }
+        verdict = str(receipt.get("verdict") or "unknown")
+        stopped = self.stop()
+        return {
+            "persona": self.id,
+            "boot_id": str(receipt.get("boot_id") or ""),
+            "verdict": (verdict if stopped else "unclean"),
+            "reason": (str(receipt.get("reason") or "")
+                       if stopped else "process_did_not_stop"),
+            "stopped": stopped,
+            "checkpoint_sha256": str(receipt.get("receipt_sha256") or ""),
+            "content_free": True,
+        }
 
 
-def build_app(room_url: str = None) -> FastAPI:
+def build_app(room_url: str = None, *, record_health: bool = False,
+              auto_launch: bool = False) -> FastAPI:
     app = FastAPI(title="JNSQ shell/router")
+    startup_health = (record_model_start_health if record_health
+                      else lambda *args, **kwargs: None)
     if os.path.isdir(ASSET_DIR):
         app.mount("/assets", StaticFiles(directory=ASSET_DIR),
                   name="jnsq-assets")
@@ -466,6 +741,49 @@ def build_app(room_url: str = None) -> FastAPI:
     app.state.processes = {}
     app.state.room_url = room_url
     app.state.local_identity = load_local_identity(ROOT)
+    app.state.persona_lifecycle = {
+        pid: ("pending" if auto_launch and entry["kind"] == "model_persona"
+              else "stopped")
+        for pid, entry in app.state.registry.items()
+    }
+    app.state.process_lock = threading.RLock()
+    app.state.shutdown_event = threading.Event()
+    app.state.launch_thread = None
+    app.state.readiness_threads = {}
+    app.state.launch_all_active = False
+    # Private archive content crosses into the browser only through a
+    # restart-scoped local UI capability.  The router already binds to
+    # 127.0.0.1; the additional token and request checks prevent a remote
+    # host or unrelated web origin from treating localhost as a transcript
+    # export API.
+    app.state.archive_read_token = secrets.token_urlsafe(32)
+
+    def _archive_request_is_local(request: Request) -> bool:
+        client_host = request.client.host if request.client else ""
+        if client_host == "testclient":
+            return request.url.hostname == "testserver"
+        try:
+            if not ipaddress.ip_address(client_host).is_loopback:
+                return False
+        except ValueError:
+            return False
+        if request.url.hostname not in {"127.0.0.1", "localhost", "::1"}:
+            return False
+        fetch_site = request.headers.get("sec-fetch-site", "")
+        return not fetch_site or fetch_site in {"same-origin", "none"}
+
+    def _archive_api_allowed(request: Request) -> bool:
+        supplied = request.headers.get("x-jnsq-archive-token", "")
+        return (_archive_request_is_local(request)
+                and bool(supplied)
+                and hmac.compare_digest(
+                    supplied, app.state.archive_read_token))
+
+    def _private_archive_json(content, status_code: int = 200):
+        return JSONResponse(
+            status_code=status_code, content=content,
+            headers={"Cache-Control": "no-store",
+                     "X-Content-Type-Options": "nosniff"})
 
     @app.get("/api/ui/theme")
     def ui_theme():
@@ -525,38 +843,144 @@ def build_app(room_url: str = None) -> FastAPI:
     def ui_background_delete():
         return {"ok": True, "removed": delete_conversation_background(ROOT)}
 
+    def set_lifecycle(pid: str, state: str) -> None:
+        with app.state.process_lock:
+            app.state.persona_lifecycle[pid] = state
+
+    def checkpoint_then_stop(proc) -> dict:
+        checkpoint = getattr(proc, "checkpoint_and_stop", None)
+        if callable(checkpoint):
+            receipt = dict(checkpoint() or {})
+            if not receipt.get("stopped"):
+                receipt["stopped"] = bool(proc.stop())
+            return receipt
+        stopped = bool(proc.stop())
+        return {
+            "persona": str(getattr(proc, "id", "")),
+            "verdict": "unknown",
+            "reason": "legacy_process_has_no_checkpoint_route",
+            "stopped": stopped,
+            "content_free": True,
+        }
+
+    def watch_until_ready(pid: str, proc: PersonaProcess, model: str):
+        """Follow one process until its API answers or the process exits."""
+        ready = proc.wait_ready(
+            timeout=None, stop_event=app.state.shutdown_event)
+        with app.state.process_lock:
+            if app.state.processes.get(pid) is not proc \
+                    or app.state.persona_lifecycle.get(pid) == "stopped":
+                return
+            if ready:
+                app.state.persona_lifecycle[pid] = "ready"
+            elif not app.state.shutdown_event.is_set():
+                app.state.persona_lifecycle[pid] = "unavailable"
+        if ready:
+            startup_health(model, status="ok")
+            print(f"[router] {pid} on {model} -> port {proc.port} (ready)",
+                  flush=True)
+        elif not app.state.shutdown_event.is_set():
+            error = RuntimeError("model cockpit exited during startup")
+            startup_health(model, status="error", error=error)
+            print(f"[router] {pid} on {model} -> unavailable "
+                  "(cockpit exited)", flush=True)
+
+    def start_readiness_watch(pid: str, proc: PersonaProcess, model: str):
+        thread = threading.Thread(
+            target=watch_until_ready, args=(pid, proc, model), daemon=True,
+            name=f"resident-ready-{pid}")
+        with app.state.process_lock:
+            app.state.readiness_threads[pid] = thread
+        thread.start()
+        return thread
+
     def launch_all():
-        for pid, entry in app.state.registry.items():
-            if entry["kind"] != "model_persona":
-                continue
-            try:
-                blocked = model_start_blocker(entry["model"],
-                                              verify_remote=False)
-            except Exception as error:
-                print(f"[router] {pid} on {entry['model']} -> BLOCKED: {error}")
-                continue
-            if blocked:
-                print(f"[router] {pid} on {entry['model']} -> BLOCKED: "
-                      f"{blocked}")
-                continue
-            proc = PersonaProcess(pid, entry["model"],
-                                  entry.get("identity_file"),
-                                  room_cfg=entry.get("room"),
-                                  room_url=room_url,
-                                  max_tokens=entry.get("max_tokens"),
-                                  speaker=None)
-            app.state.processes[pid] = proc
-            ready = proc.wait_ready()
-            print(f"[router] {pid} on {entry['model']} -> port {proc.port} "
-                 f"({'ready' if ready else 'NOT RESPONDING'})")
+        with app.state.process_lock:
+            if app.state.launch_all_active:
+                return
+            app.state.launch_all_active = True
+        try:
+            for pid, entry in app.state.registry.items():
+                if app.state.shutdown_event.is_set():
+                    break
+                if entry["kind"] != "model_persona":
+                    continue
+                with app.state.process_lock:
+                    existing = app.state.processes.get(pid)
+                    if existing is not None and existing.alive():
+                        continue
+                    app.state.persona_lifecycle[pid] = "starting"
+                try:
+                    blocked = model_start_blocker(entry["model"],
+                                                  verify_remote=False)
+                except Exception as error:
+                    set_lifecycle(pid, "blocked")
+                    startup_health(
+                        entry["model"], status="error", error=error)
+                    print(f"[router] {pid} on {entry['model']} -> BLOCKED: "
+                          f"{error}", flush=True)
+                    continue
+                if blocked:
+                    set_lifecycle(pid, "blocked")
+                    startup_health(
+                        entry["model"], status="error",
+                        error=RuntimeError(blocked))
+                    print(f"[router] {pid} on {entry['model']} -> BLOCKED: "
+                          f"{blocked}", flush=True)
+                    continue
+                try:
+                    # Keep shutdown from snapshotting children between their
+                    # spawn and registration in the owned process set.
+                    with app.state.process_lock:
+                        if app.state.shutdown_event.is_set():
+                            break
+                        proc = PersonaProcess(
+                            pid, entry["model"], entry.get("identity_file"),
+                            room_cfg=entry.get("room"), room_url=room_url,
+                            max_tokens=entry.get("max_tokens"), speaker=None)
+                        app.state.processes[pid] = proc
+                        app.state.persona_lifecycle[pid] = "starting"
+                except Exception as error:
+                    set_lifecycle(pid, "unavailable")
+                    startup_health(
+                        entry["model"], status="error", error=error)
+                    print(f"[router] {pid} on {entry['model']} -> "
+                          f"unavailable ({type(error).__name__})", flush=True)
+                    continue
+                print(f"[router] {pid} on {entry['model']} -> port "
+                      f"{proc.port} (starting)", flush=True)
+                start_readiness_watch(pid, proc, entry["model"])
+        finally:
+            with app.state.process_lock:
+                app.state.launch_all_active = False
+
+    def start_background_launch():
+        with app.state.process_lock:
+            current = app.state.launch_thread
+            if app.state.shutdown_event.is_set() \
+                    or (current is not None and current.is_alive()):
+                return
+            thread = threading.Thread(
+                target=launch_all, daemon=True,
+                name="household-resident-launch")
+            app.state.launch_thread = thread
+        thread.start()
 
     def shutdown_all():
-        for proc in app.state.processes.values():
+        app.state.shutdown_event.set()
+        with app.state.process_lock:
+            processes = list(app.state.processes.items())
+            for pid, _proc in processes:
+                app.state.persona_lifecycle[pid] = "stopped"
+        for _pid, proc in processes:
             proc.stop()
 
     app.state.launch_all = launch_all
+    app.state.start_background_launch = start_background_launch
     app.state.shutdown_all = shutdown_all
     atexit.register(shutdown_all)
+    if auto_launch:
+        app.add_event_handler("startup", start_background_launch)
 
     @app.get("/", response_class=HTMLResponse)
     def index():
@@ -575,7 +999,10 @@ def build_app(room_url: str = None) -> FastAPI:
         with open(os.path.join(ROOT, "shell", "fangwall.html"),
                   encoding="utf-8") as f:
             page = f.read()
-        return page.replace("/*CONFIG*/", _json.dumps(cfg))
+        from shell.provider_health import provider_health_report
+        health = provider_health_report(PERSONAS_DIR, hours=24)
+        return (page.replace("/*CONFIG*/", _json.dumps(cfg))
+                .replace("/*SERVICE_HEALTH*/", _json.dumps(health)))
 
     @app.get("/settings", response_class=HTMLResponse)
     def settings_page():
@@ -684,6 +1111,91 @@ def build_app(room_url: str = None) -> FastAPI:
                   encoding="utf-8") as f:
             return f.read()
 
+    @app.get("/conversation-archives", response_class=HTMLResponse)
+    def conversation_archives_page(request: Request):
+        """Human-facing, read-only browser for household conversation logs."""
+        if not _archive_request_is_local(request):
+            return HTMLResponse("local Nexus access only", status_code=403)
+        with open(os.path.join(ROOT, "shell", "conversation_archives.html"),
+                  encoding="utf-8") as f:
+            page = f.read()
+        return HTMLResponse(
+            page.replace("/*ARCHIVE_TOKEN*/",
+                         json.dumps(app.state.archive_read_token)),
+            headers={
+                "Cache-Control": "no-store",
+                "X-Content-Type-Options": "nosniff",
+                "Content-Security-Policy": (
+                    "default-src 'self'; style-src 'unsafe-inline'; "
+                    "script-src 'unsafe-inline'; connect-src 'self'; "
+                    "img-src 'self' data:; frame-ancestors 'self'"),
+            })
+
+    @app.get("/api/conversation-archives/owners")
+    def conversation_archive_owners(request: Request):
+        if not _archive_api_allowed(request):
+            return _private_archive_json(
+                {"error": "private local archive capability required"}, 403)
+        from shell.conversation_archive_browser import available_archives
+        owners = available_archives(ROOT)
+        return _private_archive_json({"owners": [{key: item[key] for key in (
+            "id", "label", "kind", "has_archive")} for item in owners]})
+
+    @app.get("/api/conversation-archives")
+    def conversation_archive_list(request: Request, owner: str, q: str = "",
+                                  offset: int = 0, limit: int = 60):
+        if not _archive_api_allowed(request):
+            return _private_archive_json(
+                {"error": "private local archive capability required"}, 403)
+        from shell.conversation_archive_browser import list_conversations
+        try:
+            return _private_archive_json(list_conversations(
+                ROOT, owner, query=q, offset=offset, limit=limit))
+        except ValueError as error:
+            return _private_archive_json({"error": str(error)}, 404)
+
+    @app.get("/api/conversation-archives/days")
+    def conversation_archive_days(request: Request, owner: str, q: str = "",
+                                  offset: int = 0, limit: int = 45,
+                                  timezone: str = "UTC"):
+        if not _archive_api_allowed(request):
+            return _private_archive_json(
+                {"error": "private local archive capability required"}, 403)
+        from shell.conversation_archive_browser import list_days
+        try:
+            return _private_archive_json(list_days(
+                ROOT, owner, query=q, offset=offset, limit=limit,
+                timezone_name=timezone))
+        except ValueError as error:
+            return _private_archive_json({"error": str(error)}, 404)
+
+    @app.get("/api/conversation-archives/{owner}/day/{day}")
+    def conversation_archive_day(request: Request, owner: str, day: str,
+                                 timezone: str = "UTC"):
+        if not _archive_api_allowed(request):
+            return _private_archive_json(
+                {"error": "private local archive capability required"}, 403)
+        from shell.conversation_archive_browser import read_day
+        try:
+            return _private_archive_json(read_day(
+                ROOT, owner, day, timezone_name=timezone))
+        except ValueError as error:
+            return _private_archive_json({"error": str(error)}, 404)
+
+    @app.get(
+        "/api/conversation-archives/{owner}/conversation/{conversation_id}")
+    def conversation_archive_detail(request: Request, owner: str,
+                                    conversation_id: str):
+        if not _archive_api_allowed(request):
+            return _private_archive_json(
+                {"error": "private local archive capability required"}, 403)
+        from shell.conversation_archive_browser import read_conversation
+        try:
+            return _private_archive_json(read_conversation(
+                ROOT, owner, conversation_id))
+        except ValueError as error:
+            return _private_archive_json({"error": str(error)}, 404)
+
     @app.get("/api/model-calls/summary")
     def model_calls_summary(hours: int = 24):
         from shell.model_call_dashboard import read_receipts
@@ -692,6 +1204,74 @@ def build_app(room_url: str = None) -> FastAPI:
                 status_code=400,
                 content={"error": "hours must be between 0 and 8784"})
         return read_receipts(hours=hours)
+
+    @app.get("/api/provider-health")
+    def provider_health(hours: int = 24):
+        """Actionable unresolved provider faults; no prompts or replies."""
+        if hours < 1 or hours > 24 * 7:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "hours must be between 1 and 168"})
+        from shell.provider_health import provider_health_report
+        return provider_health_report(PERSONAS_DIR, hours=hours)
+
+    @app.get("/prompt-assembly", response_class=HTMLResponse)
+    def prompt_assembly_page():
+        """Private, content-free observatory for one resident at a time."""
+        with open(os.path.join(ROOT, "shell", "prompt_assembly.html"),
+                  encoding="utf-8") as f:
+            return f.read()
+
+    @app.get("/api/prompt-assembly/personas")
+    def prompt_assembly_personas():
+        from shell.prompt_assembly_observatory import available_personas
+        return {"personas": available_personas(ROOT)}
+
+    @app.get("/api/prompt-assembly/summary")
+    def prompt_assembly_summary(persona: str, hours: int = 24):
+        from shell.prompt_assembly_observatory import read_prompt_assembly
+        if hours < 0 or hours > 24 * 366:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "hours must be between 0 and 8784"})
+        try:
+            return read_prompt_assembly(ROOT, persona, hours=hours)
+        except ValueError as error:
+            return JSONResponse(status_code=404,
+                                content={"error": str(error)})
+
+    @app.get("/api/oscillator-consequences/summary")
+    def oscillator_consequence_summary(persona: str, hours: int = 24):
+        """Persona-private, content-free completed-turn wire receipts."""
+        from shell.oscillator_consequence_observatory import (
+            read_oscillator_consequences,
+        )
+        if hours < 0 or hours > 24 * 366:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "hours must be between 0 and 8784"})
+        try:
+            return read_oscillator_consequences(
+                ROOT, persona, hours=hours)
+        except ValueError as error:
+            return JSONResponse(status_code=404,
+                                content={"error": str(error)})
+
+    @app.get("/api/recall-dispersion/summary")
+    def recall_dispersion_summary(persona: str, hours: int = 24):
+        """Persona-private, content-free four-arm retrieval shadows."""
+        from shell.recall_dispersion_observatory import (
+            read_recall_dispersion,
+        )
+        if hours < 0 or hours > 24 * 366:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "hours must be between 0 and 8784"})
+        try:
+            return read_recall_dispersion(ROOT, persona, hours=hours)
+        except ValueError as error:
+            return JSONResponse(status_code=404,
+                                content={"error": str(error)})
 
     @app.get("/api/users")
     def users_list():
@@ -904,9 +1484,12 @@ def build_app(room_url: str = None) -> FastAPI:
             if entry["kind"] != "model_persona":
                 status, link = f"reserved ({entry['kind']}, not launched)", "—"
             elif proc is None:
-                status, link = "not launched", "—"
+                status = app.state.persona_lifecycle.get(pid, "not launched")
+                link = "—"
             elif not proc.alive():
                 status, link = "DEAD", "—"
+            elif app.state.persona_lifecycle.get(pid) != "ready":
+                status, link = "starting", "—"
             else:
                 status = f"running on :{proc.port}"
                 link = f'<a href="http://127.0.0.1:{proc.port}/">open cockpit</a>'
@@ -928,23 +1511,49 @@ def build_app(room_url: str = None) -> FastAPI:
         out = {}
         for pid, entry in app.state.registry.items():
             proc = app.state.processes.get(pid)
+            lifecycle = app.state.persona_lifecycle.get(pid, "stopped")
+            alive = proc.alive() if proc else False
+            active_model = (proc.model if proc and alive
+                            else entry.get("model"))
+            if proc is not None and not alive \
+                    and lifecycle not in {"blocked", "stopped"}:
+                lifecycle = "unavailable"
+                set_lifecycle(pid, lifecycle)
             out[pid] = {
                 "kind": entry["kind"],
                 "display_name": entry.get("display_name") or pid,
                 "icon": entry.get("icon") or "",
+                "appearance_icon": resolved_persona_icon(
+                    pid, entry, active_model),
                 "avatar_url": (f"/api/personas/{pid}/avatar?v="
                                f"{entry['avatar']['version']}"
                                if entry.get("avatar") else ""),
-                "model": (proc.model if proc and proc.alive()
-                          else entry.get("model")),
+                "model": active_model,
                 "models": entry.get("models") or [],
                 "vision_model": entry.get("vision_model"),
+                "avatar_vision_model": entry.get("avatar_vision_model"),
+                "focused_vision_model": entry.get("focused_vision_model"),
+                "work_routes": entry.get("work_routes") or {},
                 "voice_output": entry.get("voice_output"),
                 "has_room": bool(entry.get("room")),
                 "port": proc.port if proc else None,
-                "alive": proc.alive() if proc else False,
+                "alive": alive,
+                "ready": bool(alive and lifecycle == "ready"),
+                "lifecycle": lifecycle,
             }
         return out
+
+    @app.get("/api/work-routes")
+    def list_work_routes():
+        """Public route grammar only; resident selections come from rosters."""
+        routes = []
+        for route, spec in WORK_ROUTE_SPECS.items():
+            routes.append({
+                "id": route,
+                **{key: value for key, value in spec.items()
+                   if key not in {"section", "key"}},
+            })
+        return {"tiers": WORK_ROUTE_TIERS, "routes": routes}
 
     @app.post("/api/personas/{pid}/icon")
     def persona_icon(pid: str, req: PersonaIconRequest):
@@ -1026,6 +1635,60 @@ def build_app(room_url: str = None) -> FastAPI:
         return {"ok": True, "persona": pid, "vision_model": model,
                 "restart_required": was_running}
 
+    @app.post("/api/personas/{pid}/work-route")
+    def persona_work_route(pid: str, req: WorkRouteRequest):
+        """Persist one allowlisted purpose route without silently restarting.
+
+        A running cockpit keeps its already-constructed route objects until a
+        deliberate restart.  The response says so instead of pretending the
+        new selection is live.  Local-only and vision-capability boundaries
+        are validated before the roster is touched.
+        """
+        app.state.registry = discover_personas()
+        entry = app.state.registry.get(pid)
+        if not entry or entry.get("kind") != "model_persona":
+            return JSONResponse(status_code=404,
+                                content={"error": f"no model persona '{pid}'"})
+        route_id = (req.route or "").strip()
+        route = WORK_ROUTE_SPECS.get(route_id)
+        if not route:
+            return JSONResponse(status_code=400,
+                                content={"error": "unknown work route"})
+        model = (req.model or "").strip() or None
+        if model is None and not route.get("optional"):
+            return JSONResponse(status_code=400, content={
+                "error": f"{route_id} requires an explicit model"})
+        if model:
+            try:
+                from harness.spec_loader import load_spec
+                model_spec = load_spec(model)
+            except Exception as error:
+                return JSONResponse(status_code=400,
+                                    content={"error": str(error)})
+            identity = model_spec.get("identity") or {}
+            if route.get("local_required") \
+                    and identity.get("locality") != "local":
+                return JSONResponse(status_code=400, content={
+                    "error": (f"{route_id} is local-only; '{model}' is "
+                              "declared as a provider/API model")})
+            if route.get("vision") \
+                    and not (model_spec.get("capabilities") or {}).get("vision"):
+                return JSONResponse(status_code=400, content={
+                    "error": f"'{model}' is not declared vision-capable"})
+        try:
+            write_roster_mapping_scalar(
+                entry["dir"], route["section"], route["key"], model)
+        except (OSError, ValueError) as error:
+            return JSONResponse(status_code=400,
+                                content={"error": str(error)})
+        running = bool(app.state.processes.get(pid)
+                       and app.state.processes[pid].alive())
+        app.state.registry = discover_personas()
+        state = app.state.registry[pid]["work_routes"][route_id]
+        return {"ok": True, "persona": pid, "route": route_id,
+                "model": model, "state": state,
+                "restart_required": running}
+
     @app.post("/api/personas/{pid}/voice-output")
     def persona_voice_output(pid: str, req: VoiceOutputConfigRequest):
         """Persist a persona's speaking vessel without requiring a restart."""
@@ -1091,37 +1754,132 @@ def build_app(room_url: str = None) -> FastAPI:
             blocked = model_start_blocker(
                 model, verify_remote=not restarting_same_vessel)
         except Exception as e:
+            set_lifecycle(pid, "blocked")
+            startup_health(model, status="error", error=e)
             return JSONResponse(status_code=400, content={
                 "error": f"cannot start model '{model}': {e}"})
         if blocked:
+            set_lifecycle(pid, "blocked")
+            startup_health(
+                model, status="error", error=RuntimeError(blocked))
             return JSONResponse(status_code=400, content={"error": blocked})
+        # Once a requested vessel has passed its model/key checks, make the
+        # owner's selection durable BEFORE stopping the old cockpit. Startup
+        # can then fail honestly without erasing the choice or making the next
+        # household boot silently return to the previous vessel.
+        if model != entry["model"]:
+            if not set_current_model(entry["dir"], model):
+                return JSONResponse(status_code=409, content={
+                    "error": (f"could not save {pid}'s model choice; "
+                              f"{pid} remains on {entry['model']}")})
+            app.state.registry = discover_personas()
         if old and old.alive():
             if old.model == model:
+                startup_health(model, status="ok")
                 return {"id": pid, "model": model, "port": old.port,
-                        "alive": True, "note": "already running"}
-            old.stop()
-        proc = PersonaProcess(pid, model, entry.get("identity_file"),
-                              room_cfg=entry.get("room"),
-                              room_url=app.state.room_url,
-                              max_tokens=entry.get("max_tokens"),
-                              speaker=None)
+                        "alive": True,
+                        "ready": (app.state.persona_lifecycle.get(pid)
+                                  == "ready"),
+                        "lifecycle": app.state.persona_lifecycle.get(
+                            pid, "starting"),
+                        "note": "already running"}
+            checkpoint_then_stop(old)
+        app.state.processes.pop(pid, None)
+        try:
+            set_lifecycle(pid, "starting")
+            proc = PersonaProcess(pid, model, entry.get("identity_file"),
+                                  room_cfg=entry.get("room"),
+                                  room_url=app.state.room_url,
+                                  max_tokens=entry.get("max_tokens"),
+                                  speaker=None)
+        except Exception as error:
+            set_lifecycle(pid, "unavailable")
+            startup_health(model, status="error", error=error)
+            return JSONResponse(status_code=500, content={
+                "id": pid, "model": model, "alive": False,
+                "selection_saved": True,
+                "error": (f"{pid}'s {model} cockpit could not start "
+                          f"({type(error).__name__}); the model choice is "
+                          "saved for the next household boot")})
         app.state.processes[pid] = proc
         ready = proc.wait_ready()
-        # a switched start becomes roster truth: survives restarts,
-        # router boots, and the fangwall's own re-renders
-        if model != entry["model"]:
-            if set_current_model(entry["dir"], model):
-                app.state.registry = discover_personas()
+        if not ready and not proc.alive():
+            app.state.processes.pop(pid, None)
+            set_lifecycle(pid, "unavailable")
+            startup_health(
+                model, status="error",
+                error=RuntimeError("model cockpit exited during startup"))
+            return JSONResponse(status_code=503, content={
+                "id": pid, "model": model, "alive": False,
+                "ready": False, "selection_saved": True,
+                "error": (f"{pid}'s {model} cockpit exited during startup; "
+                          "the model choice is saved for the next household "
+                          "boot")})
+        if ready:
+            set_lifecycle(pid, "ready")
+            startup_health(model, status="ok")
+        else:
+            # An owned process that has not answered yet is still starting,
+            # not failed. The process-bound watcher will settle the state on
+            # a real readiness event or a real process exit.
+            set_lifecycle(pid, "starting")
+            start_readiness_watch(pid, proc, model)
         return {"id": pid, "model": model, "port": proc.port,
-                "alive": proc.alive(), "ready": ready}
+                "alive": proc.alive(), "ready": ready,
+                "lifecycle": "ready" if ready else "starting"}
 
     @app.post("/api/personas/{pid}/stop")
     def persona_stop(pid: str):
         proc = app.state.processes.get(pid)
         if proc is None or not proc.alive():
+            set_lifecycle(pid, "stopped")
             return {"id": pid, "alive": False, "note": "not running"}
-        proc.stop()
-        return {"id": pid, "alive": proc.alive()}
+        shutdown_receipt = checkpoint_then_stop(proc)
+        set_lifecycle(pid, "stopped")
+        return {"id": pid, "alive": proc.alive(), "lifecycle": "stopped",
+                "shutdown_receipt": shutdown_receipt}
+
+    @app.post("/api/shutdown/checkpoint")
+    def household_shutdown_checkpoint():
+        """Stop admissions, then checkpoint and stop each owned resident."""
+        app.state.shutdown_event.set()
+        with app.state.process_lock:
+            processes = list(app.state.processes.items())
+        receipts_by_pid = {}
+        if processes:
+            with concurrent.futures.ThreadPoolExecutor(
+                    max_workers=min(8, len(processes)),
+                    thread_name_prefix="resident-checkpoint") as pool:
+                futures = {
+                    pid: pool.submit(proc.checkpoint_and_stop)
+                    for pid, proc in processes}
+                for pid, future in futures.items():
+                    try:
+                        receipts_by_pid[pid] = future.result(timeout=27.0)
+                    except Exception as exc:
+                        receipts_by_pid[pid] = {
+                            "persona": pid, "verdict": "unknown",
+                            "reason": ("checkpoint_worker_failed:"
+                                       f"{type(exc).__name__}"),
+                            "stopped": False, "content_free": True,
+                        }
+        receipts = []
+        for pid, _proc in processes:
+            receipt = receipts_by_pid[pid]
+            receipts.append(receipt)
+            set_lifecycle(pid, "stopped" if receipt.get("stopped")
+                          else "unavailable")
+        all_clean = all(
+            item.get("verdict") == "clean" and item.get("stopped")
+            for item in receipts)
+        return {
+            "schema_version": 1,
+            "kind": "household_shutdown_checkpoint",
+            "verdict": "clean" if all_clean else "unclean",
+            "resident_receipts": receipts,
+            "resident_count": len(receipts),
+            "content_free": True,
+        }
 
     @app.post("/api/personas/create")
     def persona_create(req: CreateRequest):
@@ -1215,7 +1973,7 @@ def build_app(room_url: str = None) -> FastAPI:
         return r
 
     @app.get("/api/models")
-    def list_models():
+    def list_models(include_internal: bool = False):
         """The spec registry reading itself: every specs/models/*.yaml
         is a dropdown entry. Reports whether the Anthropic key is SET
         (presence only — values never cross this API)."""
@@ -1225,7 +1983,7 @@ def build_app(room_url: str = None) -> FastAPI:
             ident = spec.get("identity") or {}
             # Internal purpose routes remain loadable by name without
             # masquerading as conversational vessels in Settings.
-            if ident.get("catalog_visible") is False:
+            if ident.get("catalog_visible") is False and not include_internal:
                 continue
             capabilities = spec.get("capabilities") or {}
             runtime = spec.get("runtime") or {}
@@ -1296,10 +2054,12 @@ def build_app(room_url: str = None) -> FastAPI:
             with open(icon_path, "rb") as handle:
                 encoded = base64.b64encode(handle.read()).decode("ascii")
             client = adapter_for(spec).client
+            declared_max = int((spec.get("runtime") or {}).get(
+                "vision_max_tokens", 420))
             observation = (client.chat(
                 "Report observable visual features only. Do not infer emotion, intent, or symbolism.",
                 "Describe this public JNSQ test icon in one short sentence.",
-                max_tokens=420, temperature=0.0,
+                max_tokens=max(48, min(420, declared_max)), temperature=0.0,
                 images=[{"media_type": "image/png", "data": encoded,
                          "detail": "low"}]) or "").strip()
             if not observation:
@@ -1435,7 +2195,8 @@ def build_app(room_url: str = None) -> FastAPI:
         except Exception as e:
             return JSONResponse(status_code=400, content={"error": str(e)})
 
-    def _proxy(pid: str, path: str, payload=None, timeout=30):
+    def _proxy(pid: str, path: str, payload=None, timeout=30,
+               method="POST"):
         proc = app.state.processes.get(pid)
         if proc is None or not proc.alive():
             return JSONResponse(status_code=503, content={
@@ -1448,7 +2209,7 @@ def build_app(room_url: str = None) -> FastAPI:
                 rq = urllib.request.Request(
                     url, data=json.dumps(payload).encode(),
                     headers={"Content-Type": "application/json"},
-                    method="POST")
+                    method=method)
                 r = urllib.request.urlopen(rq, timeout=timeout)
             return JSONResponse(status_code=r.status,
                                 content=json.loads(r.read()))
@@ -1490,6 +2251,18 @@ def build_app(room_url: str = None) -> FastAPI:
     @app.post("/api/personas/{pid}/organs")
     def persona_set_organs(pid: str, req: dict):
         return _proxy(pid, "/api/organs", payload=req)
+
+    @app.post("/api/personas/{pid}/visual-choice")
+    def persona_visual_choice(pid: str, req: dict):
+        """Stable localhost route to one resident's ephemeral gaze appraisal."""
+        return _proxy(pid, "/api/perception/visual-choice",
+                      payload=req, timeout=45)
+
+    @app.post("/api/personas/{pid}/physical-eye/frame")
+    def persona_physical_eye_frame(pid: str, req: dict):
+        """Loopback return path for one pending physical-eye capture."""
+        return _proxy(pid, "/api/perception/physical-eye/frame",
+                      payload=req, timeout=8)
 
     @app.get("/api/personas/{pid}/state")
     def persona_state(pid: str):
@@ -1574,6 +2347,16 @@ def build_app(room_url: str = None) -> FastAPI:
         """Proxy the tenant-owned controller view without owning its task."""
         return _proxy(pid, "/api/agency/status")
 
+    @app.get("/api/personas/{pid}/autonomous-works")
+    def persona_autonomous_works(pid: str):
+        """Read one resident's owned work index for the household shelf.
+
+        The tenant still constructs the projection and owns every content
+        reader.  The router only provides a stable, same-origin window for
+        the household UI; it cannot create, circulate, or disclose a work.
+        """
+        return _proxy(pid, "/api/autonomous-works")
+
     @app.post("/api/personas/{pid}/agency/inbox")
     def persona_agency_inbox(pid: str, req: AgencyInboxRequest):
         payload = (req.model_dump() if hasattr(req, "model_dump")
@@ -1588,6 +2371,27 @@ def build_app(room_url: str = None) -> FastAPI:
     def persona_agency_artifact(pid: str, name: str):
         from urllib.parse import quote
         return _proxy(pid, "/api/agency/artifacts/" + quote(name, safe=""))
+
+    @app.get("/api/personas/{pid}/mcp-library")
+    def persona_mcp_library(pid: str):
+        return _proxy(pid, "/api/mcp-library")
+
+    @app.post("/api/personas/{pid}/mcp-library/probe")
+    def persona_mcp_library_probe(pid: str):
+        return _proxy(pid, "/api/mcp-library/probe", payload={})
+
+    @app.post("/api/personas/{pid}/mcp-library/inspect")
+    def persona_mcp_library_inspect(pid: str, req: MCPLibraryConfigRequest):
+        payload = (req.model_dump() if hasattr(req, "model_dump")
+                   else req.dict())
+        return _proxy(pid, "/api/mcp-library/inspect", payload=payload)
+
+    @app.put("/api/personas/{pid}/mcp-library")
+    def persona_mcp_library_save(pid: str, req: MCPLibraryConfigRequest):
+        payload = (req.model_dump() if hasattr(req, "model_dump")
+                   else req.dict())
+        return _proxy(pid, "/api/mcp-library", payload=payload,
+                      method="PUT")
 
     @app.post("/api/personas/{pid}/turn")
     def persona_turn(pid: str, req: TurnRequest):
@@ -1618,8 +2422,8 @@ def main():
                          "declares a room get bodies there")
     args = ap.parse_args()
 
-    app = build_app(room_url=args.room_url)
-    app.state.launch_all()
+    app = build_app(room_url=args.room_url, record_health=True,
+                    auto_launch=True)
 
     import uvicorn
     try:

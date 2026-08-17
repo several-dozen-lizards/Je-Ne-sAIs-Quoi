@@ -11,7 +11,8 @@ import requests
 from adapters.model_events import (
     ModelExchange, ToolSpec, validate_exchanges,
 )
-from harness.model_call_receipts import record_model_call
+from harness.model_call_receipts import (classify_service_error,
+                                         record_model_call)
 
 ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
@@ -90,6 +91,11 @@ class _PersistentHTTP:
     def close(self):
         self.session.close()
 
+    def discard(self):
+        """Drop pooled sockets after a timeout without replaying the call."""
+        self.session.close()
+        self.session = self._new_session()
+
 
 _HTTP = _PersistentHTTP()
 atexit.register(_HTTP.close)
@@ -131,6 +137,13 @@ class OllamaClient:
                 and not isinstance(self.keep_alive, (str, int, float)):
             raise ValueError(
                 "wire.ollama.keep_alive must be a duration string or number")
+        self.num_gpu = wire.get("num_gpu")
+        if self.num_gpu is not None \
+                and (not isinstance(self.num_gpu, int)
+                     or isinstance(self.num_gpu, bool)
+                     or self.num_gpu < 0):
+            raise ValueError(
+                "wire.ollama.num_gpu must be a non-negative integer")
         # spec's window_tokens drives Ollama's KV allocation (num_ctx).
         # Without this, the Modelfile's baked-in value wins and the spec
         # is decorative — 16K alloc was the 20% CPU offload (2026-07-03).
@@ -139,7 +152,7 @@ class OllamaClient:
 
     def chat(self, system: str, user: str, max_tokens: int = 200,
              temperature: float = 0.3, images: list = None,
-             on_text=None) -> str:
+             on_text=None, output_format=None) -> str:
         started = time.perf_counter()
         first_token_ms = None
         user_message = {"role": "user", "content": user}
@@ -161,10 +174,19 @@ class OllamaClient:
             body["options"]["stop"] = self.stops
         if self.num_ctx:
             body["options"]["num_ctx"] = self.num_ctx
+        if self.num_gpu is not None:
+            # A narrow auxiliary model may be deliberately CPU-bound so it
+            # cannot evict the resident's speaking model from scarce VRAM.
+            body["options"]["num_gpu"] = self.num_gpu
         if self.think is not None:
             body["think"] = self.think
         if self.keep_alive is not None:
             body["keep_alive"] = self.keep_alive
+        if output_format is not None:
+            if output_format != "json" and not isinstance(output_format, dict):
+                raise ValueError(
+                    "Ollama output_format must be 'json' or a JSON schema")
+            body["format"] = output_format
         # 360s: a VRAM-evicted local model (llava/moondream squeeze) can
         # legitimately take 200s+; hanging up mid-thought loses the turn
         try:
@@ -201,6 +223,7 @@ class OllamaClient:
             meta = {"total_ms": _elapsed_ms(started),
                     "streamed": bool(on_text),
                     "error_type": type(error).__name__}
+            meta.update(classify_service_error(error, provider="ollama"))
             record_model_call("ollama", self.model, meta, status="error")
             raise
 
@@ -239,6 +262,7 @@ class OllamaClient:
 class AnthropicClient:
     def __init__(self, spec: dict):
         self.model = spec["identity"]["endpoint"]
+        self.spec_name = spec["identity"].get("name") or self.model
         self.key = resolve_anthropic_key()
         self.last_response_meta = None
 
@@ -325,6 +349,7 @@ class AnthropicClient:
                     usage, total_ms=_elapsed_ms(started),
                     first_token_ms=first_token_ms, streamed=True,
                     finish_reason=finish_reason)
+            self.last_response_meta["spec_name"] = self.spec_name
             record_model_call(
                 "anthropic_api", self.model, self.last_response_meta)
             return reply
@@ -332,7 +357,10 @@ class AnthropicClient:
             meta = {"total_ms": _elapsed_ms(started),
                     "first_token_ms": first_token_ms,
                     "streamed": bool(on_text),
-                    "error_type": type(error).__name__}
+                    "error_type": type(error).__name__,
+                    "spec_name": self.spec_name}
+            meta.update(classify_service_error(
+                error, provider="anthropic_api"))
             self.last_response_meta = dict(meta)
             record_model_call(
                 "anthropic_api", self.model, meta, status="error")
@@ -883,11 +911,19 @@ class OpenAICompatClient:
                 f"reasoning_tokens={meta.get('reasoning_tokens')!r}, "
                 f"completion_limit={meta.get('completion_limit')})")
         except Exception as error:
+            if isinstance(error, (requests.exceptions.Timeout,
+                                  requests.exceptions.ConnectionError)):
+                # A timed-out pooled connection is not evidence that a turn
+                # is safe to replay. Discard it so the next chosen call gets a
+                # fresh socket; partial streamed words remain single-delivery.
+                _HTTP.discard()
             meta = self._declared_meta(self.last_response_meta)
             meta.update({"total_ms": _elapsed_ms(started),
                          "first_token_ms": first_token_ms,
                          "streamed": bool(on_text),
                          "error_type": type(error).__name__})
+            meta.update(classify_service_error(
+                error, provider="openai_compat"))
             self.last_response_meta = meta
             record_model_call(
                 "openai_compat", self.model, meta, status="error")

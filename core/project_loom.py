@@ -55,12 +55,12 @@ def shadow_eligibility(intention: Mapping[str, Any]) -> dict:
     movement = str(relationship.get("movement") or "")
     related_id = str(relationship.get("related_intention_id") or "")
     vector = dict(relationship.get("vector") or {})
+    relationship_present = bool(movement or related_id or vector)
+    relationship_valid = (
+        movement in {"coexist", "differentiate", "braid"}
+        and bool(INTENTION_RE.fullmatch(related_id)))
     gates = {
         "continuing_intention": intention.get("state") == "open",
-        "append_only_convergence": movement in {
-            "coexist", "differentiate", "braid"},
-        "exact_related_intention": bool(
-            INTENTION_RE.fullmatch(related_id)),
         "private_provenance": bool(
             dict(intention.get("source") or {}).get("cue_id")),
         "bounded_uncertainty": (
@@ -72,9 +72,17 @@ def shadow_eligibility(intention: Mapping[str, Any]) -> dict:
                     and 0.0 <= float(value) <= 1.0
                     for value in intention["uncertainty"])
             and intention["uncertainty"][0] <= intention["uncertainty"][1]),
+        # Relationship evidence may inform a proposal, but an intention does
+        # not need to relate itself to a second intention to own private work.
+        "relationship_evidence_integrity": (
+            not relationship_present or relationship_valid),
     }
     eligible = all(gates.values())
-    convergence = {
+    eligibility_basis = {
+        "intention_id": str(intention.get("intention_id") or ""),
+        "source_cue_id": str(
+            dict(intention.get("source") or {}).get("cue_id") or ""),
+        "uncertainty": list(intention.get("uncertainty") or []),
         "movement": movement,
         "related_intention_id": related_id,
         "vector": vector,
@@ -84,7 +92,10 @@ def shadow_eligibility(intention: Mapping[str, Any]) -> dict:
         "eligible": eligible,
         "held_reasons": [key for key, passed in gates.items() if not passed],
         "gates": gates,
-        "convergence_digest": _digest(convergence) if eligible else "",
+        # Kept under the schema-1 field name for append-only compatibility;
+        # the digest now binds eligibility plus optional relationship evidence.
+        "convergence_digest": _digest(eligibility_basis) if eligible else "",
+        "relationship_evidence_present": relationship_present,
         "proposal_created": False,
         "store_created": False,
         "authority": dict(SHADOW_AUTHORITY),
@@ -855,4 +866,21 @@ class ProjectLoom:
             "authority": dict(SHADOW_AUTHORITY),
             "scheduler": False, "model": False, "tools": False,
             "execution": False,
+        }
+
+    def resource_status(self) -> dict:
+        """Return count-only project continuity without exposing proposals."""
+        proposals = self.proposals()
+        selections = self.internal_selections()
+        adoptions = self.owner_adoptions()
+        outcomes = self.owner_outcomes()
+        return {
+            "proposal_count": len(proposals),
+            "pending_owner_adoption_count": len(
+                self.pending_internal_selections()),
+            "internal_selection_count": len(selections),
+            "owner_adoption_count": len(adoptions),
+            "owner_outcome_count": len(outcomes),
+            "content_free": True,
+            "read_only": True,
         }

@@ -26,6 +26,10 @@ sampling:
     min: 0.0
     max: 1.0
     precision: 2
+wire:
+  chat_completions:
+    thinking:
+      type: "disabled"
 capabilities:
   tool_use: true
   vision: true
@@ -41,6 +45,7 @@ runtime:
   latency_class: "fast"
 quirks:
   - "multimodal input uses OpenAI-compatible image_url content blocks"
+  - "focused visual transduction uses direct-answer mode so the bounded completion is spent on visible description rather than hidden reasoning"
 harness:
   last_mechanical_pass: null
   fidelity_floor_results: {}

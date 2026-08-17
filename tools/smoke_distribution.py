@@ -23,6 +23,10 @@ def main():
         files = [p for p in (ROOT / name).rglob("*")
                  if p.is_file() and p.name != ".gitkeep"]
         assert not files, f"{name} is not empty: {files}"
+    assert (ROOT / "room" / "local_weather.py").is_file(), (
+        "public build is missing the opt-in local-weather mechanism")
+    assert not (ROOT / "room" / "local_weather.json").exists(), (
+        "public build contains household location/weather runtime state")
     assert not (ROOT / "godot-room").exists(), "public build contains 3D assets"
     start = (ROOT / "START_NEXUS.bat").read_text(encoding="utf-8")
     assert "shell\\boot.py --session" in start
@@ -51,8 +55,18 @@ def main():
     assert 'class="home-heading">The household' in shell
     assert "data-switch" in shell and "switchPersona" in shell
     assert "data-add-model" in shell and "openRoster" in shell
+    assert '<details id="publicCreativeDetails">' in shell
+    assert 'id="publicCreativePersona"' in shell
+    assert 'id="publicCreativeFrame"' in shell
+    assert "/autonomous-works`)" in shell
+    assert "surface=creative&embedded=household" in shell
+    assert "event.data.content_free!==true" in shell
+    assert "Number(origin.port)===Number(info.port)" in shell
+    assert "setInterval(refreshPublicCreativeCatalogs" not in shell
     assert "Yurt" not in shell and ">World<" not in shell
     assert 'data-top-page="personas"' in shell
+    assert 'data-top-page="usage"' in shell
+    assert 'id="page-usage"' in shell and 'src="/model-calls"' in shell
     assert 'data-top-page="settings"' in shell
     assert 'id="page-settings"' in shell and 'src="/settings"' in shell
     assert 'id="openWorld"' not in shell
@@ -62,8 +76,10 @@ def main():
     assert "Ollama · local" in shell and "LM Studio · local" in shell
     assert "The Nexus" in shell
     assert 'data-top-page="nexus"' in shell
-    assert shell.index("<span>Household</span>") < shell.index("<span>Chat</span>") < shell.index("<span>Settings</span>") < shell.index("<span>About</span>")
-    assert shell.count('class="nav-icon"') == 4
+    assert shell.index("<span>Household</span>") < shell.index("<span>Chat</span>") < shell.index("<span>Usage</span>") < shell.index("<span>Settings</span>") < shell.index("<span>About</span>")
+    assert shell.count('class="nav-icon"') == 5
+    assert "grid-template-columns:repeat(5,minmax(0,1fr))" in shell
+    assert "@media(max-width:520px){.top-nav .nav-icon{display:none}" in shell
     assert 'stroke="currentColor"' in shell
     assert "function nexusIcon()" in shell and 'class="nexus-icon"' in shell
     assert "🌍 The Nexus" not in shell
@@ -79,6 +95,14 @@ def main():
     assert 'href="/settings#updates"' in shell
     assert "JNSQ will not install it while running" in shell
     about = (ROOT / "shell" / "about.html").read_text(encoding="utf-8")
+    usage = (ROOT / "shell" / "model_calls.html").read_text(
+        encoding="utf-8")
+    usage_backend = (ROOT / "shell" / "model_call_dashboard.py").read_text(
+        encoding="utf-8")
+    assert "Model usage" in usage
+    assert "Prompts and replies never enter this view" in usage
+    assert "No model calls recorded in this window" in usage
+    assert '"prompt"' not in usage_backend and '"response"' not in usage_backend
     assert 'data-guide-tab="about"' in about
     assert 'data-guide-tab="use"' in about
     assert 'id="mcp" data-guide="use"' in about
@@ -124,8 +148,8 @@ def main():
     assert 'fetch("/api/turn/stream"' in cockpit
     assert "res.body.getReader()" in cockpit
     assert "const turnQueue = []" in cockpit
-    assert ("turnQueue.push({text,sentImages,groundingImages,speakingAs})"
-            in cockpit)
+    assert ("turnQueue.push({text,sentImages,groundingImages,"
+            "physicalEyeGrounding,speakingAs})" in cockpit)
     assert "const item=turnQueue.shift()" in cockpit
     assert "repaintQueuedTurns()" in cockpit
     contract = (ROOT / "shell" / "contract.py").read_text(encoding="utf-8")
@@ -143,7 +167,8 @@ def main():
     assert 'id="autonomous-works"' in cockpit
     assert 'id="autonomous-works-filter"' in cockpit
     assert "refreshAutonomousWorks" in cockpit
-    assert cockpit.count("const saved=await saveAppearance(false);") == 2
+    assert '$("themeSave").onclick=()=>saveAppearance(false);' in cockpit
+    assert '$("themeReset").onclick=()=>saveAppearance(true);' in cockpit
     settings = (ROOT / "shell" / "settings.html").read_text(encoding="utf-8")
     assert ('const saved=await saveTheme(false,'
             '"Background uploaded and household appearance saved.");'
@@ -170,7 +195,7 @@ def main():
     assert "function mountAtelier3D" in cockpit
     assert "scene3DShader" in cockpit
     assert "function scene3DMatrixBoundary" in cockpit
-    assert "preserveDrawingBuffer:true" in cockpit
+    assert "preserveDrawingBuffer:shelfVisible" in cockpit
     assert "stopAtelier3DLoops" in cockpit
     assert "Models cannot author script" in cockpit
     assert '@app.get("/api/atelier")' in cockpit_server
@@ -228,8 +253,9 @@ def main():
     users = (ROOT / "shell" / "users.html").read_text(encoding="utf-8")
     assert "scrollbar-color:var(--accent)" in settings
     assert "scrollbar-color:var(--accent)" in users
-    assert settings.count('class="ui-icon"') == 7
-    assert '<span>Account &amp; privacy</span>' in settings
+    assert settings.count('class="ui-icon"') == 9
+    assert '<span>Model calls</span>' in settings
+    assert '<span>Work routing</span>' in settings
     assert '<span>Updates</span>' in settings
     assert 'class="ui-icon"' in users and "👤" not in users
     assert '<option value="humanist">Atkinson Hyperlegible</option>' in settings
@@ -368,10 +394,9 @@ def main():
     assert (ROOT / "VERSION").read_text(encoding="utf-8").strip()
     assert "Apache License" in (ROOT / "LICENSE").read_text(encoding="utf-8")
     settings = (ROOT / "shell" / "settings.html").read_text(encoding="utf-8")
-    for page in ("account", "appearance", "keys", "vision", "prompts",
-                 "updates"):
+    for page in ("model-calls", "appearance", "keys", "routing",
+                 "vision", "voice-input", "voice", "prompts", "updates"):
         assert f'data-page="{page}"' in settings
-    assert 'src="/users"' in settings
     assert "/api/ui/theme" in settings and "/api/env" in settings
     assert "data-vision-select" in settings and "/vision/test" in settings
     assert ('data-page="voice"' in settings
@@ -446,7 +471,8 @@ def main():
     assert router_app.state.registry == {}
     assert router_app.state.local_identity["display_name"] == "User"
     routes = {route.path for route in router_app.routes}
-    assert {"/settings", "/api/version", "/api/version/check"} <= routes
+    assert {"/settings", "/model-calls", "/api/model-calls/summary",
+            "/api/version", "/api/version/check"} <= routes
 
     # A brand-new public home has no personas. Its live router therefore
     # returns {}, which is healthy and must still complete boot/write the
@@ -478,7 +504,9 @@ def main():
         if path.is_file() and path.suffix.lower() in text_suffixes:
             text = path.read_text(encoding="utf-8")
             for marker in private_markers:
-                assert marker.lower() not in text.lower(), \
+                assert not re.search(
+                    rf"(?<![A-Za-z0-9_]){re.escape(marker)}"
+                    r"(?![A-Za-z0-9_])", text, re.IGNORECASE), \
                     f"private marker {marker!r} remains in {path}"
 
     manifest = json.loads((ROOT / "DISTRIBUTION_MANIFEST.json").read_text(
@@ -510,6 +538,7 @@ def main():
     from shell.first_run import configure
     from shell.local_identity import load_local_identity
     from shell.factory import scaffold
+    from core.resident_config import resolve_resident_config
     with tempfile.TemporaryDirectory() as tmp:
         home = Path(tmp)
         configure("smoke_user", "Smoke User", str(home))
@@ -526,7 +555,11 @@ def main():
         assert {"room_sense", "room_actions", "afferents", "tropism",
                 "social"} <= set(roster["enabled_organs"])
         assert roster["perception"]["vision_model"] is None
-        assert roster["mcp_library"] == {"enabled": False, "servers": []}
+        effective = resolve_resident_config(
+            str(ROOT), roster, require_defaults=True)
+        assert effective["mcp_library"] == {"enabled": False, "servers": []}
+        assert "mcp_library" not in roster, (
+            "fresh roster duplicated a shared household default")
         assert roster["enabled_organs"]
         assert "enabled_organs" not in roster["entries"][0]
     print("JNSQ starter smoke test: PASS")

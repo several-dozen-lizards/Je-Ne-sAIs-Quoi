@@ -283,3 +283,35 @@ class SensoryOrgan:
                 "recent": list(self.state["recent"]),
                 "substrate": dict(self.state.get("substrate") or {}),
                 "policy": self.policy(bands, coherence, occupied)}
+
+    def resource_status(self, now=None) -> dict:
+        """Expose fresh ingress pressure without media or semantic payloads."""
+        now = time.time() if now is None else float(now)
+        modalities = list(self.state.get("modalities", {}).values())
+        retention = float(self.policy().get("retention_s") or 0.0)
+        ages = [max(0.0, now - float(item.get("updated") or 0.0))
+                for item in modalities if item.get("updated") is not None]
+        fresh = [item for item in modalities
+                 if item.get("updated") is not None
+                 and max(0.0, now - float(item.get("updated") or 0.0))
+                 <= retention]
+        pressures = [max(0.0, min(1.0, float(item.get("pressure") or 0.0)))
+                     for item in fresh]
+        return {
+            "schema_version": 1,
+            "sensory_modalities": len(modalities),
+            "fresh_sensory_modalities": len(fresh),
+            "latest_sensory_age_s": round(min(ages), 3) if ages else None,
+            "max_sensory_pressure": (
+                round(max(pressures), 6) if pressures else None),
+            "low_ingress": (
+                round(1.0 - max(pressures), 6) if pressures else
+                1.0 if modalities and not fresh else None),
+            "low_ingress_evidence": (
+                "fresh_pressure" if pressures else
+                "owner_retention_window_empty" if modalities and not fresh
+                else "unavailable_no_modality_history"),
+            "freshness_horizon_s": retention,
+            "content_free": True,
+            "read_only": True,
+        }

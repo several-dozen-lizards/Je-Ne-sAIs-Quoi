@@ -80,8 +80,22 @@ table{width:100%;border-collapse:collapse;margin-top:12px;font-size:.8rem}th,td{
 .voice-route{display:grid;grid-template-columns:minmax(150px,.7fr) minmax(250px,1.4fr);gap:14px;align-items:start}
 .vision-route .route-controls,.voice-route .route-controls{display:grid;gap:8px}.vision-route .route-status{font-size:.78rem;line-height:1.55}
 .model-facts{color:var(--dim);font-size:.72rem}.available{color:var(--good)}.unavailable{color:var(--warn)}
+.routing-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.routing-persona>summary,
+.routing-tier>summary{cursor:pointer;color:var(--accent);font-weight:600}.routing-persona>summary{font-size:1rem}
+.routing-tier{border-top:1px solid var(--line);padding-top:10px;margin-top:12px}.tier-copy{margin:5px 0 10px}
+.route-row{display:grid;grid-template-columns:minmax(180px,.85fr) minmax(230px,1.2fr);gap:12px;
+  padding:11px 0;border-top:1px dashed color-mix(in srgb,var(--line) 75%,transparent)}
+.route-row:first-of-type{border-top:0}.route-title{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.route-title strong{color:var(--ink)}.badge{display:inline-block;border:1px solid var(--line);border-radius:999px;
+  padding:2px 6px;font:600 .62rem var(--font-mono);letter-spacing:.04em;text-transform:uppercase;color:var(--dim)}
+.badge.local{color:var(--good);border-color:color-mix(in srgb,var(--good) 55%,var(--line))}
+.badge.api{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 55%,var(--line))}
+.badge.off{color:var(--dim)}.route-copy{margin-top:5px}.route-actual{font:.7rem var(--font-mono);color:var(--dim);margin-top:6px}
+.route-actual.error{color:var(--warn)}.foreground-route{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:9px 0 3px}
+.model-calls-frame{width:100%;height:calc(100vh - 145px);min-height:620px;border:1px solid var(--line);
+  border-radius:var(--radius);background:var(--bg)}
 @media(max-width:720px){.shell{padding:15px}.face{grid-template-columns:38px 1fr}.face>*{grid-column:auto}
-  .face input[type=file],.face .status{grid-column:1/-1}table{display:block;overflow:auto}.vision-route,.voice-route{grid-template-columns:1fr}}
+  .face input[type=file],.face .status{grid-column:1/-1}table{display:block;overflow:auto}.vision-route,.voice-route,.route-row{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -90,20 +104,19 @@ table{width:100%;border-collapse:collapse;margin-top:12px;font-size:.8rem}th,td{
     <h1>Settings</h1><div class="note">The shared controls for this local JNSQ home.</div>
   </div></div>
   <nav class="tabs">
-    <button class="btn tab" data-page="account"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5.5 20c.6-4 2.8-6 6.5-6s5.9 2 6.5 6"/></svg><span>Account &amp; privacy</span></button>
+    <button class="btn tab" data-page="model-calls"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m13.5 2-7 11H12l-1.5 9 7-11H12z"/></svg><span>Model calls</span></button>
     <button class="btn tab" data-page="appearance"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 1.1 3.4L16.5 7.5l-3.4 1.1L12 12l-1.1-3.4-3.4-1.1 3.4-1.1zM18.5 13l.7 2.3 2.3.7-2.3.7-.7 2.3-.7-2.3-2.3-.7 2.3-.7zM6 14l.8 2.7 2.7.8-2.7.8L6 21l-.8-2.7-2.7-.8 2.7-.8z"/></svg><span>Appearance</span></button>
     <button class="btn tab" data-page="keys"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="9" r="4"/><path d="m11 12 9 9M16 17l2-2M18 19l2-2"/></svg><span>API keys</span></button>
+    <button class="btn tab" data-page="routing"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h16"/><circle cx="17" cy="12" r="3"/></svg><span>Work routing</span></button>
     <button class="btn tab" data-page="vision"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6z"/><circle cx="12" cy="12" r="2.8"/></svg><span>Visual input</span></button>
-    <button class="btn tab" data-page="voice"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6"/></svg><span>Voice output</span></button>
+    <button class="btn tab" data-page="voice-input"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6"/></svg><span>Voice input</span></button>
+    <button class="btn tab" data-page="voice"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 9v6h4l5 4V5L9 9z"/><path d="M17 9.5a4 4 0 0 1 0 5M19.5 7a7.5 7.5 0 0 1 0 10"/></svg><span>Voice output</span></button>
     <button class="btn tab" data-page="prompts"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 6.5a4 4 0 0 0-5-5l2.2 2.2-2.8 2.8-2.2-2.2a4 4 0 0 0 5 5L20 17.6 17.6 20z"/></svg><span>System prompts</span></button>
     <button class="btn tab" data-page="updates"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m13.5 2-7 11H12l-1.5 9 7-11H12z"/></svg><span>Updates</span></button>
   </nav>
 
-  <section class="page" id="page-account">
-    <h2>Account, bedrock facts, and sharing boundaries</h2>
-    <p class="note">Manage the human account that owns this installation, its bedrock facts,
-      and role-play user personas. These records stay on this computer.</p>
-    <iframe class="account-frame" src="/users" title="Account and privacy settings"></iframe>
+  <section class="page" id="page-model-calls">
+    <iframe class="model-calls-frame" src="/model-calls" title="Model call receipts"></iframe>
   </section>
 
   <section class="page" id="page-appearance">
@@ -151,7 +164,7 @@ table{width:100%;border-collapse:collapse;margin-top:12px;font-size:.8rem}th,td{
     <div class="card"><h3>Persona looks moved to the people they belong to</h3>
       <p class="note">For an AI persona, use <b>Household → change look</b> to edit their portrait,
         fallback glyph, and speaker color together. Human accounts and RP user personas keep their
-        separate look controls under Account &amp; privacy.</p>
+        separate look controls under Users.</p>
       <div class="actions"><a class="btn" href="/" target="_top">Open Household</a></div>
       <div class="faces" id="settingsPersonaIcons" hidden></div></div>
   </section>
@@ -161,6 +174,19 @@ table{width:100%;border-collapse:collapse;margin-top:12px;font-size:.8rem}th,td{
       router. Only presence is ever displayed back. Restart a persona after adding its key.</p>
     <div class="card"><table><thead><tr><th>Environment variable</th><th>Status</th><th>Used by</th><th>Set / update</th></tr></thead>
       <tbody id="keyrows"></tbody></table><div class="note" id="keynote"></div></div>
+  </section>
+
+  <section class="page" id="page-routing">
+    <h2>Work routing</h2>
+    <p class="note">See and set the model vessel for each kind of work. Tiers describe when work is admitted,
+      not intelligence or subjective importance. Local-only routes cannot be pointed at an API model.</p>
+    <div class="card"><div class="routing-head"><div><h3>Configured route and actual use are separate evidence</h3>
+      <p class="note">Each selector reads and writes the resident's roster. “Latest matching call” comes from
+        content-free receipts from the last 24 hours; it can prove which model actually ran without exposing prompts or replies.
+        A saved route becomes live on that resident's next start.</p></div>
+      <a class="btn" href="/model-calls" target="_blank" rel="noopener">Open actual model calls</a></div></div>
+    <div class="card"><label for="workPersona">Household resident<select id="workPersona" aria-label="Household resident for work routing"></select></label></div>
+    <div id="workRoutes"></div>
   </section>
 
   <section class="page" id="page-vision">
@@ -177,6 +203,16 @@ table{width:100%;border-collapse:collapse;margin-top:12px;font-size:.8rem}th,td{
         <b>GLM-4.6V-Flash</b> is free, but its shared capacity can refuse work when overloaded.
         This is guidance, not an automatic choice.</p></div>
     <div id="visionRoutes"></div>
+  </section>
+
+  <section class="page" id="page-voice-input">
+    <h2>Voice input</h2>
+    <p class="note">Microphone permission, ambient hearing, and whether admitted spoken segments may enter
+      conversation belong to the resident receiving that input. Choose someone in the household to open their
+      live controls; adding another resident adds them here automatically.</p>
+    <div class="card"><label for="voiceInputPersona">Household resident<select id="voiceInputPersona" aria-label="Household resident for voice input"></select></label>
+      <div class="actions"><button class="btn go" id="voiceInputOpen">Open resident voice input</button>
+        <span class="note" id="voiceInputNote">Their microphone remains off until enabled in their cockpit.</span></div></div>
   </section>
 
   <section class="page" id="page-voice">
@@ -228,10 +264,14 @@ async function request(url,options={}){const response=await fetch(url,options);l
   try{body=await response.json()}catch(_){body={error:await response.text()}}
   if(!response.ok||body.error)throw new Error(body.error||`${response.status} ${response.statusText}`);return body}
 const clone=value=>JSON.parse(JSON.stringify(value));
-let personas={},models=[],themeDoc=null,preview=null,presetDirty=false,currentPage=location.hash==="#voice"?"voice":"account";
+const pageFromHash=String(location.hash||"").replace(/^#/,"");
+const settingsPages=new Set(["model-calls","appearance","keys","routing","vision","voice-input","voice","prompts","updates"]);
+let personas={},models=[],themeDoc=null,preview=null,presetDirty=false,currentPage=settingsPages.has(pageFromHash)?pageFromHash:"appearance";
 const dirty=new Set(),iconNotices={};
 const visionNotices={};
 const voiceNotices={};
+const routingNotices={},routingRestart=new Set();
+let workRouteCatalog={tiers:[],routes:[]},modelCallSummary={recent:[]},selectedWorkPersona="";
 const CONTROLS={houseBackground:"background",houseFont:"font",houseFontScale:"font_scale",houseDensity:"density",houseBg:"bg",
   housePanel:"panel",houseInk:"ink",houseAccent:"accent",houseAccent2:"accent2",houseRadius:"radius",
   houseGlow:"glow",houseBackgroundOpacity:"background_opacity",houseReactive:"reactive"};
@@ -316,10 +356,15 @@ function renderPersonaFaces(){const box=$("settingsPersonaIcons");box.textConten
   if(!box.children.length)box.innerHTML='<span class="note">No model personas yet.</span>'}
 function applyBackgroundMedia(media){const root=document.documentElement;
   root.style.setProperty("--conversation-background",media?.url?`url("${media.url}?v=${encodeURIComponent(media.revision||"0")}")`:"none")}
+function presetOptions(doc){const assigned=new Set(),custom=new Set(doc.custom_presets||[]);
+  const group=(label,ids)=>{const options=(ids||[]).filter(id=>doc.presets?.[id]!==undefined).map(id=>{assigned.add(id);return `<option value="${esc(id)}">${esc(doc.presets[id])}</option>`}).join("");return options?`<optgroup label="${esc(label)}">${options}</optgroup>`:""};
+  let html=Object.entries(doc.preset_collections||{}).map(([label,ids])=>group(label,ids)).join("");
+  html+=group("JNSQ collection",Object.keys(doc.presets||{}).filter(id=>!assigned.has(id)&&!custom.has(id)));
+  html+=group("Custom",doc.custom_presets||[]);return html}
 function updatePresetActions(){const custom=new Set(themeDoc?.custom_presets||[]),id=$("housePreset").value;
   $("housePresetUpdate").disabled=!custom.has(id);$("housePresetDelete").disabled=!custom.has(id)}
 async function loadTheme(note=""){try{themeDoc=await request("/api/ui/theme");preview=clone(themeDoc.tokens);applyBackgroundMedia(themeDoc.conversation_background);applyTheme(preview);
-  $("housePreset").innerHTML=Object.entries(themeDoc.presets).map(([id,label])=>`<option value="${esc(id)}">${esc(label)}</option>`).join("");
+  $("housePreset").innerHTML=presetOptions(themeDoc);
   $("housePreset").value=themeDoc.preset;$("housePresetName").value=themeDoc.presets[themeDoc.preset]||"";
   fillAppearance(preview);presetDirty=false;dirty.clear();updatePresetActions();if(note)$("houseThemeNote").textContent=note}catch(error){$("houseThemeNote").textContent=error.message}}
 for(const [id,key] of Object.entries(CONTROLS))$(id).oninput=()=>{if(!preview)return;preview[key]=controlValue(id);dirty.add(key);applyTheme(preview)};
@@ -361,18 +406,76 @@ async function saveKey(name){const input=document.querySelector(`[data-key="${CS
   try{const result=await request("/api/env",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,value:input.value})});
     input.value="";$("keynote").textContent=`${result.env} saved; its value will not be displayed back.`;loadKeys()}catch(error){$("keynote").textContent=error.message}}
 function modelByName(name){return models.find(model=>model.name===name)||null}
+function routeModelLabel(model){if(!model)return "";const local=model.locality==="local";
+  return `${local?"LOCAL":"API"} · ${model.name} · ${model.vendor||model.provider||model.family||"unknown"}${model.available?"":" · KEY MISSING"}`}
+function routeModelFacts(name){const model=modelByName(name);if(!model)return name?`Model spec ${name} is not in the current catalog.`:"No model call configured.";
+  const locality=model.locality==="local"?`local via ${model.provider||model.family}`:`provider/API via ${model.vendor||model.provider||model.family}`;
+  const credential=model.locality==="local"?"installation checked when used":model.available?"credential present; balance is not preflighted":"credential missing";
+  return `${locality} · ${credential} · ${model.latency} · ${model.cost}`}
+function matchingRouteCall(id,persona,definition){const purposes=[definition.purpose,...(definition.purpose_aliases||[])];
+  const names=new Set([id,persona.display_name].filter(Boolean).map(value=>String(value).toLowerCase()));
+  return (modelCallSummary.recent||[]).find(call=>names.has(String(call.persona||"").toLowerCase())&&purposes.includes(call.purpose))||null}
+function routeActualMarkup(id,persona,definition){const call=matchingRouteCall(id,persona,definition);if(!call)return '<div class="route-actual">No matching call receipt in the last 24 hours.</div>';
+  const model=call.spec_name||call.model||"unknown",timing=Number.isFinite(Number(call.total_ms))?` · ${Math.round(Number(call.total_ms))} ms`:"";
+  return `<div class="route-actual ${call.status==="ok"?"":"error"}">Latest matching call: ${esc(model)} · ${esc(call.status||"unknown")}${timing}</div>`}
+function optionalRouteLabel(route,state){if(route.id==="focused_vision")return "Renderer grounding only — no focused pixel model";
+  if(route.id==="avatar_vision")return state.inherited_from?`Inherit ${state.effective||"shared-image route"}`:"Renderer grounding only";
+  if(route.id==="shared_vision")return "No shared-image transducer";return "No model configured"}
+function workRouteOptions(route,state){const selected=state.configured||state.effective||"";
+  const candidates=models.filter(model=>(!route.vision||model.vision)&&(!route.local_required||model.locality==="local"))
+    .sort((a,b)=>Number(a.locality!=="local")-Number(b.locality!=="local")||String(a.name).localeCompare(String(b.name)));
+  const blank=route.optional?`<option value="" ${state.configured?"":"selected"}>${esc(optionalRouteLabel(route,state))}</option>`:selected?"":'<option value="" disabled selected>No route configured — choose a model</option>';
+  const options=candidates.map(model=>`<option value="${esc(model.name)}" ${model.name===selected?"selected":""}>${esc(routeModelLabel(model))}</option>`).join("");
+  if(selected&&!candidates.some(model=>model.name===selected))return blank+`<option value="${esc(selected)}" selected>${esc(selected)} · current route (not selectable here)</option>`+options;
+  return blank+options}
+function syncWorkPersonaPicker(entries){const picker=$("workPersona"),available=new Set(entries.map(([id])=>id));
+  if(!available.has(selectedWorkPersona))selectedWorkPersona=entries[0]?.[0]||"";
+  picker.innerHTML=entries.map(([id,persona])=>`<option value="${esc(id)}">${esc(persona.display_name||id)}</option>`).join("");
+  picker.value=selectedWorkPersona;picker.onchange=()=>{selectedWorkPersona=picker.value;renderWorkRoutes()}}
+function renderWorkRoutes(){const box=$("workRoutes"),entries=Object.entries(personas).filter(([,p])=>p.kind==="model_persona").sort();
+  syncWorkPersonaPicker(entries);
+  if(!entries.length){box.innerHTML='<div class="card note">No model personas yet.</div>';return}
+  const selected=entries.find(([id])=>id===selectedWorkPersona)||entries[0];
+  box.innerHTML=[selected].map(([id,persona])=>{const foreground=modelByName(persona.model),needsRestart=routingRestart.has(id),restartNotice=routingNotices[`${id}:restart`]||"";
+    const tiers=(workRouteCatalog.tiers||[]).map(tier=>{const definitions=(workRouteCatalog.routes||[]).filter(route=>route.tier===tier.id);
+      const rows=definitions.map(route=>{const state=persona.work_routes?.[route.id]||{},selected=state.configured||state.effective||"",model=modelByName(selected),notice=routingNotices[`${id}:${route.id}`]||"";
+        return `<div class="route-row"><div><div class="route-title"><strong>${esc(route.label)}</strong>
+          <span class="badge ${state.enabled?"local":"off"}">${state.enabled?"organ on":"organ off"}</span>
+          ${route.local_required?'<span class="badge local">local only</span>':model?`<span class="badge ${model.locality==="local"?"local":"api"}">${model.locality==="local"?"local":"api"}</span>`:""}</div>
+          <div class="note route-copy">${esc(route.description)}</div>${routeActualMarkup(id,persona,route)}</div>
+          <div><label>Model vessel<select data-work-model data-persona="${esc(id)}" data-route="${esc(route.id)}">${workRouteOptions(route,state)}</select></label>
+          <div class="model-facts ${model?.available?"available":model&&model.locality!=="local"?"unavailable":""}" data-work-facts="${esc(id)}:${esc(route.id)}">${esc(routeModelFacts(selected))}</div>
+          <div class="actions"><button class="btn go" data-save-work data-persona="${esc(id)}" data-route="${esc(route.id)}">Save route</button>
+          <span class="note">${esc(notice)}</span></div></div></div>`}).join("");
+      return `<details class="routing-tier" ${tier.id==="ambient"||tier.id==="integration"?"open":""}><summary>${esc(tier.label)}</summary><p class="note tier-copy">${esc(tier.description)}</p>${rows}</details>`}).join("");
+    return `<details class="card routing-persona" open><summary>${esc(persona.display_name||id)}</summary>
+      <div class="foreground-route"><span class="badge ${foreground?.locality==="local"?"local":"api"}">${foreground?.locality==="local"?"local":"api"}</span>
+      <b>Foreground conversation: ${esc(persona.model||"none")}</b><span class="note">Change the speaking vessel from the Household persona card.</span></div>
+      ${needsRestart?`<div class="actions"><button class="btn go" data-restart-work="${esc(id)}">Restart ${esc(persona.display_name||id)} to apply saved routes</button><span class="note">${esc(restartNotice||"The roster is saved; the running cockpit still has its prior routes.")}</span></div>`:""}${tiers}</details>`}).join("");
+  box.querySelectorAll("[data-work-model]").forEach(select=>select.onchange=()=>{const name=select.value,facts=box.querySelector(`[data-work-facts="${CSS.escape(select.dataset.persona+":"+select.dataset.route)}"]`);if(facts)facts.textContent=routeModelFacts(name)});
+  box.querySelectorAll("[data-save-work]").forEach(button=>button.onclick=()=>saveWorkRoute(button.dataset.persona,button.dataset.route,button));
+  box.querySelectorAll("[data-restart-work]").forEach(button=>button.onclick=()=>restartWorkRoutes(button.dataset.restartWork,button))}
+async function loadWorkRoutes(){try{const [personaData,modelData,catalog,calls]=await Promise.all([request("/api/personas"),request("/api/models?include_internal=true"),request("/api/work-routes"),request("/api/model-calls/summary?hours=24")]);
+  personas=personaData;models=modelData.models||[];workRouteCatalog=catalog;modelCallSummary=calls;renderWorkRoutes()}catch(error){$("workRoutes").innerHTML=`<div class="card error">${esc(error.message)}</div>`}}
+async function saveWorkRoute(id,route,button){const select=document.querySelector(`[data-work-model][data-persona="${CSS.escape(id)}"][data-route="${CSS.escape(route)}"]`),model=select?.value||null,key=`${id}:${route}`;
+  button.disabled=true;try{const result=await request(`/api/personas/${encodeURIComponent(id)}/work-route`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({route,model})});
+    routingNotices[key]=result.restart_required?`Saved ${model||"renderer-only"}; restart required.`:`Saved ${model||"renderer-only"}; applies on next start.`;if(result.restart_required)routingRestart.add(id);await loadWorkRoutes()}
+  catch(error){routingNotices[key]=error.message;renderWorkRoutes()}finally{button.disabled=false}}
+async function restartWorkRoutes(id,button){button.disabled=true;try{const model=personas[id]?.model;await request(`/api/personas/${encodeURIComponent(id)}/stop`,{method:"POST"});
+    await request(`/api/personas/${encodeURIComponent(id)}/start`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model})});routingRestart.delete(id);routingNotices[`${id}:restart`]="";await loadWorkRoutes()}
+  catch(error){routingNotices[`${id}:restart`]=error.message;renderWorkRoutes()}finally{button.disabled=false}}
 function renderVisionRoutes(){const box=$("visionRoutes"),visual=models.filter(model=>model.vision)
     .sort((a,b)=>Number(b.available)-Number(a.available)||String(a.name).localeCompare(String(b.name)));
   const entries=Object.entries(personas).filter(([,p])=>p.kind==="model_persona").sort();
   if(!entries.length){box.innerHTML='<div class="card note">No model personas yet.</div>';return}
-  box.innerHTML=entries.map(([id,p])=>{const active=modelByName(p.model),direct=!!active?.vision,chosen=p.vision_model||"";
-    const options=['<option value="">No fallback — refuse images on text-only vessels</option>',...visual.map(model=>
+  box.innerHTML=entries.map(([id,p])=>{const active=modelByName(p.model),direct=!!active?.vision,chosen=p.vision_model||"",avatar=p.avatar_vision_model||chosen,focused=p.focused_vision_model||"";
+    const options=['<option value="">No shared-image route — refuse images on text-only vessels</option>',...visual.map(model=>
       `<option value="${esc(model.name)}" ${model.name===chosen?"selected":""}>${esc(model.name)} · ${esc(model.vendor||model.provider||model.family)} · ${esc(model.cost)}${model.available?"":" · KEY NOT SET"}</option>`)].join("");
-    const path=direct?`Direct pixels → ${esc(p.model)}. The fallback is held for any later text-only vessel.`:
-      chosen?`Pixels → ${esc(chosen)} → observable features → ${esc(p.model)}.`:`${esc(p.model)} is text-only and has no fallback; image turns will be refused clearly.`;
+    const path=direct?`Direct shared pixels → ${esc(p.model)}. The configured shared-image route is held for any later text-only vessel.`:
+      chosen?`Shared pixels → ${esc(chosen)} → observable features → ${esc(p.model)}. Avatar POV uses renderer grounding${avatar?` with ${esc(avatar)} as its local pixel fallback`:""}.${focused?` Chosen visual engagement may use ${esc(focused)} once.`:""}`:`${esc(p.model)} is text-only and has no shared-image route; image turns will be refused clearly.`;
     const selected=modelByName(chosen),facts=selected?`${selected.available?"available":"key unavailable"} · ${esc(selected.latency)} · ${esc(selected.cost)}`:"No transducer selected.";
     return `<div class="card vision-route"><div><h3>${esc(p.display_name||id)}</h3><div class="route-status">Active vessel: <b>${esc(p.model||"none")}</b><br>${path}</div></div>
-      <div class="route-controls"><label>Fallback for text-only vessels<select data-vision-select="${esc(id)}">${options}</select></label>
+      <div class="route-controls"><label>Shared-image transducer for text-only vessels<select data-vision-select="${esc(id)}">${options}</select></label>
       <div class="model-facts ${selected?.available?"available":selected?"unavailable":""}" data-vision-facts="${esc(id)}">${facts}</div>
       <div class="actions"><button class="btn go" data-save-vision="${esc(id)}">Save${p.alive&&!direct?" & restart":""}</button>
       <button class="btn" data-test-vision="${esc(id)}">Test selected route</button><span class="note" data-vision-note="${esc(id)}">${esc(visionNotices[id]||"")}</span></div></div></div>`}).join("");
@@ -396,57 +499,17 @@ async function testVisionRoute(id,button){const selected=document.querySelector(
   const note=document.querySelector(`[data-vision-note="${CSS.escape(id)}"]`);if(note)note.textContent=visionNotices[id];
   try{const result=await request(`/api/models/${encodeURIComponent(model)}/vision/test`,{method:"POST"});visionNotices[id]=`PASS · ${result.observation}`}
   catch(error){visionNotices[id]=`FAILED · ${error.message}`}finally{renderVisionRoutes()}}
-function browserVoices(){return (window.speechSynthesis?.getVoices?.()||[]).slice().sort((a,b)=>a.name.localeCompare(b.name))}
-function renderVoiceRoutes(){const box=$("voiceRoutes"),voices=browserVoices();
-  const entries=Object.entries(personas).filter(([,p])=>p.kind==="model_persona").sort();
-  if(!entries.length){box.innerHTML='<div class="card note">No model personas yet.</div>';return}
-  box.innerHTML=entries.map(([id,p])=>{const config=p.voice_output||{provider:"browser-native",voice:""};
-    const configured=config.voice||"",found=config.provider!=="browser-native"||!configured||voices.some(voice=>voice.name===configured);
-    const voiceOptions=['<option value="">Browser default</option>',...voices.map(voice=>
-      `<option value="${esc(voice.name)}" ${voice.name===configured?"selected":""}>${esc(voice.name)} · ${esc(voice.lang)}${voice.localService?" · local":""}</option>`)].join("");
-    const fallback=!found?`Configured voice “${esc(configured)}” is unavailable here; playback will use the browser default.`:
-      config.provider==="disabled"?"This persona is quiet.":config.provider==="qwen3-tts"?
-      `Private Qwen synthesis · ${esc(configured||"default audition identity")}.`:config.provider==="chatterbox-turbo"?
-      "Private Chatterbox synthesis · consented persona reference.":`Speech stays in this browser through ${esc(configured||"its default voice")}.`;
-    return `<div class="card voice-route"><div><h3>${esc(p.display_name||id)}</h3><div class="note">${fallback}</div></div>
-      <div class="route-controls"><div class="grid"><label>Provider<select data-voice-provider="${esc(id)}"><option value="disabled" ${config.provider==="disabled"?"selected":""}>Disabled</option><option value="browser-native" ${config.provider==="browser-native"?"selected":""}>Browser native · local</option></select></label>
-      <label data-browser-field="${esc(id)}" ${!["browser-native","disabled"].includes(config.provider)?'hidden':''}>Browser voice<select data-browser-voice="${esc(id)}" ${config.provider==="disabled"?"disabled":""}>${voiceOptions}</select></label>
-      <label data-qwen-field="${esc(id)}" ${config.provider!=="qwen3-tts"?'hidden':''}>Stable voice description<input data-qwen-voice="${esc(id)}" maxlength="160" value="${esc(config.provider==="qwen3-tts"?configured:"")}" placeholder="Distinctive adult voice, intimate and unpolished"></label>
-      <label data-chatterbox-field="${esc(id)}" ${config.provider!=="chatterbox-turbo"?'hidden':''}>Reference voice<input data-chatterbox-reference="${esc(id)}" type="file" accept="audio/wav,.wav"><span class="note">Consented WAV · 5–15 seconds</span></label>
-      <label>Personal pace<input data-voice-rate="${esc(id)}" type="range" min="0.65" max="1.4" step="0.01" value="${Number(config.rate_scale??1)}"></label>
-      <label>Personal pitch<input data-voice-pitch="${esc(id)}" type="range" min="0.75" max="1.25" step="0.01" value="${Number(config.pitch_scale??1)}"></label>
-      <label>Personal output<input data-voice-volume="${esc(id)}" type="range" min="0" max="1.25" step="0.01" value="${Number(config.volume_scale??1)}"></label></div>
-      <div class="actions"><button class="btn go" data-save-voice="${esc(id)}">Save voice</button><button class="btn" data-audition-voice="${esc(id)}" ${!["qwen3-tts","chatterbox-turbo"].includes(config.provider)?"hidden":""}>Audition</button><span class="note" data-voice-note="${esc(id)}">${esc(voiceNotices[id]||"")}</span></div></div></div>`}).join("");
-  box.querySelectorAll("[data-voice-provider]").forEach(select=>select.onchange=()=>{const id=select.dataset.voiceProvider;
-    box.querySelector(`[data-browser-field="${CSS.escape(id)}"]`).hidden=!["browser-native","disabled"].includes(select.value);
-    box.querySelector(`[data-qwen-field="${CSS.escape(id)}"]`).hidden=select.value!=="qwen3-tts";
-    box.querySelector(`[data-chatterbox-field="${CSS.escape(id)}"]`).hidden=select.value!=="chatterbox-turbo";
-    box.querySelector(`[data-audition-voice="${CSS.escape(id)}"]`).hidden=!["qwen3-tts","chatterbox-turbo"].includes(select.value);
-    box.querySelector(`[data-browser-voice="${CSS.escape(id)}"]`).disabled=select.value==="disabled"});
-  box.querySelectorAll("[data-chatterbox-reference]").forEach(input=>input.onchange=()=>uploadVoiceReference(input.dataset.chatterboxReference,input));
-  box.querySelectorAll("[data-save-voice]").forEach(button=>button.onclick=()=>saveVoiceRoute(button.dataset.saveVoice,button));
-  box.querySelectorAll("[data-audition-voice]").forEach(button=>button.onclick=()=>auditionVoice(button.dataset.auditionVoice,button))}
-async function loadPersonaVoices(){try{personas=await request("/api/personas");renderVoiceRoutes()}
-  catch(error){$("voiceRoutes").innerHTML=`<div class="card error">${esc(error.message)}</div>`}}
-async function saveVoiceRoute(id,button){const provider=document.querySelector(`[data-voice-provider="${CSS.escape(id)}"]`).value;
-  const voice=provider==="qwen3-tts"?document.querySelector(`[data-qwen-voice="${CSS.escape(id)}"]`).value:
-    provider==="chatterbox-turbo"?"private persona reference":document.querySelector(`[data-browser-voice="${CSS.escape(id)}"]`).value;
-  const rate_scale=Number(document.querySelector(`[data-voice-rate="${CSS.escape(id)}"]`).value);
-  const pitch_scale=Number(document.querySelector(`[data-voice-pitch="${CSS.escape(id)}"]`).value);
-  const volume_scale=Number(document.querySelector(`[data-voice-volume="${CSS.escape(id)}"]`).value);button.disabled=true;
-  try{const result=await request(`/api/personas/${encodeURIComponent(id)}/voice-output`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({provider,voice,rate_scale,pitch_scale,volume_scale})});
-    voiceNotices[id]=result.restart_required?"Saved; restart required.":"Saved; the next utterance uses this choice.";await loadVoice()}
-  catch(error){voiceNotices[id]=error.message;renderVoiceRoutes()}finally{button.disabled=false}}
-async function auditionVoice(id,button){button.disabled=true;voiceNotices[id]="Synthesizing a private auditionâ€¦";renderVoiceRoutes();
-  try{const response=await fetch(`/api/personas/${encodeURIComponent(id)}/voice-output/audition`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:"I was thinking about that, and then the shape of it changed. Give me a secondâ€”there. That's what I meant."})});
-    if(!response.ok){let detail={};try{detail=await response.json()}catch{}throw new Error(detail.error||`HTTP ${response.status}`)}
-    const url=URL.createObjectURL(await response.blob()),audio=new Audio(url);audio.onended=()=>URL.revokeObjectURL(url);await audio.play();voiceNotices[id]="Private audition is playing."}
-  catch(error){voiceNotices[id]=error.message}finally{button.disabled=false;renderVoiceRoutes()}}
-async function uploadVoiceReference(id,input){const file=input.files?.[0];if(!file)return;voiceNotices[id]="Storing private reference…";
-  try{const response=await fetch(`/api/personas/${encodeURIComponent(id)}/voice-output/reference`,{method:"POST",headers:{"Content-Type":"audio/wav"},body:file});
-    const result=await response.json();if(!response.ok||result.error)throw new Error(result.error||`HTTP ${response.status}`);
-    voiceNotices[id]=`Private reference ready · ${Math.round(result.bytes/1024)} KB`}
-  catch(error){voiceNotices[id]=error.message}finally{renderVoiceRoutes()}}
+function renderVoiceInput(){const picker=$("voiceInputPersona"),button=$("voiceInputOpen");
+  const entries=Object.entries(personas).filter(([,p])=>p.kind==="model_persona").sort();const previous=picker.value;
+  picker.innerHTML=entries.map(([id,p])=>`<option value="${esc(id)}">${esc(p.display_name||id)}</option>`).join("");
+  if(entries.some(([id])=>id===previous))picker.value=previous;
+  const updateTarget=()=>{const resident=personas[picker.value];button.disabled=!resident?.alive;
+    $("voiceInputNote").textContent=!entries.length?"No model residents are in the household yet.":resident?.alive?
+      "Their microphone remains off until enabled in their cockpit.":"Start this resident from Household to open their live microphone controls."};
+  picker.onchange=updateTarget;updateTarget()}
+$("voiceInputOpen").onclick=()=>{const id=$("voiceInputPersona").value;if(!id)return;
+  if(window.parent===window){location.href="/";return}
+  window.parent.postMessage({type:"jnsq-open-persona",persona:id},location.origin)};
 function renderVoiceDefaults(value={}){const set=(id,key)=>{$(id).value=Number(value[key]??1)};
   set("voiceRate","rate_scale");set("voicePitch","pitch_scale");set("voiceVolume","volume_scale");
   $("voiceRateValue").textContent=`${Math.round(Number($("voiceRate").value)*100)}%`;
@@ -490,10 +553,13 @@ async function loadVersion(){try{const data=await request("/api/version");$("cur
 $("checkUpdate").onclick=async()=>{const button=$("checkUpdate");button.disabled=true;$("updateNote").textContent="Checking…";
   try{const data=await request("/api/version/check");$("updateNote").textContent=data.update_available?`Version ${data.latest} is available. Stop JNSQ, then run ${updaterName}.`:`Version ${data.version} is current.`}
   catch(error){$("updateNote").textContent=error.message}finally{button.disabled=false}};
-function showPage(page){currentPage=page;document.querySelectorAll(".tab").forEach(tab=>tab.classList.toggle("on",tab.dataset.page===page));
+function showPage(page){if(!settingsPages.has(page))return;currentPage=page;
+  if(location.hash!==`#${page}`)history.replaceState(null,"",`#${page}`);
+  document.querySelectorAll(".tab").forEach(tab=>tab.classList.toggle("on",tab.dataset.page===page));
   document.querySelectorAll(".page").forEach(section=>section.classList.toggle("on",section.id===`page-${page}`));
-  if(page==="keys")loadKeys();if(page==="vision")loadVision();if(page==="voice")loadVoice();if(page==="prompts")loadPrompts();if(page==="updates")loadVersion()}
+  if(page==="keys")loadKeys();if(page==="routing")loadWorkRoutes();if(page==="vision")loadVision();if(page==="voice-input")renderVoiceInput();if(page==="voice")loadVoice();if(page==="prompts")loadPrompts();if(page==="updates")loadVersion()}
 document.querySelectorAll(".tab").forEach(tab=>tab.onclick=()=>showPage(tab.dataset.page));
+window.addEventListener("hashchange",()=>showPage(String(location.hash||"").replace(/^#/,"")));
 async function init(){try{const [personaData,modelData]=await Promise.all([request("/api/personas"),request("/api/models")]);personas=personaData;models=modelData.models||[]}catch(_){}await loadTheme();loadVersion();showPage(currentPage)}
 init();
 const JNSQ_KEYS=["bg","panel","line","ink","dim","accent","accent2","warn","good"];

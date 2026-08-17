@@ -72,8 +72,73 @@ _TIMING_FIELDS = {
 _SAFE_FIELDS = {
     "attempts", "wire_attempts", "finish_reason", "streamed",
     "recovered_empty_reply", "completion_limit", "status_code",
-    "error_type", "spec_name", "thinking_type",
+    "error_type", "error_code", "spec_name", "thinking_type",
 }
+
+
+def classify_service_error(error, *, provider: str = "") -> dict:
+    """Reduce a provider exception to an allowlisted, content-free cause.
+
+    Raw provider bodies can contain account or request material, so they never
+    enter receipts.  The classifier may inspect the exception in memory, but
+    returns only a stable cause code and optional HTTP status.
+    """
+    message = str(error or "").lower()
+    status = getattr(getattr(error, "response", None), "status_code", None)
+    if not isinstance(status, int):
+        import re
+        match = re.search(r"(?:api|http|status)[ :]+(\d{3})\b", message)
+        status = int(match.group(1)) if match else None
+    local = str(provider or "").lower() in {"ollama", "local", "localhost"}
+    credit_words = (
+        "credit balance", "credits exhausted", "credit quota",
+        "not enough credits", "out of credits", "insufficient_quota",
+        "quota exceeded", "quota_exceeded", "payment required",
+        "billing limit", "purchase credits",
+    )
+    if status == 402 or any(word in message for word in credit_words):
+        code = "credit_exhausted"
+    elif ("not found (environment" in message
+          or "missing required api key" in message
+          or "api_key is not set" in message
+          or "api key is not set" in message
+          or ("needs " in message and "not set" in message)):
+        code = "missing_key"
+    elif status == 401 or any(word in message for word in (
+            "invalid apikey", "invalid api key", "authentication failed",
+            "unauthorized", "invalid_api_key")):
+        code = "authentication_failed"
+    elif status == 403 or any(word in message for word in (
+            "permission denied", "denied permission", "endpoint scopes",
+            "ip allowlist", "forbidden")):
+        code = "permission_denied"
+    elif status == 429 or "rate limit" in message or "rate_limit" in message:
+        code = "rate_limited"
+    elif ("model not found" in message or "model is not installed" in message
+          or "not installed" in message or "cannot access that model" in message
+          or "not in the model list" in message
+          or (status == 404 and "model" in message)):
+        code = "model_unavailable"
+    elif ("timeout" in type(error).__name__.lower()
+          or "timed out" in message or "timeout" in message):
+        code = "timeout"
+    elif ("connection" in type(error).__name__.lower()
+          or "connection refused" in message
+          or "failed to establish a new connection" in message
+          or "unable to connect" in message
+          or "name resolution" in message):
+        code = "local_service_unreachable" if local \
+            else "provider_unreachable"
+    elif status is not None and status >= 500:
+        code = "provider_unreachable"
+    elif "overloaded" in message or "service unavailable" in message:
+        code = "provider_unreachable"
+    else:
+        code = "provider_error"
+    result = {"error_code": code}
+    if status is not None:
+        result["status_code"] = status
+    return result
 
 
 def new_cycle_id() -> str:

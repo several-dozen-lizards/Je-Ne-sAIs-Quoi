@@ -624,7 +624,8 @@ class ConversationArchive:
         return self.reader_status(include_text=True)
 
     def encounter(self, anchor: str, *, action: str, reflection: str,
-                  feelings: Mapping, why: str, run_id: str) -> dict:
+                  feelings: Mapping, why: str, run_id: str,
+                  changed: str = "", unresolved: str = "") -> dict:
         inspected = self.inspect_anchor(anchor, maximum=1)
         state = self._state()
         if anchor not in state["seen"]:
@@ -637,6 +638,8 @@ class ConversationArchive:
         record = {
             "schema": 1, "run_id": str(run_id)[:180], "anchor": anchor,
             "action": str(action)[:40], "reflection": str(reflection)[:5000],
+            "changed": str(changed)[:1200],
+            "unresolved": str(unresolved)[:1200],
             "feelings": dict(feelings or {}), "why": str(why)[:500],
             "timestamp": float(self.now_fn()),
             "source_kind": "documented_legacy_conversation",
@@ -662,6 +665,21 @@ class ConversationArchive:
             return []
         found = []
         with self.receipts_path.open(encoding="utf-8") as handle:
+            for line in handle:
+                try:
+                    value = json.loads(line)
+                except (TypeError, ValueError):
+                    continue
+                if isinstance(value, dict):
+                    found.append(value)
+        return found[-max(1, min(int(limit), 200)):]
+
+    def event_records(self, limit: int = 30) -> list[dict]:
+        """Return persona-private encounter records without source transcript text."""
+        if not self.events_path.is_file():
+            return []
+        found = []
+        with self.events_path.open(encoding="utf-8") as handle:
             for line in handle:
                 try:
                     value = json.loads(line)

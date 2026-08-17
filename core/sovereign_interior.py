@@ -6,6 +6,7 @@ from typing import Any, Mapping
 
 LEASE_OWNERSHIPS = frozenset({
     "persona_chosen_conversation",
+    "persona_chosen_autonomy",
     "persona_chosen_document_handoff",
     "persona_chosen_research_handoff",
     "persona_project_handoff",

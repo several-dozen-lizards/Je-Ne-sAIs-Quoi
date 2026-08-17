@@ -7,8 +7,10 @@ import os
 import re
 import threading
 import time
+from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import Any, Mapping
+from urllib.parse import urlparse
 
 
 INTEREST_RE = re.compile(r"^interest_[0-9a-f]{16}$")
@@ -29,6 +31,9 @@ CLAIM_DIRECTNESS = frozenset({
 CLAIM_VISIBILITY = frozenset({"private", "shareable"})
 CLAIM_CITATION_RE = re.compile(
     r"^\[(web_[0-9a-f]{16})(?: p\.([1-9][0-9]{0,2}))?\]$")
+RELATIVE_CURRENT_RE = re.compile(
+    r"\b(?:today|yesterday|just now|[0-9]{1,3}\s+"
+    r"(?:minutes?|hours?|days?)\s+ago)\b", re.IGNORECASE)
 
 
 def _digest(value: Any) -> str:
@@ -44,6 +49,43 @@ def _bounded(value, name, maximum, *, empty=False):
     if len(text) > maximum:
         raise ValueError(f"{name} exceeds the {maximum}-character boundary")
     return text
+
+
+def _normalized_evidence(value: Any) -> str:
+    return " ".join(str(value or "").split()).casefold()
+
+
+def _canonical_snapshot_text(value: Any, maximum: int = 24000) -> str:
+    """Return the exact cross-platform text representation we hash and store.
+
+    ``open(..., newline=None)`` expands every ``\n`` on Windows.  If fetched
+    HTML already contains CRLF, that silently turns it into CRCRLF after the
+    digest was computed.  Normalize once before truncation, hash that value,
+    and write it without platform newline translation.
+    """
+    text = str(value or "").replace("\r\n", "\n").replace("\r", "\n")
+    return text.strip()[:max(1, int(maximum))]
+
+
+def source_document_role(url: str, discovered_links=()) -> str:
+    """Distinguish a navigational index from an article/document snapshot."""
+    parsed = urlparse(str(url or ""))
+    host = (parsed.hostname or "").casefold()
+    parts = [part for part in parsed.path.split("/") if part]
+    deeper = 0
+    for link in discovered_links or ():
+        candidate = urlparse(str(link or ""))
+        candidate_parts = [part for part in candidate.path.split("/") if part]
+        if ((candidate.hostname or "").casefold() == host
+                and len(candidate_parts) >= len(parts) + 1):
+            deeper += 1
+    index_tails = {
+        "news", "local", "local-news", "weather", "sports", "video",
+        "entertainment", "investigations", "elections", "live",
+    }
+    shallow_index = not parts or (len(parts) == 1) or (
+        parts[-1].casefold() in index_tails)
+    return "index" if shallow_index and deeper >= 2 else "article_or_document"
 
 
 class ResearchDesk:
@@ -98,10 +140,14 @@ class ResearchDesk:
         return values[-max(1, min(int(limit), 200)):]
 
     def create_interest(self, topic: str, *, origin: str,
-                        cue_digest: str = "") -> dict:
+                        cue_digest: str = "", instance_key: str = "") -> dict:
         topic = _bounded(topic, "research topic", 240)
         origin = _bounded(origin, "research origin", 80)
-        interest_id = "interest_" + _digest(topic.casefold())[:16]
+        identity = (topic.casefold() if not instance_key else {
+            "topic": topic.casefold(),
+            "instance_key": str(instance_key)[:160],
+        })
+        interest_id = "interest_" + _digest(identity)[:16]
         with self._lock:
             prior = next((r for r in self.records("interest_opened")
                           if r.get("interest_id") == interest_id), None)
@@ -259,6 +305,168 @@ class ResearchDesk:
                 "result_count": len(source_ids), "run_id": str(run_id)[:160],
                 "created_at": float(self.now_fn())})
 
+    def request_foreground_search(self, interest_id: str, query: str,
+                                  *, reason: str, run_id: str) -> dict:
+        """Durably admit a chosen public search before touching the network."""
+        self.interest(interest_id)
+        query = _bounded(query, "research query", 300)
+        request_id = "search_request_" + _digest({
+            "interest_id": interest_id,
+            "query": query.casefold(),
+        })[:16]
+        admissions = [record for record in self.records(limit=2000)
+                      if record.get("request_id") == request_id
+                      and record.get("kind") in {
+                          "foreground_search_requested",
+                          "foreground_search_retry_requested"}]
+        prior = admissions[-1] if admissions else None
+        failures = [record for record in self.records(
+            "foreground_search_unavailable", limit=2000)
+            if record.get("request_id") == request_id]
+        if prior and (not failures or failures[-1].get("observed_at", 0)
+                      < prior.get("created_at", 0)):
+            return {**prior, "duplicate": True}
+        if prior:
+            return {**self._append(self.index, {
+                "kind": "foreground_search_retry_requested",
+                "request_id": request_id,
+                "interest_id": interest_id,
+                "query": query,
+                "reason": str(reason or "")[:500],
+                "run_id": str(run_id or "")[:160],
+                "attempt": 1 + max(int(record.get("attempt") or 1)
+                                   for record in admissions),
+                "ownership": "persona_private",
+                "created_at": float(self.now_fn()),
+            }), "duplicate": False, "retry": True}
+        return {**self._append(self.index, {
+            "kind": "foreground_search_requested",
+            "request_id": request_id,
+            "interest_id": interest_id,
+            "query": query,
+            "reason": str(reason or "")[:500],
+            "run_id": str(run_id or "")[:160],
+            "attempt": 1,
+            "ownership": "persona_private",
+            "created_at": float(self.now_fn()),
+        }), "duplicate": False}
+
+    def pending_foreground_searches(
+            self, interest_id: str = None, *,
+            capability_revision: str = "") -> list[dict]:
+        settled = {record.get("request_id") for record in self.records(
+            "foreground_search_settled", limit=2000)}
+        admissions = [record for record in self.records(limit=2000)
+                      if record.get("kind") in {
+                          "foreground_search_requested",
+                          "foreground_search_retry_requested"}]
+        latest = {}
+        for record in admissions:
+            latest[record.get("request_id")] = record
+        failures = {}
+        for record in self.records("foreground_search_unavailable", limit=2000):
+            failures[record.get("request_id")] = record
+        values = []
+        for request_id, record in latest.items():
+            if request_id in settled:
+                continue
+            failure = failures.get(request_id)
+            if failure and failure.get("observed_at", 0) >= record.get(
+                    "created_at", 0):
+                same_boundary = (
+                    not capability_revision
+                    or str(failure.get("capability_revision") or "")
+                    == str(capability_revision))
+                if same_boundary:
+                    continue
+            values.append(record)
+        if interest_id:
+            values = [record for record in values
+                      if record.get("interest_id") == interest_id]
+        return values
+
+    def settle_foreground_search(self, request_id: str, *, run_id: str,
+                                 result_count: int) -> dict:
+        request = next((record for record in self.records(
+            "foreground_search_requested", limit=2000)
+            if record.get("request_id") == str(request_id or "")), None)
+        if request is None:
+            raise ValueError("foreground search request does not exist")
+        prior = next((record for record in self.records(
+            "foreground_search_settled", limit=2000)
+            if record.get("request_id") == request["request_id"]), None)
+        if prior:
+            return {**prior, "duplicate": True}
+        return {**self._append(self.index, {
+            "kind": "foreground_search_settled",
+            "request_id": request["request_id"],
+            "interest_id": request["interest_id"],
+            "result_count": max(0, int(result_count)),
+            "run_id": str(run_id or "")[:160],
+            "ownership": "persona_private",
+            "settled_at": float(self.now_fn()),
+        }), "duplicate": False}
+
+    def mark_foreground_search_unavailable(self, request_id: str, *,
+                                           reason: str, run_id: str,
+                                           capability_revision: str = "") -> dict:
+        request = next((record for record in reversed(self.records(limit=2000))
+                        if record.get("kind") in {
+                            "foreground_search_requested",
+                            "foreground_search_retry_requested"}
+                        and record.get("request_id")
+                        == str(request_id or "")), None)
+        if request is None:
+            raise ValueError("foreground search request does not exist")
+        reason = str(reason or "unavailable")[:240]
+        capability_revision = str(capability_revision or "")[:96]
+        return self._append(self.index, {
+            "kind": "foreground_search_unavailable",
+            "request_id": request["request_id"],
+            "interest_id": request["interest_id"],
+            "reason": reason,
+            "failure_revision": _digest({
+                "request_id": request["request_id"],
+                "reason": reason,
+                "capability_revision": capability_revision,
+            }),
+            "capability_revision": capability_revision,
+            "terminal_for_revision": True,
+            "run_id": str(run_id or "")[:160],
+            "ownership": "external_untrusted",
+            "observed_at": float(self.now_fn()),
+        })
+
+    def record_foreground_arc_progress(self, interest_id: str, *,
+                                       arc_id: str, steps: int,
+                                       reason: str, run_id: str) -> dict:
+        """Persist only the bounded turn count of a foreground research arc."""
+        self.interest(interest_id)
+        arc_id = _bounded(arc_id, "research foreground arc id", 80)
+        if not arc_id.startswith("research_arc_"):
+            raise ValueError("research foreground arc id is invalid")
+        return self._append(self.index, {
+            "kind": "foreground_arc_progress",
+            "interest_id": interest_id,
+            "arc_id": arc_id,
+            "steps": max(0, min(64, int(steps))),
+            "reason": str(reason or "result_returned")[:80],
+            "run_id": str(run_id or "")[:160],
+            "ownership": "persona_private",
+            "settled_at": float(self.now_fn()),
+        })
+
+    def foreground_arc_steps(self, interest_id: str, arc_id: str) -> int:
+        """Read the latest content-free foreground circuit-breaker position."""
+        self.interest(interest_id)
+        values = [
+            max(0, int(record.get("steps") or 0))
+            for record in self.records("foreground_arc_progress", limit=2000)
+            if record.get("interest_id") == interest_id
+            and record.get("arc_id") == str(arc_id or "")
+        ]
+        return max(values, default=0)
+
     def source(self, source_id: str):
         if not SOURCE_RE.fullmatch(str(source_id or "")):
             raise ValueError("research source id is invalid")
@@ -299,17 +507,19 @@ class ResearchDesk:
         source = self.source(source_id)
         if source.get("url") != url and not url.startswith(("http://", "https://")):
             raise ValueError("research evidence URL is invalid")
-        text = str(text or "").strip()[:24000]
+        text = _canonical_snapshot_text(text)
         page_count = max(0, int(page_count or 0))
         pages = tuple(sorted({int(page) for page in extracted_pages or ()
                               if 1 <= int(page) <= page_count}))
         if content_type != "application/pdf":
             page_count, pages, extraction_truncated = 0, (), False
         digest = _digest(text)
+        document_role = source_document_role(url, discovered_links)
         self._ensure()
         path = self.sources / f"{source_id}-{digest[:12]}.txt"
         if not path.exists():
-            path.write_text(text, encoding="utf-8")
+            with open(path, "w", encoding="utf-8", newline="\n") as handle:
+                handle.write(text)
         return self._append(self.index, {
             "kind": "source_read", "source_id": source_id,
             "interest_id": source["interest_id"], "title": str(title)[:300],
@@ -322,6 +532,7 @@ class ResearchDesk:
             "source_class": str(
                 source_class or "unclassified_public")[:80],
             "volatility": str(volatility or "medium")[:16],
+            "document_role": document_role,
             "discovered_links": list(dict.fromkeys(
                 str(link)[:2048] for link in discovered_links or ()))[:24],
             "retrieved_at": float(self.now_fn()),
@@ -340,7 +551,24 @@ class ResearchDesk:
     def comparison_sources(self, interest_id: str, maximum: int) -> list[dict]:
         """Return one not-yet-reported source set, or no unfinished demand."""
         maximum = max(2, min(int(maximum), 4))
-        sources = self.read_sources(interest_id)[-maximum:]
+        # A mismatched immutable snapshot remains preserved as discrepancy,
+        # but it cannot poison every later comparison when other intact
+        # evidence exists. Select the latest bounded set that still verifies.
+        sources = []
+        for source in reversed(self.read_sources(interest_id)):
+            role = str(source.get("document_role") or source_document_role(
+                source.get("url") or "",
+                source.get("discovered_links") or ()))
+            if role == "index":
+                continue
+            try:
+                self._evidence_snapshot(source["source_id"])
+            except ValueError:
+                continue
+            sources.append(source)
+            if len(sources) >= maximum:
+                break
+        sources.reverse()
         if len(sources) < 2:
             return []
         source_ids = [source["source_id"] for source in sources]
@@ -437,6 +665,10 @@ class ResearchDesk:
             "source_class": read.get("source_class")
                 or source.get("source_class"),
             "volatility": read.get("volatility") or source.get("volatility"),
+            "document_role": read.get("document_role")
+                or source_document_role(
+                    read.get("url") or source.get("url") or "",
+                    read.get("discovered_links") or ()),
             "retrieved_at": read.get("retrieved_at"),
             "ownership": "external_untrusted",
             "network_request": False,
@@ -520,12 +752,12 @@ class ResearchDesk:
             record["anchor"] = f"res_{record_digest[:16]}#1"
         return self._append(self.index, record)
 
-    def record_claim_observations(self, interest_id: str, claims, *,
-                                  allowed_source_ids, run_id: str) -> list[dict]:
-        """Append source-bounded assessments; never collapse disagreement."""
+    def validate_claim_observations(self, interest_id: str, claims, *,
+                                    allowed_source_ids) -> list[dict]:
+        """Validate a whole claim packet without appending any record."""
         self.interest(interest_id)
         allowed = {str(value) for value in allowed_source_ids or ()}
-        records = []
+        prepared = []
         for raw in list(claims or ())[:8]:
             value = dict(raw or {})
             claim = _bounded(value.get("claim"), "research claim", 500)
@@ -586,16 +818,10 @@ class ResearchDesk:
                 "valid_time": valid_time,
                 "valid_time_basis": valid_time_basis,
             })[:16]
-            prior = next((record for record in self.records(
-                "claim_observed", limit=2000)
-                if record.get("observation_id") == observation_id), None)
-            if prior:
-                records.append({**prior, "duplicate": True})
-                continue
             volatility = sorted({
                 str(self.source(source_id).get("volatility") or "medium")
                 for source_id in source_ids})
-            records.append({**self._append(self.index, {
+            prepared.append({
                 "kind": "claim_observed",
                 "observation_id": observation_id,
                 "claim_key": claim_key,
@@ -613,11 +839,176 @@ class ResearchDesk:
                 "relevance_cue": relevance_cue,
                 "visibility": visibility,
                 "interest_id": interest_id,
-                "run_id": str(run_id or "")[:160],
                 "ownership": "persona_private",
+            })
+        return prepared
+
+    def validate_grounded_claims(self, interest_id: str, claims, *,
+                                 allowed_source_ids) -> list[dict]:
+        """Require every citation to carry a quote from its exact snapshot."""
+        raw_claims = list(claims or ())[:8]
+        prepared = self.validate_claim_observations(
+            interest_id, raw_claims,
+            allowed_source_ids=allowed_source_ids)
+        current_year = datetime.fromtimestamp(float(self.now_fn())).year
+        for raw, item in zip(raw_claims, prepared):
+            evidence = raw.get("evidence")
+            if not isinstance(evidence, list) or not evidence:
+                raise ValueError(
+                    "research claim requires source-matched evidence excerpts")
+            admitted = []
+            for raw_entry in evidence[:8]:
+                if not isinstance(raw_entry, dict):
+                    raise ValueError("research claim evidence must be an object")
+                unknown = set(raw_entry) - {"citation", "quote"}
+                if unknown:
+                    raise ValueError(
+                        "research claim evidence contains unknown fields")
+                citation = str(raw_entry.get("citation") or "").strip()
+                quote = _bounded(
+                    raw_entry.get("quote"), "research evidence quote", 500)
+                if len(quote) < 12:
+                    raise ValueError(
+                        "research evidence quote is too short to anchor a claim")
+                match = CLAIM_CITATION_RE.fullmatch(citation)
+                if match is None or citation not in item["citations"]:
+                    raise ValueError(
+                        "research evidence excerpt escaped its claim citations")
+                snapshot = (
+                    self.inspect_source_page(match.group(1), int(match.group(2)))
+                    if match.group(2) else
+                    self.inspect_source(match.group(1), maximum=24000))
+                if _normalized_evidence(quote) not in _normalized_evidence(
+                        snapshot.get("content")):
+                    raise ValueError(
+                        "research evidence quote is absent from its snapshot")
+                years = [int(value) for value in re.findall(
+                    r"\b(?:19|20)[0-9]{2}\b", quote)]
+                if years:
+                    time_class = (
+                        "current" if max(years) == current_year else
+                        "future" if max(years) > current_year else "archival")
+                elif RELATIVE_CURRENT_RE.search(quote):
+                    time_class = "current_relative"
+                else:
+                    time_class = "undated"
+                admitted.append({
+                    "citation": citation,
+                    "quote": quote,
+                    "time_class": time_class,
+                })
+            evidence_citations = {
+                value["citation"] for value in admitted}
+            if evidence_citations != set(item["citations"]):
+                raise ValueError(
+                    "every research claim citation requires one evidence excerpt")
+            item["evidence"] = admitted
+            classes = {value["time_class"] for value in admitted}
+            item["evidence_time_class"] = (
+                next(iter(classes)) if len(classes) == 1 else "mixed")
+        return prepared
+
+    def render_grounded_text(self, kind: str, interest_id: str,
+                             prepared_claims, *, source_ids) -> str:
+        """Render only prevalidated fields; raw model blobs never become reports."""
+        if kind not in {"note", "report"}:
+            raise ValueError("grounded research text kind is invalid")
+        claims = [dict(value) for value in prepared_claims or ()]
+        if not claims:
+            raise ValueError("grounded research text requires a valid claim")
+        sources = list(dict.fromkeys(str(value) for value in source_ids or ()))
+        cited = {
+            match.group(1)
+            for claim in claims
+            for citation in claim.get("citations") or ()
+            for match in [CLAIM_CITATION_RE.fullmatch(citation)] if match}
+        if kind == "report" and cited != set(sources):
+            raise ValueError(
+                "grounded research report must evidence every source in its set")
+        counts = {key: 0 for key in (
+            "current", "current_relative", "archival", "future",
+            "undated", "mixed")}
+        for claim in claims:
+            counts[claim.get("evidence_time_class") or "undated"] += 1
+        topic = self.interest(interest_id).get("topic") or "Research"
+        lines = [
+            f"# {'Research report' if kind == 'report' else 'Research note'}: "
+            f"{topic}",
+            "",
+            "Evidence-time classes (host-derived from exact excerpts): "
+            + ", ".join(f"{key}={value}" for key, value in counts.items()
+                        if value),
+        ]
+        if kind == "report" and not (
+                counts["current"] or counts["current_relative"]):
+            lines.extend(["", "**This evidence set does not establish a "
+                          "current-news report.**"])
+        for index, claim in enumerate(claims, 1):
+            lines.extend([
+                "", f"## Claim {index}", claim["claim"],
+                f"- Relationship: {claim['relationship']}",
+                f"- Directness: {claim['directness']}",
+                f"- Confidence range: {claim['confidence_low']:.2f}-"
+                f"{claim['confidence_high']:.2f}",
+                f"- Valid time asserted: {claim['valid_time']} "
+                f"({claim['valid_time_basis']})",
+                f"- Evidence time: {claim['evidence_time_class']}",
+            ])
+            if claim.get("relevance_cue"):
+                lines.append(f"- Relevance: {claim['relevance_cue']}")
+            lines.append("- Exact evidence:")
+            for evidence in claim["evidence"]:
+                lines.append(
+                    f"  - {evidence['citation']} [{evidence['time_class']}]: "
+                    f'"{evidence["quote"]}"')
+        lines.extend(["", "## Source set"])
+        for source_id in sources:
+            source = self.source(source_id)
+            lines.extend([
+                f"- Title: {source.get('title') or source_id}",
+                f"  URL: {source.get('url') or ''}",
+                f"  Snapshot: [{source_id}]",
+            ])
+        return "\n".join(lines).strip()
+
+    def _append_prepared_claims(self, prepared, *, run_id: str) -> list[dict]:
+        records = []
+        existing = {
+            record.get("observation_id"): record
+            for record in self.records("claim_observed", limit=2000)}
+        for value in prepared:
+            prior = existing.get(value["observation_id"])
+            if prior:
+                records.append({**prior, "duplicate": True})
+                continue
+            record = self._append(self.index, {
+                **value, "run_id": str(run_id or "")[:160],
                 "created_at": float(self.now_fn()),
-            }), "duplicate": False})
+            })
+            existing[value["observation_id"]] = record
+            records.append({**record, "duplicate": False})
         return records
+
+    def create_grounded_text(self, kind: str, interest_id: str, claims, *,
+                             source_ids, run_id: str) -> list[dict]:
+        """Prevalidate, canonically render, then append text and observations."""
+        with self._lock:
+            prepared = self.validate_grounded_claims(
+                interest_id, claims, allowed_source_ids=source_ids)
+            content = self.render_grounded_text(
+                kind, interest_id, prepared, source_ids=source_ids)
+            text_record = self.create_text(
+                kind, interest_id, content,
+                source_ids=source_ids, run_id=run_id)
+            return [text_record, *self._append_prepared_claims(
+                prepared, run_id=run_id)]
+
+    def record_claim_observations(self, interest_id: str, claims, *,
+                                  allowed_source_ids, run_id: str) -> list[dict]:
+        """Append one fully prevalidated packet; never partially validate."""
+        prepared = self.validate_claim_observations(
+            interest_id, claims, allowed_source_ids=allowed_source_ids)
+        return self._append_prepared_claims(prepared, run_id=run_id)
 
     def epistemic_garden(self) -> list[dict]:
         groups = {}
@@ -740,6 +1131,22 @@ class ResearchDesk:
             return self.report(f"report_{anchor.group(1)}")
         return self.report(target)
 
+    def unfinished_foreground_after(self, created_at: float) -> dict:
+        """Return newer human-foreground work that has not produced a report.
+
+        This keeps "latest completed report" distinct from "the report for the
+        current undertaking."  It is metadata-only and never advances work.
+        """
+        boundary = float(created_at or 0.0)
+        values = [
+            interest for interest in self.interests(state="open")
+            if (interest.get("origin")
+                == "foreground_action_before_articulated_interest"
+                and float(interest.get("created_at") or 0.0) > boundary
+                and int(interest.get("report_count") or 0) == 0)
+        ]
+        return dict(values[0]) if values else {}
+
     def inspect_anchor(self, anchor: str, maximum: int = 5200) -> dict:
         """Resolve one immutable report revision without accepting a path."""
         match = REPORT_ANCHOR_RE.fullmatch(str(anchor or ""))
@@ -818,7 +1225,8 @@ class ResearchDesk:
 
     def record_receipt(self, value: Mapping):
         allowed = {"kind", "run_id", "candidate_key", "outcome", "action",
-                   "interest_id", "source_id", "query", "model", "provider",
+                   "interest_id", "source_id", "selected_source_id",
+                   "choice_source_ids", "query", "model", "provider",
                    "report_id", "anchor", "seed_id",
                    "source_ids", "source_set_digest",
                    "content_type", "page_count", "extracted_pages",
@@ -826,7 +1234,10 @@ class ResearchDesk:
                    "locality", "model_requests", "provider_http_attempts",
                    "input_tokens", "output_tokens", "total_tokens",
                    "estimated_cost_usd", "readiness", "source_satiety",
-                   "research_satiety", "created_at", "reason"}
+                   "research_satiety", "parser_normalization",
+                   "repair_outcome", "failure_revision",
+                   "capability_revision", "terminal_for_revision",
+                   "created_at", "reason"}
         row = {k: v for k, v in dict(value or {}).items()
                if k in allowed and v is not None}
         row.setdefault("kind", "research_desk_run")
@@ -857,7 +1268,10 @@ class ResearchDesk:
                 "policy": {"network": "isolated read-only public HTTP(S)",
                            "content_types": ["text/html", "text/plain",
                                              "application/json",
-                                             "application/pdf"],
+                                             "application/pdf",
+                                             "application/rss+xml",
+                                             "application/atom+xml",
+                                             "application/xml", "text/xml"],
                            "pdf": {"max_pages": 48,
                                    "page_provenance": True,
                                    "exact_page_navigation": True,

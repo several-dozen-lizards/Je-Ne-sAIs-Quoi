@@ -35,6 +35,7 @@ from shell.agency_controller import AgencyRunOutcome
 from shell.autonomy_circulation import (
     circulate_experienced_event, readiness_from_engine,
 )
+from shell.maintenance_circulation import offer_maintenance_candidate
 from shell.comfyui_client import ComfyUIClient, ComfyUIConfig
 
 
@@ -846,12 +847,13 @@ class AtelierRuntime:
         ownership = str(record.get("ownership") or "human_admitted")
         description = (
             "Self-chosen creative material"
-            if ownership == "persona_chosen_conversation"
+            if ownership in {
+                "persona_chosen_conversation", "persona_chosen_autonomy"}
             else "Project-chosen private creative material"
             if ownership == "persona_project_handoff"
             else "Human-admitted creative material")
-        candidate = field.offer_cognitive_event(
-            "atelier_seed",
+        candidate = offer_maintenance_candidate(
+            self, field, "atelier_seed",
             f"{description} named "
             f"{record.get('label') or 'untitled'} is waiting in the atelier.",
             {"novelty": 1.0, "affect_change": 0.0,
@@ -1035,6 +1037,18 @@ class AtelierRuntime:
             coherence = coherence()
         if isinstance(coherence, (int, float)) and math.isfinite(float(coherence)):
             values["band.coherence"] = max(0.0, min(1.0, float(coherence)))
+        try:
+            from shell.autonomy_circulation import affect_projection_from_engine
+            color = dict(affect_projection_from_engine(
+                self.engine).get("color") or {})
+        except Exception:
+            color = {}
+        for key in ("red", "green", "blue", "luma", "chroma",
+                    "warmth", "present"):
+            value = color.get(key)
+            if isinstance(value, (int, float)) and math.isfinite(float(value)):
+                values[f"affect.color.{key}"] = max(
+                    0.0, min(1.0, float(value)))
         soma = getattr(self.engine, "soma", None)
         for key, value in dict(getattr(soma, "signals", {}) or {}).items():
             if key in {"play", "vagal_tone", "prediction_violation", "bond"} \

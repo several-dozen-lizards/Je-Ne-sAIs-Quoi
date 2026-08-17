@@ -129,6 +129,8 @@ class MemoryObservatory:
                         if timestamp else None)
             source, source_rule = _source(record)
             entities = [str(value) for value in (record.get("entities") or [])]
+            curation = dict((record.get("fields") or {}).get(
+                "curation") or {})
             row = {
                 "id": mem_id, "type": record.get("type"),
                 "layer": record.get("layer"), "origin": record.get("origin"),
@@ -140,6 +142,12 @@ class MemoryObservatory:
                 "last_access": record.get("last_access"),
                 "content_digest": _digest(record.get("content")),
                 "access_history_note": "history begins at instrumentation",
+                "curation": {
+                    "withdrawn": curation.get("withdrawn") is True,
+                    "kind": curation.get("kind"),
+                    "latest_action": curation.get("latest_action"),
+                    "latest_at": curation.get("latest_at"),
+                },
             }
             rows.append(row)
             by_id[mem_id] = record
@@ -285,6 +293,49 @@ class MemoryObservatory:
                 "missing IDs remain explicit gaps"),
         }
 
+    def _curation_provenance(self, record):
+        fields = record.get("fields") or {}
+        curation = fields.get("curation") or {}
+        source_ids = [str(value) for value in (
+            curation.get("source_memory_ids")
+            or fields.get("source_memory_ids") or [])]
+        declared = dict(curation.get("source_content_sha256") or {})
+        projections, gaps = [], []
+        for source_id in source_ids:
+            source = self._records.get(source_id)
+            if source is None:
+                gaps.append("curation source memory missing: " + source_id)
+                continue
+            current_sha = hashlib.sha256(
+                str(source.get("content") or "").encode("utf-8")).hexdigest()
+            expected_sha = declared.get(source_id)
+            projections.append({
+                "id": source_id,
+                "type": source.get("type"),
+                "layer": source.get("layer"),
+                "timestamp": source.get("timestamp"),
+                "content_sha256": current_sha,
+                "declared_source_sha256": expected_sha,
+                "source_unchanged": (
+                    current_sha == expected_sha if expected_sha else None),
+            })
+            if expected_sha and current_sha != expected_sha:
+                gaps.append("curation source digest changed: " + source_id)
+        if not source_ids:
+            gaps.append("curation summary has no source_memory_ids")
+        return {
+            "kind": "curation_summary",
+            "decision_id": curation.get("decision_id"),
+            "sources_preserved_verbatim": curation.get(
+                "sources_preserved_verbatim") is True,
+            "source_memory_ids": source_ids,
+            "source_memories": projections,
+            "gaps": gaps,
+            "join_rule": (
+                "memory.fields.curation.source_memory_ids -> memories.json id; "
+                "declared source digests expose later mutation"),
+        }
+
     def drilldown(self, memory_id):
         self._refresh()
         record = self._records.get(str(memory_id))
@@ -292,6 +343,17 @@ class MemoryObservatory:
             return None
         row = next(item for item in self._rows if item["id"] == str(memory_id))
         fields = record.get("fields") or {}
+        if (record.get("type") == "curation_summary"
+                or (fields.get("curation") or {}).get("kind")
+                == "provenance_summary"):
+            return {"projection": row, "payload": record,
+                    "source_projection": {"value": row["source"],
+                                          "rule": row["source_rule"]},
+                    "access_history": {
+                        "times_selected_by_recall": row["access_count"],
+                        "last_access": row["last_access"],
+                        "note": "history begins at instrumentation"},
+                    "provenance": self._curation_provenance(record)}
         if record.get("type") == "narrative":
             provenance = self._narrative_provenance(record)
             return {"projection": row, "payload": record,

@@ -39,7 +39,9 @@ PRESETS = {
               "rhythm_affect", "recall_bias", "my_life", "heartbeat"],
     "default": ["memory_emotion", "oscillator", "soma", "feel",
                 "rhythm_affect", "recall_bias", "my_life", "heartbeat"],
-    "full": sorted(REGISTRY),
+    # Quiet occupancy needs a resident-calibrated adapter and remains opt-in;
+    # a generic "full" scaffold must not pretend that boundary exists.
+    "full": sorted(set(REGISTRY) - {"quiet_occupancy"}),
 }
 PRESETS["nexus"] = PRESETS["local"] + [
     "room_sense", "room_actions", "afferents", "tropism", "social"]
@@ -100,7 +102,9 @@ ORGAN_CONFIG_TEMPLATE = (
 )
 
 ROSTER_TEMPLATE = """\
-# {name}'s model roster — persona defaults + model overrides (par 2.2c, 2.6)
+# {name}'s model roster — identity + deliberate resident overrides (par 2.2c)
+# Shared capability wiring is inherited from specs/resident_defaults.yaml and
+# an optional installation-local household layer. Values declared here win.
 # enabled_organs is LIVE: models inherit this persona default unless their
 # own entry declares an override. The cockpit can save either scope.
 # Vocabulary + dependency law: core/organs.py.
@@ -111,26 +115,12 @@ avatar: ""
 kind: model_persona
 max_tokens: 600
 perception:
-  # Used only when the active model cannot receive pixels directly.
-  # null means refuse image turns clearly rather than silently rerouting.
+  # Ambient registration and resident-chosen focused inspection are separate.
+  # null means refuse clearly rather than silently rerouting.
   vision_model: null
-agency:
-  # The agency organ is the live switch. New personas start with no admitted
-  # effect authority even if their selected vessel supports structured tools.
-  model: {model}
-  authority_tier: 0
-intention_loom:
-  # Explicitly dormant until a local loom vessel and private-write authority
-  # are admitted for this persona.
-  model: {model}
-  authority_tier: 0
-  local_only: true
-  max_tokens: 620
-mcp_library:
-  # Resident-owned external continuity remains off until an exact read-only
-  # server declaration is added. See docs/MCP_LIBRARY_V1.md.
-  enabled: false
-  servers: []
+  avatar_vision_model: null
+  focused_vision_model: null
+  physical_eye_appraisal_model: null
 enabled_organs: [{organs}]
 room:
   id: nexus

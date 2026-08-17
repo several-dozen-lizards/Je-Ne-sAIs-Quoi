@@ -64,6 +64,7 @@ class SomaOrgan:
         self.signals = st.get("signals", {})
         self.cooldowns = st.get("cooldowns", {})
         self.active = st.get("active", [])
+        self.last_affect_fibers = st.get("affect_fibers", [])
         self._pending_patterns = []
         self._pending_region_inputs = []
         self._osc_effects = {"band_pressure": {}, "coherence_suppress": 0.0}
@@ -74,16 +75,59 @@ class SomaOrgan:
                        "previous_regions": self.previous_regions,
                        "signals": self.signals,
                        "cooldowns": self.cooldowns, "active": self.active,
+                       "affect_fibers": self.last_affect_fibers,
                        "updated": time.strftime("%Y-%m-%dT%H:%M:%S")},
                       f, indent=1)
 
     # ── inputs (bench-fed; no sibling organ ever imported) ────────
-    def feel(self, cocktail: dict):
-        """Queue emotion->body painting (applied on next tick)."""
+    def feel(self, cocktail: dict, affect_projection: dict = None):
+        """Queue emotion->body painting and descriptive atlas fibers.
+
+        The resident's source label is preserved.  A semantic neighbour may
+        route it into an existing rich body pattern (for example rage ->
+        anger).  When no existing pattern is available, low-gain typed fibers
+        enter as activation-only candidate signals; they never assert valence,
+        temperature, or a feeling the resident did not name.
+        """
+        projection = dict(affect_projection or {})
+        resolutions = {
+            str(item.get("source_label") or "").casefold(): dict(item)
+            for item in projection.get("resolutions") or []
+            if item.get("source_label")
+        }
+        fibers = {}
+        for item in projection.get("fibers") or []:
+            source = str(item.get("source_label") or "").casefold()
+            if source:
+                fibers.setdefault(source, []).append(dict(item))
+        self.last_affect_fibers = []
+        pending_regions = {}
         for emotion, intensity in (cocktail or {}).items():
-            pat = self.patterns.get(emotion.lower())
+            source = str(emotion or "").casefold()
+            resolved = resolutions.get(source, {})
+            canonical = str(resolved.get("canonical") or "").casefold()
+            pat = self.patterns.get(source) or self.patterns.get(canonical)
             if pat and intensity > 0:
                 self._pending_patterns.append((pat, float(intensity)))
+            for fiber in fibers.get(source, []):
+                route = {key: fiber.get(key) for key in (
+                    "source_label", "atlas_emotion", "body_part", "region",
+                    "fiber_type", "activation", "confidence", "mode")}
+                route["applied_via"] = "existing_pattern" if pat else "fiber"
+                self.last_affect_fibers.append(route)
+                if pat:
+                    continue
+                region = str(fiber.get("region") or "")
+                if region not in self.regions:
+                    continue
+                activation = max(0.0, min(
+                    1.0, float(fiber.get("activation") or 0.0)))
+                prior = pending_regions.setdefault(
+                    region, {"activation": 0.0})["activation"]
+                pending_regions[region]["activation"] = (
+                    1.0 - (1.0 - prior) * (1.0 - activation))
+        if pending_regions:
+            self._pending_region_inputs.append(pending_regions)
 
     def signal(self, name: str, value: float):
         self.signals[name] = float(value)
@@ -250,7 +294,8 @@ class SomaOrgan:
         lit = {r: dict(v) for r, v in self.regions.items()
                if v["activation"] >= ACT_FLOOR}
         return {"regions": lit, "active": [a["name"] for a in self.active],
-                "signals": dict(self.signals)}
+                "signals": dict(self.signals),
+                "affect_fibers": list(self.last_affect_fibers)}
 
     def describe(self) -> str:
         """Expose instrument readings; the language model describes them."""
@@ -258,8 +303,10 @@ class SomaOrgan:
                       if v["activation"] >= ACT_FLOOR),
                      key=lambda kv: -kv[1]["activation"])
         lines = [
-            "Body instrument readings. Describe what this is like; "
-            "do not recite the readings."
+            "Synthetic body-control readings available as context. These "
+            "values may influence delivery, but they do not establish a "
+            "feeling or experience. Do not quote labels or values unless the "
+            "person explicitly asks about the instrument."
         ]
         for name, reading in lit:
             previous = self.previous_regions.get(name)

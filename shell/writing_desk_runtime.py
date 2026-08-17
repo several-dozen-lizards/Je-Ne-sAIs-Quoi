@@ -33,6 +33,7 @@ from shell.agency_controller import AgencyRunOutcome
 from shell.autonomy_circulation import (
     circulate_experienced_event, readiness_from_engine,
 )
+from shell.maintenance_circulation import offer_maintenance_candidate
 
 
 DESK_SOURCES = frozenset({"writing_desk_seed", "writing_desk_project"})
@@ -292,8 +293,8 @@ class WritingDeskRuntime:
                 f"Human-admitted writing material named "
                 f"{record.get('label') or 'untitled'} is waiting on the desk.")
             relationship = 1.0
-        candidate = field.offer_cognitive_event(
-            "writing_desk_seed",
+        candidate = offer_maintenance_candidate(
+            self, field, "writing_desk_seed",
             description,
             {"novelty": 1.0, "affect_change": 0.0,
              "body_intensity": 0.0, "relationship": relationship,
@@ -310,8 +311,8 @@ class WritingDeskRuntime:
         return candidate
 
     def _offer_project(self, field, project: Mapping[str, Any], *, now: float):
-        candidate = field.offer_cognitive_event(
-            "writing_desk_project",
+        candidate = offer_maintenance_candidate(
+            self, field, "writing_desk_project",
             f"An open {project.get('form') or 'writing'} project named "
             f"{project.get('title') or 'untitled'} remains unresolved.",
             {"novelty": 0.0, "affect_change": 0.0,
@@ -320,7 +321,11 @@ class WritingDeskRuntime:
             key=f"writing_desk_project:{project['project_id']}", now=now,
             raw_ref=str(project.get("latest_sha256") or "")[:16],
             ownership="persona_private",
-            receipts=[str(project.get("latest_sha256") or "")[:16]])
+            receipts=[str(project.get("latest_sha256") or "")[:16]],
+            revision_facts={
+                "revision_count": int(project.get("revision_count") or 0),
+                "state": str(project.get("state") or "")[:32],
+            })
         candidate.update({
             "project_id": project["project_id"],
             "satiety_key": f"writing_desk_project:{project['project_id']}",

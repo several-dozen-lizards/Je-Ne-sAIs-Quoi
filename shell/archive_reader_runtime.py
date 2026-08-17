@@ -19,6 +19,7 @@ from harness.model_call_receipts import (
 )
 from shell.agency_controller import AgencyRunOutcome
 from shell.autonomy_circulation import readiness_from_engine
+from shell.maintenance_circulation import offer_maintenance_candidate
 
 
 ARCHIVE_SOURCE = "archive_read"
@@ -102,12 +103,13 @@ def parse_archive_proposal(text: str) -> dict:
                 break
         if proposal is None:
             return {
-                "action": "quiet", "reflection": "", "feelings": {},
-                "why": "",
+                "action": "quiet", "reflection": "", "changed": "",
+                "unresolved": "", "feelings": {}, "why": "",
                 "parser_normalization": [
                     "unstructured_output_settled_as_quiet"],
             }
-    allowed = {"action", "reflection", "feelings", "why"}
+    allowed = {
+        "action", "reflection", "changed", "unresolved", "feelings", "why"}
     unknown = set(proposal) - allowed
     if unknown:
         raise ValueError(
@@ -115,13 +117,29 @@ def parse_archive_proposal(text: str) -> dict:
     action = str(proposal.get("action") or "").strip().casefold()
     if action not in ARCHIVE_ACTIONS:
         raise ValueError("archive reader action is invalid")
-    reflection = str(proposal.get("reflection") or "").strip()
-    if action == "reflect" and not reflection:
+    changed = str(proposal.get("changed") or "").strip()
+    unresolved = str(proposal.get("unresolved") or "").strip()
+    raw_reflection = proposal.get("reflection")
+    if isinstance(raw_reflection, Mapping):
+        nested = dict(raw_reflection)
+        reflection = str(
+            nested.get("reflection") or nested.get("understanding") or "").strip()
+        if not changed:
+            changed = str(nested.get("changed") or "").strip()
+        if not unresolved:
+            unresolved = str(nested.get("unresolved") or "").strip()
+        normalization.append("nested_reflection_consequence_lifted")
+    elif isinstance(raw_reflection, (list, tuple, set)):
+        reflection = ""
+        normalization.append("unstructured_reflection_discarded")
+    else:
+        reflection = str(raw_reflection or "").strip()
+    if action == "reflect" and not any((reflection, changed, unresolved)):
         action = "quiet"
         normalization.append("empty_reflection_settled_as_quiet")
-    if action != "reflect" and reflection:
-        reflection = ""
-        normalization.append("stray_reflection_discarded")
+    if action != "reflect" and (reflection or changed or unresolved):
+        reflection = changed = unresolved = ""
+        normalization.append("stray_consequence_discarded")
     raw_feelings = proposal.get("feelings") or {}
     if isinstance(raw_feelings, list):
         mapped = {}
@@ -155,6 +173,7 @@ def parse_archive_proposal(text: str) -> dict:
         feelings[name] = bounded
     return {
         "action": action, "reflection": reflection[:5000],
+        "changed": changed[:1200], "unresolved": unresolved[:1200],
         "feelings": feelings, "why": str(proposal.get("why") or "")[:500],
         "parser_normalization": normalization,
     }
@@ -307,8 +326,8 @@ class ArchiveReaderRuntime:
                             else .35)
             pull = max(0.0, min(1.0,
                        _finite(suggestion.get("archive_pull"))))
-            candidate = field.offer_cognitive_event(
-                ARCHIVE_SOURCE,
+            candidate = offer_maintenance_candidate(
+                self, field, ARCHIVE_SOURCE,
                 "An unread section of the human-granted legacy conversation "
                 "archive is available as documented history.",
                 {"novelty": 1.0, "affect_change": pull,
@@ -338,11 +357,15 @@ class ArchiveReaderRuntime:
              "what, if anything, arises now. Choose exactly one action: quiet, "
              "continue, bookmark, or reflect. Reflection must be empty unless "
              "action is reflect; reflect requires a nonempty private reflection. "
+             "For reflect, changed briefly describes what is now understood or "
+             "oriented differently, if anything; unresolved names one exact "
+             "question or tension, if any. Leave both empty when none formed. "
              "Describe feelings now present as a JSON object mapping zero to "
              "four plain feeling names to numeric intensities from 0 to 1; never "
              "return feelings as a list, and do not choose a productive or "
              "positive reaction. Keep why to one brief sentence. Return exactly "
-             "one JSON object with exactly: action, reflection, feelings, why. "
+             "one JSON object with exactly: action, reflection, changed, "
+             "unresolved, feelings, why. "
              "Nothing is sent or published, and the source record is never "
              "rewritten.")
         envelope = AgencyTaskEnvelope(
@@ -438,6 +461,8 @@ class ArchiveReaderRuntime:
             record = self.archive.encounter(
                 inspected["anchor"], action=proposal["action"],
                 reflection=proposal["reflection"],
+                changed=proposal["changed"],
+                unresolved=proposal["unresolved"],
                 feelings=proposal["feelings"], why=proposal["why"],
                 run_id=context.run_id)
             record["parser_normalization"] = list(
@@ -530,7 +555,9 @@ class ArchiveReaderRuntime:
                 if osc is not None and delta.get("felt"):
                     osc.emotion_pressure(delta["felt"])
                 if soma is not None:
-                    soma.feel(self.engine.cocktail)
+                    from shell.autonomy_circulation import \
+                        embody_affect_from_engine
+                    embody_affect_from_engine(self.engine)
                     soma.tick()
                     if osc is not None:
                         for band, amount in soma.oscillator_effects().get(
@@ -540,7 +567,12 @@ class ArchiveReaderRuntime:
                 if osc is not None:
                     osc.tick()
                     osc.save()
+                from shell.autonomy_circulation import \
+                    emit_affect_counterfactual
+                emit_affect_counterfactual(self.engine, delta)
                 reflection = str(record.get("reflection") or "").strip()
+                changed = str(record.get("changed") or "").strip()
+                unresolved = str(record.get("unresolved") or "").strip()
                 memory_text = (
                     f"I read documented legacy conversation history at "
                     f"[{anchor}]."
@@ -555,6 +587,8 @@ class ArchiveReaderRuntime:
                         "archive_anchor": anchor,
                         "archive_action": record.get("action"),
                         "archive_reflection": reflection,
+                        "archive_changed": changed,
+                        "archive_unresolved": unresolved,
                         "felt_why": delta.get("why") or "",
                         "source_claim": "documented_history_not_direct_memory",
                     },
@@ -600,6 +634,12 @@ class ArchiveReaderRuntime:
                 "affect_change": affect_change,
                 "parser_normalization": list(
                     record.get("parser_normalization") or []),
+                "consequence_status": (
+                    "formed" if any(record.get(key) for key in (
+                        "reflection", "changed", "unresolved")) else "none"),
+                "reflection_digest": _digest(record.get("reflection") or ""),
+                "changed_digest": _digest(record.get("changed") or ""),
+                "unresolved_digest": _digest(record.get("unresolved") or ""),
             })
             self._emit(
                 "archive_reader_field_reentry", run_id=effect["run_id"],

@@ -199,6 +199,7 @@ class LocalWeather:
             "enabled": bool(self.config.get("enabled")),
             "location_label": str(self.config.get("location_label") or ""),
             "precision": self.config.get("precision"),
+            "hemisphere": self.config.get("hemisphere"),
             "status": dict(self.status),
         }
 
@@ -215,6 +216,7 @@ class LocalWeather:
             config["latitude"] = round(lat, 2)
             config["longitude"] = round(lon, 2)
             config["precision"] = "coordinates rounded to 0.01 degrees"
+            config["hemisphere"] = "north" if lat >= 0.0 else "south"
             config["location_label"] = str(location_label or "local area")[:80]
         self.config = config
         self._save()

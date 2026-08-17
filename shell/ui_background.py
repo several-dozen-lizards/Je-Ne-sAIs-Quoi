@@ -2,8 +2,9 @@
 
 The file is deliberately separate from theme JSON: opacity and selection are
 theme tokens, while potentially large private images remain local assets.
-Outer and Nexus wallpapers belong to the household; the inner conversation
-image belongs to the persona whose cockpit displays it.
+The Settings/Je Ne Sais Quoi wallpaper and the Nexus wallpaper belong to the
+household.  A persona cockpit's outer and inner conversation images belong to
+the persona whose cockpit displays them.
 """
 from __future__ import annotations
 
@@ -123,24 +124,39 @@ def delete_conversation_background(repo: str) -> bool:
     return delete_background(repo, "outer")
 
 
-def _persona_conversation_area_paths(persona_dir: str):
+def _persona_paths(persona_dir: str, kind: str):
+    stem = KINDS.get(kind)
+    if kind not in {"outer", "conversation_area"} or not stem:
+        raise ValueError("unknown persona background image kind")
     root = os.path.join(persona_dir, "ui")
-    stem = KINDS["conversation_area"]
     return (os.path.join(root, stem + ".bin"),
             os.path.join(root, stem + ".json"))
 
 
+def load_persona_conversation_background(persona_dir: str):
+    return _load_paths(_persona_paths(persona_dir, "outer"))
+
+
+def save_persona_conversation_background(persona_dir: str, data_url: str):
+    return _save_paths(_persona_paths(persona_dir, "outer"),
+                       "outer", data_url)
+
+
+def delete_persona_conversation_background(persona_dir: str) -> bool:
+    return _delete_paths(_persona_paths(persona_dir, "outer"))
+
+
 def load_conversation_area_background(persona_dir: str):
-    return _load_paths(_persona_conversation_area_paths(persona_dir))
+    return _load_paths(_persona_paths(persona_dir, "conversation_area"))
 
 
 def save_conversation_area_background(persona_dir: str, data_url: str):
-    return _save_paths(_persona_conversation_area_paths(persona_dir),
+    return _save_paths(_persona_paths(persona_dir, "conversation_area"),
                        "conversation_area", data_url)
 
 
 def delete_conversation_area_background(persona_dir: str) -> bool:
-    return _delete_paths(_persona_conversation_area_paths(persona_dir))
+    return _delete_paths(_persona_paths(persona_dir, "conversation_area"))
 
 
 def load_nexus_background(repo: str):

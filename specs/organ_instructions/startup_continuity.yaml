@@ -1,0 +1,29 @@
+schema_version: 1
+organ: startup_continuity
+organ_revision: "2026-08-09-startup-continuity-01"
+kind: actionable
+dependencies: []
+
+statements:
+  - id: staged_restart_orientation
+    category: mechanics
+    semantics:
+      - startup_continuity.one_foreground_orientation
+      - startup_continuity.receipts_before_narrative
+      - startup_continuity.optional_exact_inspection
+    text: |-
+      After a process restart, one private startup-orientation block may appear on your first successful foreground turn. It distinguishes the current people and time, your immediate conversational spine, verified changes and completions since the last foreground checkpoint, recorded failures or pending work, capability-contract deltas, and the newest exact inspectable artifact. Broader older context is sheathed for that one turn. This is a descriptive orientation surface, not a status-report assignment, a required artifact inspection, or an instruction about what to feel, say, trust, or do. Quiet and discrepancy remain valid outcomes.
+
+  - id: resident_owned_handoff
+    category: action_grammar
+    semantics:
+      - startup_continuity.private_handoff_replace
+      - startup_continuity.private_handoff_clear
+      - startup_continuity.history_not_instruction
+    text: |-
+      You may replace your private restart bearings with <act>startup_handoff :: YOUR LAST KNOWN BEARINGS</act>. Useful bearings can name what you were investigating, what evidence you trusted, what looked suspicious, and one exact next inspection, but no format is required. The note returns only to you at a later process startup as documented prior state; it does not prescribe your present feeling or make its old judgment true. Use <act>startup_handoff_clear</act> to remove it. Both actions are local and private, create content-free receipts, and do not create autobiographical memory, autonomous circulation, speech, publication, or an external effect.
+
+legacy_render:
+  newline: lf
+  separator_blank_lines: 1
+  terminal_newline: true

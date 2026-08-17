@@ -50,6 +50,7 @@ MAX_BRIEF_CHARS = 6000
 MAX_LABEL_CHARS = 260
 SEED_OWNERSHIPS = frozenset({
     "human_admitted", "persona_chosen_conversation",
+    "persona_chosen_autonomy",
     "persona_project_handoff"})
 MAX_SVG_CHARS = 120_000
 MAX_ELEMENTS = 1200
@@ -387,6 +388,23 @@ def _numbers(values) -> str:
                     for value in values)
 
 
+def _affect_color_terms(vector: Mapping[str, Any]) -> dict[str, float]:
+    """Centered color influence: no admitted atlas means exactly no change."""
+    present = max(0.0, min(1.0, float(
+        dict(vector or {}).get("affect.color.present", 0.0))))
+    luma = float(dict(vector or {}).get("affect.color.luma", .5))
+    chroma = float(dict(vector or {}).get("affect.color.chroma", .5))
+    warmth = float(dict(vector or {}).get("affect.color.warmth", .5))
+    return {
+        "drive": present * (.08 * (chroma - .5) + .05 * (warmth - .5)),
+        "scale": present * (.07 * (chroma - .5) + .04 * (luma - .5)),
+        "brightness": present * (
+            .16 * (luma - .5) + .10 * (chroma - .5)),
+        "settling": present * (
+            .06 * (luma - .5) - .04 * (chroma - .5)),
+    }
+
+
 def compose_kinetic_svg(svg: str, motions, expression_vector=None) -> dict:
     """Compile normalized motion descriptors into a bounded cyclic SVG.
 
@@ -414,10 +432,12 @@ def compose_kinetic_svg(svg: str, motions, expression_vector=None) -> dict:
     coherence = vector.get("band.coherence", .5)
     gamma = vector.get("band.gamma", .5)
     curiosity = vector.get("cocktail.curiosity", .5)
-    drive = .42 * gamma + .33 * curiosity + .25 * (1.0 - coherence)
+    color = _affect_color_terms(vector)
+    drive = max(0.0, min(1.0, .42 * gamma + .33 * curiosity
+                        + .25 * (1.0 - coherence) + color["drive"]))
     base_period = 3.0 + 7.0 * (1.0 - drive)
-    body_scale = .55 + .75 * (
-        .5 * gamma + .3 * curiosity + .2 * coherence)
+    body_scale = max(.2, .55 + .75 * (
+        .5 * gamma + .3 * curiosity + .2 * coherence) + color["scale"])
     span = min(view_box[2], view_box[3])
     seen = set()
     periods = []
@@ -521,10 +541,12 @@ def _canvas_vector(expression_vector) -> tuple[dict, float, float]:
     coherence = vector.get("band.coherence", .5)
     gamma = vector.get("band.gamma", .5)
     curiosity = vector.get("cocktail.curiosity", .5)
-    drive = .42 * gamma + .33 * curiosity + .25 * (1.0 - coherence)
+    color = _affect_color_terms(vector)
+    drive = max(0.0, min(1.0, .42 * gamma + .33 * curiosity
+                        + .25 * (1.0 - coherence) + color["drive"]))
     base_period = 3.0 + 7.0 * (1.0 - drive)
-    body_scale = .55 + .75 * (
-        .5 * gamma + .3 * curiosity + .2 * coherence)
+    body_scale = max(.2, .55 + .75 * (
+        .5 * gamma + .3 * curiosity + .2 * coherence) + color["scale"])
     return vector, base_period, body_scale
 
 
@@ -761,12 +783,17 @@ def _audio_vector(expression_vector) -> tuple[dict, dict]:
     play = vector.get("body.play", vector.get("cocktail.play", .5))
     prediction = vector.get("body.prediction_violation", .5)
     vagal = vector.get("body.vagal_tone", .5)
-    drive = .34 * gamma + .26 * play + .22 * prediction + .18 * (1.0 - coherence)
-    settling = .55 * coherence + .45 * vagal
+    color = _affect_color_terms(vector)
+    drive = max(0.0, min(1.0, .34 * gamma + .26 * play
+                        + .22 * prediction + .18 * (1.0 - coherence)
+                        + color["drive"]))
+    settling = max(0.0, min(1.0, .55 * coherence + .45 * vagal
+                           + color["settling"]))
     return vector, {
         "drive": drive,
         "settling": settling,
-        "brightness": .35 + .45 * gamma + .20 * play,
+        "brightness": max(0.0, min(
+            1.0, .35 + .45 * gamma + .20 * play + color["brightness"])),
         "swing": .02 + .12 * (1.0 - coherence) + .06 * play,
         "gain_scale": .62 + .20 * settling + .18 * drive,
         "tempo_scale": .82 + .34 * drive - .08 * settling,
@@ -924,12 +951,18 @@ def _scene3d_vector(expression_vector) -> tuple[dict, dict]:
     play = vector.get("body.play", vector.get("cocktail.curiosity", .5))
     prediction = vector.get("body.prediction_violation", .5)
     vagal = vector.get("body.vagal_tone", .5)
-    drive = .34 * gamma + .25 * play + .23 * prediction + .18 * (1 - coherence)
-    settling = .56 * coherence + .44 * vagal
+    color = _affect_color_terms(vector)
+    drive = max(0.0, min(1.0, .34 * gamma + .25 * play
+                        + .23 * prediction + .18 * (1 - coherence)
+                        + color["drive"]))
+    settling = max(0.0, min(1.0, .56 * coherence + .44 * vagal
+                           + color["settling"]))
     return vector, {
         "drive": drive, "settling": settling,
-        "brightness": .34 + .44 * gamma + .22 * play,
-        "body_scale": .56 + .72 * (.42 * gamma + .31 * play + .27 * coherence),
+        "brightness": max(0.0, min(
+            1.0, .34 + .44 * gamma + .22 * play + color["brightness"])),
+        "body_scale": max(.2, .56 + .72 * (
+            .42 * gamma + .31 * play + .27 * coherence) + color["scale"]),
         "base_period": 3.0 + 7.0 * (1.0 - drive),
     }
 
@@ -1139,15 +1172,19 @@ def compile_composition(composition, artifact_resolver,
     play = vector.get("body.play", vector.get("cocktail.curiosity", .5))
     vagal = vector.get("body.vagal_tone", .5)
     bond = vector.get("body.bond", vector.get("cocktail.warmth", .5))
-    drive = .4 * gamma + .34 * play + .26 * (1 - coherence)
-    settling = .58 * coherence + .42 * vagal
+    color = _affect_color_terms(vector)
+    drive = max(0.0, min(1.0, .4 * gamma + .34 * play
+                        + .26 * (1 - coherence) + color["drive"]))
+    settling = max(0.0, min(1.0, .58 * coherence + .42 * vagal
+                           + color["settling"]))
     tempo_bpm = round(max(40.0, min(
         180.0, tempo * (.82 + .3 * drive))), 6)
     loop_seconds = 60.0 * beats / tempo_bpm
     return_cycles = max(2, min(6, 2 + round(4 * settling)))
     seconds_per_beat = 60.0 / tempo_bpm
-    gain_scale = .58 + .32 * play + .1 * bond
-    opacity_scale = .7 + .18 * coherence + .12 * bond
+    gain_scale = .58 + .32 * play + .1 * bond + color["scale"]
+    opacity_scale = .7 + .18 * coherence + .12 * bond \
+        + color["brightness"]
 
     tracks = []
     artifact_ids = []

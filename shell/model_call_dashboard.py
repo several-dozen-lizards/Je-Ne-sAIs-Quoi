@@ -17,6 +17,7 @@ _RECENT_FIELDS = (
     "first_token_ms", "input_tokens",
     "output_tokens", "reasoning_tokens", "cache_read_tokens",
     "cache_write_tokens", "finish_reason", "thinking_type", "attempts",
+    "error_code", "status_code",
 )
 
 

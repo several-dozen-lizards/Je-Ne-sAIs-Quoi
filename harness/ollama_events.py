@@ -15,7 +15,8 @@ class OllamaAsyncTransport:
 
     def __init__(self, model: str, *, host: str = "http://localhost:11434",
                  stops=(), num_ctx: int = None, think: bool = None,
-                 keep_alive=None, timeout_s: float = 360.0,
+                 keep_alive=None, num_gpu: int = None,
+                 timeout_s: float = 360.0,
                  client: httpx.AsyncClient = None):
         self.model = str(model)
         self.url = host.rstrip("/") + "/api/chat"
@@ -23,6 +24,7 @@ class OllamaAsyncTransport:
         self.num_ctx = num_ctx
         self.think = think
         self.keep_alive = keep_alive
+        self.num_gpu = num_gpu
         self.timeout_s = float(timeout_s)
         self._client = client
         self._owns_client = client is None
@@ -61,6 +63,8 @@ class OllamaAsyncTransport:
             options["stop"] = list(self.stops)
         if self.num_ctx:
             options["num_ctx"] = int(self.num_ctx)
+        if self.num_gpu is not None:
+            options["num_gpu"] = int(self.num_gpu)
         body = {
             "model": self.model,
             "messages": [

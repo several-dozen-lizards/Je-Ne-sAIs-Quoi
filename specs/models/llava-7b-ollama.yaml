@@ -1,0 +1,50 @@
+# llava-7b-ollama - optional detailed local visual transducer.
+identity:
+  name: "llava-7b-ollama"
+  family: "llama3-chatml"
+  base_model: "LLaVA 7B"
+  provider: "ollama"
+  service: "ollama"
+  endpoint: "llava:7b"
+  locality: "local"
+context:
+  window_tokens: 2048
+  practical_window_tokens: 1536
+  block_budgets: {}
+prompt_structure:
+  system_prompt: true
+  template: "openai_messages"
+  strict_alternation: false
+  prefill_supported: false
+  stop_sequences: []
+sampling:
+  temperature:
+    mode: "fixed"
+    value: 0.0
+wire:
+  ollama:
+    # Loading this 7B model on the GPU would evict qwen3:8b on the present
+    # hardware. Keep this optional inspection lane CPU-only and self-releasing.
+    num_gpu: 0
+    keep_alive: 0
+capabilities:
+  tool_use: false
+  vision: true
+  structured_output: "unknown"
+  streaming: false
+module_capability:
+  validated: []
+  saturates_on: []
+  ceiling_notes: "optional focused local visual detail"
+runtime:
+  gpu_constraints: "CPU-bound by spec; must not allocate resident VRAM"
+  cost: "free_local"
+  latency_class: "about 89s on generated 3D fixture when CPU-bound"
+  vision_max_tokens: 260
+quirks:
+  - "Not an ambient default; use only after latency and fidelity proof"
+  - "Descriptions are observations, not authoritative room geometry"
+harness:
+  last_mechanical_pass: "2026-08-05"
+  fidelity_floor_results:
+    generated_3d_fixture: "fail: invented geometry and materials"

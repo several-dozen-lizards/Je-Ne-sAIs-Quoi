@@ -92,19 +92,22 @@ class ParticipationFieldOrgan:
             os.fsync(handle.fileno())
         os.replace(tmp, self.state_path)
 
-    def _advance_unlocked(self, now: float) -> None:
-        now = max(self.last_ts, float(now))
-        dt = now - self.last_ts
+    def _project_unlocked(self, now: float) -> tuple[dict, dict, float]:
+        """Project state without changing the organ or touching persistence."""
+        projected_values = dict(self.values)
+        projected_velocities = dict(self.velocities)
+        projected_ts = max(self.last_ts, float(now))
+        dt = projected_ts - self.last_ts
         if dt <= 0.0:
-            return
+            return projected_values, projected_velocities, projected_ts
         # The one existing body step defines the time unit. Dimension periods
         # form a geometric family, avoiding a bank of unrelated timer values.
         for index, name in enumerate(DIMENSIONS):
             period = self.body_step_s * (2.0 ** (index / len(DIMENSIONS)))
             omega = 2.0 * math.pi / period
             damping = omega * 0.18
-            x0 = self.values[name] - self.targets[name]
-            v0 = self.velocities[name]
+            x0 = projected_values[name] - self.targets[name]
+            v0 = projected_velocities[name]
             wd = omega * math.sqrt(max(1e-9, 1.0 - 0.18 ** 2))
             decay = math.exp(-damping * dt)
             cosine, sine = math.cos(wd * dt), math.sin(wd * dt)
@@ -115,10 +118,16 @@ class ParticipationFieldOrgan:
                 + (-x0 * wd * sine + coefficient * wd * cosine))
             raw = self.targets[name] + x
             clipped = _unit(raw)
-            self.values[name] = clipped
-            self.velocities[name] = (
+            projected_values[name] = clipped
+            projected_velocities[name] = (
                 0.0 if clipped != raw else velocity)
-        self.last_ts = now
+        return projected_values, projected_velocities, projected_ts
+
+    def _advance_unlocked(self, now: float) -> None:
+        values, velocities, projected_ts = self._project_unlocked(now)
+        self.values = values
+        self.velocities = velocities
+        self.last_ts = projected_ts
 
     def advance(self, now: float | None = None) -> dict:
         with self._lock:
@@ -163,28 +172,41 @@ class ParticipationFieldOrgan:
                 os.fsync(handle.fileno())
             return self._snapshot_unlocked()
 
-    def _snapshot_unlocked(self) -> dict:
+    def _snapshot_for(self, values: Mapping[str, float],
+                      velocities: Mapping[str, float],
+                      last_ts: float) -> dict:
         movement = math.sqrt(sum(
-            value * value for value in self.velocities.values()))
+            value * value for value in velocities.values()))
         articulation = (
-            self.values["metacognitive_availability"]
-            + self.values["action_coupling"]
-            + max(self.values["external_conductance"],
-                  self.values["internal_conductance"])) / 3.0
+            values["metacognitive_availability"]
+            + values["action_coupling"]
+            + max(values["external_conductance"],
+                  values["internal_conductance"])) / 3.0
         return {
             "schema": 1,
             "mode": "continuous_time_participation_field",
-            "last_ts": self.last_ts,
+            "last_ts": last_ts,
             "event_count": self.event_count,
             "dimensions": {
                 name: round(value, 9)
-                for name, value in self.values.items()},
+                for name, value in values.items()},
             "movement": round(movement, 9),
             "articulation_readiness": round(_unit(articulation), 9),
             "articulation_policy": "descriptive_opportunity_only",
             "model_calls": 0,
             "actions_created": 0,
         }
+
+    def _snapshot_unlocked(self) -> dict:
+        return self._snapshot_for(
+            self.values, self.velocities, self.last_ts)
+
+    def peek(self, now: float | None = None) -> dict:
+        """Return a time-projected view without advancing or saving state."""
+        with self._lock:
+            values, velocities, projected_ts = self._project_unlocked(
+                self.clock() if now is None else now)
+            return self._snapshot_for(values, velocities, projected_ts)
 
     def snapshot(self, now: float | None = None) -> dict:
         return self.advance(now)

@@ -75,7 +75,7 @@ header{height:74px;display:flex;align-items:center;gap:18px;padding:0 24px;
 #updateDismiss{border:1px solid var(--line);border-radius:7px;padding:6px 9px;background:transparent;color:var(--dim)}
 .top-page{display:none;height:calc(100% - 74px)}.top-page.on{display:block}
 .app{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr);min-width:0;position:relative}
-#page-settings iframe,#page-about iframe{width:100%;height:100%;border:0;background:var(--bg)}
+#page-usage iframe,#page-settings iframe,#page-about iframe{width:100%;height:100%;border:0;background:var(--bg)}
 .persona-home{height:100%;width:100%;overflow:auto;padding:clamp(18px,4vw,44px);max-width:1120px;margin:auto}
 .home-heading{margin:0 0 8px;color:var(--mint);font-size:clamp(1.3rem,3vw,2rem);
   font-family:var(--font-display);font-weight:600}
@@ -100,6 +100,15 @@ header{height:74px;display:flex;align-items:center;gap:18px;padding:0 24px;
 .model-control{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:5px;margin:10px 0 0 25px}
 .model-control select{min-width:0;padding:5px 7px}.model-control button{border:1px solid var(--line);
   background:var(--panel2);color:var(--dim);border-radius:7px;padding:4px 7px;font-size:.72rem}
+.public-creative-summary{margin-left:6px;color:var(--dim);font-weight:400;font-size:.76rem}
+.public-creative-summary.has-new{color:var(--gold)}.public-creative-shell{margin-top:12px;border:1px solid var(--line);
+  border-radius:11px;overflow:hidden;background:color-mix(in srgb,var(--panel) 88%,var(--bg))}
+.public-creative-toolbar{display:grid;grid-template-columns:minmax(190px,280px) 1fr;gap:12px;align-items:end;
+  padding:10px 12px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--panel2) 86%,var(--bg))}
+.public-creative-note{color:var(--dim);font-size:.76rem;line-height:1.4;padding-bottom:8px}
+.public-creative-note.has-new{color:var(--gold)}#publicCreativeFrame{display:block;width:100%;height:min(68vh,760px);
+  min-height:480px;border:0;background:transparent}.public-creative-shell.unavailable #publicCreativeFrame{display:none}
+.public-creative-shell.unavailable{padding-bottom:2px}
 details{margin-top:18px;border-top:1px solid var(--line);padding-top:14px}summary{cursor:pointer;
   color:var(--mint);font-weight:650}form{display:grid;gap:9px;margin-top:12px}label{display:grid;gap:4px;
   color:var(--dim);font-size:.76rem}input,select,textarea{width:100%;background:color-mix(in srgb,var(--bg) 70%,black);color:var(--ink);
@@ -154,10 +163,15 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
 .look-editor label{display:grid;gap:5px;color:var(--dim);font-size:.78rem}.look-editor input{width:100%}
 .look-editor input[type=color]{height:38px;padding:3px}.look-editor .note{grid-column:1/-1}
 @media(max-width:760px){header{height:auto;min-height:104px;flex-wrap:wrap;padding:12px 16px;gap:7px 12px}
+  .top-nav{width:100%;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
+  .top-nav button{justify-content:center;padding:5px 4px;font-size:.76rem}
   .top-page{height:calc(100% - 104px)}#status{position:absolute;right:14px;top:14px}
   #updateNotice{top:114px}
   .persona-home{padding:18px}.chat-panel{min-height:0}.panel-head .model{display:none}
+  .public-creative-toolbar{grid-template-columns:1fr}.public-creative-note{padding-bottom:0}
+  #publicCreativeFrame{height:64vh;min-height:420px}
   .model-form{grid-template-columns:1fr}.model-form .wide{grid-column:auto}.or-row{grid-template-columns:1fr}.or-row>span{padding:0}}
+@media(max-width:520px){.top-nav .nav-icon{display:none}.top-nav button{font-size:.72rem}}
 </style>
 </head>
 <body>
@@ -174,6 +188,7 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
   <div class="brand">Je Ne S<span class="ai">ai</span>s Quoi</div>
   <nav class="top-nav"><button class="on" type="button" data-top-page="personas"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 10.5 12 3l8.5 7.5"/><path d="M5.5 9v11h13V9M9.5 20v-6h5v6"/></svg><span>Household</span></button>
     <button type="button" data-top-page="nexus"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5h16v11H9l-5 4z"/><path d="M8 10h8M8 13h5"/></svg><span>Chat</span></button>
+    <button type="button" data-top-page="usage"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m13 2-8 12h6l-1 8 9-13h-6z"/></svg><span>Usage</span></button>
     <button type="button" data-top-page="settings"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21H9.6v-.1A1.7 1.7 0 0 0 8.5 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3V9.6h.1A1.7 1.7 0 0 0 4.6 8.5a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1A1.7 1.7 0 0 0 15.5 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.13.37.35.71.65.98.3.27.68.42 1.08.42H21v4h-.1a1.7 1.7 0 0 0-1.5.6z"/></svg><span>Settings</span></button>
     <button type="button" data-top-page="about"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 10.5v6M12 7.5h.01"/></svg><span>About</span></button></nav>
   <div id="status"><span id="statusText">connecting…</span> · <a href="https://ko-fi.com/a_dozen_lizards" target="_blank" rel="noopener">Support this work</a></div>
@@ -185,6 +200,16 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
     <p class="home-copy">Everyone in the household is already waiting in the bar above. Open any combination as side-by-side panes, change the models carrying them, or tend the household here.</p>
     <div class="home-tools"><div class="section-title">Personas in this home</div><button class="ghost" type="button" id="installModel">+ install a model</button></div>
     <div id="personaList"></div>
+    <details id="publicCreativeDetails">
+      <summary>Creative shelf <span class="public-creative-summary" id="publicCreativeSummary">local resident work</span></summary>
+      <div class="public-creative-shell unavailable" id="publicCreativeShell">
+        <div class="public-creative-toolbar">
+          <label>Household member<select id="publicCreativePersona"></select></label>
+          <div class="public-creative-note" id="publicCreativeNote">Open the shelf to browse resident-owned Atelier and Writing Desk work.</div>
+        </div>
+        <iframe id="publicCreativeFrame" title="Household creative work"></iframe>
+      </div>
+    </details>
     <details id="createDetails">
       <summary>Create a persona</summary>
       <form id="createForm">
@@ -214,6 +239,7 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
     <main><div id="workspace" class="workspace"></div></main>
   </section>
 </div></section>
+<section class="top-page" id="page-usage"><iframe src="/model-calls" title="JNSQ model usage"></iframe></section>
 <section class="top-page" id="page-settings"><iframe src="/settings" title="JNSQ settings"></iframe></section>
 <section class="top-page" id="page-about"><iframe src="/about" title="About Je Ne Sais Quoi"></iframe></section>
 
@@ -293,7 +319,7 @@ const CFG = /*CONFIG*/;
 const $ = id => document.getElementById(id);
 const storedVisible=localStorage.getItem("jnsq.public.visible");
 const state = {personas:{}, models:[], modelInfo:{}, selected:new Set(), active:null, voicePid:null, lookPid:null, rosterPid:null, modelTarget:null,
-  initialized:false,widths:{},theme:null};
+  initialized:false,widths:{},theme:null,creativeCatalogs:{},creativePersona:localStorage.getItem("jnsq.creative.persona")||""};
 try { for (const id of JSON.parse(storedVisible||"[]")) state.selected.add(id); }
 catch (_) {}
 try { state.widths=JSON.parse(localStorage.getItem("jnsq.public.widths")||"{}"); } catch (_) {}
@@ -319,9 +345,9 @@ function openPanel(id){
 }
 function openNexus(){showTopPage("nexus");openPanel("world");}
 $("homeButton").onclick=showHome;
-const initialPage=["personas","nexus","settings","about"].includes(localStorage.getItem("jnsq.public.page"))?
+const initialPage=["personas","nexus","usage","settings","about"].includes(localStorage.getItem("jnsq.public.page"))?
   localStorage.getItem("jnsq.public.page"):"personas";
-if(initialPage==="nexus")openNexus();else if(initialPage==="settings"||initialPage==="about")showTopPage(initialPage);else showHome();
+if(initialPage==="nexus")openNexus();else if(["usage","settings","about"].includes(initialPage))showTopPage(initialPage);else showHome();
 
 async function request(url, options={}){
   const res=await fetch(url,options); let body={};
@@ -345,6 +371,8 @@ async function refresh(){
     for(const id of [...state.selected])if(!state.personas[id]&&id!=="world")state.selected.delete(id);
     if(!state.active||!state.selected.has(state.active))state.active=[...state.selected][0]||null;
     renderModels();renderPersonaList();syncWorkspace();
+    renderPublicCreativeSelector();
+    if($("publicCreativeDetails").open)await refreshPublicCreativeCatalogs();
     const live=personas().filter(([,p])=>p.alive).length;
     $("status").textContent=`${live} awake · ${personas().length} local`;
   }catch(e){$("status").textContent=`unreachable · ${e.message}`;}
@@ -461,6 +489,94 @@ function renderPersonaList(){
   document.querySelectorAll("[data-voice]").forEach(el=>el.onclick=()=>openVoice(el.dataset.voice));
   document.querySelectorAll("[data-icon]").forEach(el=>el.onclick=()=>openPersonaLook(el.dataset.icon));
 }
+
+const publicCreativeSeenKey=pid=>`jnsq.creative.seen.${pid}`;
+const publicCreativeViewedKey=pid=>`jnsq.creative.viewed.${pid}`;
+const publicCreativeWorks=catalog=>(catalog?.works||[]).filter(item=>
+  item.organ==="atelier"||item.organ==="writing_desk");
+const publicCreativeWorkTime=item=>Math.max(0,Number(item?.updated_at||item?.created_at)||0);
+const publicCreativeWorkId=item=>String(item?.id||"");
+function publicCreativeViewedIds(pid){
+  try{const values=JSON.parse(localStorage.getItem(publicCreativeViewedKey(pid))||"[]");
+    return new Set(Array.isArray(values)?values.map(String).filter(Boolean):[])}catch(_error){return new Set()}
+}
+function publicCreativeWorkViewed(pid,item){
+  const legacySeen=Math.max(0,Number(localStorage.getItem(publicCreativeSeenKey(pid)))||0);
+  return publicCreativeViewedIds(pid).has(publicCreativeWorkId(item))||publicCreativeWorkTime(item)<=legacySeen
+}
+function rememberPublicCreativeViewed(pid,id){
+  const viewed=publicCreativeViewedIds(pid),key=String(id||"");if(!key)return false;
+  const before=viewed.size;viewed.add(key);
+  localStorage.setItem(publicCreativeViewedKey(pid),JSON.stringify([...viewed].slice(-500)));
+  return viewed.size!==before
+}
+function publicCreativeLatest(pid){
+  return publicCreativeWorks(state.creativeCatalogs[pid]).reduce(
+    (latest,item)=>Math.max(latest,publicCreativeWorkTime(item)),0)
+}
+function publicCreativeNewCount(pid){
+  return publicCreativeWorks(state.creativeCatalogs[pid]).filter(item=>!publicCreativeWorkViewed(pid,item)).length
+}
+function publicCreativeHouseholdNewCount(){
+  return personas().reduce((total,[pid])=>total+publicCreativeNewCount(pid),0)
+}
+function choosePublicCreativePersona(){
+  const entries=personas();
+  if(entries.some(([pid])=>pid===state.creativePersona))return state.creativePersona;
+  state.creativePersona=(entries.find(([,info])=>info.alive)||entries[0]||[])[0]||"";
+  if(state.creativePersona)localStorage.setItem("jnsq.creative.persona",state.creativePersona);
+  return state.creativePersona
+}
+function publicCreativeFrameURL(pid=choosePublicCreativePersona()){
+  const info=state.personas[pid];if(!pid||!info?.alive||!info.port)return "";
+  const seen=Math.max(0,Number(localStorage.getItem(publicCreativeSeenKey(pid)))||0);
+  const viewed=JSON.stringify([...publicCreativeViewedIds(pid)]);
+  return `http://127.0.0.1:${Number(info.port)}/?surface=creative&embedded=household&seen=${encodeURIComponent(seen)}&viewed=${encodeURIComponent(viewed)}&host_visible=true`
+}
+function renderPublicCreativeSelector(){
+  const selector=$("publicCreativePersona"),shell=$("publicCreativeShell");if(!selector||!shell)return;
+  choosePublicCreativePersona();
+  const entries=personas().sort((a,b)=>String(a[1].display_name||a[0]).localeCompare(String(b[1].display_name||b[0])));
+  selector.innerHTML=entries.length?entries.map(([pid,info])=>{
+    const fresh=publicCreativeNewCount(pid),status=info.alive?"":" · stopped";
+    return `<option value="${esc(pid)}">${esc(info.display_name||pid)}${fresh?` · ${fresh} new`:""}${status}</option>`
+  }).join(""):'<option value="">No household residents</option>';
+  selector.value=state.creativePersona;shell.classList.toggle("unavailable",!publicCreativeFrameURL());
+  renderPublicCreativeState()
+}
+function renderPublicCreativeState(){
+  const note=$("publicCreativeNote"),summary=$("publicCreativeSummary");if(!note||!summary)return;
+  const pid=choosePublicCreativePersona(),info=state.personas[pid],works=publicCreativeWorks(state.creativeCatalogs[pid]);
+  const fresh=publicCreativeNewCount(pid),household=publicCreativeHouseholdNewCount();
+  note.classList.toggle("has-new",fresh>0);summary.classList.toggle("has-new",household>0);
+  summary.textContent=household?`${household} new across the household`:"local resident work";
+  if(!pid)note.textContent="No household residents are available.";
+  else if(!info?.alive)note.textContent=`${info?.display_name||pid} is stopped; their live creative shelf is unavailable.`;
+  else if(fresh)note.textContent=`${info.display_name||pid} has ${fresh} new work${fresh===1?"":"s"} · ${household} new across the household.`;
+  else note.textContent=`${works.length} work${works.length===1?"":"s"} on ${(info.display_name||pid)}'s shelf · nothing unseen.`
+}
+function mountPublicCreativeFrame(force=false){
+  const frame=$("publicCreativeFrame"),shell=$("publicCreativeShell"),pid=choosePublicCreativePersona();if(!frame||!shell)return;
+  const wanted=publicCreativeFrameURL(pid);shell.classList.toggle("unavailable",!wanted);
+  if(!wanted){frame.removeAttribute("src");frame.removeAttribute("data-creative-owner");return}
+  frame.dataset.creativeOwner=pid;if(force||frame.getAttribute("src")!==wanted)frame.setAttribute("src",wanted)
+}
+async function refreshPublicCreativeCatalogs(){
+  const entries=personas().filter(([,info])=>info.alive);
+  await Promise.all(entries.map(async([pid])=>{
+    try{state.creativeCatalogs[pid]=await request(`/api/personas/${encodeURIComponent(pid)}/autonomous-works`)}
+    catch(error){state.creativeCatalogs[pid]={error:String(error),works:[]}}
+  }));
+  renderPublicCreativeSelector();mountPublicCreativeFrame()
+}
+$("publicCreativeDetails").ontoggle=()=>{
+  if($("publicCreativeDetails").open)refreshPublicCreativeCatalogs();
+  else $("publicCreativeFrame").removeAttribute("src")
+};
+$("publicCreativePersona").onchange=event=>{
+  state.creativePersona=event.target.value;localStorage.setItem("jnsq.creative.persona",state.creativePersona);
+  renderPublicCreativeSelector();mountPublicCreativeFrame(true)
+};
 function syncWorkspace(){
   const wanted=[...state.selected].filter(id=>state.personas[id]||(id==="world"&&CFG.room_url));
   if(!wanted.length){$("workspace").replaceChildren();state.active=null;renderPanelTabs();persist();return;}
@@ -637,6 +753,20 @@ async function loadHouseTheme(){try{const theme=await request("/api/ui/theme");s
 window.addEventListener("message",event=>{if(event.data?.type==="jnsq-theme-refresh")loadHouseTheme()});
 window.addEventListener("message",async event=>{if(event.data?.type==="jnsq-theme-request"&&event.source){
   try{const theme=await request("/api/ui/theme");event.source.postMessage({type:"jnsq-theme-refresh",tokens:theme.tokens},"*")}catch(_){}}});
+window.addEventListener("message",event=>{
+  if(!["jnsq-creative-inventory","jnsq-creative-viewed"].includes(event.data?.type)||event.data.content_free!==true)return;
+  const pid=String(event.data.persona||"").toLowerCase(),info=state.personas[pid];let trusted=false;
+  try{const origin=new URL(event.origin);trusted=Boolean(info?.port)&&
+    ["127.0.0.1","localhost","::1"].includes(origin.hostname)&&Number(origin.port)===Number(info.port)}catch(_error){}
+  if(!trusted)return;
+  if(event.data.type==="jnsq-creative-viewed"){
+    const id=String(event.data.work_id||"");
+    const known=publicCreativeWorks(state.creativeCatalogs[pid]).some(item=>publicCreativeWorkId(item)===id);
+    if(known&&rememberPublicCreativeViewed(pid,id)){renderPublicCreativeSelector();mountPublicCreativeFrame(true)}
+  }else if($("publicCreativeDetails").open&&Number(event.data.newest_at||0)>publicCreativeLatest(pid)){
+    refreshPublicCreativeCatalogs()
+  }
+});
 async function checkForUpdateAtStartup(){
   document.body.dataset.updateCheck="checking";
   try{

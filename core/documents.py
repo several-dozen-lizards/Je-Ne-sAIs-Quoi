@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import base64
 import binascii
+from collections import Counter
+import copy
 import hashlib
 import io
 import json
@@ -18,6 +20,7 @@ import os
 import re
 import shutil
 import tempfile
+import threading
 import time
 from html.parser import HTMLParser
 from pathlib import Path
@@ -28,6 +31,8 @@ from core.users import slugify
 MAX_DOCUMENT_BYTES = 25 * 1024 * 1024
 MAX_EXTRACTED_CHARS = 12_000_000
 DOCUMENT_CONTEXT_BUDGET = 900
+DOCUMENT_TURN_RELEVANCE_FLOOR = 0.42
+ACTIVE_DOCUMENT_COMPETITION_RATIO = 0.55
 TEXT_EXTENSIONS = {
     ".txt", ".md", ".markdown", ".rst", ".csv", ".tsv", ".json",
     ".yaml", ".yml", ".html", ".htm",
@@ -252,6 +257,73 @@ def _clip(text: str, maximum: int) -> str:
     return text[:cut if cut > maximum // 2 else maximum].rstrip() + "\n[…excerpt continues]"
 
 
+def _tail_text_lines(path: Path, limit: int) -> list[str]:
+    """Read the semantic tail of an append-only ledger without loading it all."""
+    if limit <= 0:
+        return []
+    try:
+        with path.open("rb") as handle:
+            handle.seek(0, os.SEEK_END)
+            position = handle.tell()
+            chunks = []
+            line_breaks = 0
+            while position > 0 and line_breaks <= limit:
+                size = min(64 * 1024, position)
+                position -= size
+                handle.seek(position)
+                chunk = handle.read(size)
+                if not chunk:
+                    break
+                chunks.append(chunk)
+                line_breaks += chunk.count(b"\n")
+    except OSError:
+        return []
+    tail = b"".join(reversed(chunks)).splitlines()
+    return [line.decode("utf-8") for line in tail[-limit:]]
+
+
+def _turn_relevance(hit: dict | None) -> float:
+    signals = dict((hit or {}).get("signals") or {})
+    semantic = max(0.0, min(1.0, float(signals.get("semantic") or 0.0)))
+    lexical = max(0.0, float(signals.get("lexical") or 0.0))
+    coverage = max(0.0, min(
+        1.0, float(signals.get("lexical_coverage") or 0.0)))
+    query_terms = max(1, int(signals.get("lexical_query_terms") or 1))
+    coverage_confidence = coverage * 0.65 * min(1.0, 3.0 / query_terms)
+    return max(semantic, 1.0 - math.exp(-lexical), coverage_confidence)
+
+
+def _active_document_requested(query: str) -> bool:
+    """Recognize a foreground document relation, not a magic phrase."""
+    text = re.sub(r"\s+", " ", str(query or "").casefold()).strip()
+    return bool(
+        re.search(
+            r"\b(?:this|that|the|current|active|open)\s+"
+            r"(?:document|doc|reader|section|passage|text)\b", text)
+        or re.search(
+            r"\b(?:continue|resume|keep)\s+(?:reading\s+)?"
+            r"(?:it|this|that|the\s+document|the\s+text|reading)\b", text)
+        or re.search(r"\b(?:next\s+section|read\s+on)\b", text))
+
+
+def _retrieval_has_lexical_grounding(hit: dict | None) -> bool:
+    """Require actual turn words before private source prose enters chat.
+
+    Vector similarity is useful for ranking after a source relationship is
+    established, but by itself it can mistake a broad experiential question
+    for a request to open a thematically similar private archive.  Two matched
+    query terms with meaningful coverage retain ordinary exact retrieval while
+    keeping semantic atmosphere from silently becoming conversation context.
+    """
+    signals = dict((hit or {}).get("signals") or {})
+    lexical = max(0.0, float(signals.get("lexical") or 0.0))
+    coverage = max(0.0, min(
+        1.0, float(signals.get("lexical_coverage") or 0.0)))
+    query_terms = max(1, int(signals.get("lexical_query_terms") or 1))
+    matched_terms = round(coverage * query_terms)
+    return lexical > 0.0 and matched_terms >= 2 and coverage >= 0.34
+
+
 class DocumentLibrary:
     def __init__(self, repo: str | os.PathLike[str], user_id: str,
                  persona: str, *, now_fn=time.time):
@@ -274,6 +346,36 @@ class DocumentLibrary:
         self.notebook_path = self.reader_root / "notebook.jsonl"
         self.reports_root = self.reader_root / "reports"
         self.now_fn = now_fn
+        self._cache_lock = threading.RLock()
+        self._json_cache = {}
+        self._catalog_cache = None
+        self._lexical_cache = {}
+        self._vector_cache = {}
+
+    @staticmethod
+    def _file_revision(path: Path) -> tuple[int, int]:
+        stat = path.stat()
+        return int(stat.st_mtime_ns), int(stat.st_size)
+
+    def _cached_json(self, path: Path):
+        """Read immutable document material once per filesystem revision."""
+        revision = self._file_revision(path)
+        key = str(path)
+        with self._cache_lock:
+            cached = self._json_cache.get(key)
+            if cached is not None and cached[0] == revision:
+                return cached[1]
+        value = json.loads(path.read_text(encoding="utf-8"))
+        with self._cache_lock:
+            self._json_cache[key] = (revision, value)
+        return value
+
+    def _invalidate_document_cache(self) -> None:
+        with self._cache_lock:
+            self._json_cache.clear()
+            self._catalog_cache = None
+            self._lexical_cache.clear()
+            self._vector_cache.clear()
 
     def _append(self, path: Path, record: dict) -> dict:
         """Append one validated private reader record without rewriting history."""
@@ -288,12 +390,8 @@ class DocumentLibrary:
 
     def reader_events(self, kind: str = "", limit: int = 1000) -> list[dict]:
         limit = max(0, min(int(limit), 5000))
-        try:
-            lines = self.events_path.read_text(encoding="utf-8").splitlines()
-        except OSError:
-            return []
         records = []
-        for line in lines[-limit:] if limit else ():
+        for line in _tail_text_lines(self.events_path, limit):
             try:
                 value = json.loads(line)
             except (TypeError, ValueError):
@@ -490,7 +588,7 @@ class DocumentLibrary:
         for path in self._candidate_doc_dirs(doc_id):
             metadata_path = path / "document.json"
             try:
-                metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+                metadata = self._cached_json(metadata_path)
             except (OSError, ValueError, TypeError):
                 continue
             allowed, _reason = self._access(
@@ -502,46 +600,86 @@ class DocumentLibrary:
     def _metadata(self, doc_id: str) -> dict:
         path = self._doc_dir(doc_id) / "document.json"
         try:
-            value = json.loads(path.read_text(encoding="utf-8"))
+            value = self._cached_json(path)
         except (OSError, ValueError, TypeError) as exc:
             raise DocumentError("document does not exist or its metadata is invalid") from exc
-        return value
+        return copy.deepcopy(value)
 
     def _chunks(self, doc_id: str) -> list[dict]:
         path = self._doc_dir(doc_id) / "chunks.json"
         try:
-            value = json.loads(path.read_text(encoding="utf-8"))
+            value = self._cached_json(path)
         except (OSError, ValueError, TypeError) as exc:
             raise DocumentError("document chunks are unavailable") from exc
         if not isinstance(value, list):
             raise DocumentError("document chunk index is invalid")
         return value
 
+    def _lexical_index(self, doc_id: str, chunks: list[dict]):
+        path = self._doc_dir(doc_id) / "chunks.json"
+        revision = self._file_revision(path)
+        key = (str(path), revision)
+        with self._cache_lock:
+            cached = self._lexical_cache.get(key)
+            if cached is not None:
+                return cached
+        index = tuple(
+            (Counter(tokens), len(tokens))
+            for tokens in (self._tokens(chunk.get("text") or "")
+                           for chunk in chunks))
+        with self._cache_lock:
+            self._lexical_cache[key] = index
+        return index
+
+    def _vectors(self, doc_id: str):
+        path = self._doc_dir(doc_id) / "vectors.npy"
+        revision = self._file_revision(path)
+        key = (str(path), revision)
+        with self._cache_lock:
+            cached = self._vector_cache.get(key)
+            if cached is not None:
+                return cached
+        import numpy as np
+        matrix = np.load(path, allow_pickle=False)
+        with self._cache_lock:
+            self._vector_cache[key] = matrix
+        return matrix
+
     def list_documents(self) -> list[dict]:
+        paths = []
+        for root in (self.persona_root, self.user_root, self.system_root):
+            if root.is_dir():
+                paths.extend(sorted(root.glob("doc_*/document.json")))
+        revision = tuple(
+            (str(path), self._file_revision(path)) for path in paths)
+        with self._cache_lock:
+            if (self._catalog_cache is not None
+                    and self._catalog_cache[0] == revision):
+                return copy.deepcopy(self._catalog_cache[1])
         found = []
         seen = set()
-        for root in (self.persona_root, self.user_root, self.system_root):
-            if not root.is_dir():
+        for path in paths:
+            try:
+                rec = self._cached_json(path)
+            except (OSError, ValueError, TypeError):
                 continue
-            for path in sorted(root.glob("doc_*/document.json")):
-                try:
-                    rec = json.loads(path.read_text(encoding="utf-8"))
-                except (OSError, ValueError, TypeError):
-                    continue
-                allowed, reason = self._access(
-                    rec if isinstance(rec, dict) else {})
-                if (not allowed or rec.get("id") != path.parent.name
-                        or rec["id"] in seen):
-                    continue
-                seen.add(rec["id"])
-                found.append({
-                    **rec,
-                    "visibility": str(
-                        rec.get("visibility") or "user_private"),
-                    "access_reason": reason,
-                })
-        return sorted(found, key=lambda rec: (
+            allowed, reason = self._access(
+                rec if isinstance(rec, dict) else {})
+            if (not allowed or rec.get("id") != path.parent.name
+                    or rec["id"] in seen):
+                continue
+            seen.add(rec["id"])
+            found.append({
+                **rec,
+                "visibility": str(
+                    rec.get("visibility") or "user_private"),
+                "access_reason": reason,
+            })
+        found = sorted(found, key=lambda rec: (
             -float(rec.get("imported_at", 0.0)), str(rec.get("title", ""))))
+        with self._cache_lock:
+            self._catalog_cache = (revision, copy.deepcopy(found))
+        return copy.deepcopy(found)
 
     def has_documents(self) -> bool:
         return bool(self.list_documents())
@@ -652,6 +790,7 @@ class DocumentLibrary:
         finally:
             if staging.exists():
                 shutil.rmtree(staging, ignore_errors=True)
+        self._invalidate_document_cache()
         return {**record, "duplicate": False}
 
     def import_data_url(self, filename: str, data_url: str,
@@ -789,7 +928,9 @@ class DocumentLibrary:
         }
 
     def encounter(self, anchor: str, *, action: str, query: str = "",
-                  report: str = "", why: str = "", run_id: str = "") -> dict:
+                  report: str = "", reaction: str = "", changed: str = "",
+                  unresolved: str = "", why: str = "",
+                  run_id: str = "") -> dict:
         """Persist one chosen encounter; source text is never copied here."""
         inspected = self.inspect_anchor(anchor, maximum=1)
         action = str(action or "quiet").strip().casefold()
@@ -812,6 +953,9 @@ class DocumentLibrary:
             "anchor": inspected["anchor"], "doc_id": inspected["doc_id"],
             "section": inspected["section"], "action": action,
             "query": query, "why": str(why or "")[:500],
+            "reaction": str(reaction or "").strip()[:1600],
+            "changed": str(changed or "").strip()[:1200],
+            "unresolved": str(unresolved or "").strip()[:1200],
             "run_id": str(run_id or "")[:160],
         })
         self.open(inspected["doc_id"], inspected["section"] - 1)
@@ -880,8 +1024,10 @@ class DocumentLibrary:
             "ownership": "persona_private_document_report",
         }
 
-    def pending_reports(self) -> list[dict]:
-        settled = {r.get("report_id") for r in self.reader_events(limit=5000)
+    def pending_reports(self, *, events=None) -> list[dict]:
+        events = (self.reader_events(limit=5000)
+                  if events is None else events)
+        settled = {r.get("report_id") for r in events
                    if r.get("kind") in {"document_report_handed_off",
                                         "document_report_settled"}}
         reports = []
@@ -928,12 +1074,8 @@ class DocumentLibrary:
 
     def notebook_entries(self, doc_id: str = "", limit: int = 5000) -> list[dict]:
         limit = max(0, min(int(limit), 5000))
-        try:
-            lines = self.notebook_path.read_text(encoding="utf-8").splitlines()
-        except OSError:
-            return []
         found = []
-        for line in lines[-limit:] if limit else ():
+        for line in _tail_text_lines(self.notebook_path, limit):
             try:
                 value = json.loads(line)
             except (TypeError, ValueError):
@@ -987,12 +1129,17 @@ class DocumentLibrary:
             used += cost
         return "\n".join(reversed(chosen))[:maximum]
 
-    def reading_coverage(self, doc_id: str) -> dict:
+    def reading_coverage(self, doc_id: str, *, events=None,
+                         notebook=None) -> dict:
         metadata = self._metadata(doc_id)
         total = int(metadata.get("chunk_count") or 0)
         autonomous, conversation, inferred = set(), set(), set()
         latest = None
-        for event in self.reader_events(limit=5000):
+        events = (self.reader_events(limit=5000)
+                  if events is None else events)
+        notebook = (self.notebook_entries(limit=5000)
+                    if notebook is None else notebook)
+        for event in events:
             kind = event.get("kind")
             if kind == "document_encounter" and event.get("doc_id") == doc_id:
                 anchor = str(event.get("anchor") or "")
@@ -1020,7 +1167,8 @@ class DocumentLibrary:
             "autonomous_sections": sections(autonomous),
             "conversation_sections": sections(conversation),
             "historical_inferred_sections": sections(inferred),
-            "notebook_count": len(self.notebook_entries(doc_id, 5000)),
+            "notebook_count": sum(
+                entry.get("doc_id") == doc_id for entry in notebook),
             "latest": latest,
         }
 
@@ -1153,13 +1301,14 @@ class DocumentLibrary:
         self._reconcile_reading_arc()
         return self.reading_arc_status()
 
-    def reading_arc_status(self) -> dict:
+    def reading_arc_status(self, *, events=None, notebook=None) -> dict:
         state = self._arc_state()
         if not state:
             return {"exists": False, "status": "inactive"}
         state.setdefault("pace", "natural")
         try:
-            coverage = self.reading_coverage(state["doc_id"])
+            coverage = self.reading_coverage(
+                state["doc_id"], events=events, notebook=notebook)
             next_section = self._next_arc_section(
                 state, set(coverage["known_sections"]))
         except DocumentError:
@@ -1270,17 +1419,23 @@ class DocumentLibrary:
 
         qtokens = self._tokens(query)
         lexical = {}
+        lexical_coverage = {}
         if qtokens:
             wanted = set(qtokens)
-            for document, chunk in candidates:
-                tokens = self._tokens(chunk["text"])
-                if not tokens:
-                    continue
-                counts = {term: tokens.count(term) for term in wanted}
-                score = sum(math.log1p(count) for count in counts.values())
-                if score:
-                    lexical[(document["id"], chunk["index"])] = (
-                        score / math.sqrt(len(tokens)))
+            for document in documents:
+                chunks = chunks_by_doc[document["id"]]
+                index = self._lexical_index(document["id"], chunks)
+                for chunk, (counts, token_count) in zip(chunks, index):
+                    if not token_count:
+                        continue
+                    score = sum(math.log1p(counts.get(term, 0))
+                                for term in wanted)
+                    if score:
+                        key = (document["id"], chunk["index"])
+                        lexical[key] = score / math.sqrt(token_count)
+                        lexical_coverage[key] = (
+                            sum(bool(counts.get(term)) for term in wanted)
+                            / len(wanted))
 
         semantic = {}
         vector_documents = 0
@@ -1292,9 +1447,8 @@ class DocumentLibrary:
             if query_vector is not None:
                 import numpy as np
                 for document in documents:
-                    path = self._doc_dir(document["id"]) / "vectors.npy"
                     try:
-                        matrix = np.load(path, allow_pickle=False)
+                        matrix = self._vectors(document["id"])
                     except (OSError, ValueError):
                         continue
                     chunks = chunks_by_doc[document["id"]]
@@ -1319,6 +1473,9 @@ class DocumentLibrary:
                     continue
                 fused[key] = fused.get(key, 0.0) + 1.0 / (rank + 1)
                 signals.setdefault(key, {})[name] = raw_score
+        for key, coverage in lexical_coverage.items():
+            signals.setdefault(key, {})["lexical_coverage"] = coverage
+            signals[key]["lexical_query_terms"] = len(wanted)
         doc_map = {document["id"]: document for document in documents}
         ranked = sorted(fused, key=lambda key: (-fused[key], key[0], key[1]))[:n]
         hits = []
@@ -1343,19 +1500,38 @@ class DocumentLibrary:
 
     def context_for_turn(self, query: str, *, max_hits: int = 3,
                          query_vector=None) -> dict:
-        active = self.reader_status(include_text=True)
-        search = self.search(query, n=max(max_hits + 1, 8),
+        active_candidate = self.reader_status(include_text=True)
+        search = self.search(query, n=max(max_hits + 1, 12),
                              query_vector=query_vector)
-        active_anchor = active.get("anchor") if active.get("active") else None
+        active_anchor = (active_candidate.get("anchor")
+                         if active_candidate.get("active") else None)
+        active_hit = next((
+            hit for hit in search["hits"]
+            if hit["anchor"] == active_anchor), None)
         ranked = [hit for hit in search["hits"]
                   if hit["anchor"] != active_anchor]
-        hits = ranked[:max_hits]
-        relevance = 0.0
-        if ranked:
-            signals = dict(ranked[0].get("signals") or {})
-            semantic = max(0.0, min(1.0, float(signals.get("semantic") or 0.0)))
-            lexical = max(0.0, float(signals.get("lexical") or 0.0))
-            relevance = max(semantic, 1.0 - math.exp(-lexical))
+        lead = ranked[0] if ranked else None
+        relevance = _turn_relevance(lead)
+        foreground_requested = bool(
+            active_anchor and _active_document_requested(query))
+        retrieval_requested = _active_document_requested(query)
+        retrieval_grounded = _retrieval_has_lexical_grounding(lead)
+        active_relevance = _turn_relevance(active_hit)
+        active_competitive = bool(
+            active_hit
+            and _retrieval_has_lexical_grounding(active_hit)
+            and active_relevance >= DOCUMENT_TURN_RELEVANCE_FLOOR
+            and (lead is None
+                 or float(active_hit.get("score") or 0.0)
+                 >= float(lead.get("score") or 0.0)
+                 * ACTIVE_DOCUMENT_COMPETITION_RATIO))
+        active = (active_candidate if foreground_requested or active_competitive
+                  else None)
+        hits = ([] if foreground_requested
+                else ranked[:max_hits]
+                if (relevance >= DOCUMENT_TURN_RELEVANCE_FLOOR
+                    and (retrieval_requested or retrieval_grounded)) else [])
+        if hits:
             lead = ranked[0]
             chunks = self._chunks(lead["doc_id"])
             target_chars = round(1800 + (relevance ** .72) * 7000)
@@ -1381,18 +1557,26 @@ class DocumentLibrary:
                 used += len(text)
             hits = packet
         active_chars = (len(str((active.get("chunk") or {}).get("text") or ""))
-                        if active.get("active") else 0)
+                        if active and active.get("active") else 0)
         source_chars = active_chars + sum(len(str(hit.get("text") or ""))
                                           for hit in hits)
         context_budget_tokens = max(900, min(3200,
             math.ceil((source_chars + 720) / 4)))
-        return {"active": active if active.get("active") else None,
+        return {"active": active if active and active.get("active") else None,
                 "hits": hits, "relevance": round(relevance, 6),
                 "context_budget_tokens": context_budget_tokens,
                 "receipt": {
                     "active_anchor": active_anchor,
                     "retrieved_anchors": [hit["anchor"] for hit in hits],
                     "conversation_relevance": round(relevance, 6),
+                    "active_relevance": round(active_relevance, 6),
+                    "relevance_floor": DOCUMENT_TURN_RELEVANCE_FLOOR,
+                    "active_foreground_requested": foreground_requested,
+                    "retrieval_requested": retrieval_requested,
+                    "retrieval_lexically_grounded": retrieval_grounded,
+                    "active_competitive": active_competitive,
+                    "active_admitted": bool(active),
+                    "retrieval_admitted": bool(hits),
                     "context_budget_tokens": context_budget_tokens,
                     "vector_query": search["vector_query"],
                     "vector_documents": search["vector_documents"],
@@ -1406,6 +1590,10 @@ class DocumentLibrary:
                           for doc in documents)
         total_chunks = sum(int(doc.get("chunk_count", 0)) for doc in documents)
         events = self.reader_events(limit=5000)
+        notebook = self.notebook_entries(limit=5000)
+        coverage = {document["id"]: self.reading_coverage(
+            document["id"], events=events, notebook=notebook)
+                    for document in documents}
         scope_counts = {
             visibility: sum(
                 doc.get("visibility") == visibility for doc in documents)
@@ -1423,9 +1611,9 @@ class DocumentLibrary:
                 },
                 "reader": active,
                 "reading": {
-                    "documents": {document["id"]: self.reading_coverage(
-                        document["id"]) for document in documents},
-                    "arc": self.reading_arc_status(),
+                    "documents": coverage,
+                    "arc": self.reading_arc_status(
+                        events=events, notebook=notebook),
                 },
                 "autonomous": {
                     "encounter_count": sum(r.get("kind") == "document_encounter"
@@ -1439,7 +1627,7 @@ class DocumentLibrary:
                     "reports": [self.report(r["report_id"]) for r in events
                                 if r.get("kind") == "document_report_created"
                                 and r.get("report_id")],
-                    "pending_reports": self.pending_reports(),
+                    "pending_reports": self.pending_reports(events=events),
                     "handoffs": [r for r in events if r.get("kind") ==
                                  "document_report_handed_off"],
                 },

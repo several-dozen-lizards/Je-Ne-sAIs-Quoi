@@ -18,6 +18,9 @@ import uuid
 SCHEMA_VERSION = 1
 TERMINAL_KINDS = {"conversation_completed", "conversation_failed",
                   "conversation_interrupted", "conversation_snapshot"}
+SELF_INITIATED_SOURCES = frozenset({
+    "self_initiated_contact", "self_initiated_private_contact",
+})
 DEFAULT_TEXT_ARCHIVE_BYTES = 1024 * 1024
 _ARCHIVE_PART_RE = re.compile(
     r"^(?P<date>\d{4}-\d{2}-\d{2})(?:-part-(?P<part>\d{3}))?\.txt$")
@@ -244,6 +247,7 @@ class ConversationLedger:
         self._lock = threading.RLock()
         self._states = {}
         self._conversation_records = {}
+        self._latest_inbound_by_thread = {}
         self._records = 0
         self._text_archive_error = ""
         os.makedirs(os.path.dirname(self.path), exist_ok=True)
@@ -276,6 +280,59 @@ class ConversationLedger:
                     self._conversation_records.setdefault(cid, []).append(record)
                 if cid and record.get("kind") != "conversation_delta":
                     self._states[cid] = record.get("kind")
+                self._track_inbound_boundary(record)
+
+    @staticmethod
+    def _recorded_epoch(record: dict) -> float:
+        value = str(record.get("occurred_at")
+                    or record.get("recorded_at") or "").strip()
+        if not value:
+            return 0.0
+        try:
+            return datetime.fromisoformat(
+                value.replace("Z", "+00:00")).timestamp()
+        except (TypeError, ValueError):
+            return 0.0
+
+    def _track_inbound_boundary(self, record: dict):
+        """Remember genuine human chat admissions by their durable thread.
+
+        Browser presence is transport reachability, not conversational demand.
+        Self-initiated resident deliveries therefore never advance this clock.
+        """
+        if record.get("kind") not in {
+                "conversation_admitted", "conversation_snapshot"}:
+            return
+        if str(record.get("channel") or "chat") != "chat":
+            return
+        source = str(record.get("source") or "turn")
+        if source in SELF_INITIATED_SOURCES:
+            return
+        if not str(record.get("message") or "").strip() \
+                and not list(record.get("images") or ()):
+            return
+        thread_id = _one_line(record.get("conversation_thread_id"))
+        if not thread_id:
+            return
+        boundary = {
+            "conversation_id": str(record.get("conversation_id") or ""),
+            "thread_id": thread_id,
+            "recorded_at": str(record.get("occurred_at")
+                               or record.get("recorded_at") or ""),
+            "recorded_epoch": self._recorded_epoch(record),
+            "content_included": False,
+        }
+        prior = self._latest_inbound_by_thread.get(thread_id)
+        if prior is None or boundary["recorded_epoch"] >= \
+                float(prior.get("recorded_epoch") or 0.0):
+            self._latest_inbound_by_thread[thread_id] = boundary
+
+    def latest_inbound_boundary(self, thread_id: str) -> dict | None:
+        """Return content-free identity for the latest durable human turn."""
+        with self._lock:
+            boundary = self._latest_inbound_by_thread.get(
+                _one_line(thread_id))
+            return dict(boundary) if boundary else None
 
     def _append(self, record: dict) -> dict:
         payload = {
@@ -299,6 +356,7 @@ class ConversationLedger:
                 self._conversation_records.setdefault(cid, []).append(payload)
             if cid and payload.get("kind") != "conversation_delta":
                 self._states[cid] = payload.get("kind")
+            self._track_inbound_boundary(payload)
             if payload.get("kind") in TERMINAL_KINDS:
                 try:
                     self.text_archive.project(
@@ -330,7 +388,7 @@ class ConversationLedger:
     def admit(self, *, conversation_id: str = "", channel: str = "chat",
               speaker: str = "", speaker_account: str = "",
               user_persona: str = "", message: str = "", images=None,
-              source: str = "turn") -> str:
+              source: str = "turn", conversation_thread_id: str = "") -> str:
         cid = str(conversation_id or ("conversation_" + uuid.uuid4().hex))
         with self._lock:
             if cid in self._states:
@@ -345,8 +403,22 @@ class ConversationLedger:
                 "message": str(message or ""),
                 "images": list(images or []),
                 "source": str(source or "turn"),
+                "conversation_thread_id": _one_line(
+                    conversation_thread_id),
             })
         return cid
+
+    def admit_once(self, **fields) -> tuple[str, bool, str]:
+        """Atomically admit a client-stable id and report prior state."""
+        cid = str(fields.get("conversation_id") or
+                  ("conversation_" + uuid.uuid4().hex))
+        fields["conversation_id"] = cid
+        with self._lock:
+            prior = str(self._states.get(cid) or "")
+            if prior:
+                return cid, False, prior
+            self.admit(**fields)
+            return cid, True, "conversation_admitted"
 
     def complete(self, conversation_id: str, *, reply: str = "",
                  memory_id: str = "", timing_ms=None, receipts=None) -> dict:

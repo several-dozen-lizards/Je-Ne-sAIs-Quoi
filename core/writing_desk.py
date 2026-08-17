@@ -17,12 +17,12 @@ import time
 from pathlib import Path, PurePosixPath
 from typing import Any, Mapping
 
-from core.agency_projection import AGENCY_SOURCE_BUDGET, AGENCY_TASK_BUDGET
+from core.agency_projection import AGENCY_ARTIFACT_BUDGET, AGENCY_SOURCE_BUDGET
 
 
-MAX_SEED_CHARS = AGENCY_TASK_BUDGET * 40
-MAX_REVISION_CHARS = AGENCY_TASK_BUDGET * 20
-MAX_READ_CHARS = AGENCY_TASK_BUDGET * 8
+MAX_SEED_CHARS = AGENCY_ARTIFACT_BUDGET * 40
+MAX_REVISION_CHARS = AGENCY_ARTIFACT_BUDGET * 20
+MAX_READ_CHARS = AGENCY_ARTIFACT_BUDGET * 8
 MAX_LABEL_CHARS = AGENCY_SOURCE_BUDGET
 RESOLUTIONS = frozenset({"paused", "completed", "abandoned", "archived"})
 SEED_OWNERSHIPS = frozenset({"human_admitted",
@@ -460,4 +460,23 @@ class WritingDesk:
                 "message": False,
                 "external_effects": False,
             },
+        }
+
+    def resource_status(self) -> dict:
+        """Return count-only owned-work state without project or seed content."""
+        projects = self.projects_status()
+        counts = {
+            state: sum(project.get("state") == state for project in projects)
+            for state in ("open", "paused", "completed", "abandoned", "archived")
+        }
+        return {
+            "pending_seed_count": len(self.pending_seeds()),
+            "project_count": len(projects),
+            "open_project_count": counts["open"],
+            "paused_project_count": counts["paused"],
+            "completed_project_count": counts["completed"],
+            "abandoned_project_count": counts["abandoned"],
+            "archived_project_count": counts["archived"],
+            "content_free": True,
+            "read_only": True,
         }

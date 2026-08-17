@@ -93,8 +93,14 @@
           if (node.nodeType === 1) wire(node);
     });
     const observerRoot = document.body || document.documentElement;
-    if (observerRoot && observerRoot.nodeType === 1)
-      observer.observe(observerRoot, {childList: true, subtree: true});
+    if (observerRoot && observerRoot.nodeType === 1) {
+      // Embedded surfaces can be torn down between DOM readiness and this
+      // callback.  A vanished browsing context must not turn an optional
+      // exact-color enhancement into an uncaught page error.
+      try {
+        observer.observe(observerRoot, {childList: true, subtree: true});
+      } catch (_detachedContext) {}
+    }
   };
   if (document.readyState === "loading")
     document.addEventListener("DOMContentLoaded", start, {once: true});

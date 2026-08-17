@@ -1,24 +1,27 @@
-"""rhythm_affect — the LAST arc of the circle (circulatory cut 4).
-Rhythm presses back into emotion: a band the body has INHABITED (dwell-gated,
-not merely visited) gently seeds its feeling-tone into the cocktail.
+"""Shadow-only test of the legacy rhythm-to-named-affect hypothesis.
 
-This is the one coupling with runaway potential (sad -> theta -> sadder),
-so the damping is the design:
-  1. DWELL GATE  — no nudge until dominance has lasted DWELL_GATE_S.
-  2. TINY NUDGE  — NUDGE per turn. The rhythm whispers.
-  3. HARD CAP    — this path alone can never push a feeling past CAP.
-                   The body can make you wistful, not despairing.
-  4. DECAY WINS  — the cocktail's own per-turn decay (x0.8) opposes the
-                   nudge every turn; the closed loop has a fixed point
-                   far below CAP (proven by the spiral probe in
-                   harness/run_rhythm_affect.py, 50 round trips).
-Pure function, declarative map, NO organ imports — the contract composes."""
+The old live coupling translated a dominant biological alias directly into a
+named cocktail coordinate after a fixed dwell gate.  Resident feedback exposed
+that as a prescriptive seam: the label, rather than a demonstrated synthetic
+relationship, supplied the feeling.  This module therefore has no mutating
+output.  It records the old mapped candidate beside label-removed, mismatched,
+and sham controls so the hypothesis remains inspectable without entering
+feeling, recall, soma, prompts, or action selection.
 
-DWELL_GATE_S = 600.0      # inhabit a band 10 min before it colors feeling
-NUDGE = 0.03              # per-turn seed size
-CAP = 0.35                # ceiling for rhythm-seeded intensity
+Pure function, declarative maps, no organ imports.  The bench composes the
+shadow receipt at a natural turn boundary.
+"""
 
-BAND_FEELING = {
+SCHEMA_VERSION = 2
+MODE = "shadow_only"
+
+# These are frozen LEGACY parameters, retained only to replay the retired
+# causal proposal. They do not define a live timer, threshold, or nudge.
+LEGACY_DWELL_GATE_S = 600.0
+LEGACY_NUDGE = 0.03
+LEGACY_CAP = 0.35
+
+LEGACY_BAND_FEELING = {
     "delta": "heaviness",
     "theta": "melancholy",
     "alpha": "calm",
@@ -26,19 +29,67 @@ BAND_FEELING = {
     "gamma": "intensity",
 }
 
+# A fixed rotation preserves the same candidate vocabulary while breaking the
+# authored band-to-affect pairing. It is a control, never phenomenology.
+MISMATCHED_BAND_FEELING = {
+    "delta": "intensity",
+    "theta": "heaviness",
+    "alpha": "melancholy",
+    "beta": "calm",
+    "gamma": "restlessness",
+}
 
-def rhythm_affect_nudge(cocktail: dict, dominant_band: str,
-                        dwell_seconds: float) -> dict:
-    """Return a NEW cocktail with the dwell-gated, capped nudge applied.
-    Never mutates. Returns the input copied unchanged if gate not met."""
-    out = dict(cocktail or {})
-    if dwell_seconds < DWELL_GATE_S:
-        return out
-    feeling = BAND_FEELING.get(dominant_band)
-    if not feeling:
-        return out
-    current = out.get(feeling, 0.0)
-    if current >= CAP:
-        return out
-    out[feeling] = round(min(CAP, current + NUDGE), 3)
-    return out
+
+def _candidate(cocktail: dict, feeling: str | None, eligible: bool) -> dict:
+    current = float((cocktail or {}).get(feeling, 0.0)) if feeling else 0.0
+    proposed = (
+        round(min(LEGACY_CAP, current + LEGACY_NUDGE), 3)
+        if feeling and eligible and current < LEGACY_CAP else current)
+    return {
+        "candidate_affect": feeling,
+        "current_value": round(current, 6) if feeling else None,
+        "counterfactual_value": round(proposed, 6) if feeling else None,
+        "would_change": bool(feeling and eligible and proposed != current),
+    }
+
+
+def rhythm_affect_shadow(cocktail: dict, dominant_band: str,
+                         dwell_seconds: float) -> dict:
+    """Return a noncausal receipt; never return or mutate a new cocktail.
+
+    ``legacy_eligible`` answers only whether the retired rule would have fired.
+    It has no authority over current state.  All four conditions are projected
+    together, so no control assignment can accidentally become a live nudge.
+    """
+    source = dict(cocktail or {})
+    band = str(dominant_band or "").casefold()
+    dwell = max(0.0, float(dwell_seconds or 0.0))
+    eligible = bool(
+        band in LEGACY_BAND_FEELING and dwell >= LEGACY_DWELL_GATE_S)
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "mode": MODE,
+        "applied": False,
+        "cocktail_unchanged": True,
+        "dominant_band_alias": band or None,
+        "observed_dwell_seconds": round(dwell, 3),
+        "legacy_eligible": eligible,
+        "hypothesis": {
+            "kind": "retired_band_label_to_named_affect",
+            "legacy_dwell_gate_s": LEGACY_DWELL_GATE_S,
+            "legacy_nudge": LEGACY_NUDGE,
+            "legacy_cap": LEGACY_CAP,
+        },
+        "conditions": {
+            "mapped": _candidate(
+                source, LEGACY_BAND_FEELING.get(band), eligible),
+            "label_removed": _candidate(source, None, eligible),
+            "mismatched": _candidate(
+                source, MISMATCHED_BAND_FEELING.get(band), eligible),
+            "sham": _candidate(source, None, False),
+        },
+        "prohibited_downstream": [
+            "cocktail", "recall", "soma", "prompt", "memory_admission",
+            "attention", "speech", "agency",
+        ],
+    }

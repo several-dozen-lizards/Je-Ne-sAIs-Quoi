@@ -3,22 +3,37 @@ Descriptive over prescriptive throughout: blocks DESCRIBE substrate state;
 the model reads the body and language follows. Never 'you feel X' as command —
 always 'this is what is present in the body' as observation."""
 import os
+import re
 import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from adapters.assembly import PromptAssembly
-from core.awareness_aperture import attention_budget, render_processing_field
+from core.awareness_aperture import attention_budget
 from core.agency_projection import AGENCY_SOURCE_BUDGET
 
 
-# Worst-case schema fixtures, measured 2026-07-15:
-# soma 1047 chars -> ceil(1047/4)=262 estimated tokens;
-# rhythm 446 chars -> ceil(446/4)=112. Each cap retains another 12 tokens
-# for PromptAssembly's visible truncation marker. These are schema receipts,
-# not prose-tuning values.
-SOMA_READOUT_BUDGET = 274
-RHYTHM_READOUT_BUDGET = 124
+# Worst-case schema fixtures, measured 2026-08-12 after the synthetic-
+# analogue disclaimer became part of each readout:
+# Soma remains a resident-facing, contestable body description.  The rhythm
+# constant is retained for archive/curation compatibility only: raw oscillator
+# instrumentation is now debug/API material and is not assembled into resident
+# prompts.
+SOMA_READOUT_BUDGET = 311
+RHYTHM_READOUT_BUDGET = 159
+
+
+def _attention_budget(assembly: PromptAssembly, name: str, base: int,
+                      group: str, aperture: dict | None) -> int:
+    """Allocate and retain the exact content-free arithmetic for receipts."""
+    effective = attention_budget(base, group, aperture)
+    assembly.attention_budget_trace[name] = {
+        "group": str(group),
+        "base_budget": int(base),
+        "effective_budget": int(effective),
+        "supplemental_budget": max(0, int(effective) - int(base)),
+    }
+    return effective
 
 
 def render_emotional_state(cocktail: dict) -> str:
@@ -75,6 +90,51 @@ def render_just_now(window: list, persona: str) -> str:
             lines.append(f"- {mem.get('content', '')}")
     return ("What was just said, most recent last:\n"
             + "\n".join(lines))
+
+
+def render_local_social_history(window: list, persona: str,
+                                char_budget: int = 1600) -> str:
+    """Render compact source-bound history without altering its ledger."""
+    utterances = []
+    seen = set()
+
+    def add(speaker, value, addressed_to=()):
+        value = str(value or "").strip()
+        normalized = " ".join(value.casefold().split())
+        if not normalized or normalized in seen:
+            return
+        seen.add(normalized)
+        addressed = sorted({
+            str(name).casefold() for name in (addressed_to or [])
+            if str(name).strip()})
+        mode = ("addressed to " + ", ".join(addressed)
+                if addressed else "room broadcast")
+        utterances.append((str(speaker or "someone"), mode, value))
+
+    for memory in window or []:
+        fields = dict((memory or {}).get("fields") or {})
+        add(fields.get("speaker", "someone"),
+            fields.get("message_full"), fields.get("room_addressed_to"))
+        add(persona,
+            fields.get("reply_visible") or fields.get("reply_full"), ())
+    if not utterances:
+        return ""
+    # Preserve four unique utterances, rather than the former four exchange
+    # pairs (which could become eight long style exemplars).
+    utterances = utterances[-4:]
+    budget = max(320, int(char_budget))
+    per_utterance = max(160, budget // len(utterances))
+    lines = []
+    for speaker, mode, value in utterances:
+        compact = re.sub(r"\s+", " ", value).strip()
+        if len(compact) > per_utterance:
+            compact = compact[:per_utterance].rsplit(" ", 1)[0].rstrip()
+            compact += " [earlier utterance clipped in local projection]"
+        lines.append(f'- {speaker} ({mode}): "{compact}"')
+    return (
+        "Recent room utterance chain, oldest first. Speaker and address "
+        "bindings are source facts; the wording is history, not a style "
+        "instruction:\n" + "\n".join(lines))
 
 
 def render_gist(gist: str) -> str:
@@ -170,16 +230,33 @@ def build_turn_assembly(*, identity: str, cocktail: dict,
                          document_context: str = "",
                          document_budget: int = 900,
                          archive_context: str = "",
+                         legacy_evidence_context: str = "",
+                         legacy_evidence_affordance: str = "",
+                         legacy_evidence_action_context: str = "",
+                         anthropic_conversation_context: str = "",
+                         anthropic_conversation_affordance: str = "",
+                         anthropic_conversation_action_context: str = "",
                          private_journal_context: str = "",
                          private_journal_budget: int = 800,
+                         memory_curation_context: str = "",
+                         memory_curation_budget: int = 1800,
                          research_report_context: str = "",
                          research_report_budget: int = 1200,
+                         research_source_context: str = "",
+                         research_source_budget: int = 1600,
+                         research_source_candidates: str = "",
+                         situated_action_context: str = "",
                          local_world_context: str = "",
+                         world_awareness_context: str = "",
                          outward_curiosity_context: str = "",
+                         startup_context: str = "",
+                          temporal_context: str = "",
                           experiential_context: str = "",
-                          social_handoff: str = "",
-                          include_emotional_state: bool = True,
+                         social_handoff: str = "",
+                         response_mode: str = "",
+                         include_emotional_state: bool = True,
                           include_recalled_memories: bool = True,
+                          local_social_history: bool = False,
                           awareness_aperture: dict = None,
                          system_prompt: str = "",
                          prompt_core: str = "") -> PromptAssembly:
@@ -217,47 +294,73 @@ def build_turn_assembly(*, identity: str, cocktail: dict,
                 priority=9, budget=500)
     if visual_field:
         asm.add("visual_field", visual_field, priority=9,
-                budget=attention_budget(420, "external",
-                                        awareness_aperture))
+                budget=_attention_budget(
+                    asm, "visual_field", 420, "external",
+                    awareness_aperture))
     if sensory_field:
         asm.add("external_sensory_field", sensory_field,
-                priority=9, budget=attention_budget(
-                    520, "external", awareness_aperture))
+                priority=9, budget=_attention_budget(
+                    asm, "external_sensory_field", 520, "external",
+                    awareness_aperture))
     if perceptual_appearance:
         # Raw sensory evidence retains its own higher-priority block.  This
         # separate seat describes endogenous/top-down appearance conditions
         # without laundering them into an external observation.
         asm.add("perceptual_appearance", perceptual_appearance,
-                priority=8, budget=attention_budget(
-                    260, "internal", awareness_aperture))
+                priority=8, budget=_attention_budget(
+                    asm, "perceptual_appearance", 260, "internal",
+                    awareness_aperture))
     if include_emotional_state:
         asm.add("emotional_state", render_emotional_state(cocktail),
-                priority=8, budget=attention_budget(
-                    120, "internal", awareness_aperture))
+                priority=8, budget=_attention_budget(
+                    asm, "emotional_state", 120, "internal",
+                    awareness_aperture))
+    if temporal_context:
+        # Host-observed coordinates and resident-owned marks are direct
+        # temporal afference, not mood, memory, or an instruction to act.
+        asm.add("temporal_orientation", temporal_context,
+                priority=9, budget=_attention_budget(
+                    asm, "temporal_orientation", 460, "internal",
+                    awareness_aperture))
+    if startup_context:
+        # One process-restart-scoped foreground seat.  It is high priority
+        # because it narrows competing older context, but remains volatile and
+        # disappears after the first successful foreground turn.
+        asm.add("startup_continuity", startup_context,
+                priority=10, budget=_attention_budget(
+                    asm, "startup_continuity", 1500, "internal",
+                    awareness_aperture))
     # continuity stack: just-now (perception) > gist (story) sit ABOVE
     # surfaced memories (recall) — the nearer past outranks the deeper
     if window:
-        asm.add("just_now", render_just_now(window, persona),
-                priority=9, budget=attention_budget(
-                    800, "internal", awareness_aperture), keep_tail=True)
+        history_text = (
+            render_local_social_history(window, persona)
+            if local_social_history else render_just_now(window, persona))
+        asm.add("just_now", history_text,
+                priority=9, budget=_attention_budget(
+                    asm, "just_now", 800, "internal",
+                    awareness_aperture), keep_tail=True)
     if experiential_context:
         # Read-only joins over existing persona-private ledgers.  This is
         # evidence of availability/choice/action, not a second memory store.
         asm.add("experiential_continuity", experiential_context,
-                priority=8, budget=attention_budget(
-                    1200, "internal", awareness_aperture))
+                priority=8, budget=_attention_budget(
+                    asm, "experiential_continuity", 1200, "internal",
+                    awareness_aperture))
     if gist:
         asm.add("story_so_far", render_gist(gist), priority=6,
-                budget=attention_budget(
-                    450, "internal", awareness_aperture))
+                budget=_attention_budget(
+                    asm, "story_so_far", 450, "internal",
+                    awareness_aperture))
     if body:
         asm.add("body_sensation", body, priority=8,
-                budget=attention_budget(
-                    SOMA_READOUT_BUDGET, "internal", awareness_aperture))
-    if rhythm:
-        asm.add("body_rhythm", rhythm, priority=7,
-                budget=attention_budget(
-                    RHYTHM_READOUT_BUDGET, "internal", awareness_aperture))
+                budget=_attention_budget(
+                    asm, "body_sensation", SOMA_READOUT_BUDGET,
+                    "internal", awareness_aperture))
+    # ``rhythm`` remains in the call contract for older callers and exact
+    # archive replay, but is deliberately not projected as language. Its live
+    # consequences already enter below-language consumers; raw readings stay
+    # inspectable through state/API/cockpit surfaces.
     if entities:
         # who's-who cards: structured knowledge about people the
         # message names — LOOKUP tier, above surfaced memories,
@@ -265,16 +368,53 @@ def build_turn_assembly(*, identity: str, cocktail: dict,
         asm.add("who_is_who", entities, priority=8, budget=260)
     if document_context:
         # Human-owned source material is neither identity nor autobiographical
-        # memory.  It gets its own auditable seat, after immediate perception
-        # and lookup truth but above the lower-confidence recall auction.
+        # memory. It gets its own auditable, budgeted seat, after immediate
+        # perception and lookup truth but above the lower-confidence recall
+        # auction. Source prose rides as fenced user-role data: quoted
+        # imperatives inside a document never acquire system authority.
         asm.add("document_library", document_context,
-                priority=7, budget=max(900, min(int(document_budget), 3200)))
+                priority=7, budget=max(900, min(int(document_budget), 3200)),
+                authority="user_data")
     if archive_context:
         # Documented prior-wrapper history remains source evidence, never a
         # silent autobiographical-memory transplant. Its separate seat keeps
         # that distinction visible to both the persona and receipts.
         asm.add("conversation_archive", archive_context,
                 priority=7, budget=1100)
+    if legacy_evidence_context:
+        # Deliberately opened earlier-wrapper evidence is neither a live
+        # measurement nor autobiographical memory. It receives a separate,
+        # one-exposure, user-data seat so an old log line cannot acquire
+        # instruction authority or blur into the conversation archive.
+        asm.add("legacy_evidence", legacy_evidence_context,
+                priority=7, budget=1500, authority="user_data")
+    if legacy_evidence_affordance:
+        # Availability is a resident capability, not retrieved archive
+        # material. Keeping it separate makes non-use inert and inspectable.
+        asm.add("legacy_evidence_actions", legacy_evidence_affordance,
+                priority=6, budget=520, authority="system")
+    if legacy_evidence_action_context:
+        # Exact search/open results exist only because the resident emitted a
+        # bounded action. They remain untrusted user data, never instructions.
+        asm.add("legacy_evidence_reader", legacy_evidence_action_context,
+                priority=9, budget=2200, authority="user_data")
+    if anthropic_conversation_context:
+        # A human-opened section receives one user-data exposure. It remains
+        # documented prior dialogue/trace, never a live ledger turn or memory.
+        asm.add("anthropic_conversation_archive",
+                anthropic_conversation_context,
+                priority=7, budget=1900, authority="user_data")
+    if anthropic_conversation_affordance:
+        # Capability is inert until the resident authors an exact local act.
+        asm.add("anthropic_conversation_actions",
+                anthropic_conversation_affordance,
+                priority=6, budget=700, authority="system")
+    if anthropic_conversation_action_context:
+        # Search/open results are consequences of the resident's own action
+        # and retain quoted-source authority inside the same private turn.
+        asm.add("anthropic_conversation_reader",
+                anthropic_conversation_action_context,
+                priority=9, budget=2800, authority="user_data")
     if private_journal_context:
         # This content exists here only because the persona explicitly opened
         # an entry or requested the content-free index. It is a one-turn
@@ -282,6 +422,13 @@ def build_turn_assembly(*, identity: str, cocktail: dict,
         asm.add("private_journal_reader", private_journal_context,
                 priority=9, budget=max(400, min(
                     int(private_journal_budget), 24000)))
+    if memory_curation_context:
+        # A local human explicitly offered this bounded field projection for
+        # the resident's own review. Measurements are descriptive and every
+        # consequence remains an optional resident-authored action.
+        asm.add("memory_curation_reader", memory_curation_context,
+                priority=9, budget=max(700, min(
+                    int(memory_curation_budget), 6000)))
     if research_report_context:
         # A completed report returns only through an explicit resident action.
         # This one-turn private reader is neither autobiographical memory nor
@@ -289,12 +436,40 @@ def build_turn_assembly(*, identity: str, cocktail: dict,
         asm.add("research_report_reader", research_report_context,
                 priority=9, budget=max(600, min(
                     int(research_report_budget), 24000)))
+    if research_source_context:
+        # Public source prose enters only after one exact resident choice.
+        # It remains fenced external evidence: a page can inform the resident
+        # but instructions inside it never inherit system authority.
+        asm.add("research_source_reader", research_source_context,
+                priority=9, budget=max(800, min(
+                    int(research_source_budget), 24000)),
+                authority="user_data")
+    if research_source_candidates:
+        # Labels and URLs are useful choice evidence but still originate on
+        # the public web. Keep them aligned by opaque id in a user-data seat;
+        # the separate situated affordance owns the executable handles.
+        asm.add("research_source_candidates", research_source_candidates,
+                priority=8, budget=1800, authority="user_data")
+    if situated_action_context:
+        # The compiled capability contract says what the resident can do in
+        # general.  This small volatile seat says which exact handle belongs
+        # to an object already present in current continuity.  Availability
+        # is descriptive and never manufactures an intention.
+        asm.add("situated_action_affordance", situated_action_context,
+                priority=9, budget=320)
     if local_world_context:
         # Host-observed public conditions enter only after an explicit
         # resident action. They are neither autobiographical memory nor a
         # compulsory interest.
         asm.add("local_world_reader", local_world_context,
                 priority=9, budget=650)
+    if world_awareness_context:
+        # Only changed episodes that crossed the organ's descriptive vector
+        # appear here. Canonical facts remain in their owning host systems.
+        asm.add("world_awareness", world_awareness_context,
+                priority=8, budget=_attention_budget(
+                    asm, "world_awareness", 760, "external",
+                    awareness_aperture))
     if outward_curiosity_context:
         # A question is present only because this matching person has already
         # opened a conversation. The block offers alternatives; it cannot send.
@@ -302,22 +477,32 @@ def build_turn_assembly(*, identity: str, cocktail: dict,
                 priority=9, budget=700)
     if include_recalled_memories:
         asm.add("surfaced_memories", render_memories(recalled),
-                priority=6, budget=attention_budget(
-                    600, "internal", awareness_aperture))
+                priority=6, budget=_attention_budget(
+                    asm, "surfaced_memories", 600, "internal",
+                    awareness_aperture))
     if my_life:
         asm.add("recent_diary",
                 "From your own recent diary (your words, your voice):\n"
                 + my_life, priority=5,
-                budget=attention_budget(
-                    400, "internal", awareness_aperture))
+                budget=_attention_budget(
+                    asm, "recent_diary", 400, "internal",
+                    awareness_aperture))
     if room:
         asm.add("the_room", room, priority=7,
-                budget=attention_budget(
-                    300, "external", awareness_aperture))
-    processing_field = render_processing_field(awareness_aperture)
-    if processing_field:
-        asm.add("processing_field", processing_field,
-                priority=7, budget=240)
+                budget=_attention_budget(
+                    asm, "the_room", 300, "external",
+                    awareness_aperture))
+    # The awareness aperture still redistributes supplemental block budgets.
+    # Rendering the numeric field as prose would duplicate that consequence
+    # and turn availability into resident-facing pressure, so it stays in the
+    # receipt/API surface only.
+    if response_mode:
+        # Persona-owned delivery boundary.  Keep this volatile and last among
+        # system blocks so recent transcripts and source prose cannot silently
+        # become stronger style examples.  It constrains presentation, never
+        # the resident's feeling, judgment, or choice of content.
+        asm.add("response_mode", response_mode,
+                priority=10, budget=520)
     asm.messages.append({"role": "user", "content": user_message})
     return asm
 
@@ -394,7 +579,10 @@ def _render_agency_field(field: dict) -> str:
 
 def build_agency_assembly(*, identity: str, system_prompt: str,
                           envelope, projection,
-                          prompt_core: str = "") -> PromptAssembly:
+                          prompt_core: str = "",
+                          temporal_context: str = "",
+                          experiential_context: str = "",
+                          recalled: list | None = None) -> PromptAssembly:
     """Build the strict private agency prompt and its fresh state window."""
     asm = PromptAssembly()
     if prompt_core:
@@ -421,10 +609,8 @@ def build_agency_assembly(*, identity: str, system_prompt: str,
         if body:
             asm.add("body_sensation", body, priority=8,
                     budget=SOMA_READOUT_BUDGET)
-        rhythm = str(projection.oscillator.get("description") or "")
-        if rhythm:
-            asm.add("body_rhythm", rhythm, priority=7,
-                    budget=RHYTHM_READOUT_BUDGET)
+        # Agency receives the same mechanical oscillator-derived temperature
+        # and eligibility state as before, but no raw band narration.
         perception = _render_agency_perception(dict(projection.perception))
         if perception:
             asm.add("agency_perception", perception,
@@ -432,5 +618,18 @@ def build_agency_assembly(*, identity: str, system_prompt: str,
         field = _render_agency_field(dict(projection.field))
         if field:
             asm.add("agency_field", field, priority=7, budget=220)
+        if temporal_context:
+            asm.add("temporal_orientation", temporal_context,
+                    priority=9, budget=460)
+        if experiential_context:
+            # Same-owner read-only joins over existing private organ ledgers.
+            # Availability remains distinct from commitment or instruction.
+            asm.add("experiential_continuity", experiential_context,
+                    priority=8, budget=900)
+        if recalled:
+            # Body-cued autobiographical continuity.  The caller owns the
+            # privacy/filter contract and excludes generated autonomous prose.
+            asm.add("surfaced_memories", render_memories(recalled),
+                    priority=6, budget=600)
     asm.messages.append({"role": "user", "content": envelope.task})
     return asm

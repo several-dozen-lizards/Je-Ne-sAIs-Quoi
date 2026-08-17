@@ -1,0 +1,52 @@
+# Dedicated local utility vessel for explicit room-object profiling.
+# CPU-bound by contract so this optional action cannot evict a resident model
+# from the single available GPU slot.
+identity:
+  name: "object-profiler-local"
+  family: "qwen2.5"
+  base_model: "Qwen2.5 1.5B"
+  provider: "ollama"
+  service: "ollama"
+  endpoint: "qwen2.5:1.5b"
+  locality: "local"
+
+context:
+  window_tokens: 4096
+  practical_window_tokens: 3200
+  block_budgets: {}
+
+prompt_structure:
+  system_prompt: true
+  template: "openai_messages"
+  strict_alternation: false
+  prefill_supported: false
+  stop_sequences: []
+
+sampling:
+  temperature:
+    mode: "fixed"
+    value: 0.2
+
+wire:
+  ollama:
+    num_gpu: 0
+    keep_alive: 0
+
+capabilities:
+  tool_use: false
+  vision: false
+  structured_output: "host-validated-json"
+  streaming: false
+
+module_capability:
+  validated: ["bounded_object_profile"]
+  saturates_on: []
+  ceiling_notes: "Shared object metadata only; never resident state or capability authority."
+
+runtime:
+  gpu_constraints: "CPU-only auxiliary route; must not evict the resident GPU vessel"
+  cost: "free_local"
+  latency_class: "short_cpu_utility"
+
+quirks:
+  - "Every response is host-validated against a finite affordance schema."

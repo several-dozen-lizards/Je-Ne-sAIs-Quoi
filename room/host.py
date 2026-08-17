@@ -17,12 +17,17 @@ Geography as permissions, wired live:
 Run:  python room/host.py [--port 8720]"""
 import argparse
 import datetime as dt
+import hashlib
+import json
 import os
+import re
+import subprocess
 import sys
 import time
+import urllib.parse
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from fastapi import FastAPI, Request
+from fastapi import BackgroundTasks, FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -49,6 +54,7 @@ from core.world_modules import (WorldModuleError, capture_module,
                                 compile_stamp, list_modules, load_module,
                                 save_module)
 from room.local_weather import LocalWeather
+from room.object_profile import ObjectProfileError, propose_object_profile
 from shell.persona_media import load_persona_avatar
 from shell.ui_background import (delete_nexus_background,
                                  load_conversation_background,
@@ -57,6 +63,10 @@ from shell.ui_background import (delete_nexus_background,
 from shell.ui_themes import resolve_nexus_theme, resolve_theme, save_nexus_theme
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BODY_CANDIDATE_PILOT = "starter_persona"
+MAX_OBJECT_IMPORT_BYTES = 160 * 1024 * 1024
+OBJECT_CATALOG_CATEGORIES = {
+    "seating", "beds", "surfaces", "pictures", "misc"
+}
 STATE_FILE = os.environ.get(
     "JNSQ_ROOM_STATE",                      # test isolation forever
     os.path.join(REPO, "room", "room_world.json"))
@@ -86,6 +96,101 @@ def _world_module_root():
         os.path.join(REPO, "room", "world_modules"))
 
 
+def _object_asset_root():
+    return os.environ.get(
+        "JNSQ_OBJECT_ASSETS",
+        os.path.join(REPO, "godot-room", "assets", "objects"))
+
+
+def _object_thumbnail_root():
+    return os.path.join(_object_asset_root(), ".thumbnails")
+
+
+def _render_object_thumbnail(asset_path: str) -> bool:
+    """Render one cached preview locally; failure leaves a labeled fallback."""
+    if os.path.splitext(asset_path)[1].lower() != ".glb":
+        return False
+    blender = os.environ.get("JNSQ_BLENDER", r"E:\Blender\blender.exe")
+    script = os.path.join(REPO, "tools", "render_object_thumbnail.py")
+    if not os.path.isfile(blender) or not os.path.isfile(script):
+        return False
+    stem = os.path.splitext(os.path.basename(asset_path))[0]
+    root = _object_thumbnail_root()
+    os.makedirs(root, exist_ok=True)
+    output = os.path.join(root, stem + ".png")
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    try:
+        completed = subprocess.run(
+            [blender, "--background", "--factory-startup", "--python",
+             script, "--", asset_path, output],
+            cwd=REPO, timeout=300, creationflags=flags,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            check=False)
+        return completed.returncode == 0 and os.path.isfile(output)
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def _catalog_category(stem: str, detail: dict) -> str:
+    metadata = detail.get("metadata") if isinstance(detail, dict) else {}
+    metadata = metadata if isinstance(metadata, dict) else {}
+    explicit = str(metadata.get("category", "")).strip().lower()
+    if explicit in OBJECT_CATALOG_CATEGORIES:
+        return explicit
+    folded = stem.lower().replace("-", "_")
+    if any(word in folded for word in (
+            "chair", "couch", "sofa", "bench", "stool", "seat")):
+        return "seating"
+    if "bed" in folded:
+        return "beds"
+    if any(word in folded for word in (
+            "desk", "table", "shelf", "cabinet", "counter",
+            "nightstand", "surface")):
+        return "surfaces"
+    if (detail.get("format") in {"png", "jpg", "jpeg"}
+            or any(word in folded for word in (
+                "poster", "picture", "painting", "portrait", "frame"))):
+        return "pictures"
+    return "misc"
+
+
+def _catalog_item(stem: str, detail: dict) -> dict:
+    metadata = detail.get("metadata") if isinstance(detail, dict) else {}
+    metadata = metadata if isinstance(metadata, dict) else {}
+    category = _catalog_category(stem, detail)
+    default_sizes = {
+        "seating": 1.6, "beds": 2.0, "surfaces": 1.4,
+        "pictures": 1.0, "misc": 0.8,
+    }
+    try:
+        size = float(metadata.get("default_size_m", default_sizes[category]))
+    except (TypeError, ValueError):
+        size = default_sizes[category]
+    display = str(metadata.get("display_name", "")).strip()
+    if not display:
+        display = stem.replace("_", " ").replace("-", " ").title()
+    image_format = detail.get("format") in {"png", "jpg", "jpeg"}
+    thumbnail_path = os.path.join(_object_thumbnail_root(), stem + ".png")
+    thumbnail_ready = image_format or os.path.isfile(thumbnail_path)
+    thumbnail_url = ("/models/" + str(detail.get("filename", ""))
+                     if image_format else
+                     "/model-thumbnails/" + stem + ".png")
+    return {
+        "kind": stem,
+        "filename": detail.get("filename", ""),
+        "display_name": display,
+        "category": category,
+        "format": detail.get("format", ""),
+        "bytes": int(detail.get("bytes", 0)),
+        "packaged": bool(detail.get("packaged", False)),
+        "size_m": max(0.02, min(6.0, size)),
+        "capability": metadata.get("capability")
+        or metadata.get("jnsq_capability"),
+        "thumbnail_url": thumbnail_url,
+        "thumbnail_ready": thumbnail_ready,
+    }
+
+
 def _named_theme_value(mapping: dict, *names):
     """Case-insensitive lookup for display names and stable ids."""
     folded = {str(key).casefold(): value for key, value in
@@ -96,7 +201,7 @@ def _named_theme_value(mapping: dict, *names):
     return None
 
 # ── THE WORLD LOCK (audit finding 2, 2026-07-05) ──
-# One world, one writer at a time. Three live actors + heartbeats +
+# One world, one writer at a time. N live actors + heartbeats +
 # tropism all mutate concurrently through FastAPI's threadpool; this
 # asyncio.Lock in the middleware serializes every request — mutations
 # AND reads — so no actor ever sees a half-moved body or races the
@@ -113,12 +218,87 @@ def _obj_record(o, custom: bool) -> dict:
             "kind": o.kind, "size_m": o.size_m,
             "rot_deg": getattr(o, "rot_deg", 0.0),
             "y_off_m": getattr(o, "y_off_m", 0.0),
+            "support_surface": getattr(o, "support_surface", "yurt_floor"),
+            "support_oid": getattr(o, "support_oid", None),
             "description": o.description, "texture": o.texture,
             "capability": o.capability, "owner": o.owner,
             "affordances": dict(o.affordances),
             "temperature_c": o.temperature_c, "mass_kg": o.mass_kg,
+            "profile_provenance": dict(getattr(
+                o, "profile_provenance", {}) or {}),
             "power": getattr(o, "power", 0.0),
+            "board_revision": int(getattr(o, "board_revision", 0)),
+            "board_reads": dict(getattr(o, "board_reads", {}) or {}),
             "custom": custom}
+
+
+OBJECT_SUPPORT_SURFACES = {
+    "yurt_floor", "yurt_wall", "island_ground", "object", "free"
+}
+
+
+def _object_support_error(room, oid: str, position_m, size_m: float,
+                          support_surface: str, support_oid: str | None,
+                          candidate_positions: dict | None = None,
+                          candidate_sizes: dict | None = None):
+    """Validate one durable support declaration before any mutation."""
+    surface = str(support_surface or "yurt_floor")
+    if surface not in OBJECT_SUPPORT_SURFACES:
+        return f"invalid support surface '{surface}'"
+    if not room.object_position_supported(position_m, size_m, surface):
+        place = "island" if surface in {
+            "island_ground", "object", "free"} else "yurt"
+        return f"'{oid}' has no supported footprint on the {place}"
+    if surface != "object":
+        if support_oid:
+            return "support_oid is only valid for object support"
+        return None
+    target_id = str(support_oid or "")
+    if not target_id or target_id == oid:
+        return "object support needs a different support_oid"
+    target = room.objects.get(target_id)
+    if target is None:
+        return f"no supporting object '{target_id}'"
+    try:
+        target_position = dict(candidate_positions or {}).get(
+            target_id, target.position_m)
+        target_size = dict(candidate_sizes or {}).get(
+            target_id, getattr(target, "size_m", 0.6))
+        distance = room._dist(position_m, target_position)
+        usable = max(0.08, float(target_size) * 0.55)
+    except (TypeError, ValueError, IndexError):
+        return f"invalid supporting object '{target_id}'"
+    if distance > usable:
+        return f"'{oid}' is not over supporting object '{target_id}'"
+    # Refuse a support loop even if older persisted state contains a longer
+    # chain. A relationship graph may be deep; it may never be cyclic.
+    seen = {str(oid)}
+    cursor = target
+    while cursor is not None and getattr(cursor, "support_surface", "") == "object":
+        cursor_id = str(getattr(cursor, "support_oid", "") or "")
+        if not cursor_id:
+            break
+        if cursor_id in seen:
+            return "object support would create a cycle"
+        seen.add(cursor_id)
+        cursor = room.objects.get(cursor_id)
+    return None
+
+
+def _detach_supported_children(room, removed_oids) -> dict:
+    """Drop surviving dependants to their local ground when support leaves."""
+    removed = {str(oid) for oid in removed_oids}
+    detached = {}
+    for oid, obj in room.objects.items():
+        if oid in removed or getattr(obj, "support_oid", None) not in removed:
+            continue
+        distance = room._dist(obj.position_m, [0.0, 0.0])
+        obj.support_surface = (
+            "island_ground" if room.shape == "island"
+            and distance > room.radius_m else "yurt_floor")
+        obj.support_oid = None
+        detached[oid] = obj.snapshot()
+    return detached
 
 
 def _save_world(app):
@@ -174,7 +354,9 @@ def _load_world(app):
                         rec.get("face"),
                         rec.get("posture", "standing"),
                         rec.get("gaze_yaw_deg", 0.0),
-                        rec.get("gaze_pitch_deg", 0.0))
+                        rec.get("gaze_pitch_deg", 0.0),
+                        rec.get("gesture", ""),
+                        rec.get("movement") or {})
                 elif isinstance(rec, list) and len(rec) == 2:
                     mpos = room._clamp_inside(list(rec))
                     room.members[m] = Member(
@@ -201,9 +383,16 @@ def _load_world(app):
                     o = room.objects[oid]
                     o.position_m = [float(pos[0]), float(pos[1])]
                     for f in ("name", "kind", "size_m", "rot_deg",
-                              "y_off_m", "description", "texture", "power"):
+                              "y_off_m", "support_surface", "support_oid",
+                              "description", "texture", "power"):
                         if rec.get(f) is not None:
                             setattr(o, f, rec[f])
+                    if rec.get("affordances") is not None:
+                        o.affordances = dict(rec.get("affordances") or {})
+                    if rec.get("temperature_c") is not None:
+                        o.temperature_c = float(rec["temperature_c"])
+                    o.profile_provenance = dict(
+                        rec.get("profile_provenance") or {})
                 elif rec.get("custom"):
                     room.objects[oid] = RoomObject(
                         oid, rec.get("name", oid), pos,
@@ -219,10 +408,23 @@ def _load_world(app):
                         size_m=float(rec.get("size_m", 0.6)),
                         rot_deg=float(rec.get("rot_deg", 0.0)),
                         y_off_m=float(rec.get("y_off_m", 0.0)),
+                        support_surface=rec.get(
+                            "support_surface", "yurt_floor"),
+                        support_oid=rec.get("support_oid"),
+                        profile_provenance=rec.get(
+                            "profile_provenance") or {},
                         power=float(rec.get("power", 0.0)))
             for oid, pages in saved.get("pages", {}).items():
                 if oid in room.objects:
-                    room.objects[oid].pages = pages
+                    obj = room.objects[oid]
+                    obj.pages = pages
+                    rec = dict(saved.get("objects", {}).get(oid) or {})
+                    obj.board_revision = max(
+                        len(pages), int(rec.get("board_revision", 0) or 0))
+                    obj.board_reads = {
+                        str(member): max(0, int(revision or 0))
+                        for member, revision in
+                        dict(rec.get("board_reads") or {}).items()}
         app.state.where = dict(d.get("where", {}))
         return True
     except Exception:
@@ -272,15 +474,43 @@ class ActionReq(BaseModel):
     heading_deg: float = None  # embodied walk: camera/body heading
     conversation_id: str = None
     social_depth: int = 0      # generated reply lineage; 0 = opening
+    social_thread_id: str = None
+    social_parent_seq: int = 0
+    social_api_token_load: float = 0.0
+    social_route: str = None
+    floor_claim_id: str = None
+    pose: dict = None          # transient selected body vector
+    active: bool = True        # transient surface claim/release
+    event_id: str = None       # content-free selection provenance
+    facets: dict = None        # optional open-vocabulary descriptions
+    addressed_to: list = None # address, never a privacy claim on the board
+    related_posts: list = None
+    provenance: list = None    # bounded source anchors, not source contents
+    post_id: str = None        # board_retract target
 
 
 class AvatarVisionFrameReq(BaseModel):
     member: str
     data_url: str
+    images: list = None
     pose_revision: int
     cause: str = "scene_change"
     novelty: float = 1.0
     optical_pose: dict = None
+    scene_grounding: dict = None
+
+
+class SocialFloorClaimReq(BaseModel):
+    member: str
+    source_seq: int
+    thread_id: str = ""
+    lease_s: float = 120.0
+
+
+class SocialFloorReleaseReq(BaseModel):
+    member: str
+    claim_id: str
+    reason: str = "settled"
 
 
 class BodyMappingReq(BaseModel):
@@ -321,9 +551,12 @@ class ObjectMoveReq(BaseModel):
 
 
 class ObjectTransformReq(BaseModel):
-    position_m: list       # atomic arrange commit: position + yaw + lift
+    position_m: list       # atomic build commit: position + yaw + lift + size
     rot_deg: float
     y_off_m: float
+    size_m: float | None = None
+    support_surface: str | None = None
+    support_oid: str | None = None
     by: str = "Re"
 
 
@@ -332,6 +565,9 @@ class ObjectTransformItem(BaseModel):
     position_m: list
     rot_deg: float
     y_off_m: float
+    size_m: float | None = None
+    support_surface: str | None = None
+    support_oid: str | None = None
 
 
 class ObjectBatchTransformReq(BaseModel):
@@ -347,6 +583,8 @@ class ObjectCreateReq(BaseModel):
     position_m: list = [0.0, 0.0]
     rot_deg: float = 0.0
     y_off_m: float = 0.0
+    support_surface: str = "yurt_floor"
+    support_oid: str | None = None
     description: str = ""
     texture: str = "neutral"
     capability: str | None = None
@@ -385,6 +623,12 @@ class ObjectUpdateReq(BaseModel):
     texture: str = None
     capability: str = None  # affordance stamp: 'sitting' etc.
                             # (20260720: sitting made these consumed)
+    by: str = "Re"
+
+
+class ObjectProfileReq(BaseModel):
+    """One explicit, local-only AI environmental-profile request."""
+    model: str | None = None
     by: str = "Re"
 
 
@@ -438,11 +682,13 @@ def build_app() -> FastAPI:
             import yaml
             with open(roster_path, encoding="utf-8") as f:
                 roster = yaml.safe_load(f) or {}
+                if roster.get("kind", "model_persona") != "model_persona":
+                    continue
                 display = roster.get("display_name") or display
                 declared_room = (roster.get("room") or {}).get("id") \
                     or declared_room
         except Exception:
-            pass
+            continue
         rid = declared_room
         if rid == f"{pid}_den" and rid not in app.state.rooms:
             den = build_persona_den(pid, display)
@@ -474,8 +720,16 @@ def build_app() -> FastAPI:
         # behind the world lock -- the lock serializes world
         # mutations, not downloads -- and never trigger a persist.
         p = request.url.path
-        if p.startswith("/3d") or p.startswith("/terrain-canary") \
-                or p.startswith("/models") \
+        if p.startswith("/3d"):
+            response = await call_next(request)
+            # Godot's package is hundreds of megabytes, so `no-store` would
+            # make every visit download it again.  `no-cache` keeps the local
+            # copy but requires its ETag to be revalidated before reuse.  A
+            # rebuilt camera/client package can therefore never leave an old
+            # runtime alive behind newly rendered UI state.
+            response.headers["Cache-Control"] = "no-cache, must-revalidate"
+            return response
+        if p.startswith("/terrain-canary") or p.startswith("/models") \
                 or p.startswith("/avatars") or p == "/tuning":
             return await call_next(request)
         # Long-poll listeners wait on Room._event_condition. They must not
@@ -512,13 +766,44 @@ def build_app() -> FastAPI:
                   encoding="utf-8") as f:
             return f.read()
 
+    def _weather_semantic_revision(value: dict) -> str:
+        status = dict((value or {}).get("status") or {})
+        semantic = {
+            "enabled": bool((value or {}).get("enabled")),
+            "location_label": str((value or {}).get("location_label") or ""),
+            "observed_at": status.get("observed_at"),
+            "valid_until": status.get("valid_until"),
+            "weather": status.get("weather"),
+            "current": status.get("current"),
+            "error": status.get("error"),
+        }
+        return hashlib.sha256(json.dumps(
+            semantic, ensure_ascii=False, sort_keys=True,
+            separators=(",", ":"), default=str).encode("utf-8")).hexdigest()
+
+    def _emit_weather_revision(before: str, result: dict):
+        after = _weather_semantic_revision(result)
+        if after == before:
+            return
+        # Content-free shared change event. Each resident reads the canonical
+        # coordinate-free weather status through their own awareness organ.
+        # The event does not expose coordinates or inject weather prose.
+        for room in app.state.rooms.values():
+            room.emit("household_weather", "weather_revision", {
+                "revision": after,
+                "provider": str(
+                    dict(result.get("status") or {}).get("source") or ""),
+            })
+
     async def _weather_cycle():
         failures = 0
         while True:
             weather = app.state.local_weather
             if weather.due():
+                before = _weather_semantic_revision(weather.public_status())
                 result = await asyncio.to_thread(weather.refresh)
                 failures = 0 if result["status"].get("ok") else failures + 1
+                _emit_weather_revision(before, result)
             if not weather.config.get("enabled"):
                 delay = None
             else:
@@ -583,9 +868,12 @@ def build_app() -> FastAPI:
 
     @app.post("/weather-sync/refresh")
     async def refresh_weather():
+        before = _weather_semantic_revision(
+            app.state.local_weather.public_status())
         result = await asyncio.to_thread(app.state.local_weather.refresh)
         if not result["status"].get("ok"):
             return JSONResponse(status_code=502, content=result)
+        _emit_weather_revision(before, result)
         app.state.weather_wakeup.set()
         return result
 
@@ -712,12 +1000,12 @@ def build_app() -> FastAPI:
         }
 
     @app.get("/api/rooms/{rid}")
-    def room_state(rid: str):
+    def room_state(rid: str, member: str = None):
         room = app.state.rooms.get(rid)
         if not room:
             return JSONResponse(status_code=404,
                                 content={"error": f"no room '{rid}'"})
-        return room.snapshot()
+        return room.snapshot(observer=member)
 
     @app.get("/api/rooms/{rid}/events")
     def room_events(rid: str, since: int = 0, surface: int = 0):
@@ -744,18 +1032,73 @@ def build_app() -> FastAPI:
         events = room.wait_for_events(since, timeout, bool(surface))
         return {"events": events, "last_seq": room._seq}
 
+    @app.get("/api/rooms/{rid}/social-floor")
+    def social_floor_status(rid: str):
+        room = app.state.rooms.get(rid)
+        if not room:
+            return JSONResponse(status_code=404,
+                                content={"error": f"no room '{rid}'"})
+        return room.social_floor_status()
+
+    @app.post("/api/rooms/{rid}/social-floor/claim")
+    def social_floor_claim(rid: str, req: SocialFloorClaimReq):
+        room = app.state.rooms.get(rid)
+        if not room:
+            return JSONResponse(status_code=404,
+                                content={"error": f"no room '{rid}'"})
+        result = room.claim_social_floor(
+            req.member, req.source_seq, req.thread_id, req.lease_s)
+        if not result.get("ok"):
+            return JSONResponse(status_code=409, content=result)
+        return result
+
+    @app.post("/api/rooms/{rid}/social-floor/release")
+    def social_floor_release(rid: str, req: SocialFloorReleaseReq):
+        room = app.state.rooms.get(rid)
+        if not room:
+            return JSONResponse(status_code=404,
+                                content={"error": f"no room '{rid}'"})
+        result = room.release_social_floor(
+            req.member, req.claim_id, req.reason)
+        if not result.get("ok"):
+            return JSONResponse(status_code=409, content=result)
+        return result
+
     @app.post("/api/rooms/{rid}/vision/frame")
     def avatar_vision_frame(rid: str, req: AvatarVisionFrameReq):
         room = app.state.rooms.get(rid)
         if room is None or req.member not in room.members:
             return JSONResponse(status_code=404,
                                 content={"error": "observer is not in room"})
-        if not req.data_url.startswith("data:image/png;base64,"):
-            return JSONResponse(status_code=400,
-                                content={"error": "POV frame must be PNG data"})
-        if len(req.data_url) > 2_000_000:
+        raw_images = list(req.images or [])
+        if not raw_images:
+            raw_images = [{"data_url": req.data_url,
+                           "ordinal": 0, "relative_yaw_deg": 0.0}]
+        if len(raw_images) > 4:
             return JSONResponse(status_code=413,
-                                content={"error": "POV frame is too large"})
+                                content={"error": "POV episode has too many frames"})
+        images = []
+        total_chars = 0
+        for ordinal, item in enumerate(raw_images):
+            item = dict(item or {})
+            data_url = str(item.get("data_url") or "")
+            if not data_url.startswith("data:image/png;base64,"):
+                return JSONResponse(
+                    status_code=400,
+                    content={"error": "every POV frame must be PNG data"})
+            if len(data_url) > 2_000_000:
+                return JSONResponse(status_code=413,
+                                    content={"error": "POV frame is too large"})
+            total_chars += len(data_url)
+            images.append({
+                "data_url": data_url,
+                "ordinal": ordinal,
+                "relative_yaw_deg": float(
+                    item.get("relative_yaw_deg", ordinal * 90.0)),
+            })
+        if total_chars > 8_000_000:
+            return JSONResponse(status_code=413,
+                                content={"error": "POV episode is too large"})
         key = (rid, req.member.casefold())
         previous = app.state.avatar_vision.get(key) or {}
         revision = int(previous.get("revision", 0)) + 1
@@ -764,7 +1107,9 @@ def build_app() -> FastAPI:
                   "cause": str(req.cause)[:80],
                   "novelty": max(0.0, min(1.0, float(req.novelty))),
                   "optical_pose": dict(req.optical_pose or {}),
-                  "data_url": req.data_url}
+                  "scene_grounding": dict(req.scene_grounding or {}),
+                  "data_url": images[0]["data_url"],
+                  "images": images}
         app.state.avatar_vision[key] = record
         return {"ok": True, "revision": revision}
 
@@ -777,12 +1122,11 @@ def build_app() -> FastAPI:
 
     @app.get("/api/personas")
     def personas():
-        """Who COULD be here: persona dirs on disk (the world's host
+        """Who COULD be here: roster-backed model personas (the world's host
         may offer them as bodies; minds arrive separately — a stopped
-        persona placed here is a body on stage; ensure_joined recovers
-        the position when the mind starts). Leading-underscore names
-        are reserved (disposal laws) and never offered. display_name
-        read from roster.yaml, read-only, soft-fail to the slug."""
+        persona placed here is a body on stage; ensure_joined recovers the
+        position when the mind starts). A directory alone is fixture/storage,
+        not household membership: roster.yaml is the canonical registry."""
         pdir = os.path.join(REPO, "personas")
         out = []
         try:
@@ -794,18 +1138,19 @@ def build_app() -> FastAPI:
                 continue
             if not os.path.isdir(os.path.join(pdir, n)):
                 continue
-            disp = n
-            icon = ""
             rpath = os.path.join(pdir, n, "roster.yaml")
-            if os.path.exists(rpath):
-                try:
-                    import yaml
-                    with open(rpath, encoding="utf-8") as f:
-                        roster = yaml.safe_load(f) or {}
-                    disp = roster.get("display_name") or n
-                    icon = str(roster.get("icon") or "").strip()
-                except Exception:
-                    pass          # a broken roster never breaks the list
+            if not os.path.exists(rpath):
+                continue
+            try:
+                import yaml
+                with open(rpath, encoding="utf-8") as f:
+                    roster = yaml.safe_load(f) or {}
+                if roster.get("kind", "model_persona") != "model_persona":
+                    continue
+                disp = roster.get("display_name") or n
+                icon = str(roster.get("icon") or "").strip()
+            except Exception:
+                continue          # malformed membership is not guessed
             avatar = load_persona_avatar(os.path.join(pdir, n))
             tokens = resolve_theme(REPO, n)["tokens"]
             speaker_color = (_named_theme_value(
@@ -1023,22 +1368,50 @@ def build_app() -> FastAPI:
 
         if req.action == "say":
             # speech + the orienting reflex live in the world model
-            cid = app.state.conversation_ledger.admit(
+            cid, admitted, prior_state = (
+                app.state.conversation_ledger.admit_once(
                 conversation_id=req.conversation_id or "",
                 channel="room", speaker=req.member,
-                message=req.text or "", source="nexus_speech")
+                message=req.text or "", source="nexus_speech"))
+            if not admitted:
+                return {"ok": True, "duplicate": True, "conversation": {
+                    "id": cid, "status": prior_state}}
             try:
-                room.say(req.member, req.text or "",
-                         social_depth=max(0, int(req.social_depth or 0)))
+                publication = room.say(
+                    req.member, req.text or "",
+                    social_depth=max(0, int(req.social_depth or 0)),
+                    conversation_id=cid,
+                    social_thread_id=req.social_thread_id or "",
+                    social_parent_seq=max(
+                        0, int(req.social_parent_seq or 0)),
+                    social_api_token_load=max(
+                        0.0, float(req.social_api_token_load or 0.0)),
+                    social_route=req.social_route or "",
+                    floor_claim_id=req.floor_claim_id or "")
+                if not (publication or {}).get("ok"):
+                    reason = str((publication or {}).get("reason")
+                                 or "room_speech_rejected")
+                    raise RuntimeError(reason)
             except BaseException as error:
                 app.state.conversation_ledger.fail(cid, error)
+                if str(error) == "social_floor_superseded":
+                    return JSONResponse(status_code=409, content={
+                        "ok": False,
+                        "error": "social_floor_superseded",
+                        "conversation": {"id": cid, "status": "failed"},
+                    })
                 raise
             terminal = app.state.conversation_ledger.complete(
                 cid, reply="", receipts={"room_id": room.id,
-                                          "room_seq": room._seq})
+                                          "room_seq": publication["seq"],
+                                          "social_thread_id": publication.get(
+                                              "social_thread_id") or ""})
             return {"ok": True, "conversation": {
                 "id": cid, "status": "saved",
-                "record_id": terminal.get("record_id", "")}}
+                "record_id": terminal.get("record_id", "")},
+                "seq": publication["seq"],
+                "social_thread_id": publication.get(
+                    "social_thread_id") or ""}
 
         if req.action == "express":
             # body-surface update: the face, never the feelings
@@ -1060,6 +1433,11 @@ def build_app() -> FastAPI:
         if req.action == "body_motion":
             return room.perform_motion(req.member, req.object or "")
 
+        if req.action == "transient_pose":
+            return room.set_transient_pose(
+                req.member, req.pose, active=req.active,
+                event_id=req.event_id or "")
+
         if req.action == "light_on":
             return room.set_light(req.member, req.object, True)
 
@@ -1076,8 +1454,51 @@ def build_app() -> FastAPI:
         if req.action == "turn_toward":
             return room.turn_toward(req.member, req.object)
 
+        if req.action == "look_around":
+            return room.look_around(req.member)
+
         if req.action == "inspect":
             return room.inspect(req.member, req.object)
+
+        if req.action in {"board_post", "board_read", "board_retract"}:
+            from core.commons_board import (
+                CommonsBoardError, append_post, read_board, retract_post)
+            obj = room.objects.get(req.object)
+            if obj is None or not room.near(req.member, req.object):
+                return {"error": "walk to the board first"}
+            if obj.capability != "commons_board":
+                return {"error": f"{obj.name} is not a commons board"}
+            try:
+                if req.action == "board_post":
+                    post = append_post(
+                        obj, author=req.member, text=req.text or "",
+                        facets=req.facets, addressed_to=req.addressed_to,
+                        related_posts=req.related_posts,
+                        provenance=req.provenance)
+                    room.emit(req.member, "board_post", {
+                        "object": obj.name, "post_id": post["post_id"],
+                        "revision": obj.board_revision,
+                        "facet_count": len(post["facets"]),
+                        "addressed_count": len(post["addressed_to"]),
+                        "snapshot": obj.snapshot(),
+                    })
+                    return {"ok": True, "post_id": post["post_id"],
+                            "revision": obj.board_revision}
+                if req.action == "board_read":
+                    # Reading updates only this resident's private cursor. It
+                    # neither announces a receipt nor obliges a response.
+                    result = read_board(obj, req.member)
+                    return {"ok": True, **result}
+                record = retract_post(
+                    obj, author=req.member, post_id=req.post_id or req.text or "")
+                room.emit(req.member, "board_retract", {
+                    "object": obj.name, "post_id": record["post_id"],
+                    "revision": obj.board_revision,
+                    "snapshot": obj.snapshot()})
+                return {"ok": True, "post_id": record["post_id"],
+                        "revision": obj.board_revision, "retracted": True}
+            except CommonsBoardError as exc:
+                return {"error": str(exc)}
 
         if req.action == "write":
             obj = room.objects.get(req.object)
@@ -1103,12 +1524,32 @@ def build_app() -> FastAPI:
                 room.emit(req.member, "write", {"object": obj.name,
                                                 "private": False})
                 return {"ok": True, "page": len(obj.pages)}
+            if obj.capability == "commons_board":
+                # Backward-compatible motor grammar: old vessels may still
+                # call this a writing surface. It creates the same untyped
+                # post; no legacy action supplies or invents a facet.
+                from core.commons_board import CommonsBoardError, append_post
+                try:
+                    post = append_post(
+                        obj, author=req.member, text=req.text or "")
+                except CommonsBoardError as exc:
+                    return {"error": str(exc)}
+                room.emit(req.member, "board_post", {
+                    "object": obj.name, "post_id": post["post_id"],
+                    "revision": obj.board_revision,
+                    "facet_count": 0, "addressed_count": 0,
+                    "snapshot": obj.snapshot()})
+                return {"ok": True, "post_id": post["post_id"],
+                        "revision": obj.board_revision}
             return {"error": f"{obj.name} is not a writing surface"}
 
         if req.action == "read":
             obj = room.objects.get(req.object)
             if obj is None or not room.near(req.member, req.object):
                 return {"error": "walk to it first"}
+            if obj.capability == "commons_board":
+                from core.commons_board import read_board
+                return {"ok": True, **read_board(obj, req.member)}
             room.emit(req.member, "read", {"object": obj.name})
             return {"ok": True, "pages": obj.pages}
         return JSONResponse(status_code=400,
@@ -1132,15 +1573,16 @@ def build_app() -> FastAPI:
         p = req.position_m
         try:
             x, y = float(p[0]), float(p[1])
-            rot = float(req.rot_deg) % 360.0
-            lift = float(req.y_off_m)
         except (TypeError, ValueError, IndexError):
             return JSONResponse(status_code=400, content={
-                "error": "position, rotation, and lift must be numeric"})
-        if (x * x + y * y) ** 0.5 > room.radius_m:
-            return JSONResponse(status_code=400, content={
-                "error": f"[{x:.2f}, {y:.2f}] is outside the yurt "
-                         f"(r={room.radius_m})"})
+                "error": "position must contain two numeric coordinates"})
+        surface = getattr(obj, "support_surface", "yurt_floor")
+        support_oid = getattr(obj, "support_oid", None)
+        error = _object_support_error(
+            room, oid, [x, y], getattr(obj, "size_m", 0.6),
+            surface, support_oid)
+        if error:
+            return JSONResponse(status_code=400, content={"error": error})
         frm = list(obj.position_m)
         obj.position_m = [x, y]
         room.emit(req.by, "rearrange", {"oid": oid, "object": obj.name,
@@ -1162,22 +1604,38 @@ def build_app() -> FastAPI:
             x, y = float(req.position_m[0]), float(req.position_m[1])
             rot = float(req.rot_deg) % 360.0
             lift = float(req.y_off_m)
+            size = (float(req.size_m) if req.size_m is not None
+                    else float(getattr(obj, "size_m", 0.6)))
         except (TypeError, ValueError, IndexError):
             return JSONResponse(status_code=400, content={
-                "error": "position, rotation, and lift must be numeric"})
-        if (x * x + y * y) ** 0.5 > room.radius_m:
-            return JSONResponse(status_code=400, content={
-                "error": f"[{x:.2f}, {y:.2f}] is outside the yurt "
-                         f"(r={room.radius_m})"})
+                "error": "position, rotation, lift, and size must be numeric"})
+        surface = str(req.support_surface or getattr(
+            obj, "support_surface", "yurt_floor"))
+        support_oid = ((req.support_oid or getattr(obj, "support_oid", None))
+                       if surface == "object" else None)
+        error = _object_support_error(
+            room, oid, [x, y], size, surface, support_oid)
+        if error:
+            return JSONResponse(status_code=400, content={"error": error})
         if not (-1.0 <= lift <= 3.0):
             return JSONResponse(status_code=400, content={
                 "error": "y_off_m must be -1.0..3.0"})
+        if not (0.02 <= size <= 6.0):
+            return JSONResponse(status_code=400, content={
+                "error": "size_m must be 0.02..6.0"})
         before = {"position_m": list(obj.position_m),
                   "rot_deg": float(getattr(obj, "rot_deg", 0.0)),
-                  "y_off_m": float(getattr(obj, "y_off_m", 0.0))}
+                  "y_off_m": float(getattr(obj, "y_off_m", 0.0)),
+                  "size_m": float(getattr(obj, "size_m", 0.6)),
+                  "support_surface": getattr(
+                      obj, "support_surface", "yurt_floor"),
+                  "support_oid": getattr(obj, "support_oid", None)}
         obj.position_m = [x, y]
         obj.rot_deg = rot
         obj.y_off_m = lift
+        obj.size_m = size
+        obj.support_surface = surface
+        obj.support_oid = support_oid
         room.emit(req.by, "object_updated", {
             "oid": oid, "object": obj.name, "before": before,
             "snapshot": obj.snapshot(), "arrange_commit": True})
@@ -1196,6 +1654,21 @@ def build_app() -> FastAPI:
         seen = set()
         prepared = []
         before = {}
+        candidate_positions = {}
+        candidate_sizes = {}
+        for candidate in req.objects:
+            existing = room.objects.get(candidate.oid)
+            if existing is None:
+                continue
+            try:
+                candidate_positions[candidate.oid] = [
+                    float(candidate.position_m[0]),
+                    float(candidate.position_m[1])]
+                candidate_sizes[candidate.oid] = (
+                    float(candidate.size_m) if candidate.size_m is not None
+                    else float(getattr(existing, "size_m", 0.6)))
+            except (TypeError, ValueError, IndexError):
+                continue
         for item in req.objects:
             oid = item.oid
             if oid in seen:
@@ -1210,24 +1683,43 @@ def build_app() -> FastAPI:
                 x, y = float(item.position_m[0]), float(item.position_m[1])
                 rot = float(item.rot_deg) % 360.0
                 lift = float(item.y_off_m)
+                size = (float(item.size_m) if item.size_m is not None
+                        else float(getattr(obj, "size_m", 0.6)))
             except (TypeError, ValueError, IndexError):
                 return JSONResponse(status_code=400, content={
                     "error": f"invalid transform for '{oid}'"})
-            if (x * x + y * y) ** 0.5 > room.radius_m:
-                return JSONResponse(status_code=400, content={
-                    "error": f"'{oid}' is outside the yurt"})
+            surface = str(item.support_surface or getattr(
+                obj, "support_surface", "yurt_floor"))
+            support_oid = ((item.support_oid or getattr(
+                obj, "support_oid", None)) if surface == "object" else None)
+            error = _object_support_error(
+                room, oid, [x, y], size, surface, support_oid,
+                candidate_positions, candidate_sizes)
+            if error:
+                return JSONResponse(status_code=400, content={"error": error})
             if not (-1.0 <= lift <= 3.0):
                 return JSONResponse(status_code=400, content={
                     "error": f"invalid lift for '{oid}'"})
+            if not (0.02 <= size <= 6.0):
+                return JSONResponse(status_code=400, content={
+                    "error": f"invalid size for '{oid}'"})
             before[oid] = {"position_m": list(obj.position_m),
                            "rot_deg": float(obj.rot_deg),
-                           "y_off_m": float(obj.y_off_m)}
-            prepared.append((oid, obj, x, y, rot, lift))
+                           "y_off_m": float(obj.y_off_m),
+                           "size_m": float(obj.size_m),
+                           "support_surface": getattr(
+                               obj, "support_surface", "yurt_floor"),
+                           "support_oid": getattr(obj, "support_oid", None)}
+            prepared.append((oid, obj, x, y, rot, lift, size,
+                             surface, support_oid))
         snapshots = {}
-        for oid, obj, x, y, rot, lift in prepared:
+        for oid, obj, x, y, rot, lift, size, surface, support_oid in prepared:
             obj.position_m = [x, y]
             obj.rot_deg = rot
             obj.y_off_m = lift
+            obj.size_m = size
+            obj.support_surface = surface
+            obj.support_oid = support_oid
             snapshots[oid] = obj.snapshot()
         room.emit(req.by, "objects_transformed", {
             "oids": list(snapshots), "before": before,
@@ -1277,21 +1769,25 @@ def build_app() -> FastAPI:
         except (TypeError, ValueError, IndexError):
             return JSONResponse(status_code=400, content={
                 "error": "position, rotation, and lift must be numeric"})
-        if (x * x + y * y) ** 0.5 > room.radius_m:
-            return JSONResponse(status_code=400, content={
-                "error": f"[{x:.2f}, {y:.2f}] is outside the yurt "
-                         f"(r={room.radius_m})"})
         if not (0.02 <= req.size_m <= 6.0):
             return JSONResponse(status_code=400, content={
                 "error": "size_m must be 0.02..6.0"})
         if not (-1.0 <= lift <= 3.0):
             return JSONResponse(status_code=400, content={
                 "error": "y_off_m must be -1.0..3.0"})
+        surface = str(req.support_surface or "yurt_floor")
+        support_oid = req.support_oid if surface == "object" else None
+        error = _object_support_error(
+            room, oid, [x, y], req.size_m, surface, support_oid)
+        if error:
+            return JSONResponse(status_code=400, content={"error": error})
         obj = RoomObject(oid, disp, [x, y],
                          description=req.description,
                          texture=req.texture,
                           kind=(req.kind or "").strip() or None,
-                          size_m=req.size_m)
+                          size_m=req.size_m,
+                          support_surface=surface,
+                          support_oid=support_oid)
         obj.rot_deg = rot
         obj.y_off_m = lift
         obj.capability = (req.capability or "").strip() or None
@@ -1343,23 +1839,29 @@ def build_app() -> FastAPI:
             except (TypeError, ValueError, IndexError):
                 return JSONResponse(status_code=400, content={
                     "error": f"invalid transform for '{oid}'"})
-            if (x * x + y * y) ** 0.5 > room.radius_m:
-                return JSONResponse(status_code=400, content={
-                    "error": f"'{oid}' is outside the yurt"})
             if not (0.02 <= spec.size_m <= 6.0):
                 return JSONResponse(status_code=400, content={
                     "error": f"invalid size for '{oid}'"})
             if not (-1.0 <= lift <= 3.0):
                 return JSONResponse(status_code=400, content={
                     "error": f"invalid lift for '{oid}'"})
-            prepared.append((oid, disp, spec, x, y, rot, lift))
+            surface = str(spec.support_surface or "yurt_floor")
+            support_oid = spec.support_oid if surface == "object" else None
+            error = _object_support_error(
+                room, oid, [x, y], spec.size_m, surface, support_oid)
+            if error:
+                return JSONResponse(status_code=400, content={"error": error})
+            prepared.append((oid, disp, spec, x, y, rot, lift,
+                             surface, support_oid))
         snapshots = {}
-        for oid, disp, spec, x, y, rot, lift in prepared:
+        for oid, disp, spec, x, y, rot, lift, surface, support_oid in prepared:
             obj = RoomObject(
                 oid, disp, [x, y], description=spec.description,
                 texture=spec.texture,
                 kind=(spec.kind or "").strip() or None,
-                size_m=spec.size_m)
+                size_m=spec.size_m,
+                support_surface=surface,
+                support_oid=support_oid)
             obj.rot_deg = rot
             obj.y_off_m = lift
             obj.capability = (spec.capability or "").strip() or None
@@ -1389,13 +1891,15 @@ def build_app() -> FastAPI:
                 return JSONResponse(status_code=409, content={
                     "error": f"{obj.name} holds written pages"})
             snapshots[oid] = obj.snapshot()
+        detached = _detach_supported_children(room, req.oids)
         for oid in req.oids:
             del room.objects[oid]
             app.state.seed_ids.get(rid, set()).discard(oid)
         room.emit(req.by, "objects_removed", {
-            "oids": list(req.oids), "snapshots": snapshots})
+            "oids": list(req.oids), "snapshots": snapshots,
+            "detached_snapshots": detached})
         return {"ok": True, "removed": list(req.oids),
-                "objects": snapshots}
+                "objects": snapshots, "detached_snapshots": detached}
 
     @app.get("/api/world-modules")
     def world_module_index():
@@ -1473,6 +1977,65 @@ def build_app() -> FastAPI:
         return {"ok": True, "module_id": module.module_id,
                 "objects": result["objects"]}
 
+    @app.post("/api/rooms/{rid}/objects/{oid}/profile")
+    def object_profile(rid: str, oid: str, req: ObjectProfileReq):
+        """Explicitly ask a local model for bounded environmental metadata.
+
+        The model cannot grant capabilities, change ownership/placement, or
+        prescribe resident response. Validation completes before the object is
+        mutated, so a missing model or malformed reply leaves the world alone.
+        """
+        room = app.state.rooms.get(rid)
+        if not room:
+            return JSONResponse(status_code=404,
+                                content={"error": f"no room '{rid}'"})
+        obj = room.objects.get(oid)
+        if obj is None:
+            return JSONResponse(status_code=404, content={
+                "error": f"no object '{oid}' in {rid}"})
+        provenance = dict(getattr(obj, "profile_provenance", {}) or {})
+        if obj.affordances and provenance.get("source") != \
+                "local_ai_explicit":
+            return JSONResponse(status_code=409, content={
+                "error": "object already has authored affordances; AI Profile "
+                         "will not overwrite them"})
+        before_guard = {
+            "capability": obj.capability, "owner": obj.owner,
+            "position_m": list(obj.position_m),
+            "support_surface": getattr(obj, "support_surface", "yurt_floor"),
+            "support_oid": getattr(obj, "support_oid", None),
+        }
+        try:
+            proposal = propose_object_profile(
+                obj.snapshot(), model_name=req.model)
+        except ObjectProfileError as exc:
+            return JSONResponse(status_code=502, content={"error": str(exc)})
+        obj.affordances = dict(proposal["affordances"])
+        obj.texture = str(proposal["texture"])
+        if proposal.get("temperature_c") is not None:
+            obj.temperature_c = float(proposal["temperature_c"])
+        obj.profile_provenance = {
+            "schema": 1,
+            "source": "local_ai_explicit",
+            "model": str(proposal["model"]),
+            "applied_by": str(req.by),
+            "applied_at": round(time.time(), 3),
+        }
+        # Keep the authority boundary executable rather than documentary.
+        assert obj.capability == before_guard["capability"]
+        assert obj.owner == before_guard["owner"]
+        assert obj.position_m == before_guard["position_m"]
+        assert getattr(obj, "support_surface", "yurt_floor") == \
+            before_guard["support_surface"]
+        assert getattr(obj, "support_oid", None) == before_guard["support_oid"]
+        snapshot = obj.snapshot()
+        room.emit(req.by, "object_profiled", {
+            "oid": oid, "object": obj.name, "snapshot": snapshot,
+            "model": proposal["model"],
+            "affordance_keys": sorted(obj.affordances),
+        })
+        return {"ok": True, "object": snapshot}
+
     @app.post("/api/rooms/{rid}/objects/{oid}/update")
     def object_update(rid: str, oid: str, req: ObjectUpdateReq):
         """Adjust a thing's hints: name, kind, size, description,
@@ -1526,11 +2089,14 @@ def build_app() -> FastAPI:
             return JSONResponse(status_code=409, content={
                 "error": f"{obj.name} holds {len(obj.pages)} written "
                          "page(s) -- force=true to remove anyway"})
+        detached = _detach_supported_children(room, [oid])
         del room.objects[oid]
         app.state.seed_ids.get(rid, set()).discard(oid)
         room.emit(by, "object_removed", {"oid": oid,
-                                         "object": obj.name})
-        return {"ok": True, "removed": oid}
+                                         "object": obj.name,
+                                         "detached_snapshots": detached})
+        return {"ok": True, "removed": oid,
+                "detached_snapshots": detached}
 
     @app.get("/api/models")
     def models_manifest():
@@ -1539,7 +2105,8 @@ def build_app() -> FastAPI:
         fetches only what exists -- drop a GLB in the folder, refresh,
         it's in the room. No export, no restart."""
         def _ls(sub):
-            d = os.path.join(REPO, "godot-room", "assets", sub)
+            d = (_object_asset_root() if sub == "objects" else
+                 os.path.join(REPO, "godot-room", "assets", sub))
             try:
                 return sorted(f for f in os.listdir(d)
                               if f.lower().endswith(
@@ -1550,8 +2117,7 @@ def build_app() -> FastAPI:
         details = {}
         for filename in objects:
             stem, ext = os.path.splitext(filename)
-            path = os.path.join(REPO, "godot-room", "assets", "objects",
-                                filename)
+            path = os.path.join(_object_asset_root(), filename)
             detail = {"filename": filename,
                       "format": ext.lstrip(".").lower(),
                       "bytes": os.path.getsize(path),
@@ -1581,8 +2147,143 @@ def build_app() -> FastAPI:
             # GLB wins when an image and a model share a curator kind.
             if stem not in details or detail["format"] == "glb":
                 details[stem] = detail
+        model_stems = {stem for stem, detail in details.items()
+                       if detail.get("format") == "glb"}
+        catalog = []
+        for stem, detail in details.items():
+            # Embedded GLB textures are served as runtime dependencies, not
+            # advertised as hundreds of separate paintings in the catalog.
+            if (detail.get("format") in {"png", "jpg", "jpeg"}
+                    and any(stem.startswith(model + "_")
+                            for model in model_stems)):
+                continue
+            catalog.append(_catalog_item(stem, detail))
+        catalog.sort(key=lambda item: (
+            item["category"], item["display_name"].casefold()))
         return {"objects": objects, "avatars": _ls("avatars"),
-                "object_details": details}
+                "object_details": details, "catalog": catalog,
+                "catalog_categories": [
+                    "seating", "beds", "surfaces", "pictures", "misc"]}
+
+    @app.post("/api/models/import")
+    async def import_object_model(request: Request,
+                                  background_tasks: BackgroundTasks):
+        """Install one bounded local catalog asset without placing it.
+
+        The browser sends the chosen file as the raw request body. Validation
+        and an atomic rename happen before the manifest can expose it; an
+        existing asset is never overwritten implicitly.
+        """
+        raw_name = urllib.parse.unquote(
+            request.headers.get("x-jnsq-filename", "")).strip()
+        category = request.headers.get(
+            "x-jnsq-category", "misc").strip().lower()
+        if category not in OBJECT_CATALOG_CATEGORIES:
+            return JSONResponse(status_code=400, content={
+                "error": "category must be seating, beds, surfaces, "
+                         "pictures, or misc"})
+        original = os.path.basename(raw_name)
+        stem, ext = os.path.splitext(original)
+        ext = ext.lower()
+        if ext not in {".glb", ".png", ".jpg", ".jpeg"}:
+            return JSONResponse(status_code=400, content={
+                "error": "import supports GLB, PNG, JPG, or JPEG files"})
+        safe_stem = re.sub(r"[^a-z0-9]+", "_", stem.lower()).strip("_")
+        if not safe_stem:
+            return JSONResponse(status_code=400, content={
+                "error": "the file needs a usable name"})
+        declared = request.headers.get("content-length")
+        try:
+            if declared and int(declared) > MAX_OBJECT_IMPORT_BYTES:
+                return JSONResponse(status_code=413, content={
+                    "error": "object import exceeds the 160 MB limit"})
+        except ValueError:
+            return JSONResponse(status_code=400, content={
+                "error": "invalid Content-Length"})
+        body = await request.body()
+        if not body:
+            return JSONResponse(status_code=400,
+                                content={"error": "the file is empty"})
+        if len(body) > MAX_OBJECT_IMPORT_BYTES:
+            return JSONResponse(status_code=413, content={
+                "error": "object import exceeds the 160 MB limit"})
+        if ext == ".glb" and body[:4] != b"glTF":
+            return JSONResponse(status_code=400, content={
+                "error": "the GLB header is invalid"})
+        if ext == ".png" and body[:8] != b"\x89PNG\r\n\x1a\n":
+            return JSONResponse(status_code=400, content={
+                "error": "the PNG header is invalid"})
+        if ext in {".jpg", ".jpeg"} and body[:2] != b"\xff\xd8":
+            return JSONResponse(status_code=400, content={
+                "error": "the JPEG header is invalid"})
+
+        import json
+        import tempfile
+        root = _object_asset_root()
+        os.makedirs(root, exist_ok=True)
+        target = os.path.join(root, safe_stem + ext)
+        if os.path.exists(target):
+            return JSONResponse(status_code=409, content={
+                "error": f"an asset named '{safe_stem}' already exists"})
+        fd, temporary = tempfile.mkstemp(
+            prefix=".jnsq_object_import_", suffix=ext, dir=root)
+        inspection = None
+        try:
+            with os.fdopen(fd, "wb") as handle:
+                handle.write(body)
+                handle.flush()
+                os.fsync(handle.fileno())
+            if ext == ".glb":
+                try:
+                    inspection = inspect_glb(temporary)
+                except BodyPackageError as exc:
+                    return JSONResponse(status_code=400, content={
+                        "error": f"GLB validation failed: {exc}"})
+            os.replace(temporary, target)
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)
+
+        display_name = stem.replace("_", " ").replace("-", " ").strip()
+        display_name = " ".join(part.capitalize()
+                                for part in display_name.split())
+        sidecar = target + ".scenery.json"
+        package = {
+            "schema": "jnsq-scenery-package-1",
+            "asset": safe_stem,
+            "metadata": {
+                "category": category,
+                "display_name": display_name or safe_stem,
+                "imported_locally": True,
+            },
+            "stats": {
+                "bytes": len(body),
+                "sha256": (inspection or {}).get("asset", {}).get("sha256")
+                or hashlib.sha256(body).hexdigest(),
+                "meshes": int((inspection or {}).get(
+                    "structure", {}).get("meshes", 0)),
+            },
+        }
+        fd, temporary = tempfile.mkstemp(
+            prefix=".jnsq_object_metadata_", suffix=".json", dir=root)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                json.dump(package, handle, indent=2, ensure_ascii=False)
+                handle.write("\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temporary, sidecar)
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)
+        manifest = models_manifest()
+        item = next((item for item in manifest["catalog"]
+                     if item["kind"] == safe_stem), None)
+        if ext == ".glb":
+            background_tasks.add_task(_render_object_thumbnail, target)
+        return {"ok": True, "catalog_item": item,
+                "thumbnail_pending": ext == ".glb",
+                "message": f"Imported {item['display_name']}"}
 
     @app.get("/api/avatar-bodies/{asset}/compatibility")
     def avatar_body_compatibility(asset: str):
@@ -1887,9 +2588,13 @@ def build_app() -> FastAPI:
     # the 3D client fetches these at load instead of packing them
     # into the export. The folder IS the asset pipeline now.
     for prefix, sub in (("/models", "objects"), ("/avatars", "avatars")):
-        d = os.path.join(REPO, "godot-room", "assets", sub)
+        d = (_object_asset_root() if sub == "objects" else
+             os.path.join(REPO, "godot-room", "assets", sub))
         if os.path.isdir(d):
             app.mount(prefix, StaticFiles(directory=d))
+    thumbnail_dir = _object_thumbnail_root()
+    os.makedirs(thumbnail_dir, exist_ok=True)
+    app.mount("/model-thumbnails", StaticFiles(directory=thumbnail_dir))
 
     return app
 

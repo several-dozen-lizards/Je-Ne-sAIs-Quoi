@@ -9,6 +9,7 @@ import queue
 import re
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable, Mapping
 
 from adapters.model_events import collect_legacy_text
@@ -20,6 +21,7 @@ from harness.model_call_receipts import (
 )
 from shell.agency_controller import AgencyRunOutcome
 from shell.autonomy_circulation import readiness_from_engine
+from shell.maintenance_circulation import offer_maintenance_candidate
 
 
 DOCUMENT_SOURCE = "document_read"
@@ -42,6 +44,15 @@ def _finite(value: Any, fallback: float = 0.0) -> float:
     except (TypeError, ValueError):
         return float(fallback)
     return value if math.isfinite(value) else float(fallback)
+
+
+def _path_revision(path: Path) -> tuple[str, int, int]:
+    """Return metadata only; private document contents never enter the seam."""
+    try:
+        stat = path.stat()
+        return path.name, int(stat.st_size), int(stat.st_mtime_ns)
+    except OSError:
+        return path.name, 0, 0
 
 
 @dataclass(frozen=True)
@@ -107,7 +118,9 @@ def parse_document_proposal(text: str, *, report_candidate: bool = False,
     if proposal is None:
         proposal = {}
         normalization.append("invalid_json_settled_as_quiet")
-    unknown = set(proposal) - {"action", "query", "report", "feelings", "why"}
+    unknown = set(proposal) - {
+        "action", "query", "report", "reaction", "changed", "unresolved",
+        "feelings", "why"}
     if unknown:
         raise ValueError(f"document proposal has unknown keys: {sorted(unknown)}")
     allowed = (REPORT_ACTIONS if report_candidate else
@@ -128,6 +141,12 @@ def parse_document_proposal(text: str, *, report_candidate: bool = False,
         query = ""
     if action != "report":
         report = ""
+    reaction = str(proposal.get("reaction") or "").strip()[:1600]
+    changed = str(proposal.get("changed") or "").strip()[:1200]
+    unresolved = str(proposal.get("unresolved") or "").strip()[:1200]
+    if report_candidate and (reaction or changed or unresolved):
+        reaction = changed = unresolved = ""
+        normalization.append("report_consequence_discarded")
     raw_feelings = proposal.get("feelings") or {}
     if not isinstance(raw_feelings, dict):
         raw_feelings = {}
@@ -142,6 +161,7 @@ def parse_document_proposal(text: str, *, report_candidate: bool = False,
         feelings[name] = max(0.0, min(1.0, intensity))
     return {
         "action": action, "query": query, "report": report,
+        "reaction": reaction, "changed": changed, "unresolved": unresolved,
         "feelings": feelings, "why": str(proposal.get("why") or "")[:500],
         "parser_normalization": normalization,
     }
@@ -308,8 +328,8 @@ class DocumentReaderRuntime:
         return "\n".join(piece for piece in pieces if piece).strip()[-2400:]
 
     def _offer_report(self, field, report: dict, *, now: float) -> dict:
-        candidate = field.offer_cognitive_event(
-            DOCUMENT_REPORT_SOURCE,
+        candidate = offer_maintenance_candidate(
+            self, field, DOCUMENT_REPORT_SOURCE,
             "A private cited reading report is available to encounter again.",
             {"novelty": .75, "affect_change": 0.0, "body_intensity": 0.0,
              "relationship": 0.0, "unresolved": .45},
@@ -324,8 +344,8 @@ class DocumentReaderRuntime:
 
     def _offer_internal_seed(self, field, seed: dict, *, now: float) -> dict:
         inspected = self.library.inspect_anchor(seed["anchor"], maximum=1)
-        candidate = field.offer_cognitive_event(
-            DOCUMENT_SOURCE,
+        candidate = offer_maintenance_candidate(
+            self, field, DOCUMENT_SOURCE,
             "An accessible document section selected through your private "
             "project is available to open if it still matters now.",
             {"novelty": .9, "affect_change": 0.0, "body_intensity": 0.0,
@@ -384,6 +404,30 @@ class DocumentReaderRuntime:
             duplicate=record.get("duplicate", False))
         return record
 
+    def foraging_revision(self) -> str:
+        """Content-free revision of inputs that can alter reading offers."""
+        manifests = []
+        for scope, root in (
+                ("human", self.library.user_root),
+                ("persona", self.library.persona_root),
+                ("system", self.library.system_root)):
+            for path in sorted(root.glob("doc_*/document.json")):
+                name, size, changed = _path_revision(path)
+                manifests.append((scope, path.parent.name, name, size, changed))
+        reports = [
+            _path_revision(path)
+            for path in sorted(self.library.reports_root.glob("drep_*.json"))
+        ] if self.library.reports_root.is_dir() else []
+        cues = self._cues()
+        return _digest({
+            "cues": _digest(cues) if cues else "",
+            "reader": [_path_revision(path) for path in (
+                self.library.state_path, self.library.events_path,
+                self.library.arc_path, self.library.notebook_path)],
+            "manifests": manifests,
+            "reports": reports,
+        })
+
     def refresh_pending(self, field, *, now: float = None) -> list[dict]:
         now = time.time() if now is None else float(now)
         if "document_reader" not in getattr(self.engine, "enabled", set()):
@@ -417,8 +461,8 @@ class DocumentReaderRuntime:
             pull = max(0.0, min(1.0, _finite(suggestion.get("document_pull"))))
             foreground = suggestion.get("pace") == "foreground"
             anchors = list(suggestion.get("anchors") or [suggestion["anchor"]])
-            candidate = field.offer_cognitive_event(
-                DOCUMENT_SOURCE,
+            candidate = offer_maintenance_candidate(
+                self, field, DOCUMENT_SOURCE,
                 ("The next complete packet in an explicitly requested private "
                  "document reading session is ready."
                  if foreground else
@@ -433,7 +477,13 @@ class DocumentReaderRuntime:
                      if len(anchors) > 1 else f"document_read:{anchors[0]}"),
                 now=now,
                 raw_ref=suggestion["anchor"], ownership="human_document",
-                receipts=anchors)
+                receipts=anchors,
+                revision_facts={
+                    "route": str(suggestion.get("route") or "")[:64],
+                    "coverage_milliband": round(float((self.library.
+                        reading_arc_status().get("coverage") or {}).get(
+                            "coverage") or 0.0), 3),
+                })
             candidate.update({"document_anchor": suggestion["anchor"],
                               "document_anchors": anchors,
                               "document_pull": pull,
@@ -465,7 +515,8 @@ class DocumentReaderRuntime:
                 "seed; it does not order writing. Quiet settles this report without "
                 "recurring. Notice feelings actually present; do not choose handoff "
                 "merely to be productive. Return exactly one JSON object with exactly: "
-                "action, query, report, feelings, why. Query and report must be empty.")
+                "action, query, report, reaction, changed, unresolved, feelings, why. "
+                "Query, report, reaction, changed, and unresolved must be empty.")
             material = f"PRIVATE READING REPORT [{anchor}]\n\n{inspected['content']}"
             summary = f"Private cited reading report {anchor}."
             ownership = "persona_private_document_report"
@@ -507,8 +558,13 @@ class DocumentReaderRuntime:
                 "available later; it never uses the web. Report requires a nonempty "
                 f"private report grounded in and citing [{anchor}]. Quiet is complete. "
                 "Feelings must be a JSON object mapping zero to four plain names to "
-                "intensities from 0 to 1; do not prescribe a reaction. Return exactly "
-                "one JSON object with exactly: action, query, report, feelings, why. "
+                "intensities from 0 to 1; do not prescribe a reaction. Reaction may "
+                "briefly name what landed for you; changed may name an understanding "
+                "or orientation that is different now; unresolved may name one exact "
+                "open edge. These are optional and may all be empty. They must be your "
+                "source-grounded response, not reproduced source text. Return exactly "
+                "one JSON object with exactly: action, query, report, reaction, changed, "
+                "unresolved, feelings, why. "
                 "Query is only for search; report is only for report. Nothing is sent, "
                 "published, or copied wholesale into memory.")
             material = (f"ACCESSIBLE DOCUMENT PACKET · "
@@ -539,6 +595,14 @@ class DocumentReaderRuntime:
             envelope, substrate_mode="on",
             external_demand_epoch=self.controller.live_epoch(),
             agency_spec=spec, agency_model=self.config.model)
+        # A reader decision gets the exact current source packet and, for an
+        # accepted arc, its source-grounded notebook.  Feeding prior generated
+        # interpretations back through the general continuity projection turns
+        # one model phrasing into a self-reinforcing answer template.  Preserve
+        # the ledger; sheathe that projection only for this next reader call.
+        product.assembly.blocks = [
+            block for block in product.assembly.blocks
+            if block.name != "experiential_continuity"]
         material_budget = max(1900, min(3200, math.ceil(len(material) / 4) + 24))
         product.assembly.add("private_document_material", material,
                              priority=9, budget=material_budget)
@@ -617,6 +681,9 @@ class DocumentReaderRuntime:
                         action=proposal["action"] if final else "quiet",
                         query=proposal["query"] if final else "",
                         report=proposal["report"] if final else "",
+                        reaction=proposal["reaction"] if final else "",
+                        changed=proposal["changed"] if final else "",
+                        unresolved=proposal["unresolved"] if final else "",
                         why=(proposal["why"] if final else
                              "Read completely in the same foreground packet."),
                         run_id=(context.run_id if final else
@@ -743,7 +810,9 @@ class DocumentReaderRuntime:
                 if osc is not None and delta.get("felt"):
                     osc.emotion_pressure(delta["felt"])
                 if soma is not None:
-                    soma.feel(self.engine.cocktail)
+                    from shell.autonomy_circulation import \
+                        embody_affect_from_engine
+                    embody_affect_from_engine(self.engine)
                     soma.tick()
                     if osc is not None:
                         for band, amount in soma.oscillator_effects().get(
@@ -753,6 +822,9 @@ class DocumentReaderRuntime:
                 if osc is not None:
                     osc.tick()
                     osc.save()
+                from shell.autonomy_circulation import \
+                    emit_affect_counterfactual
+                emit_affect_counterfactual(self.engine, delta)
                 if hasattr(organ, "encode"):
                     organ.encode(
                         f"I chose {action} after a private document encounter at [{anchor}].",
@@ -829,6 +901,12 @@ class DocumentReaderRuntime:
                 "affect_change": affect_change,
                 "report_id": created_report_id or candidate.get("report_id"),
                 "seed_id": (handoff or {}).get("seed_id"),
+                "consequence_status": (
+                    "present" if any(record.get(field) for field in (
+                        "reaction", "changed", "unresolved")) else "none"),
+                "reaction_digest": _digest(record.get("reaction") or ""),
+                "changed_digest": _digest(record.get("changed") or ""),
+                "unresolved_digest": _digest(record.get("unresolved") or ""),
                 "parser_normalization": proposal.get("parser_normalization") or []})
             self._emit("document_reader_field_reentry", run_id=effect["run_id"],
                        anchor=anchor, action=action, candidate_key=returned.get("key"))
@@ -900,4 +978,42 @@ class DocumentReaderRuntime:
                     if cap_release_remaining is not None else None),
             },
             "library": self.library.status(),
+        }
+
+    def resource_status(self, *, now: float | None = None) -> dict:
+        """Pure content-free reader occupation; never calls queue.items()."""
+        now = time.time() if now is None else float(now)
+        field = getattr(self.engine, "idle_metabolism", None)
+        items = []
+        if field is not None:
+            snapshot = getattr(field.queue, "snapshot_items", None)
+            items = list(snapshot()) if callable(snapshot) else []
+        foreground = [item for item in items
+                      if item.get("source") == DOCUMENT_SOURCE
+                      and item.get("reading_foreground")]
+        pressure = getattr(field, "pressure", None)
+        fires = sorted(
+            float(fired) for fired in getattr(pressure, "fires", ())
+            if now - float(fired) <= 3600.0) if pressure is not None else []
+        params = getattr(pressure, "p", {}) if pressure is not None else {}
+        max_fires = int(params.get("max_fires_per_hour", 0) or 0)
+        capped = bool(max_fires and len(fires) >= max_fires)
+        arc = self.library.reading_arc_status()
+        arc_state = str(arc.get("status") or "inactive")
+        unfinished = int(arc_state in {"active", "paused", "stale"})
+        return {
+            "schema_version": 1,
+            "active_arcs": int(arc_state == "active"),
+            "paused_arcs": int(arc_state == "paused"),
+            "unfinished_arcs": unfinished,
+            "foreground_packet_count": len(foreground),
+            "recent_fire_count": len(fires),
+            "max_fires_per_hour": max_fires,
+            "hourly_capped": capped,
+            "cap_release_remaining_s": (
+                round(max(0.0, 3600.0 - (now - fires[0])), 3)
+                if capped and fires else None),
+            "content_free": True,
+            "read_only": True,
+            "queue_decay_applied": False,
         }

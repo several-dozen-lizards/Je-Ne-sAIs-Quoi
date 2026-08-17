@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>JNSQ prompt-assembly observatory</title>
+  <style>
+    :root{color-scheme:dark;--bg:#121018;--panel:#1b1822;--ink:#f5f1fa;
+      --dim:#afa6ba;--line:#3b3446;--accent:#8bdbca;--accent2:#d7a7ff;
+      --danger:#ff8f9c;--warning:#f0c56d;font:15px/1.48 system-ui,sans-serif}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink)}
+    main{max-width:1280px;margin:auto;padding:1.25rem}h1{font-size:1.45rem;margin:0}
+    h2{font-size:1.05rem;margin:1.6rem 0 .65rem}p{margin:.3rem 0;color:var(--dim)}
+    a{color:var(--accent)}button,select{font:inherit;color:var(--ink);background:var(--panel);
+      border:1px solid var(--line);border-radius:.45rem;padding:.48rem .68rem}
+    button{cursor:pointer}button:hover,select:hover{border-color:var(--accent)}
+    button:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+    .top{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+    .controls{display:flex;align-items:end;gap:.55rem;flex-wrap:wrap}label{display:grid;gap:.18rem;color:var(--dim);font-size:.82rem}
+    .cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.75rem;margin-top:1rem}
+    .shadow-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.65rem;margin:.7rem 0}
+    .card,.turn{background:var(--panel);border:1px solid var(--line);border-radius:.7rem;padding:.85rem}
+    .card span,.card strong,.card small{display:block}.card span{color:var(--dim);font-size:.78rem}
+    .card strong{font-size:1.45rem;font-weight:500}.card small{margin-top:.16rem;color:var(--dim)}
+    .notice{margin-top:.8rem;padding:.68rem .8rem;border-left:3px solid var(--warning);
+      background:color-mix(in srgb,var(--warning) 10%,transparent);color:var(--ink)}
+    .notice.good{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+    table{width:100%;border-collapse:collapse;font-size:.86rem}th,td{padding:.48rem .4rem;
+      text-align:left;border-bottom:1px solid var(--line);vertical-align:middle}
+    th{color:var(--dim);font-weight:500;font-size:.76rem}td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+    .table-wrap{overflow-x:auto}.flag{color:var(--warning)}.bad{color:var(--danger)}.good-text{color:var(--accent)}
+    .muted{color:var(--dim)}.empty{color:var(--dim);padding:1rem 0}.turns{display:grid;gap:.65rem}
+    details.turn{padding:0}summary{cursor:pointer;padding:.8rem;list-style:none;display:grid;
+      grid-template-columns:minmax(11rem,1.3fr) repeat(4,minmax(6rem,.7fr));gap:.6rem;align-items:center}
+    summary::-webkit-details-marker{display:none}summary::before{content:"›";color:var(--accent);margin-right:.35rem}
+    details[open] summary::before{content:"⌄"}.turn-body{padding:0 .8rem .8rem;border-top:1px solid var(--line)}
+    .turn-meta{display:flex;flex-wrap:wrap;gap:.45rem 1.1rem;padding:.65rem 0;color:var(--dim);font-size:.82rem}
+    .pill{display:inline-block;border:1px solid var(--line);border-radius:1rem;padding:.08rem .46rem;font-size:.75rem}
+    @media(max-width:850px){.cards,.shadow-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+      summary{grid-template-columns:1fr 1fr}.summary-hide{display:none}}
+    @media(max-width:560px){main{padding:.9rem}.cards{grid-template-columns:1fr}.top{display:grid}.controls{align-items:stretch}}
+  </style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <div>
+      <h1>Prompt-assembly observatory</h1>
+      <p>One resident, one existing gate. Shows selection metadata only—never prompts, replies, memories, or source text.</p>
+      <p><a href="/model-calls">Model-call observatory</a></p>
+    </div>
+    <div class="controls">
+      <label>Resident<select id="persona" aria-label="Resident"></select></label>
+      <label>Time window<select id="hours"><option value="24">Last 24 hours</option>
+        <option value="168">Last 7 days</option><option value="720">Last 30 days</option>
+        <option value="0">All bounded receipts</option></select></label>
+      <button id="refresh" type="button">Refresh now</button>
+    </div>
+  </div>
+
+  <div class="cards" aria-live="polite">
+    <div class="card"><span>Assemblies</span><strong id="assemblies">—</strong><small id="attempts"></small></div>
+    <div class="card"><span>Provider returned</span><strong id="returns">—</strong><small id="metering"></small></div>
+    <div class="card"><span>Candidate outcomes</span><strong id="outcomes">—</strong><small>retained / truncated / dropped</small></div>
+    <div class="card"><span>Candidate characters</span><strong id="characters">—</strong><small>before → after current policy</small></div>
+  </div>
+  <div id="integrity" class="notice" role="status">Choose a resident to read receipts.</div>
+
+  <section>
+    <h2>Where the current policy makes cuts</h2>
+    <p>Counts describe existing behavior. They are not a recommendation to retain or remove anything.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Block</th><th class="num">Eligible</th><th class="num">Retained</th>
+        <th class="num">Truncated</th><th class="num">Dropped</th><th class="num">Characters withheld</th></tr></thead>
+      <tbody id="blocks"></tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>What pressure was present <span class="pill">descriptive</span></h2>
+    <p>Separates fixed per-block caps from assemblies whose complete candidates exceeded the declared practical window.</p>
+    <div class="shadow-cards">
+      <div class="card"><span>Block-cap only</span><strong id="capOnly">—</strong><small>assemblies below global pressure</small></div>
+      <div class="card"><span>Cap + global pressure</span><strong id="capPressure">—</strong><small>assemblies above the window before policy</small></div>
+      <div class="card"><span>Window-pressure drops</span><strong id="windowDrops">—</strong><small>assemblies with whole-block drops</small></div>
+      <div class="card"><span>No cut</span><strong id="noCut">—</strong><small>assemblies without truncation or drop</small></div>
+    </div>
+    <div id="pressureBoundary" class="notice"></div>
+  </section>
+
+  <section>
+    <h2>Document evidence ancestry <span class="pill">shadow only</span></h2>
+    <p>Opaque anchors distinguish source excerpts, prompt cuts, and later question-driven retrieval. A match is recovery demand—not omission regret.</p>
+    <div class="shadow-cards">
+      <div class="card"><span>Eligible anchor events</span><strong id="docEligible">—</strong></div>
+      <div class="card"><span>Source-renderer excerpts</span><strong id="docExcerpt">—</strong></div>
+      <div class="card"><span>Prompt-assembly cuts</span><strong id="docCuts">—</strong></div>
+      <div class="card"><span>Later query matches</span><strong id="docDemands">—</strong></div>
+    </div>
+    <div id="docBoundary" class="notice">No shadow ancestry receipts in this window.</div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Earlier cut cycle</th><th>Later query cycle</th><th class="num">Receipt distance</th><th>Classification</th></tr></thead>
+      <tbody id="documentDemands"></tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>Recent assemblies</h2>
+    <p>Open a row to see every candidate accounted for by ordinal. Digests remain in the private ledger and are not exposed here.</p>
+    <div id="recent" class="turns"></div>
+  </section>
+</main>
+<script>
+const $=id=>document.getElementById(id),nf=new Intl.NumberFormat(),
+  esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let loadGeneration=0;
+function syncTheme(){try{const s=getComputedStyle(parent.document.documentElement);
+  for(const name of ["--bg","--panel","--ink","--dim","--line","--accent","--accent2"]){
+    const value=s.getPropertyValue(name).trim();if(value)document.documentElement.style.setProperty(name,value)}}catch(_){}}
+const resultLabel=r=>r.accepted?'<span class="good-text">provider returned</span>':
+  r.attempted?`<span class="bad">${esc(r.error_type||"no return")}</span>`:'<span class="flag">not submitted</span>';
+function blockRows(items){$("blocks").innerHTML=items.length?items.map(r=>`<tr><td>${esc(r.name)}</td>
+  <td class="num">${nf.format(r.eligible)}</td><td class="num">${nf.format(r.retained)}</td>
+  <td class="num ${r.truncated?'flag':''}">${nf.format(r.truncated)}</td>
+  <td class="num ${r.dropped?'bad':''}">${nf.format(r.dropped)}</td>
+  <td class="num">${nf.format(r.withheld_chars)}</td></tr>`).join(""):
+  '<tr><td colspan="6" class="empty">No prompt-assembly receipts in this window.</td></tr>'}
+function candidateTable(items){return `<div class="table-wrap"><table><thead><tr><th>#</th><th>Candidate</th><th>Outcome</th>
+  <th>Reason</th><th class="num">Priority</th><th class="num">Budget</th><th>Protection</th><th class="num">Characters</th></tr></thead>
+  <tbody>${items.map(c=>`<tr><td>${c.ordinal}</td><td>${esc(c.name)}</td><td class="${c.outcome==='dropped'?'bad':c.outcome==='truncated'?'flag':''}">${esc(c.outcome)}</td>
+  <td>${esc(c.reason)}</td><td class="num">${nf.format(c.priority)}</td><td class="num">${c.block_budget_tokens?nf.format(c.block_budget_tokens):'—'}</td>
+  <td>${c.stable?'stable':c.keep_tail?'tail retained':'volatile'}</td><td class="num">${nf.format(c.chars_before)} → ${nf.format(c.chars_after)}</td></tr>`).join("")}</tbody></table></div>`}
+function renderDocumentShadow(shadow={}){$("docEligible").textContent=nf.format(shadow.eligible_anchor_events||0);
+  $("docExcerpt").textContent=nf.format(shadow.source_renderer_excerpt_events||0);
+  $("docCuts").textContent=nf.format(shadow.prompt_assembly_cut_events||0);
+  $("docDemands").textContent=nf.format(shadow.recovery_demand_candidates||0);
+  $("docBoundary").textContent=shadow.claim_boundary||"No shadow ancestry receipts in this window.";
+  const items=shadow.recent||[];$("documentDemands").innerHTML=items.length?items.map(item=>`<tr>
+    <td>${esc(item.cut_cycle_id)}</td><td>${esc(item.need_cycle_id)}</td><td class="num">${nf.format(item.receipt_distance)}</td>
+    <td>recovery-demand candidate · regret not established</td></tr>`).join(""):
+    '<tr><td colspan="4" class="empty">No later query retrieval matched an earlier prompt cut.</td></tr>'}
+function renderCutPressure(pressure={}){$("capOnly").textContent=nf.format(pressure.block_cap_only_assemblies||0);
+  $("capPressure").textContent=nf.format(pressure.block_cap_with_global_pressure_assemblies||0);
+  $("windowDrops").textContent=nf.format(pressure.window_pressure_drop_assemblies||0);
+  $("noCut").textContent=nf.format(pressure.no_cut_assemblies||0);
+  $("pressureBoundary").textContent=pressure.classification_basis||"No pressure classification is available."}
+function recentRows(items){$("recent").innerHTML=items.length?items.map(r=>{
+  const window=r.practical_window_tokens?Math.round(r.estimated_total_tokens_after/r.practical_window_tokens*100):0;
+  return `<details class="turn"><summary><span><strong>${esc(new Date(r.recorded_at).toLocaleString())}</strong><br><small class="muted">${esc(r.cycle_id)}</small></span>
+    <span>${esc(r.model)}</span><span>${resultLabel(r)}</span><span class="summary-hide">${nf.format(r.candidates.length)} candidates</span>
+    <span class="summary-hide">${nf.format(r.estimated_total_tokens_after)} est. tokens · ${window}% window</span></summary>
+    <div class="turn-body"><div class="turn-meta"><span>adapter: ${esc(r.adapter_family)}</span><span>provider: ${esc(r.provider)}</span>
+      <span>fixed reserve: ${nf.format(r.reply_reserve_tokens)}</span><span>requested completion: ${r.requested_completion_tokens==null?'unavailable':nf.format(r.requested_completion_tokens)}</span>
+      <span>pre-policy estimate: ${nf.format(r.estimated_total_tokens_before_policy)}</span><span>cut class: ${esc(r.cut_classification)}</span>
+      <span>provider input: ${r.provider_input_tokens==null?'unavailable':nf.format(r.provider_input_tokens)}</span><span>usage evidence: ${esc(r.usage_evidence)}</span>
+      <span>serialized system/user chars: ${nf.format(r.system_chars)} / ${nf.format(r.user_chars)}</span></div>
+      ${candidateTable(r.candidates)}</div></details>`}).join(""):'<p class="empty">No assemblies in this window.</p>'}
+function render(data){const t=data.totals;
+  $("assemblies").textContent=nf.format(t.assemblies);$("attempts").textContent=`${nf.format(t.submission_attempts)} submission attempts`;
+  $("returns").textContent=nf.format(t.provider_returns);$("metering").textContent=`${nf.format(t.metered_returns)} metered · ${nf.format(t.unmetered_returns)} unmetered · ${nf.format(t.provider_failures)} failed`;
+  $("outcomes").textContent=`${nf.format(t.retained_candidates)} / ${nf.format(t.truncated_candidates)} / ${nf.format(t.dropped_candidates)}`;
+  $("characters").textContent=`${nf.format(t.chars_before)} → ${nf.format(t.chars_after)}`;
+  const issues=[];if(data.integrity.malformed_lines)issues.push(`${data.integrity.malformed_lines} malformed or unsupported receipt lines skipped`);
+  if(data.integrity.tail_truncated)issues.push("view is using a bounded ledger tail");
+  $("integrity").className="notice"+(issues.length?"":" good");
+  $("integrity").textContent=(issues.length?issues.join(" · ")+". ":"")+data.integrity.claim_boundary+". "+data.integrity.recoverability+".";
+  blockRows(data.blocks);renderCutPressure(data.cut_pressure);renderDocumentShadow(data.document_shadow);recentRows(data.recent)}
+async function loadPersonas(){const response=await fetch("/api/prompt-assembly/personas",{cache:"no-store"}),data=await response.json();
+  const choices=data.personas||[];$("persona").innerHTML='<option value="">Choose a resident…</option>'+choices.map(p=>`<option value="${esc(p.name)}">${esc(p.name)}${p.has_receipts?'':' (no receipts yet)'}</option>`).join("");
+  if(!choices.length){$("integrity").textContent="No resident directories are available.";return false}return true}
+async function load(){const button=$("refresh"),persona=$("persona").value;if(!persona)return;
+  const generation=++loadGeneration;button.disabled=true;button.textContent="Reading…";try{const response=await fetch(`/api/prompt-assembly/summary?persona=${encodeURIComponent(persona)}&hours=${encodeURIComponent($("hours").value)}`,{cache:"no-store"});
+    const data=await response.json();if(!response.ok)throw new Error(data.error||response.statusText);if(generation===loadGeneration)render(data)}
+  catch(error){if(generation===loadGeneration){$("integrity").className="notice";$("integrity").textContent=`Could not read receipts: ${error.message}`}}
+  finally{if(generation===loadGeneration){button.disabled=false;button.textContent="Refresh now"}}}
+$("refresh").onclick=load;$("hours").onchange=load;$("persona").onchange=load;
+syncTheme();loadPersonas().catch(error=>{$("integrity").textContent=`Could not list residents: ${error.message}`});
+</script>
+</body>
+</html>

@@ -52,8 +52,9 @@ statements:
       - intention_loom.relationship_vector_is_descriptive
       - intention_loom.no_automatic_merge
       - intention_loom.append_only_convergence
+      - project_loom.relationship_not_prerequisite
     text: |-
-      Continuing intentions may show measured semantic, provenance, continuity, uncertainty, or recurrence overlap. That relationship vector describes shared territory; it does not prove sameness or require consolidation. If a related intention genuinely matters when one wins attention, one append-only movement may record coexistence, differentiation, or braid new wording into the focal intention. Both source histories remain intact, and no relationship movement creates a project or outward effect.
+      Continuing intentions may show measured semantic, provenance, continuity, uncertainty, or recurrence overlap. That relationship vector describes shared territory; it does not prove sameness or require consolidation. If a related intention genuinely matters when one wins attention, one append-only movement may record coexistence, differentiation, or braid new wording into the focal intention. Both source histories remain intact. Relationship evidence may inform a private proposal, but relating to a second intention is never a prerequisite for owning private work, and no relationship movement itself creates a project or outward effect.
 
   - id: intention_is_not_consent_or_authority
     category: expression_boundary

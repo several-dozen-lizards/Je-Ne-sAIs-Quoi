@@ -658,11 +658,35 @@ class IntentionLoom:
             "estimated_cost_usd", "readiness", "source_satiety",
             "loom_satiety", "observed_at", *CONTINUITY_FEATURES,
             "movement_count", "work_envelope",
+            "failure_stage", "failure_code", "discrepancy",
         }
         record = {str(key): item for key, item in dict(value or {}).items()
                   if key in allowed and item is not None}
+        if "discrepancy" in record:
+            raw = dict(record.get("discrepancy") or {})
+            record["discrepancy"] = {
+                "schema": 1,
+                "kind": "contract_discrepancy",
+                "stage": str(raw.get("stage") or "")[:40],
+                "code": str(raw.get("code") or "")[:80],
+                "parser_stage": str(
+                    raw.get("parser_stage") or raw.get("stage") or "")[:40],
+                "relation_type": str(
+                    raw.get("relation_type") or "movement_contract")[:80],
+                "reason_code": str(
+                    raw.get("reason_code") or raw.get("code") or "")[:80],
+                "field": str(raw.get("field") or "")[:120],
+                "constraint": str(raw.get("constraint") or "")[:400],
+                "observed": str(raw.get("observed") or "")[:120],
+                "state_changed": False,
+                "mutation_applied": False,
+                "committed_receipt": False,
+                "outward_effect": False,
+                "content_included": False,
+            }
         record.setdefault("kind", "run")
-        record.setdefault("observed_at", float(self.now_fn()))
+        if "observed_at" not in record:
+            record["observed_at"] = float(self.now_fn())
         with self._lock:
             return self._append(self.receipts, record)
 
@@ -678,31 +702,109 @@ class IntentionLoom:
             "observed_at": float(now),
         })
 
-    def attention_stats(self) -> dict[str, dict]:
-        stats: dict[str, dict] = {}
-        for record in self.receipt_records(limit=4000):
-            if record.get("kind") not in {
-                    "attention_exposed", "attention_selected"}:
-                continue
-            subject_id = str(record.get("subject_id") or "")
-            if not subject_id:
-                continue
-            value = stats.setdefault(subject_id, {
-                "subject_kind": record.get("subject_kind"),
-                "exposures": 0, "selections": 0,
-                "last_exposed_at": None, "last_selected_at": None,
-            })
-            stamp = float(record.get("observed_at") or 0.0)
-            if record["kind"] == "attention_exposed":
-                value["exposures"] += 1
-                value["last_exposed_at"] = stamp
-            else:
-                value["selections"] += 1
-                value["last_selected_at"] = stamp
-        for value in stats.values():
+    def _receipt_summaries(self) -> tuple[dict[str, dict], dict[str, dict]]:
+        """Stream exact content-free lifetime counters from the receipt ledger."""
+        attention: dict[str, dict] = {}
+        activity: dict[str, dict] = {}
+        with self._lock:
+            if not self.receipts.is_file():
+                return attention, activity
+            handle = self.receipts.open(encoding="utf-8")
+            try:
+                for line in handle:
+                    try:
+                        record = json.loads(line)
+                    except (TypeError, ValueError):
+                        continue
+                    if not isinstance(record, dict):
+                        continue
+                    kind = record.get("kind")
+                    if kind in {"attention_exposed", "attention_selected"}:
+                        subject_id = str(record.get("subject_id") or "")
+                        if not subject_id:
+                            continue
+                        value = attention.setdefault(subject_id, {
+                            "subject_kind": record.get("subject_kind"),
+                            "exposures": 0, "selections": 0,
+                            "last_exposed_at": None,
+                            "last_selected_at": None,
+                        })
+                        stamp = float(record.get("observed_at") or 0.0)
+                        if kind == "attention_exposed":
+                            value["exposures"] += 1
+                            value["last_exposed_at"] = stamp
+                        else:
+                            value["selections"] += 1
+                            value["last_selected_at"] = stamp
+                        continue
+                    if kind != "run":
+                        continue
+                    subject_id = str(
+                        record.get("intention_id")
+                        or record.get("cue_id") or "")
+                    if not subject_id:
+                        continue
+                    value = activity.setdefault(subject_id, {
+                        "run_count": 0, "durable_movements": 0,
+                        "quiet_encounters": 0,
+                        "contract_discrepancies": 0,
+                        "owner_refusals": 0,
+                        "last_outcome": None, "last_run_at": None,
+                        "last_failure_stage": None,
+                        "last_failure_code": None,
+                    })
+                    outcome = str(record.get("outcome") or "")
+                    value["run_count"] += 1
+                    if outcome in {"quiet", "project_quiet"}:
+                        value["quiet_encounters"] += 1
+                    elif outcome == "contract_discrepancy":
+                        value["contract_discrepancies"] += 1
+                    elif outcome == "owner_rejected":
+                        value["owner_refusals"] += 1
+                    elif outcome:
+                        value["durable_movements"] += max(
+                            1, int(record.get("movement_count") or 1))
+                    value["last_outcome"] = outcome or None
+                    value["last_run_at"] = float(
+                        record.get("observed_at") or 0.0)
+                    if outcome == "contract_discrepancy":
+                        value["last_failure_stage"] = (
+                            record.get("failure_stage"))
+                        value["last_failure_code"] = (
+                            record.get("failure_code"))
+            finally:
+                handle.close()
+        for value in attention.values():
             value["unselected_exposures"] = max(
                 0, value["exposures"] - value["selections"])
-        return stats
+        return attention, activity
+
+    def attention_stats(self) -> dict[str, dict]:
+        return self._receipt_summaries()[0]
+
+    def resource_status(self) -> dict:
+        """Count lifecycle occupation without exposing ids or private prose."""
+        views = list(self._views().values())
+        states = {name: 0 for name in (
+            "open", "paused", "satisfied", "released")}
+        for value in views:
+            state = str(value.get("state") or "")
+            if state in states:
+                states[state] += 1
+        attention, _activity = self._receipt_summaries()
+        return {
+            "schema_version": 1,
+            "pending_cues": len(self.pending_cues()),
+            "open_intentions": states["open"],
+            "paused_intentions": states["paused"],
+            "satisfied_intentions": states["satisfied"],
+            "released_intentions": states["released"],
+            "unselected_exposures": sum(
+                int(value.get("unselected_exposures") or 0)
+                for value in attention.values()),
+            "content_free": True,
+            "read_only": True,
+        }
 
     def continuity_for(self, intention_id: str) -> dict[str, float]:
         """Latest measured consequence, falling back to formation evidence."""
@@ -714,7 +816,7 @@ class IntentionLoom:
         return _continuity(intention.get("continuity"))
 
     def status(self) -> dict:
-        stats = self.attention_stats()
+        stats, activity = self._receipt_summaries()
         intentions = []
         for intention in self.intentions():
             from core.project_loom import shadow_eligibility
@@ -728,6 +830,13 @@ class IntentionLoom:
                     "selections": 0, "unselected_exposures": 0,
                     "last_exposed_at": None, "last_selected_at": None,
                 }),
+                "activity": activity.get(intention["intention_id"], {
+                    "run_count": 0, "durable_movements": 0,
+                    "quiet_encounters": 0, "contract_discrepancies": 0,
+                    "owner_refusals": 0, "last_outcome": None,
+                    "last_run_at": None, "last_failure_stage": None,
+                    "last_failure_code": None,
+                }),
             })
         pending = []
         for cue in self.pending_cues():
@@ -737,6 +846,13 @@ class IntentionLoom:
                     "subject_kind": "cue", "exposures": 0,
                     "selections": 0, "unselected_exposures": 0,
                     "last_exposed_at": None, "last_selected_at": None,
+                }),
+                "activity": activity.get(cue["cue_id"], {
+                    "run_count": 0, "durable_movements": 0,
+                    "quiet_encounters": 0, "contract_discrepancies": 0,
+                    "owner_refusals": 0, "last_outcome": None,
+                    "last_run_at": None, "last_failure_stage": None,
+                    "last_failure_code": None,
                 }),
             })
         return {
@@ -754,6 +870,8 @@ class IntentionLoom:
                 "neglect_changes_selection": False,
                 "relationships_are_descriptive": True,
                 "relationships_do_not_auto_merge": True,
+                "project_requires_relationship": False,
+                "open_private_intention_can_propose_project": True,
                 "intention_is_not_consent": True,
                 "owned_intention_carries_interior_authority": True,
                 "interior_authority_requires_no_external_grant": True,

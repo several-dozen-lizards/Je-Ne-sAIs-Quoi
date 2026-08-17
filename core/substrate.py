@@ -169,3 +169,33 @@ class SubstrateAccumulator:
                     "band_pressure": band_pressure, "signals": signals,
                     "step_s": step_s,
                     "coupling_gain": SUBSTRATE_COUPLING_GAIN}
+
+    def resource_status(self) -> dict:
+        """Return exact buffer occupation without draining or exposing signals."""
+        with self._lock:
+            durations = {
+                modality: min(
+                    MAX_BACKLOG_S,
+                    _finite_nonnegative(value.get("duration_s")))
+                for modality, value in self._pending.items()
+                if modality in ("audio", "camera")
+            }
+            interval_count = sum(
+                max(0, int(value.get("interval_count") or 0))
+                for modality, value in self._pending.items()
+                if modality in ("audio", "camera"))
+        capacity = MAX_BACKLOG_S * 2.0
+        occupied = min(capacity, sum(durations.values()))
+        available = max(0.0, capacity - occupied)
+        return {
+            "capacity_s": capacity,
+            "occupied_s": occupied,
+            "available_s": available,
+            "active_modalities": len(durations),
+            "interval_count": interval_count,
+            "load_fraction": occupied / capacity,
+            "slack_fraction": available / capacity,
+            "content_free": True,
+            "read_only": True,
+            "drained": False,
+        }

@@ -20,11 +20,18 @@ import httpx
 
 
 ALLOWED_SCHEMES = frozenset({"http", "https"})
-ALLOWED_TYPES = frozenset({"text/html", "text/plain", "application/json",
-                           "application/pdf"})
+ALLOWED_TYPES = frozenset({
+    "text/html", "text/plain", "application/json", "application/pdf",
+    "application/rss+xml", "application/atom+xml", "application/xml",
+    "text/xml",
+})
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 MAX_EXTRACTED_CHARS = 24000
 MAX_REDIRECTS = 4
+# News and other landing pages commonly put their actual document links after
+# a large navigation header.  Keep the encounter bounded, but do not amputate
+# it at the first menu-sized handful of links.
+MAX_ENCOUNTERED_LINKS = 96
 
 
 @dataclass(frozen=True)
@@ -34,6 +41,9 @@ class WebRangeEntry:
     source_class: str = "public_reference"
     volatility: str = "medium"
     include_subdomains: bool = False
+    discovery_url: str = ""
+    discovery_terms: tuple[str, ...] = ()
+    discovery_path_prefixes: tuple[str, ...] = ()
 
     def __post_init__(self):
         host = str(self.host or "").strip().casefold().rstrip(".")
@@ -46,6 +56,33 @@ class WebRangeEntry:
         object.__setattr__(
             self, "source_class",
             str(self.source_class or "public_reference")[:80])
+        discovery_url = str(self.discovery_url or "").strip()
+        if discovery_url:
+            parsed = urlparse(discovery_url)
+            discovery_host = (parsed.hostname or "").casefold().rstrip(".")
+            if (parsed.scheme.casefold() != "https" or not discovery_host
+                    or parsed.username or parsed.password
+                    or not self.admits(discovery_host)):
+                raise WebResearchError(
+                    "web range discovery URL must stay on its admitted host")
+        terms = tuple(dict.fromkeys(
+            " ".join(str(value or "").casefold().split())[:120]
+            for value in self.discovery_terms
+            if " ".join(str(value or "").split())))
+        if discovery_url and not terms:
+            raise WebResearchError(
+                "web range discovery URL requires matching terms")
+        prefixes = tuple(dict.fromkeys(
+            str(value or "").strip() for value in
+            self.discovery_path_prefixes
+            if str(value or "").strip()))
+        if any(not value.startswith("/") or ".." in value
+               for value in prefixes):
+            raise WebResearchError(
+                "web range discovery path prefix is invalid")
+        object.__setattr__(self, "discovery_url", discovery_url)
+        object.__setattr__(self, "discovery_terms", terms)
+        object.__setattr__(self, "discovery_path_prefixes", prefixes)
 
     def admits(self, host: str) -> bool:
         host = str(host or "").casefold().rstrip(".")
@@ -75,8 +112,22 @@ class WebRangePolicy:
                 host=value.get("host"),
                 source_class=value.get("source_class", "public_reference"),
                 volatility=value.get("volatility", "medium"),
-                include_subdomains=bool(value.get("include_subdomains", False))))
+                include_subdomains=bool(value.get("include_subdomains", False)),
+                discovery_url=value.get("discovery_url", ""),
+                discovery_terms=tuple(value.get("discovery_terms") or ()),
+                discovery_path_prefixes=tuple(
+                    value.get("discovery_path_prefixes") or ())))
         return cls(entries, mode=str(raw.get("mode") or "public_web"))
+
+    def matching_discovery_entries(self, query: str):
+        """Return explicitly configured native indexes relevant to a query."""
+        query = " ".join(str(query or "").casefold().split())
+        ranked = []
+        for index, entry in enumerate(self.entries):
+            matches = sum(term in query for term in entry.discovery_terms)
+            if entry.discovery_url and matches:
+                ranked.append((matches, -index, entry))
+        return tuple(item[2] for item in sorted(ranked, reverse=True))
 
     def classify(self, url: str) -> dict:
         host = (urlparse(str(url or "")).hostname or "").casefold().rstrip(".")
@@ -103,14 +154,15 @@ class WebRangePolicy:
             return "The public web boundary will classify each admitted result."
         groups = {}
         for entry in self.entries:
-            groups.setdefault(entry.source_class, []).append(entry.host)
+            groups[entry.source_class] = groups.get(entry.source_class, 0) + 1
         rendered = "; ".join(
-            f"{source_class}: {', '.join(hosts)}"
-            for source_class, hosts in groups.items())
+            f"{source_class} ({count})"
+            for source_class, count in sorted(groups.items()))
         return (
-            "Only results inside this resident Web Range can be admitted. "
-            "Use a site:host term when a particular habitat matters. "
-            f"Permitted habitats by source class: {rendered}. "
+            "The host admits results only inside this resident Web Range: "
+            f"{len(self.entries)} configured habitats across {rendered}. "
+            "Do not invent hostnames. An exact hostname already present in "
+            "the admitted evidence may be used with site:host to narrow. "
             "Permission is not evidence of credibility.")
 
 
@@ -291,7 +343,8 @@ class _SearchParser(HTMLParser):
             return
         values = dict(attrs)
         classes = set(str(values.get("class") or "").split())
-        if "result__a" in classes and values.get("href"):
+        if ({"result__a", "result-link"} & classes
+                and values.get("href")):
             self.current = {"url": _unwrap_result_url(values["href"]),
                             "title_parts": []}
 
@@ -312,17 +365,105 @@ class _LinkExtractor(HTMLParser):
     def __init__(self, base_url: str):
         super().__init__(convert_charrefs=True)
         self.base_url = base_url
-        self.links = []
+        self._rows = []
+        self._current = None
+        self._article_depth = 0
+        self._navigation_depth = 0
 
     def handle_starttag(self, tag, attrs):
-        if tag.casefold() != "a":
+        tag = tag.casefold()
+        values = dict(attrs)
+        if tag == "article":
+            self._article_depth += 1
+        if tag in {"nav", "header", "footer"}:
+            self._navigation_depth += 1
+        if tag == "img" and self._current is not None:
+            alt = str(values.get("alt") or "").strip()
+            if alt:
+                self._current["image_alt"].append(alt)
             return
-        href = dict(attrs).get("href")
+        if tag != "a":
+            return
+        href = values.get("href")
         if not href:
             return
         url = urljoin(self.base_url, html.unescape(str(href)))
-        if url.startswith(("http://", "https://")) and url not in self.links:
-            self.links.append(url)
+        if url.startswith(("http://", "https://")):
+            self._current = {
+                "url": url,
+                "text": [],
+                "image_alt": [],
+                "in_article": self._article_depth > 0,
+                "in_navigation": self._navigation_depth > 0,
+            }
+
+    def handle_data(self, data):
+        if self._current is not None:
+            self._current["text"].append(str(data or ""))
+
+    def handle_endtag(self, tag):
+        tag = tag.casefold()
+        if tag == "a" and self._current is not None:
+            row = self._current
+            self._current = None
+            visible = " ".join(" ".join(row["text"]).split())[:300]
+            image_alt = " ".join(
+                " ".join(row["image_alt"]).split())[:300]
+            row["text"] = visible or image_alt
+            row["visible_text"] = bool(visible)
+            prior = next(
+                (item for item in self._rows if item["url"] == row["url"]),
+                None)
+            if prior is None:
+                self._rows.append(row)
+            else:
+                if (row.get("visible_text") and not prior.get("visible_text")):
+                    prior["text"] = row["text"]
+                    prior["visible_text"] = True
+                elif (bool(row.get("visible_text")) == bool(
+                        prior.get("visible_text"))
+                        and len(row["text"]) > len(prior.get("text") or "")):
+                    prior["text"] = row["text"]
+                prior["in_article"] = bool(
+                    prior.get("in_article") or row["in_article"])
+                prior["in_navigation"] = bool(
+                    prior.get("in_navigation") and row["in_navigation"])
+        if tag == "article" and self._article_depth:
+            self._article_depth -= 1
+        if tag in {"nav", "header", "footer"} and self._navigation_depth:
+            self._navigation_depth -= 1
+
+    @staticmethod
+    def _document_likelihood(row):
+        """Rank encountered documents above short navigational furniture."""
+        parsed = urlparse(row["url"])
+        parts = [part for part in parsed.path.split("/") if part]
+        words = re.findall(r"[A-Za-z0-9']+", row.get("text") or "")
+        descriptive = min(len(words), 14) / 14.0
+        path_depth = min(len(parts), 6) / 6.0
+        opaque_document_id = any(
+            len(part) >= 16 and re.fullmatch(r"[A-Za-z0-9_-]+", part)
+            for part in parts)
+        return (
+            round(.43 * descriptive + .20 * path_depth
+                  + .12 * float(opaque_document_id)
+                  + .35 * float(bool(row.get("in_article")))
+                  - .35 * float(bool(row.get("in_navigation"))), 6),
+            len(words), len(row.get("text") or ""))
+
+    @property
+    def documents(self):
+        ranked = sorted(
+            enumerate(self._rows),
+            key=lambda item: (
+                *self._document_likelihood(item[1]), -item[0]),
+            reverse=True)
+        return tuple({"url": row["url"], "title": row.get("text") or ""}
+                     for _index, row in ranked)
+
+    @property
+    def links(self):
+        return [row["url"] for row in self.documents]
 
 
 @dataclass(frozen=True)
@@ -346,17 +487,22 @@ class ReadOnlyWebResearch:
 
     def __init__(self, *, client=None, resolver=socket.getaddrinfo,
                  policy=None,
-                 search_url: str = "https://html.duckduckgo.com/html/"):
+                 search_url: str = "https://html.duckduckgo.com/html/",
+                 fallback_search_url: str =
+                 "https://lite.duckduckgo.com/lite/"):
         self.client = client or httpx.Client(
             timeout=httpx.Timeout(15.0, connect=8.0), follow_redirects=False,
             headers={"User-Agent": "JNSQ-ResearchDesk/1.0 (read-only)"})
         self.resolver = resolver
         self.search_url = search_url
+        self.fallback_search_url = fallback_search_url
         self.policy = policy or WebRangePolicy()
+        self.last_search_attempts = ()
 
     def _request(self, url: str) -> httpx.Response:
         headers = {"Accept": (
-            "text/html,text/plain,application/pdf,application/json;q=0.8")}
+            "text/html,text/plain,application/pdf,application/json,"
+            "application/rss+xml,application/atom+xml,application/xml,text/xml;q=0.8")}
         cookie_jar = getattr(self.client, "cookies", None)
         if cookie_jar is not None:
             cookie_jar.clear()
@@ -390,9 +536,11 @@ class ReadOnlyWebResearch:
             cookie_jar.clear()
         return bounded
 
-    def _get(self, url: str, *, search_transport=False) -> tuple[httpx.Response, str]:
+    def _get(self, url: str, *, search_transport=False,
+             search_host: str = "") -> tuple[httpx.Response, str]:
         current = validate_public_url(url, resolver=self.resolver)
-        search_host = (urlparse(self.search_url).hostname or "").casefold()
+        search_host = (str(search_host or "") or
+                       (urlparse(self.search_url).hostname or "")).casefold()
         if not search_transport:
             self.policy.classify(current)
         for _hop in range(MAX_REDIRECTS + 1):
@@ -423,21 +571,105 @@ class ReadOnlyWebResearch:
 
     def search(self, query: str, *, limit: int = 6) -> list[dict]:
         query = validate_search_query(query)
-        url = f"{self.search_url}?q={quote_plus(query)}"
-        response, _final = self._get(url, search_transport=True)
-        parser = _SearchParser()
-        parser.feed(self._bounded_body(response).decode("utf-8", "replace"))
-        found = []
-        for row in parser.results:
+        limit = max(1, min(int(limit), 10))
+        attempts = []
+        for search_url in dict.fromkeys(filter(None, (
+                self.search_url, self.fallback_search_url))):
+            url = f"{search_url}?q={quote_plus(query)}"
             try:
-                validate_public_url(row["url"], resolver=self.resolver)
-                classification = self.policy.classify(row["url"])
-            except WebResearchError:
-                continue
-            if row["url"] not in {item["url"] for item in found}:
-                found.append({**row, **classification})
-            if len(found) >= max(1, min(int(limit), 10)):
+                response, _final = self._get(
+                    url, search_transport=True,
+                    search_host=(urlparse(search_url).hostname or ""))
+                parser = _SearchParser()
+                parser.feed(self._bounded_body(response).decode(
+                    "utf-8", "replace"))
+                found = []
+                for row in parser.results:
+                    try:
+                        validate_public_url(row["url"], resolver=self.resolver)
+                        classification = self.policy.classify(row["url"])
+                    except WebResearchError:
+                        continue
+                    if row["url"] not in {item["url"] for item in found}:
+                        found.append({**row, **classification})
+                    if len(found) >= limit:
+                        break
+                attempts.append({
+                    "host": (urlparse(search_url).hostname or "")[:120],
+                    "status": "results" if found else "empty",
+                    "result_count": len(found),
+                })
+                if found:
+                    self.last_search_attempts = tuple(attempts)
+                    return found
+            except Exception as exc:
+                attempts.append({
+                    "host": (urlparse(search_url).hostname or "")[:120],
+                    "status": "failed",
+                    "error_type": type(exc).__name__,
+                })
+        # A configured native index is not a generic crawler. It is a bounded
+        # recovery edge from a failed discovery provider into a resident-owned
+        # Web Range habitat whose matching terms are explicit in the roster.
+        # Read every matching index once, then interleave their encountered
+        # documents so one publisher cannot crowd the whole result set.
+        native_rows = []
+        for entry in self.policy.matching_discovery_entries(query):
+            rows = []
+            try:
+                response, final_url = self._get(entry.discovery_url)
+                content_type = response.headers.get(
+                    "content-type", "").split(";", 1)[0].casefold()
+                if content_type != "text/html":
+                    raise WebResearchError(
+                        "native discovery source is not HTML")
+                parser = _LinkExtractor(final_url)
+                parser.feed(self._bounded_body(response).decode(
+                    "utf-8", "replace"))
+                for row in parser.documents:
+                    path = urlparse(row["url"]).path
+                    if (entry.discovery_path_prefixes
+                            and not any(path.startswith(prefix) for prefix in
+                                        entry.discovery_path_prefixes)):
+                        continue
+                    try:
+                        validate_public_url(row["url"], resolver=self.resolver)
+                        classification = self.policy.classify(row["url"])
+                    except WebResearchError:
+                        continue
+                    rows.append({
+                        "title": (row.get("title") or
+                                  urlparse(row["url"]).path.rsplit("/", 2)[-1]
+                                  or entry.host)[:300],
+                        "url": row["url"], **classification,
+                    })
+                    if len(rows) >= limit:
+                        break
+                attempts.append({
+                    "host": entry.host[:120],
+                    "status": "native_results" if rows else "native_empty",
+                    "result_count": len(rows),
+                })
+            except Exception as exc:
+                attempts.append({
+                    "host": entry.host[:120],
+                    "status": "native_failed",
+                    "error_type": type(exc).__name__,
+                })
+            native_rows.append(rows)
+        found = []
+        while native_rows and len(found) < limit:
+            progressed = False
+            for rows in native_rows:
+                if not rows or len(found) >= limit:
+                    continue
+                row = rows.pop(0)
+                if row["url"] not in {item["url"] for item in found}:
+                    found.append(row)
+                progressed = True
+            if not progressed:
                 break
+        self.last_search_attempts = tuple(attempts)
         return found
 
     def fetch(self, url: str) -> WebEvidence:
@@ -471,7 +703,7 @@ class ReadOnlyWebResearch:
                     except WebResearchError:
                         continue
                     admitted.append(link)
-                    if len(admitted) >= 24:
+                    if len(admitted) >= MAX_ENCOUNTERED_LINKS:
                         break
                 links = tuple(admitted)
             page_count = 0

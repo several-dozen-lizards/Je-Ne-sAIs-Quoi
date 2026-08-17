@@ -36,6 +36,7 @@ from shell.agency_controller import AgencyRunOutcome
 from shell.autonomy_circulation import (
     circulate_experienced_event, readiness_from_engine,
 )
+from shell.maintenance_circulation import offer_maintenance_candidate
 
 
 LOOM_SOURCES = frozenset({
@@ -46,6 +47,112 @@ LOOM_ACTIONS = frozenset({
     "coexist", "differentiate", "braid",
     "propose_project",
 })
+
+INTENTION_MOVEMENTS_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "movements": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string", "enum": sorted(LOOM_ACTIONS)},
+                    "title": {"type": "string"},
+                    "statement": {"type": "string"},
+                    "uncertainty_low": {"type": "number"},
+                    "uncertainty_high": {"type": "number"},
+                    "basis": {"type": "string"},
+                    "related_intention_id": {"type": "string"},
+                    "orientation": {"type": "string"},
+                },
+                "required": [
+                    "action", "title", "statement", "uncertainty_low",
+                    "uncertainty_high", "basis", "related_intention_id",
+                    "orientation",
+                ],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["movements"],
+    "additionalProperties": False,
+}
+
+
+class MovementContractDiscrepancy(ValueError):
+    """Content-free classification of an invalid local movement result."""
+
+    def __init__(self, stage: str, code: str):
+        self.stage = str(stage)
+        self.code = str(code)
+        super().__init__(f"{self.stage}:{self.code}")
+
+
+def _movement_failure_code(exc: Exception) -> str:
+    """Classify validator failures without persisting model-authored text."""
+    message = str(exc).casefold()
+    if "did not return" in message or "json" in message:
+        return "invalid_json"
+    if "missing required" in message:
+        return "missing_fields"
+    if "unknown fields" in message or "fields are not exact" in message:
+        return "fields_not_exact"
+    if "action" in message and "invalid" in message:
+        return "invalid_action"
+    if "uncertainty" in message:
+        return "invalid_uncertainty"
+    if "relationship" in message or "related intention" in message:
+        return "invalid_relation"
+    if "wording" in message or "title" in message or "statement" in message:
+        return "invalid_wording"
+    return "host_validation_failed"
+
+
+def _movement_contract_consequence(stage: str, code: str) -> dict:
+    """Describe the failed contract without retaining model-authored content."""
+    descriptions = {
+        "invalid_json": (
+            "response", "one valid JSON movement envelope",
+            "invalid_or_unparseable"),
+        "missing_fields": (
+            "movement", "all required movement fields present", "missing"),
+        "fields_not_exact": (
+            "movement", "exact movement fields with no extras", "shape_mismatch"),
+        "invalid_action": (
+            "action", "one action from the allowed movement enum", "outside_enum"),
+        "invalid_uncertainty": (
+            "uncertainty_low/uncertainty_high",
+            "finite 0 <= low <= high <= 1 for wording movements and zero for "
+            "non-wording movements", "range_or_action_mismatch"),
+        "invalid_relation": (
+            "related_intention_id", "the exact related-intention rule",
+            "relation_mismatch"),
+        "invalid_wording": (
+            "title/statement/basis", "the wording requirements for the chosen action",
+            "missing_or_misaligned"),
+        "no_movement_admitted": (
+            "movement_sequence", "the live interior-work envelope",
+            "outside_envelope"),
+        "host_validation_failed": (
+            "movement", "all host movement invariants", "host_validation_failed"),
+    }
+    field, constraint, observed = descriptions.get(
+        str(code), descriptions["host_validation_failed"])
+    return {
+        "schema": 1, "kind": "contract_discrepancy",
+        "stage": str(stage or "host_validation")[:40],
+        "code": str(code or "host_validation_failed")[:80],
+        "parser_stage": str(stage or "host_validation")[:40],
+        "relation_type": (
+            "related_intention" if str(code) == "invalid_relation"
+            else "movement_contract"),
+        "reason_code": str(code or "host_validation_failed")[:80],
+        "field": field, "constraint": constraint, "observed": observed,
+        "state_changed": False, "mutation_applied": False,
+        "committed_receipt": False, "outward_effect": False,
+        "content_included": False,
+    }
 
 
 def _digest(value: Any) -> str:
@@ -622,6 +729,19 @@ class IntentionLoomRuntime:
         self._last_readiness = readiness_from_engine(self.engine, field)
         return dict(self._last_readiness)
 
+    def _affect_need_affinity(self, text: str) -> float:
+        """Fit only; the atlas cannot create a cue or form an intention."""
+        organ = getattr(self.engine, "organ", None)
+        atlas = getattr(organ, "affect_atlas", None)
+        if atlas is None or not getattr(atlas, "enabled", False):
+            return 0.0
+        try:
+            return max(0.0, min(1.0, float(
+                atlas.intention_need_affinity(
+                    text, getattr(self.engine, "cocktail", {}) or {}))))
+        except Exception:
+            return 0.0
+
     @staticmethod
     def eligible(candidate: Mapping[str, Any]) -> bool:
         return str(dict(candidate or {}).get("source") or "") in LOOM_SOURCES
@@ -647,6 +767,14 @@ class IntentionLoomRuntime:
             dict(candidate), now=now,
             action_readiness=value, action_eligible=eligible,
             scope_satiety=loom_satiety)
+        pre_need_score = score
+        need_affinity = (_finite(candidate.get("affect_need_affinity"))
+                         if eligible else 0.0)
+        # A need association can bend only salience that already exists.  The
+        # residual formula is zero at both a zero candidate and saturation;
+        # no need label can admit, form, or select an intention by itself.
+        need_contribution = (1.0 - score) * score * need_affinity
+        score += need_contribution
         kind, subject_id = self._subject(candidate)
         attention = (
             self.loom.attention_stats().get(subject_id, {})
@@ -660,6 +788,9 @@ class IntentionLoomRuntime:
             "intention_selections": int(attention.get("selections", 0)),
             "intention_unselected_exposures": int(
                 attention.get("unselected_exposures", 0)),
+            "pre_affect_need_score": round(pre_need_score, 6),
+            "affect_need_affinity": round(need_affinity, 6),
+            "affect_need_contribution": round(need_contribution, 6),
             "neglect_changes_selection": False,
         }
 
@@ -696,6 +827,8 @@ class IntentionLoomRuntime:
         candidate.update({
             "cue_id": cue["cue_id"],
             "satiety_key": f"intention_cue:{cue['cue_id']}",
+            "affect_need_affinity": self._affect_need_affinity(
+                str(cue.get("label") or "")),
             **lease_fields(cue, origin="intention_cue"),
         })
         return candidate
@@ -703,17 +836,24 @@ class IntentionLoomRuntime:
     def _offer_intention(self, field, intention: Mapping[str, Any], *,
                          now: float):
         continuity = self.loom.continuity_for(intention["intention_id"])
-        candidate = field.offer_cognitive_event(
-            "intention_open",
+        candidate = offer_maintenance_candidate(
+            self, field, "intention_open",
             f"A self-owned intention remains {intention.get('state')}: "
             f"{intention.get('title') or intention['intention_id']}",
             continuity,
             key=f"intention_open:{intention['intention_id']}", now=now,
             raw_ref=intention["intention_id"], ownership="persona_private",
-            receipts=[intention["intention_id"]])
+            receipts=[intention["intention_id"]],
+            revision_facts={
+                "revision_count": int(intention.get("revision_count") or 0),
+                "state": str(intention.get("state") or "")[:32],
+            })
         candidate.update({
             "intention_id": intention["intention_id"],
             "satiety_key": f"intention_open:{intention['intention_id']}",
+            "affect_need_affinity": self._affect_need_affinity(
+                f"{intention.get('title') or ''} "
+                f"{intention.get('statement') or ''}"),
         })
         return candidate
 
@@ -740,13 +880,14 @@ class IntentionLoomRuntime:
             "volitional_relevance": 0.0,
         }
         proposal_id = str(proposal.get("proposal_id") or "")
-        candidate = field.offer_cognitive_event(
-            "project_shadow",
+        candidate = offer_maintenance_candidate(
+            self, field, "project_shadow",
             f"A private, powerless project shape remains available: "
             f"{proposal.get('title') or proposal_id}",
             continuity, key=f"project_shadow:{proposal_id}", now=now,
             raw_ref=proposal_id, ownership="persona_private",
-            receipts=[proposal_id])
+            receipts=[proposal_id],
+            revision_facts={"development_count": development_count})
         candidate.update({
             "proposal_id": proposal_id,
             "satiety_key": f"project_shadow:{proposal_id}",
@@ -964,9 +1105,9 @@ class IntentionLoomRuntime:
             task += (
                 " A field win may carry a coherent ordered sequence of these "
                 "same-owner private movements when readiness and the local "
-                "resource envelope support it. Return either the single exact "
-                "movement object described above, or exactly one movements key "
-                "containing exact movement objects. A new nomination may be "
+                "resource envelope support it. Return exactly one JSON object "
+                "with exactly one movements key containing exact movement "
+                "objects. A new nomination may be "
                 "followed immediately by select_internal using candidate_id "
                 f"{NEWLY_NOMINATED_CANDIDATE!r}; the host resolves that local "
                 "forward reference only to the candidate created immediately "
@@ -1041,12 +1182,11 @@ class IntentionLoomRuntime:
                 "turning a possibility into a command or an intention into a project. "
                 f"Choose one action, or an ordered sequence of coherent "
                 f"same-owner private movements, from: {actions}. {contract}"
-                f"{orientation_contract} Return exactly "
-                "one JSON object. For one movement use exactly these keys: "
+                f"{orientation_contract} Return exactly one JSON object with "
+                "exactly one movements key. Every movement uses exactly these keys: "
                 "action, title, statement, uncertainty_low, uncertainty_high, "
-                "basis, related_intention_id, orientation. For a sequence use "
-                "exactly one movements key containing objects with those exact "
-                "keys. Do not pad a sequence; stop when the movement settles. "
+                "basis, related_intention_id, orientation. Do not pad the sequence; "
+                "stop when the movement settles. "
                 "Use an empty related_intention_id unless choosing coexist, "
                 "differentiate, or braid. An intention is not consent, authority, or "
                 "execution; it cannot authorize a protocol, dose, tool, or external "
@@ -1302,11 +1442,18 @@ class IntentionLoomRuntime:
                     persona=getattr(self.engine, "persona", "unknown"),
                     purpose="intention_loom"):
                 try:
+                    event_args = {
+                        "tools": (), "exchanges": (),
+                        "max_tokens": self.config.max_tokens,
+                        "temperature": product.temperature,
+                        "cancel": context.cancellation,
+                    }
+                    if str(identity.get("provider") or "") == "ollama":
+                        event_args["output_format"] = (
+                            "json" if candidate.get("source") == "project_shadow"
+                            else INTENTION_MOVEMENTS_SCHEMA)
                     events = [event async for event in adapter.events(
-                        product.assembly, tools=(), exchanges=(),
-                        max_tokens=self.config.max_tokens,
-                        temperature=product.temperature,
-                        cancel=context.cancellation)]
+                        product.assembly, **event_args)]
                     usage = self._usage(events)
                     attempts = 1 + len(getattr(
                         getattr(adapter, "event_transport", None),
@@ -1324,10 +1471,14 @@ class IntentionLoomRuntime:
                     raise
             context.cancellation.raise_if_cancelled()
             is_project = candidate.get("source") == "project_shadow"
-            if is_project:
-                proposals = parse_project_movements(text, intention)
-            else:
-                proposals = parse_intention_movements(text)
+            try:
+                if is_project:
+                    proposals = parse_project_movements(text, intention)
+                else:
+                    proposals = parse_intention_movements(text)
+            except ValueError as exc:
+                raise MovementContractDiscrepancy(
+                    "parse", _movement_failure_code(exc)) from exc
             envelope = InteriorWorkEnvelope.from_readiness(
                 readiness, response_tokens=self.config.max_tokens)
             admitted_proposals = []
@@ -1338,8 +1489,8 @@ class IntentionLoomRuntime:
                 if proposal["action"] in {"quiet", "satisfy", "release"}:
                     break
             if not admitted_proposals:
-                raise ValueError(
-                    "interior work envelope admitted no movement")
+                raise MovementContractDiscrepancy(
+                    "envelope", "no_movement_admitted")
             if candidate.get("source") == "intention_cue":
                 admitted_proposals = admitted_proposals[:1]
             proposals = admitted_proposals
@@ -1456,10 +1607,20 @@ class IntentionLoomRuntime:
                 })
                 return
             if isinstance(exc, ValueError):
+                failure_stage = (
+                    exc.stage if isinstance(exc, MovementContractDiscrepancy)
+                    else "commit")
+                failure_code = (
+                    exc.code if isinstance(exc, MovementContractDiscrepancy)
+                    else _movement_failure_code(exc))
+                discrepancy = _movement_contract_consequence(
+                    failure_stage, failure_code)
                 failure_digest = _digest({
                     "candidate": candidate.get("key"),
                     "error_type": type(exc).__name__,
-                    "error": str(exc),
+                    "failure_stage": failure_stage,
+                    "failure_code": failure_code,
+                    "discrepancy": discrepancy,
                 })
                 if choice_episode_id:
                     try:
@@ -1477,6 +1638,9 @@ class IntentionLoomRuntime:
                     "proposal_id": proposal_id,
                     "candidate": dict(candidate),
                     "outcome": "contract_discrepancy",
+                    "failure_stage": failure_stage,
+                    "failure_code": failure_code,
+                    "discrepancy": discrepancy,
                     "intention_id": candidate.get("intention_id"),
                     "project_id": candidate.get("proposal_id"),
                     "cue_id": candidate.get("cue_id"),
@@ -1493,6 +1657,8 @@ class IntentionLoomRuntime:
                     run_id=run_id, proposal_id=proposal_id,
                     candidate_key=candidate.get("key"),
                     error_type=type(exc).__name__,
+                    failure_stage=failure_stage,
+                    failure_code=failure_code,
                     failure_digest=failure_digest)
                 return
             self._effects.put({
@@ -1527,13 +1693,20 @@ class IntentionLoomRuntime:
         })
 
     @staticmethod
-    def _event_text(outcome: str, intention_id: str | None) -> str:
+    def _event_text(outcome: str, intention_id: str | None,
+                    discrepancy: Mapping[str, Any] | None = None) -> str:
         if outcome == "contract_discrepancy":
+            discrepancy = dict(discrepancy or {})
+            field = str(discrepancy.get("field") or "movement")
+            observed = str(discrepancy.get("observed") or "host_validation_failed")
+            constraint = str(discrepancy.get("constraint") or
+                             "all host movement invariants")
             return (
-                "A private Intention Loom opening encountered a deterministic "
-                "movement-contract discrepancy. No intention state or outward "
-                "condition was changed; the discrepancy settled into history "
-                "instead of renewing the same attentional demand.")
+                "A private Intention Loom opening encountered an inspectable "
+                f"movement-contract discrepancy at {field}: observed {observed}; "
+                f"the required constraint was {constraint}. No intention state "
+                "or outward condition was changed; the discrepancy settled into "
+                "history instead of renewing the same attentional demand.")
         if outcome == "owner_rejected":
             return (
                 "A witnessed private intention choice was refused by the "
@@ -1631,7 +1804,7 @@ class IntentionLoomRuntime:
                 label="intention_loom", now=now)
             outcome = str(effect.get("outcome") or "quiet")
             event_text = self._event_text(
-                outcome, effect.get("intention_id"))
+                outcome, effect.get("intention_id"), effect.get("discrepancy"))
             felt = None
             try:
                 felt = circulate_experienced_event(self.engine, event_text)
@@ -1655,6 +1828,9 @@ class IntentionLoomRuntime:
                 "kind": "run", "run_id": effect["run_id"],
                 "candidate_key": source_candidate.get("key"),
                 "outcome": outcome,
+                "failure_stage": effect.get("failure_stage"),
+                "failure_code": effect.get("failure_code"),
+                "discrepancy": dict(effect.get("discrepancy") or {}),
                 "intention_id": effect.get("intention_id"),
                 "cue_id": effect.get("cue_id"),
                 "model": effect.get("model"),
@@ -1683,6 +1859,7 @@ class IntentionLoomRuntime:
                 "project_id": effect.get("project_id"),
                 "intention_movement": outcome,
                 "intention_record_digest": effect.get("record_digest"),
+                "intention_consequence": dict(effect.get("discrepancy") or {}),
             })
             if effect.get("choice_episode_id"):
                 self.choice_ledger.encounter_consequence(

@@ -14,41 +14,77 @@ one shared context room called **the Nexus**. It does not include the private
 development household, individual persona rooms, the Yurt interface, or any 3D
 assets.
 
-## What is new in 0.9.0
+## What is new in 0.11.0
 
-- **Conversation history is harder to lose and easier to read.** Submitted,
-  streamed, failed, interrupted, autonomous, and Nexus turns enter an
-  `fsync`-backed JSONL ledger. JNSQ also writes separate, date-rotated plain
-  text mirrors under each conversation's local `chat_archives/` folder.
-- **Personas have a genuinely private loose notebook.** The append-only Private
-  Journal exposes a content-free index; entry text returns for one explicitly
-  requested turn only. It never automatically enters memory, projects,
-  research, speech, or publication.
-- **Outward Curiosity can hold relational questions without manufacturing
-  outreach.** A private question may become eligible only after its exact
-  audience opens a relevant conversation. Asking, revising, deferring,
-  releasing, and remaining quiet are all distinct choices; the organ has no
-  message transport.
-- **Private work has cleaner continuity.** Intention Loom can compare bounded
-  possibilities and hand a typed, same-owner action to Writing Desk, Document
-  Reader, or Atelier. Content-free receipts distinguish an available route,
-  a selected action, a completed result, and valid quiet.
-- **Appearance is much less beige.** Nineteen font choices now stay in parity
-  across the public shell, conversations, Settings, Users, and the Nexus,
-  alongside expanded household palettes and reusable appearance presets.
-- **Voice choices are per persona.** Browser-native speech remains local and
-  opt-in. Optional Hume and ElevenLabs output is available from the persona
-  cockpit when configured; those cloud choices send reply text to the selected
-  provider and may incur provider cost.
-- **Ambient camera grounding stays separate from attachments.** A current
-  camera frame may ground a turn when camera sensing is already active, but it
-  is not rendered or persisted as a human-authored chat attachment.
+- **A stalled provider no longer owns the conversation forever.** OpenAI-
+  compatible streams use a no-progress timeout, discard timed-out pooled
+  sockets, and accept an exact-turn Stop request. Already-received text remains
+  visible and is recorded as interrupted rather than erased or blindly replayed.
+- **Provider Health and Usage are content-free.** The local dashboard separates
+  calls, errors, latency, and reported input/output/cache usage without copying
+  prompts or replies into its receipt log.
+- **Model choices and startup are durable.** A selected model is validated and
+  persisted before JNSQ replaces the old cockpit. The Nexus starts independently
+  while residents move through pending, starting, ready, blocked, unavailable,
+  or stopped states.
+- **Restarts have bounded bearings.** Temporal orientation, startup continuity,
+  recent completed actions, document caches, and phase timings restore useful
+  context without inferring a resident's mood, commitment, or desired next step.
+- **Long answers finish before actions run.** When a provider reports a length
+  cutoff, JNSQ requests at most two continuation chunks before parsing action
+  tags, preventing a clipped instruction from executing as if it were complete.
+- **Conversation history has a day browser.** Search selects local calendar days
+  and opening a result renders the complete chronological day from the canonical
+  ledger. JSONL remains the source of truth; readable text mirrors are a convenience.
+- **Memory authority is cleaner.** Current human-authored bedrock is excluded
+  before persona-memory recall, with a second defensive removal guard for legacy
+  copies. Reversible Memory Curation can retain, summarize with provenance,
+  withdraw from recall, or restore without permanently deleting canonical text.
+- **Autonomous recurrence is bounded by real human conversation.** A durable
+  human boundary admits one autonomous outcome choice; self-generated wording
+  cannot recursively become fresh permission. Quiet remains a complete outcome.
+- **The Nexus can sustain real conversation.** Exact speech-sequence claims keep
+  late replies from landing against an obsolete room turn. Speech-only context
+  can continue locally as accumulated provider load rises; there is no silent
+  paid overflow past the hard route boundary.
+- **Private work has typed consequences.** Document Reader, Archive Reader,
+  Intention Loom, Writing Desk, Research Desk, and Atelier can return bounded
+  same-owner outcomes without automatically speaking, publishing, or copying
+  their source material into memory.
+- **Attention can notice genuine inventory change.** Interest Foraging exposes a
+  content-free candidate only when document or research inventory revisions
+  cross. Exposure does not call a model, create interest, select work, or post.
+- **Activity Ecology bends existing competition.** Recently completed company,
+  reflection, outward engagement, making, embodiment, and quiet outcomes create
+  continuously decaying satiety; they do not create schedules, quotas, topics,
+  or actions. Optional API deliberation remains closed unless a resident selects
+  a vessel and bounded credit reservoir.
+- **World Awareness is explicit and installation-local.** A configured resident
+  can request a coordinate-free, one-turn local weather packet. The public tree
+  ships no coordinates, location label, cached conditions, or enabled weather state.
+- **Advanced research surfaces say what they cannot prove.** Scenario Lab is
+  manual, private, append-only, and shadow-only; Recall Dispersion and prompt/
+  oscillator observatories are noncausal diagnostics. Difference is not labeled
+  improvement, and unsupported probabilities are refused.
+- **RestField and Quiet Occupancy are available as experimental synthetic
+  controls.** They remain opt-in and resident-configured, use functional aliases
+  rather than biological claims, and do not establish sleep, dreaming, a required
+  experience, or a new source of work.
+- **Affect and creative work retain resident language and ownership.** The shared
+  Affect Atlas can bend existing needs/body/color relationships without naming a
+  resident's feeling or creating an intention. Exact resident-authored Atelier
+  actions can admit a private seed; ordinary imaginative prose remains inert.
+  The Household page now has a collapsed Creative Shelf below the resident list:
+  it opens one awake resident's live Atelier and Writing Desk collection, keeps
+  unseen state per work in the browser, and never copies the work into the host.
 
-This release deliberately keeps the workshop's shadow-only Play Drive and
-household-specific self-initiated-contact experiment out of the public organ
-registry, prompt compiler, and UI. Dormant compatibility modules remain so the
-shared runtime imports stay coherent. Draft organ prompts, terrain canaries,
-and unpinned local GPU voice installers are omitted from the package entirely.
+This release deliberately keeps the workshop's Play Drive and household-
+specific self-initiated-contact experiment out of the public organ registry,
+prompt compiler, and UI. Founding-resident archives, physical-eye hardware,
+local weather state, resident calibrations, authored rooms, and 3D body assets
+remain private. Dormant compatibility modules remain where shared runtime
+imports require them; draft prompts, terrain canaries, and unpinned local GPU
+voice installers are omitted from the package entirely.
 
 <p align="center">
   <img src="assets/jnsq/readme_flourish_v2.svg" width="920" alt="">
@@ -273,8 +309,13 @@ Examples include:
   and competing possibilities to cross explicit gates without granting an
   unrestricted background agent;
 - `writing_desk`, `document_reader`, `archive_reader`, `research_desk`, and
-`atelier`, which provide private, authority-limited places for reading,
-inquiry, writing, and making artifacts.
+  `atelier`, which provide private, authority-limited places for reading,
+  inquiry, writing, and making artifacts;
+- `temporal_orientation`, `startup_continuity`, `activity_ecology`, and explicit
+  `world_awareness`, which provide bounded bearings and circulation without
+  manufacturing an interpretation or task;
+- experimental `rest_field` and `quiet_occupancy`, whose biologically borrowed
+  names are functional aliases and never proof of physiology or experience.
 
 The running app's **About** guide contains the complete organ roster,
 including what each organ takes, what it makes, and where its output feeds next.
@@ -427,7 +468,7 @@ empty house, never the maintainer's live household.
 
 The private working installation is the workshop. This repository is the
 deliberately smaller public product. The maintainer rebuilds public releases
-with an allowlist-based export tool that installs the public chat shell, strips
+from an exact per-file manifest that installs the public chat shell, strips
 private model/persona data, and refuses output when its privacy scan finds
 machine-specific state.
 

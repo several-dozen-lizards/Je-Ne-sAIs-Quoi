@@ -132,6 +132,24 @@ class RollingGist:
         return sum(len(render_turn(record))
                    for record in self.pending_turn_records(turn_records))
 
+    def resource_status(self, turn_records: list) -> dict:
+        """Expose owner-native backlog units without source or gist content."""
+        pending = self.pending_turn_records(turn_records)
+        pending_chars = sum(len(render_turn(record)) for record in pending)
+        budget = max(1, int(self.source_char_budget))
+        return {
+            "schema_version": 1,
+            "source_cursor": int(self.upto),
+            "eligible_count": len(pending),
+            "pending_source_chars": pending_chars,
+            "source_char_budget": budget,
+            "load_fraction": (
+                pending_chars / (pending_chars + budget)
+                if pending_chars else 0.0),
+            "content_free": True,
+            "read_only": True,
+        }
+
     def _batch(self, records: list, renderer,
                budget: int = None) -> tuple[str, int]:
         """Take the next contiguous fold that fits the compression budget.

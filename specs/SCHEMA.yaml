@@ -44,6 +44,10 @@ transport:
     pool_timeout_s: null        # wait for an available client connection
 
 wire:
+  ollama:
+    think: null                 # optional native reasoning toggle
+    keep_alive: null            # resource retention only; not a behavior clock
+    num_gpu: null               # 0 binds an auxiliary model to CPU
   chat_completions:
     tool_stream: null           # provider-specific; omit unless declared
     include_stream_usage: false # request a terminal usage-only chunk
@@ -67,6 +71,7 @@ runtime:
   gpu_constraints: ""          # VRAM, flash-attn flags, slot contention notes
   cost: ""                     # "free_local" | "$/MTok in+out"
   latency_class: ""            # rough: "fast" | "moderate" | "slow_first_token"
+  vision_max_tokens: null       # optional narrow visual-transducer ceiling
 
 quirks: []                     # free-text list, each entry one observed behavior
 harness:

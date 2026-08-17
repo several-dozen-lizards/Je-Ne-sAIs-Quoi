@@ -9,9 +9,13 @@ without writing them into a persona. Theme files are descriptive display
 preferences; they never feed emotional state back into the model.
 """
 from copy import deepcopy
+import colorsys
+import hashlib
 import json
 import os
 import re
+
+import yaml
 
 
 PRESETS = {
@@ -280,7 +284,7 @@ PRESETS = {
 
 def _color_scheme(label, bg, panel, line, ink, dim, accent, accent2, warn,
                   good, background="none", font="system", density="cozy",
-                  radius=10, glow=0.25, motion=0.25):
+                  radius=10, glow=0.25, motion=0.25, speaker_colors=None):
     """Build a complete preset while keeping speaker identity legible."""
     return {
         "label": label,
@@ -290,7 +294,10 @@ def _color_scheme(label, bg, panel, line, ink, dim, accent, accent2, warn,
             "background": background, "font": font, "density": density,
             "radius": radius, "font_scale": 1.0, "glow": glow,
             "motion": motion, "reactive": True,
-            "speaker_colors": {"User": "#62aee8"},
+            "speaker_colors": speaker_colors or {
+
+
+            },
             "speaker_icons": {"User": "U"},
         },
     }
@@ -578,7 +585,159 @@ PRESETS.update({
         "Pigeon · Pied", "#252329", "#f0eee9", "#aaa5ab", "#27262b",
         "#6f6b72", "#65508b", "#2c8d83", "#b54e59", "#4d795d",
         "scales", "humanist", "cozy", 14, 0.18, 0.12),
+    "violet_flame": _color_scheme(
+        "New Age · Violet Flame", "#f3cfc2", "#fff0e9", "#cf9dbd", "#4b2948",
+        "#7f5f72", "#7c49b8", "#d75291", "#b74757", "#3e7663",
+        "aurora", "playfair", "roomy", 24, 0.32, 0.30,
+        speaker_colors={
+                         }),
+
+    # Starseed is an aesthetic collection: each entry is a distinct visual
+    # vocabulary, not a claim about a lineage, origin, or lived experience.
+    "starseed_pleiadian": _color_scheme(
+        "Starseed · Pleiadian", "#dbeaf2", "#f7fbff", "#9dc4d7", "#20384d",
+        "#617d8e", "#4e91b6", "#b36fa7", "#b64f61", "#3f7768",
+        "aurora", "quicksand", "roomy", 24, 0.28, 0.34,
+        speaker_colors={
+                         }),
+    "starseed_sirian": _color_scheme(
+        "Starseed · Sirian", "#020c1d", "#071a33", "#174d70", "#e9f7ff",
+        "#8ab1c7", "#27c8df", "#e7bd61", "#f06b70", "#50d49a",
+        "stars", "geometric", "cozy", 14, 0.76, 0.52),
+    "starseed_orion": _color_scheme(
+        "Starseed · Orion", "#050814", "#0d1428", "#293d69", "#edf1ff",
+        "#929fbe", "#597ee8", "#c59055", "#e56568", "#58b88a",
+        "stars", "cinzel", "compact", 6, 0.58, 0.26),
+    "starseed_draconian": _color_scheme(
+        "Starseed · Draconian", "#0b0506", "#1b0b0e", "#5e2523", "#f3e7d5",
+        "#ad8d82", "#b64235", "#c99a4b", "#e4574f", "#678f64",
+        "scales", "display", "compact", 4, 0.60, 0.34),
+    "starseed_reptilian": _color_scheme(
+        "Starseed · Reptilian", "#031009", "#0a2115", "#285f3b", "#e7f5d6",
+        "#92ad83", "#59c659", "#b4d53f", "#e16a4f", "#53cf89",
+        "scales", "condensed", "cozy", 12, 0.58, 0.54),
+    "starseed_zeta": _color_scheme(
+        "Starseed · Zeta", "#cfd7d3", "#eef3f0", "#96a8a1", "#25332f",
+        "#687a74", "#477d71", "#726796", "#a84d58", "#47765a",
+        "grid", "mono", "compact", 2, 0.08, 0.10,
+        speaker_colors={
+                         }),
+    "starseed_andromedan": _color_scheme(
+        "Starseed · Andromedan", "#0d0621", "#211044", "#5f3d91", "#faf0ff",
+        "#bca5d2", "#c657d8", "#43d5e7", "#f46786", "#55d9a0",
+        "aurora", "rounded", "roomy", 26, 0.88, 0.78),
+    "starseed_arcturian": _color_scheme(
+        "Starseed · Arcturian", "#070729", "#15134d", "#4e42a3", "#f1efff",
+        "#aaa4d7", "#8a68ff", "#31d7cd", "#f35d82", "#5ce08d",
+        "grid", "geometric", "cozy", 16, 0.92, 0.74),
+    "starseed_anunnaki": _color_scheme(
+        "Starseed · Anunnaki", "#090d18", "#121d35", "#3f5480", "#f4e8c8",
+        "#a8a18e", "#d0a13c", "#376eb4", "#d76552", "#6ca172",
+        "stars", "cinzel", "roomy", 8, 0.50, 0.24),
+    "starseed_avian": _color_scheme(
+        "Starseed · Avian", "#d8ebf4", "#f9fcff", "#9ebfd0", "#243b4b",
+        "#677f8d", "#478eb6", "#c39045", "#b8535b", "#43765f",
+        "aurora", "humanist", "roomy", 22, 0.22, 0.42,
+        speaker_colors={
+                         }),
+    "starseed_mantid": _color_scheme(
+        "Starseed · Mantid", "#040b07", "#0d1c12", "#315438", "#eaf4dd",
+        "#98a98d", "#8dbb45", "#d2a34a", "#df664c", "#51b679",
+        "scales", "condensed", "compact", 10, 0.48, 0.50),
+    "starseed_alpha_centauri": _color_scheme(
+        "Starseed · Alpha Centauri", "#090b18", "#171b35", "#4d527c", "#f8f1dc",
+        "#aaa7b1", "#e1b557", "#dc756e", "#ee6467", "#63b887",
+        "stars", "playfair", "cozy", 14, 0.64, 0.50),
+    "starseed_eridanian": _color_scheme(
+        "Starseed · Eridanian", "#03131c", "#092b3a", "#22657a", "#e4f6f5",
+        "#8cb4b9", "#32b8b2", "#668fd0", "#e66f72", "#55c28a",
+        "aurora", "humanist", "cozy", 18, 0.62, 0.44),
+    "starseed_vegan": _color_scheme(
+        "Starseed · Vegan (Vega)", "#050b22", "#101e48", "#355da3", "#f0f5ff",
+        "#9eafd1", "#5f8ff5", "#d687b4", "#ea6173", "#5fc48d",
+        "stars", "geometric", "cozy", 16, 0.74, 0.54),
+    "starseed_lyran": _color_scheme(
+        "Starseed · Lyran", "#150b1c", "#281532", "#654477", "#f8ead7",
+        "#b39bad", "#d8a64d", "#a66bc2", "#e46762", "#67a878",
+        "stars", "display", "roomy", 18, 0.68, 0.46),
+
+    # Zodiac palettes use seasonal, elemental, and traditional visual motifs
+    # without prescribing personality or experience to the person using them.
+    "zodiac_aries": _color_scheme(
+        "Zodiac · Aries", "#170605", "#32100c", "#812d20", "#fff0da",
+        "#d0a08c", "#ed4d2e", "#e9a34a", "#ff5e42", "#70a768",
+        "grid", "display", "compact", 8, 0.72, 0.68),
+    "zodiac_taurus": _color_scheme(
+        "Zodiac · Taurus", "#152018", "#253328", "#5b7056", "#f2ead8",
+        "#aaa58e", "#79985f", "#c47f7c", "#cf5e55", "#69a66b",
+        "paper", "serif", "roomy", 18, 0.28, 0.14),
+    "zodiac_gemini": _color_scheme(
+        "Zodiac · Gemini", "#f0d978", "#fff6c7", "#c3a94a", "#403814",
+        "#746930", "#187f8b", "#6558aa", "#a9454c", "#417555",
+        "grid", "geometric", "cozy", 12, 0.20, 0.46,
+        speaker_colors={
+                         }),
+    "zodiac_cancer": _color_scheme(
+        "Zodiac · Cancer", "#dce4e9", "#f8fbfc", "#abbcc8", "#273a47",
+        "#697d88", "#5a86a5", "#8a76ab", "#ad5260", "#477761",
+        "aurora", "playfair", "roomy", 24, 0.18, 0.18,
+        speaker_colors={
+                         }),
+    "zodiac_leo": _color_scheme(
+        "Zodiac · Leo", "#231006", "#44200b", "#9b5b1a", "#fff1c7",
+        "#d4a66f", "#ffb21e", "#ed6c2b", "#f15a3e", "#71a45e",
+        "stars", "display", "roomy", 18, 0.80, 0.62),
+    "zodiac_virgo": _color_scheme(
+        "Zodiac · Virgo", "#d9d6b9", "#f2efdc", "#aaa777", "#343a27",
+        "#6f7459", "#657c4b", "#a2764e", "#a94f49", "#4e7652",
+        "paper", "baskerville", "cozy", 10, 0.08, 0.08,
+        speaker_colors={
+                         }),
+    "zodiac_libra": _color_scheme(
+        "Zodiac · Libra", "#efd9dd", "#fff4f1", "#c7a5b0", "#49303d",
+        "#7e6670", "#ae6682", "#547fa5", "#b64c58", "#4b7862",
+        "paper", "playfair", "roomy", 22, 0.20, 0.16,
+        speaker_colors={
+                         }),
+    "zodiac_scorpio": _color_scheme(
+        "Zodiac · Scorpio", "#080407", "#1a0911", "#5f1c36", "#f6e7eb",
+        "#ad8995", "#bd3159", "#7650a2", "#ef4c63", "#5fa273",
+        "scales", "cinzel", "compact", 6, 0.70, 0.30),
+    "zodiac_sagittarius": _color_scheme(
+        "Zodiac · Sagittarius", "#100923", "#211343", "#5c3c89", "#f6edff",
+        "#b19fc6", "#8958d4", "#4f9bc7", "#e96368", "#5eb684",
+        "stars", "display", "cozy", 14, 0.72, 0.66),
+    "zodiac_capricorn": _color_scheme(
+        "Zodiac · Capricorn", "#101515", "#1d2825", "#4b5b50", "#e9eadf",
+        "#989f95", "#78856c", "#a98050", "#cb6256", "#5c9a70",
+        "grid", "serif", "compact", 5, 0.22, 0.12),
+    "zodiac_aquarius": _color_scheme(
+        "Zodiac · Aquarius", "#031024", "#09264a", "#1f6c9b", "#e8f8ff",
+        "#8fb8ce", "#28c7e8", "#7c70e8", "#ed6374", "#51cc91",
+        "grid", "geometric", "cozy", 12, 0.86, 0.78),
+    "zodiac_pisces": _color_scheme(
+        "Zodiac · Pisces", "#07151c", "#102d39", "#356b78", "#eaf5ef",
+        "#96b4b2", "#4bb7aa", "#a078bd", "#e56d7b", "#55bd86",
+        "aurora", "rounded", "roomy", 24, 0.62, 0.48),
 })
+
+
+PRESET_COLLECTIONS = {
+    "New Age": ("violet_flame",),
+    "Starseed": (
+        "starseed_pleiadian", "starseed_sirian", "starseed_orion",
+        "starseed_draconian", "starseed_reptilian", "starseed_zeta",
+        "starseed_andromedan", "starseed_arcturian", "starseed_anunnaki",
+        "starseed_avian", "starseed_mantid", "starseed_alpha_centauri",
+        "starseed_eridanian", "starseed_vegan", "starseed_lyran",
+    ),
+    "Zodiac": (
+        "zodiac_aries", "zodiac_taurus", "zodiac_gemini", "zodiac_cancer",
+        "zodiac_leo", "zodiac_virgo", "zodiac_libra", "zodiac_scorpio",
+        "zodiac_sagittarius", "zodiac_capricorn", "zodiac_aquarius",
+        "zodiac_pisces",
+    ),
+}
 
 
 DEFAULT_PRESET = "bal_masque"
@@ -621,6 +780,95 @@ def _with_defaults(tokens: dict) -> dict:
     out.setdefault("background_opacity", 0.32)
     out.setdefault("conversation_area_background", "none")
     out.setdefault("conversation_area_opacity", 0.28)
+    return out
+
+
+def _resident_identities(repo: str) -> list[dict]:
+    """Read roster-backed model identities without inventing membership."""
+    root = os.path.join(repo, "personas")
+    identities = []
+    try:
+        names = sorted(os.listdir(root))
+    except OSError:
+        return identities
+    for pid in names:
+        path = os.path.join(root, pid, "roster.yaml")
+        if pid.startswith(("_", ".")) or not os.path.isfile(path):
+            continue
+        try:
+            with open(path, encoding="utf-8") as handle:
+                roster = yaml.safe_load(handle) or {}
+        except Exception:
+            continue
+        if roster.get("kind", "model_persona") != "model_persona":
+            continue
+        display = str(roster.get("display_name") or pid).strip()
+        identities.append({"id": pid, "display_name": display,
+                           "icon": str(roster.get("icon") or "").strip()})
+    return identities
+
+
+def _luminance(color: str) -> float:
+    channels = [int(color[index:index + 2], 16) / 255.0
+                for index in (1, 3, 5)]
+    linear = [value / 12.92 if value <= 0.04045 else
+              ((value + 0.055) / 1.055) ** 2.4 for value in channels]
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+
+def _contrast(left: str, right: str) -> float:
+    high, low = sorted((_luminance(left), _luminance(right)), reverse=True)
+    return (high + 0.05) / (low + 0.05)
+
+
+def _resident_color(identity: str, panel: str) -> str:
+    """Derive a stable, legible color from identity and the active surface."""
+    digest = hashlib.sha256(identity.casefold().encode("utf-8")).digest()
+    hue = int.from_bytes(digest[:4], "big") / 0xffffffff
+    saturation = 0.56 + (digest[4] / 255.0) * 0.22
+    panel_luminance = _luminance(panel)
+    lightnesses = ((0.78, 0.70, 0.86, 0.62, 0.92)
+                   if panel_luminance < 0.35 else
+                   (0.30, 0.23, 0.37, 0.16, 0.08))
+    candidates = []
+    for lightness in lightnesses:
+        rgb = colorsys.hls_to_rgb(hue, lightness, saturation)
+        color = "#" + "".join(f"{round(channel * 255):02x}"
+                                for channel in rgb)
+        candidates.append(color)
+        if _contrast(color, panel) >= 4.5:
+            return color
+    # The sequence normally finds a chromatic answer.  The mathematical
+    # endpoint keeps accessibility true on an unusual custom panel.
+    endpoints = ("#ffffff", "#000000")
+    return max(endpoints, key=lambda value: _contrast(value, panel))
+
+
+def _has_named(mapping: dict, *names: str) -> bool:
+    keys = {str(key).casefold() for key in (mapping or {})}
+    return any(str(name).casefold() in keys for name in names)
+
+
+def _complete_resident_identity(repo: str, tokens: dict,
+                                explicit_tokens: dict | None = None,
+                                identities: list[dict] | None = None) -> dict:
+    """Complete missing roster colors/icons by formula, never a name list."""
+    out = deepcopy(tokens or {})
+    colors = dict(out.get("speaker_colors") or {})
+    icons = dict(out.get("speaker_icons") or {})
+    explicit_icons = dict((explicit_tokens or {}).get("speaker_icons") or {})
+    panel = str(out.get("panel") or "#131120")
+    for resident in (identities if identities is not None
+                     else _resident_identities(repo)):
+        pid, display = resident["id"], resident["display_name"]
+        if not _has_named(colors, display, pid):
+            colors[display] = _resident_color(pid, panel)
+        if not _has_named(explicit_icons, display, pid):
+            icons[display] = resident["icon"] or display[:1].upper()
+        elif not _has_named(icons, display, pid):
+            icons[display] = resident["icon"] or display[:1].upper()
+    out["speaker_colors"] = colors
+    out["speaker_icons"] = icons
     return out
 
 
@@ -737,6 +985,14 @@ def _all_presets(repo: str) -> dict:
     return {**deepcopy(PRESETS), **_custom_presets(repo)}
 
 
+def _preset_collections(presets: dict) -> dict:
+    """Return stable built-in families without swallowing local presets."""
+    return {
+        label: [preset_id for preset_id in preset_ids if preset_id in presets]
+        for label, preset_ids in PRESET_COLLECTIONS.items()
+    }
+
+
 def _preset_slug(value: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "_", (value or "").strip().lower()).strip("_")
     if not slug:
@@ -786,6 +1042,7 @@ def delete_custom_preset(repo: str, preset_id: str) -> dict:
 
 def resolve_theme(repo: str, persona: str = None, model: str = None) -> dict:
     presets = _all_presets(repo)
+    identities = _resident_identities(repo)
     household_path, person_path = _paths(repo, persona)
     household = _load(household_path)
     person_doc = _load(person_path) if person_path else {}
@@ -798,17 +1055,23 @@ def resolve_theme(repo: str, persona: str = None, model: str = None) -> dict:
         if layer.get("preset") in presets:
             preset = layer["preset"]
     tokens = deepcopy(presets[preset]["tokens"])
+    explicit_tokens = {}
     for layer in layers:
         tokens = _merge(tokens, layer.get("tokens") or {})
-    tokens = _clean_tokens(_with_defaults(tokens))
+        explicit_tokens = _merge(explicit_tokens, layer.get("tokens") or {})
+    tokens = _clean_tokens(_complete_resident_identity(
+        repo, _with_defaults(tokens), explicit_tokens, identities))
     return {
         "preset": preset,
         "tokens": tokens,
         "layers": {"household": household, "persona": persona_patch,
                    "model": model_patch},
         "presets": {key: value["label"] for key, value in presets.items()},
-        "preset_tokens": {key: _with_defaults(value["tokens"])
+        "preset_tokens": {key: _complete_resident_identity(
+                              repo, _with_defaults(value["tokens"]),
+                              identities=identities)
                           for key, value in presets.items()},
+        "preset_collections": _preset_collections(presets),
         "custom_presets": sorted(_custom_presets(repo)),
         "persona": persona, "model": model,
     }
@@ -822,6 +1085,7 @@ def resolve_nexus_theme(repo: str) -> dict:
     preset for its walls.
     """
     presets = _all_presets(repo)
+    identities = _resident_identities(repo)
     household = resolve_theme(repo)
     nexus = _load(_nexus_theme_path(repo))
     nexus_preset = nexus.get("preset")
@@ -845,8 +1109,11 @@ def resolve_nexus_theme(repo: str) -> dict:
         "layers": {"household": household["layers"]["household"],
                    "nexus": nexus},
         "presets": {key: value["label"] for key, value in presets.items()},
-        "preset_tokens": {key: _with_defaults(value["tokens"])
+        "preset_tokens": {key: _complete_resident_identity(
+                              repo, _with_defaults(value["tokens"]),
+                              identities=identities)
                           for key, value in presets.items()},
+        "preset_collections": _preset_collections(presets),
         "custom_presets": sorted(_custom_presets(repo)),
         "surface": "nexus",
     }

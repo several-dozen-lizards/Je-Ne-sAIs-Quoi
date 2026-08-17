@@ -20,14 +20,17 @@ def build_persona_den(persona: str, display_name: str = None) -> Room:
 
 def build_world() -> dict:
     nexus = Room("nexus", "the Nexus", 4.0,
-                 "The commons. Where this household can cross paths.")
+                 "The commons. Where this household can cross paths.",
+                 movement_boundary="jnsq_island_mesh_v1")
     nexus.objects = {o.id: o for o in [
-        RoomObject("public_desk", "the commons writing desk", [2.0, -3.0],
-                   mass_kg=30.0, capability="writing",
-                   affordances={"share": 0.8, "focus": 0.6},
-                   texture="smooth pine", kind="desk", size_m=1.4,
-                   description="Pages written here remain available to "
-                               "anyone who can enter the commons."),
+        RoomObject("public_desk", "the commons board", [2.0, -3.0],
+                   mass_kg=30.0, capability="commons_board",
+                   affordances={"share": 0.8, "focus": 0.6,
+                                "curiosity": 0.65, "notice": 0.55},
+                   texture="cork, paper, pins, and smooth pine",
+                   kind="commons_board", size_m=1.6, y_off_m=1.1,
+                   description="A shared surface for words someone chose "
+                               "to leave. Nothing on it requires an answer."),
         RoomObject("commons_couch", "the commons couch", [-1.5, 2.0],
                    mass_kg=55.0,
                    affordances={"rest": 0.8, "company": 0.8},

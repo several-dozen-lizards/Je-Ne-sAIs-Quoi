@@ -17,11 +17,17 @@ from types import MappingProxyType
 from typing import Any, Mapping
 
 
-# Inherited from existing prompt block budgets rather than invented as new
-# prose-tuning values: source ~= who_is_who (260 tokens), task ~= one full
-# surfaced-memory block (600 tokens).
+# The task envelope began at one surfaced-memory block (600 approximate
+# tokens). That left no revision margin for legitimate typed action grammar.
+# Keep artifact storage on the historical budget while giving the executable
+# contract one bounded 200-token evolution margin. Actual prompt cost still
+# follows actual text length; this is a refusal ceiling, not padding.
 AGENCY_SOURCE_BUDGET = 260
-AGENCY_TASK_BUDGET = 600
+AGENCY_ARTIFACT_BUDGET = 600
+AGENCY_TASK_BASE_BUDGET = 600
+AGENCY_TASK_REVISION_MARGIN = 200
+AGENCY_TASK_BUDGET = (
+    AGENCY_TASK_BASE_BUDGET + AGENCY_TASK_REVISION_MARGIN)
 AGENCY_CONTROL_TEMPERATURE = 0.7
 SUBSTRATE_MODES = frozenset({"on", "control"})
 
@@ -81,7 +87,8 @@ class AgencyTaskEnvelope:
             object.__setattr__(self, name, value)
         if len(self.task) > AGENCY_TASK_BUDGET * 4:
             raise ValueError(
-                "agency task exceeds the inherited task block budget")
+                f"agency task exceeds the {AGENCY_TASK_BUDGET * 4}-character "
+                "task envelope")
         if len(self.source_summary) > AGENCY_SOURCE_BUDGET * 4:
             raise ValueError(
                 "agency source summary exceeds the inherited source budget")
@@ -107,6 +114,8 @@ class AgencyTaskEnvelope:
             "audience_mode": self.audience_mode,
             "output_channel": self.output_channel,
             "task_chars": len(self.task),
+            "task_budget_chars": AGENCY_TASK_BUDGET * 4,
+            "task_headroom_chars": AGENCY_TASK_BUDGET * 4 - len(self.task),
             "source_summary_chars": len(self.source_summary),
         }
 

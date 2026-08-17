@@ -15,6 +15,7 @@ overrides: personas/<p>/who_i_am/tropism.json."""
 import json
 import math
 import os
+import time
 
 from core.dmn import SALIENCE_NORMAL
 
@@ -45,16 +46,93 @@ class PlaceIntentions:
     returns an object id when pressure discharges into movement, else
     None. state() is the receipt — watch her want things in a file."""
 
-    def __init__(self, params: dict = None):
+    def __init__(self, params: dict = None, state_path: str = None,
+                 now_s: float = None):
         self.p = dict(DEFAULTS)
         if params:
             self.p.update(params)
+        self.state_path = state_path
         self.pressure = {}        # oid -> accumulated want
         self.refractory_until = 0.0
         self.last_discharge = None
         self.salience_baseline = None
         self.awaiting_arrival_baseline = False
         self.last_gate = None
+        if self.state_path:
+            self._load_state(time.time() if now_s is None else now_s)
+
+    @staticmethod
+    def _finite_nonnegative_map(value) -> dict:
+        out = {}
+        if not isinstance(value, dict):
+            return out
+        for key, raw in value.items():
+            try:
+                number = float(raw)
+            except (TypeError, ValueError):
+                continue
+            if math.isfinite(number):
+                out[str(key)] = max(0.0, number)
+        return out
+
+    def _load_state(self, now_s: float):
+        """Restore only content-free dynamics, decayed across downtime."""
+        try:
+            with open(self.state_path, encoding="utf-8") as fh:
+                saved = json.load(fh)
+            saved_at = float(saved.get("saved_at", now_s))
+            elapsed = max(0.0, float(now_s) - saved_at)
+            leak = math.exp(-elapsed / self.p["tau_s"])
+            self.pressure = {
+                key: round(value * leak, 4)
+                for key, value in self._finite_nonnegative_map(
+                    saved.get("pressure")).items()}
+            refractory = float(saved.get("refractory_until", 0.0))
+            self.refractory_until = (refractory
+                                     if math.isfinite(refractory) else 0.0)
+            baseline = saved.get("salience_baseline")
+            self.salience_baseline = (
+                self._finite_nonnegative_map(baseline)
+                if isinstance(baseline, dict) else None)
+            self.awaiting_arrival_baseline = bool(
+                saved.get("awaiting_arrival_baseline", False))
+            discharge = saved.get("last_discharge")
+            self.last_discharge = (dict(discharge)
+                                   if isinstance(discharge, dict) else None)
+        except (OSError, TypeError, ValueError, json.JSONDecodeError):
+            return
+
+    def save(self, now_s: float = None) -> bool:
+        """Atomically persist the leaky field; never persist prompt content."""
+        if not self.state_path:
+            return False
+        now_s = time.time() if now_s is None else float(now_s)
+        payload = {
+            "version": 1,
+            "saved_at": now_s,
+            "pressure": dict(self.pressure),
+            "refractory_until": self.refractory_until,
+            "last_discharge": self.last_discharge,
+            "salience_baseline": (dict(self.salience_baseline)
+                                  if self.salience_baseline is not None
+                                  else None),
+            "awaiting_arrival_baseline": self.awaiting_arrival_baseline,
+        }
+        temporary = self.state_path + ".tmp"
+        try:
+            os.makedirs(os.path.dirname(self.state_path), exist_ok=True)
+            with open(temporary, "w", encoding="utf-8") as fh:
+                json.dump(payload, fh, ensure_ascii=False, sort_keys=True)
+                fh.flush()
+                os.fsync(fh.fileno())
+            os.replace(temporary, self.state_path)
+            return True
+        except OSError:
+            try:
+                os.remove(temporary)
+            except OSError:
+                pass
+            return False
 
     @staticmethod
     def _salience_vector(scored_objects: list) -> dict:

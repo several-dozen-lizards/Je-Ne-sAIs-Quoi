@@ -119,36 +119,54 @@ def build_eleven_request(text: str, voice: str) -> tuple[str, dict, dict]:
 
 def synthesize(provider: str, text: str, voice: str,
                timeout: float = 180.0) -> tuple[bytes, str, dict]:
-    if provider == "hume-octave":
-        endpoint, headers, payload = build_hume_request(text, voice)
-    elif provider == "elevenlabs":
-        endpoint, headers, payload = build_eleven_request(text, voice)
-    else:
-        raise ValueError(f"unknown cloud voice provider '{provider}'")
-    request = urllib.request.Request(
-        endpoint, data=json.dumps(payload).encode("utf-8"),
-        headers=headers, method="POST")
     try:
-        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-        with opener.open(request, timeout=float(timeout)) as response:
-            body = response.read()
-            if provider == "hume-octave":
-                value = json.loads(body.decode("utf-8"))
-                generation = (value.get("generations") or [{}])[0]
-                audio = base64.b64decode(generation.get("audio") or "", validate=True)
-                if not audio:
-                    raise ValueError("Hume returned no audio")
-                return audio, "audio/mpeg", {
-                    "request_id": str(value.get("request_id") or "")[:160],
-                    "generation_id": str(generation.get("generation_id") or "")[:160]}
-            if not body:
-                raise ValueError("ElevenLabs returned no audio")
-            return body, response.headers.get_content_type() or "audio/mpeg", {
-                "request_id": str(response.headers.get("request-id") or "")[:160],
-                "character_cost": str(response.headers.get("character-cost") or "")[:40]}
-    except urllib.error.HTTPError as error:
+        if provider == "hume-octave":
+            endpoint, headers, payload = build_hume_request(text, voice)
+        elif provider == "elevenlabs":
+            endpoint, headers, payload = build_eleven_request(text, voice)
+        else:
+            raise ValueError(f"unknown cloud voice provider '{provider}'")
+        request = urllib.request.Request(
+            endpoint, data=json.dumps(payload).encode("utf-8"),
+            headers=headers, method="POST")
         try:
-            message = _http_error_message(provider, error.code, error.read())
-        except Exception:
-            message = f"HTTP {error.code}"
-        raise RuntimeError(f"{provider} refused synthesis: {str(message)[:300]}") from None
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            with opener.open(request, timeout=float(timeout)) as response:
+                body = response.read()
+                if provider == "hume-octave":
+                    value = json.loads(body.decode("utf-8"))
+                    generation = (value.get("generations") or [{}])[0]
+                    audio = base64.b64decode(
+                        generation.get("audio") or "", validate=True)
+                    if not audio:
+                        raise ValueError("Hume returned no audio")
+                    result = (audio, "audio/mpeg", {
+                        "request_id": str(value.get("request_id") or "")[:160],
+                        "generation_id": str(
+                            generation.get("generation_id") or "")[:160]})
+                else:
+                    if not body:
+                        raise ValueError("ElevenLabs returned no audio")
+                    result = (
+                        body,
+                        response.headers.get_content_type() or "audio/mpeg",
+                        {"request_id": str(
+                            response.headers.get("request-id") or "")[:160],
+                         "character_cost": str(
+                            response.headers.get("character-cost") or "")[:40]})
+        except urllib.error.HTTPError as error:
+            try:
+                message = _http_error_message(
+                    provider, error.code, error.read())
+            except Exception:
+                message = f"HTTP {error.code}"
+            raise RuntimeError(
+                f"{provider} refused synthesis: {str(message)[:300]}") from None
+        from harness.service_health import record_service_health
+        record_service_health("voice", provider, provider, status="ok")
+        return result
+    except Exception as error:
+        from harness.service_health import record_service_health
+        record_service_health(
+            "voice", provider, provider, status="error", error=error)
+        raise

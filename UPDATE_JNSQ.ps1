@@ -52,6 +52,25 @@ function Managed-Properties($Manifest) {
     return @($Manifest.managed_files.PSObject.Properties)
 }
 
+function Get-Sha256([string]$Path) {
+    # Windows PowerShell installations can lose Get-FileHash when the
+    # Microsoft.PowerShell.Utility module path is damaged or deliberately
+    # minimized.  Fingerprint validation is too important to depend on that
+    # optional command-discovery path, so use the framework primitive directly.
+    $stream = [IO.File]::OpenRead($Path)
+    try {
+        $sha = [Security.Cryptography.SHA256]::Create()
+        try {
+            $bytes = $sha.ComputeHash($stream)
+        } finally {
+            $sha.Dispose()
+        }
+    } finally {
+        $stream.Dispose()
+    }
+    return ([BitConverter]::ToString($bytes)).Replace("-", "").ToLowerInvariant()
+}
+
 function Resolve-ManagedPath([string]$Base, [string]$Relative) {
     if ([string]::IsNullOrWhiteSpace($Relative)) {
         throw "The update manifest contains an empty path."
@@ -154,7 +173,7 @@ try {
         if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
             throw "The package is missing managed file: $relative"
         }
-        $actual = (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant()
+        $actual = Get-Sha256 $source
         $expected = ([string]$property.Value).ToLowerInvariant()
         if ($actual -ne $expected) {
             throw "Fingerprint mismatch in downloaded file: $relative"
@@ -170,7 +189,7 @@ try {
         $destination = Resolve-ManagedPath $Root $relative
         $expected = ([string]$property.Value).ToLowerInvariant()
         $current = if (Test-Path -LiteralPath $destination -PathType Leaf) {
-            (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant()
+            Get-Sha256 $destination
         } else { "" }
         if ($current -eq $expected) { continue }
         $changePlan += [pscustomobject]@{

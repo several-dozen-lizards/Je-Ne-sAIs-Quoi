@@ -37,9 +37,20 @@ def _private_ref(value):
 class SalienceObserver:
     """Durable transition recorder with a genuinely read-only field view."""
 
-    def __init__(self, persona: str, path: str, context_provider=None):
+    DEFAULT_SEGMENT_BYTES = 16 * 1024 * 1024
+    DEFAULT_RETAINED_SEGMENTS = 8
+
+    def __init__(self, persona: str, path: str, context_provider=None, *,
+                 segment_bytes: int = None,
+                 retained_segments: int = None):
         self.persona = str(persona)
         self.path = path
+        self.segment_bytes = max(1, int(
+            self.DEFAULT_SEGMENT_BYTES if segment_bytes is None
+            else segment_bytes))
+        self.retained_segments = max(1, int(
+            self.DEFAULT_RETAINED_SEGMENTS if retained_segments is None
+            else retained_segments))
         self.seq = 0
         self.revision = 0
         self.meta = {}
@@ -48,6 +59,26 @@ class SalienceObserver:
         self._subscribers = set()
         self.context_provider = context_provider
         os.makedirs(os.path.dirname(path), exist_ok=True)
+
+    def _segment_path(self, index: int) -> str:
+        return f"{self.path}.{int(index)}"
+
+    def _rotate_for(self, incoming_bytes: int) -> bool:
+        """Rotate on actual storage pressure; this never drives body state."""
+        try:
+            active_bytes = os.path.getsize(self.path)
+        except OSError:
+            active_bytes = 0
+        if active_bytes <= 0 \
+                or active_bytes + max(0, int(incoming_bytes)) \
+                <= self.segment_bytes:
+            return False
+        for index in range(self.retained_segments, 1, -1):
+            source = self._segment_path(index - 1)
+            if os.path.exists(source):
+                os.replace(source, self._segment_path(index))
+        os.replace(self.path, self._segment_path(1))
+        return True
 
     def _responsiveness_context(self):
         """Read bounded numeric instruments; observer failure stays inert."""
@@ -105,8 +136,10 @@ class SalienceObserver:
                 self.seq += 1
                 record = {"tick": _stamp(now), "persona": self.persona,
                           "type": record_type, "seq": self.seq, **payload}
+                encoded = json.dumps(record, ensure_ascii=False) + "\n"
+                self._rotate_for(len(encoded.encode("utf-8")))
                 with open(self.path, "a", encoding="utf-8") as handle:
-                    handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+                    handle.write(encoded)
                 self._publish()
                 return record
         except Exception as exc:
@@ -310,6 +343,25 @@ class SalienceObserver:
             margin_delta=_round(counterfactual_margin - original_margin),
             candidates=list(value.get("candidates") or [])[:48])
 
+    def affect_counterfactual(self, projection, now=None):
+        """Persist one content-free, unapplied affect-analogue comparison."""
+        value = dict(projection or {})
+        allowed = {
+            key: value.get(key) for key in (
+                "schema", "status", "embedding_model", "resolved_count",
+                "control_count", "matched_similarity",
+                "mismatched_similarity", "label_removed_similarity",
+                "matched_minus_mismatched", "matched_minus_label_removed",
+                "error_type") if value.get(key) is not None
+        }
+        return self._emit(
+            "affect_process_counterfactual",
+            time.time() if now is None else float(now),
+            owner=self.persona, ownership="persona_private",
+            mode="shadow", applied=False,
+            downstream_channels_touched=[], external_effects=False,
+            **allowed)
+
     def admission_boundary(self, evidence, score, boundary, policy,
                            oscillator, outcome, now, event_id=None):
         return self._emit(
@@ -384,22 +436,28 @@ class SalienceObserver:
         records = []
         try:
             with self._lock:
-                for line in self._reverse_lines():
-                    try:
-                        record = json.loads(line)
-                    except (TypeError, ValueError):
+                paths = [self.path] + [
+                    self._segment_path(index)
+                    for index in range(1, self.retained_segments + 1)]
+                for path in paths:
+                    if not os.path.exists(path):
                         continue
-                    if not wanted or record.get("type") in wanted:
-                        records.append(record)
-                        if len(records) >= max(1, int(n)):
-                            break
+                    for line in self._reverse_lines(path):
+                        try:
+                            record = json.loads(line)
+                        except (TypeError, ValueError):
+                            continue
+                        if not wanted or record.get("type") in wanted:
+                            records.append(record)
+                            if len(records) >= max(1, int(n)):
+                                return records
         except FileNotFoundError:
             return []
         return records
 
-    def _reverse_lines(self):
+    def _reverse_lines(self, path=None):
         """Yield complete UTF-8 JSONL records newest-first from disk."""
-        with open(self.path, "rb") as handle:
+        with open(path or self.path, "rb") as handle:
             handle.seek(0, os.SEEK_END)
             position = handle.tell()
             carry = b""
@@ -428,14 +486,22 @@ class SalienceObserver:
     def candidate_history(self, key):
         records = []
         try:
-            with self._lock, open(self.path, encoding="utf-8") as handle:
-                for line in handle:
-                    try:
-                        record = json.loads(line)
-                    except (TypeError, ValueError):
+            with self._lock:
+                paths = [
+                    self._segment_path(index)
+                    for index in range(self.retained_segments, 0, -1)
+                ] + [self.path]
+                for path in paths:
+                    if not os.path.exists(path):
                         continue
-                    if self._mentions(record, key):
-                        records.append(record)
+                    with open(path, encoding="utf-8") as handle:
+                        for line in handle:
+                            try:
+                                record = json.loads(line)
+                            except (TypeError, ValueError):
+                                continue
+                            if self._mentions(record, key):
+                                records.append(record)
         except FileNotFoundError:
             pass
         return records

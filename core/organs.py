@@ -38,10 +38,35 @@ REGISTRY = {o.organ_id: o for o in (
              "flaggable like everything else (bare turns = control)"),
     OrganDef("oscillator", (),
              "band rhythm; heartbeat ticks across the gaps"),
+    OrganDef("temporal_orientation", (),
+             "resident-readable host civil time, surface-scoped elapsed "
+             "relationships, and optional resident-authored temporal marks; "
+             "a sleeping predictor wakes at the next mark boundary", loop=True),
+    OrganDef("startup_continuity", (),
+             "one restart-scoped foreground orientation seat plus one exact "
+             "persona-owned handoff note; verified deltas precede broad older "
+             "context without prescribing feeling, speech, or artifact use"),
+    OrganDef("world_awareness",
+             ("temporal_orientation", "room_sense", "research_desk"),
+             "typed weather, seasonal/light, local-news, civic, household, "
+             "resource, project, relational, and cultural changes join their "
+             "canonical sources through a private noticeability lattice; "
+             "source events and civil boundaries are its clocks", loop=True),
     OrganDef("interference_field", (),
              "shadow-only temporal interference field; timestamped neutral "
              "events form replayable opponent traces without touching prompts, "
              "attention, memory, feeling, soma, or oscillator state"),
+    OrganDef("rest_field", (),
+             "synthetic rest field, private process-analogue probes, and "
+             "observe-only trace recurrence; it may gently bend existing "
+             "private maintenance or recombination salience but cannot create "
+             "work, speech, model calls, or actions; disabling this organ "
+             "bypasses the entire experimental rest substrate"),
+    OrganDef("quiet_occupancy", ("dmn", "rest_field"),
+             "optional content-free availability mode above DMN selection; "
+             "a configured rest-field adapter may close autonomous outward, "
+             "bodily, and private-work conductance without consuming pressure, "
+             "creating meaning, or asserting experience"),
     OrganDef("soma", (),
              "body map + declarative sensation specs"),
     OrganDef("altered_state", ("memory_emotion", "oscillator", "soma"),
@@ -55,7 +80,8 @@ REGISTRY = {o.organ_id: o for o in (
              "language->substrate judge loop (Haiku); writes felt state "
              "back into the organ after each exchange", cost="api"),
     OrganDef("rhythm_affect", ("oscillator",),
-             "inhabited-band tone seeds the cocktail before recall"),
+             "shadow-only legacy band-to-affect counterfactual; never mutates "
+             "cocktail, recall, soma, prompts, speech, or agency"),
     OrganDef("recall_bias", ("oscillator", "memory_emotion"),
              "band-biased recall weights"),
     OrganDef("room_sense", (),
@@ -94,6 +120,12 @@ REGISTRY = {o.organ_id: o for o in (
              "circulate into generated private thoughts. Gating is "
              "free; discharge spends the roster's idle_model and may "
              "fold the lived result into gist", loop=True),
+    OrganDef("activity_ecology", ("dmn",),
+             "resident-owned balance across company, reflection, outward "
+             "curiosity, making, embodiment, and quiet; real consequences "
+             "create decaying family satiety that modestly bends existing "
+             "attention without scheduling activities, inventing topics, "
+             "or treating speech frequency as success"),
     OrganDef("intention_loom", ("dmn",),
              "possibility cues and self-owned intentions compete through "
              "the DMN; one local append-only movement may form, reframe, "

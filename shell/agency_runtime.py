@@ -616,5 +616,20 @@ class AgencyRuntime:
                     "available_mass": None, "spent_mass": None,
                     "remaining_mass": None,
                 }),
+            "owner_continuity": {
+                "attached": bool(
+                    getattr(self.engine, "experiential_continuity", None)
+                    is not None and getattr(self.engine, "organ", None)
+                    is not None),
+                "cross_organ_itinerary": bool(
+                    getattr(self.engine, "experiential_continuity", None)
+                    is not None),
+                "body_cued_memory": bool(
+                    getattr(self.engine, "organ", None) is not None),
+                "record_access": False,
+                "autonomous_wording_filtered": True,
+                "private_journal_automatic": False,
+                "authority_expansion": False,
+            },
             "workbench": self.workbench.status(),
         }

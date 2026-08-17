@@ -137,11 +137,13 @@ class OscillatorOrgan:
         return round(max(0.3, min(1.2, base + heat + wobble)), 3)
 
     def describe(self) -> str:
-        """Expose instrument readings; the language model describes them."""
+        """Render human/debug instrumentation, never a feeling claim."""
         dom = self.dominant()
         lines = [
-            "Rhythm instrument readings. Describe what this motion is like; "
-            "do not recite the readings."
+            "Human/debug synthetic oscillator instrumentation. These values "
+            "can feed declared non-language consumers, but they do not "
+            "establish a feeling or experience. Raw labels and values are "
+            "sheathed from ordinary resident prompts."
         ]
         for name in BANDS:
             value = self.bands[name]

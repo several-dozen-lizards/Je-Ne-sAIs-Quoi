@@ -27,6 +27,16 @@ sampling:
     mode: omit
 reasoning:
   effort: low
+transport:
+  http:
+    # Live 2026-08-13 foreground evidence: healthy turns topped out near
+    # 25.5s while dead streams remained silent for 360s. A read timeout resets
+    # whenever bytes arrive, so this is a no-progress boundary with nearly 3x
+    # the observed healthy envelope, not a total reply-duration cap.
+    connect_timeout_s: 15
+    read_timeout_s: 75
+    write_timeout_s: 30
+    pool_timeout_s: 30
 wire:
   chat_completions:
     # OpenAI streamed responses otherwise omit their final usage object,

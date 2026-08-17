@@ -64,7 +64,7 @@ class RoomClient:
     def snapshot(self) -> dict:
         if not self.room_id:
             return {}
-        r = self._req(f"/api/rooms/{self.room_id}")
+        r = self._req(f"/api/rooms/{self.room_id}?member={self.member}")
         return r if "error" not in r else {}
 
     def local_weather(self) -> dict:
@@ -102,6 +102,31 @@ class RoomClient:
             "error": r.get("error"),
         }
 
+    def wait_for_social_events(self, since: int,
+                               timeout_s: float = 25.0) -> dict:
+        """Wake on a real room revision and return episodic packets.
+
+        The bounded HTTP timeout renews transport only. It does not create a
+        social tick or speaking opportunity.
+        """
+        if not self.room_id:
+            return {"events": [], "last_seq": int(since),
+                    "changed": False}
+        bounded = max(1.0, min(25.0, float(timeout_s)))
+        r = self._req(
+            f"/api/rooms/{self.room_id}/events/wait"
+            f"?since={int(since)}&timeout={bounded}",
+            timeout_s=bounded + 2.0)
+        events = list(r.get("events") or [])
+        last_seq = int(r.get("last_seq", since) or since)
+        return {
+            "events": events,
+            "last_seq": last_seq,
+            "changed": bool(events) or last_seq > int(since),
+            "room_id": self.room_id,
+            "error": r.get("error"),
+        }
+
     def doors(self) -> list:
         """Adjacency from the current room (cached; world topology is
         stable in v0)."""
@@ -114,15 +139,20 @@ class RoomClient:
 
     # ── actions ──────────────────────────────────────────────────
     def act(self, action: str, obj: str = None, text: str = None,
-            force_n: float = 5.0) -> dict:
+            force_n: float = 5.0, **extra) -> dict:
         body = {"member": self.member, "action": action,
                 "object": obj, "text": text, "force_n": force_n}
+        body.update(extra)
         # pydantic v2: explicit null fails `str = None` fields; omit instead
         return self._req("/api/act",
                          {k: v for k, v in body.items() if v is not None})
 
     def move(self, obj):
         return self.act("move_to", obj)
+
+    def go(self, target):
+        """Approach a named member, object, or traversable place."""
+        return self.act("move_to", target)
 
     def contact(self, obj, force_n=5.0):
         return self.act("contact", obj, force_n=force_n)
@@ -133,12 +163,63 @@ class RoomClient:
     def read(self, obj):
         return self.act("read", obj)
 
-    def say(self, text, conversation_id=None, social_depth=0):
+    def board_post(self, obj, text, *, facets=None, addressed_to=None,
+                   related_posts=None, provenance=None):
+        """Leave chosen freeform words; every descriptor is optional/plural."""
+        return self.act(
+            "board_post", obj, text=text, facets=facets,
+            addressed_to=addressed_to, related_posts=related_posts,
+            provenance=provenance)
+
+    def board_read(self, obj):
+        return self.act("board_read", obj)
+
+    def board_retract(self, obj, post_id):
+        return self.act("board_retract", obj, post_id=post_id)
+
+    def claim_social_floor(self, source_seq: int, thread_id: str,
+                           lease_s: float = 120.0) -> dict:
+        if not self.room_id:
+            return {"ok": False, "reason": "room_unavailable"}
+        return self._req(
+            f"/api/rooms/{self.room_id}/social-floor/claim", {
+                "member": self.member,
+                "source_seq": max(0, int(source_seq or 0)),
+                "thread_id": str(thread_id or ""),
+                "lease_s": float(lease_s or 120.0),
+            })
+
+    def release_social_floor(self, claim_id: str,
+                             reason: str = "settled") -> dict:
+        if not self.room_id or not claim_id:
+            return {"ok": True, "released": False}
+        return self._req(
+            f"/api/rooms/{self.room_id}/social-floor/release", {
+                "member": self.member,
+                "claim_id": str(claim_id),
+                "reason": str(reason or "settled")[:80],
+            })
+
+    def say(self, text, conversation_id=None, social_depth=0, *,
+            social_thread_id="", social_parent_seq=0,
+            social_api_token_load=0.0, social_route="",
+            floor_claim_id=""):
         body = {"member": self.member, "action": "say", "text": text}
         if conversation_id:
             body["conversation_id"] = conversation_id
         if social_depth:
             body["social_depth"] = int(social_depth)
+        if social_thread_id:
+            body["social_thread_id"] = str(social_thread_id)
+        if social_parent_seq:
+            body["social_parent_seq"] = max(0, int(social_parent_seq))
+        if social_api_token_load:
+            body["social_api_token_load"] = max(
+                0.0, float(social_api_token_load))
+        if social_route:
+            body["social_route"] = str(social_route)
+        if floor_claim_id:
+            body["floor_claim_id"] = str(floor_claim_id)
         return self._req("/api/act", body)
 
     def express(self, face: dict):
@@ -170,6 +251,14 @@ class RoomClient:
     def body_motion(self, name: str):
         return self.act("body_motion", name)
 
+    def transient_pose(self, pose=None, *, active=True, event_id=""):
+        """Publish a selected local body vector on the transient surface."""
+        body = {"member": self.member, "action": "transient_pose",
+                "active": bool(active), "event_id": str(event_id or "")}
+        if active:
+            body["pose"] = dict(pose or {})
+        return self._req("/api/act", body)
+
     def light_on(self, obj: str):
         return self.act("light_on", obj)
 
@@ -190,6 +279,10 @@ class RoomClient:
 
     def turn_toward(self, target: str):
         return self.act("turn_toward", target)
+
+    def look_around(self):
+        return self._req("/api/act", {"member": self.member,
+                                      "action": "look_around"})
 
     def inspect(self, target: str):
         return self.act("inspect", target)

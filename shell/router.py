@@ -37,7 +37,7 @@ import urllib.error
 import urllib.request
 
 import yaml
-from fastapi import FastAPI, Request
+from fastapi import BackgroundTasks, FastAPI, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -54,6 +54,8 @@ PERSONAS_DIR = os.path.join(ROOT, "personas")
 ASSET_DIR = os.path.join(ROOT, "assets", "jnsq")
 MANIFEST_PATH = os.path.join(ROOT, "DISTRIBUTION_MANIFEST.json")
 VERSION_PATH = os.path.join(ROOT, "VERSION")
+RUNFILE_PATH = os.path.join(ROOT, "jnsq_running.json")
+from shell.session_window import control_session_window
 PUBLIC_MANIFEST_URL = (
     "https://raw.githubusercontent.com/several-dozen-lizards/"
     "Je-Ne-sAIs-Quoi/main/DISTRIBUTION_MANIFEST.json")
@@ -730,7 +732,7 @@ class PersonaProcess:
 
 
 def build_app(room_url: str = None, *, record_health: bool = False,
-              auto_launch: bool = False) -> FastAPI:
+              auto_launch: bool = False, session_controls: bool = False) -> FastAPI:
     app = FastAPI(title="JNSQ shell/router")
     startup_health = (record_model_start_health if record_health
                       else lambda *args, **kwargs: None)
@@ -757,6 +759,9 @@ def build_app(room_url: str = None, *, record_health: bool = False,
     # host or unrelated web origin from treating localhost as a transcript
     # export API.
     app.state.archive_read_token = secrets.token_urlsafe(32)
+    app.state.session_controls = bool(session_controls and os.name == "nt")
+    app.state.session_window_token = secrets.token_urlsafe(32) if app.state.session_controls else ""
+
 
     def _archive_request_is_local(request: Request) -> bool:
         client_host = request.client.host if request.client else ""
@@ -778,6 +783,15 @@ def build_app(room_url: str = None, *, record_health: bool = False,
                 and bool(supplied)
                 and hmac.compare_digest(
                     supplied, app.state.archive_read_token))
+
+    def _session_window_api_allowed(request: Request) -> bool:
+        supplied = request.headers.get("x-jnsq-session-window-token", "")
+        return (app.state.session_controls
+                and _archive_request_is_local(request)
+                and bool(supplied)
+                and hmac.compare_digest(
+                    supplied, app.state.session_window_token))
+
 
     def _private_archive_json(content, status_code: int = 200):
         return JSONResponse(
@@ -989,7 +1003,11 @@ def build_app(room_url: str = None, *, record_health: bool = False,
         so switching never reloads a conversation."""
         import json as _json
         cfg = {"personas": {}, "room_url": room_url or "",
-               "local_identity": app.state.local_identity}
+               "local_identity": app.state.local_identity,
+               "session_window": {
+                   "enabled": app.state.session_controls,
+                   "token": app.state.session_window_token,
+               }}
         for pid, entry in sorted(app.state.registry.items()):
             proc = app.state.processes.get(pid)
             if proc and proc.alive():
@@ -1002,7 +1020,34 @@ def build_app(room_url: str = None, *, record_health: bool = False,
         from shell.provider_health import provider_health_report
         health = provider_health_report(PERSONAS_DIR, hours=24)
         return (page.replace("/*CONFIG*/", _json.dumps(cfg))
-                .replace("/*SERVICE_HEALTH*/", _json.dumps(health)))
+                 .replace("/*SERVICE_HEALTH*/", _json.dumps(health)))
+
+
+    @app.post("/api/session-window/{action}")
+    def session_window_action(action: str, request: Request,
+                              background_tasks: BackgroundTasks):
+        """Control only the app window owned by this JNSQ session."""
+        if action not in {"minimize", "toggle-maximize", "close"}:
+            return JSONResponse(
+                status_code=404, content={"ok": False,
+                                          "error": "unsupported_action"})
+        if not _session_window_api_allowed(request):
+            return JSONResponse(
+                status_code=403, content={"ok": False,
+                                          "error": "session_capability_required"})
+        if action == "close":
+            # Run after the 202 response leaves the socket. Closing the app
+            # makes boot.py's existing browser.wait() checkpoint the household.
+            background_tasks.add_task(
+                control_session_window, RUNFILE_PATH, action)
+            return JSONResponse(
+                status_code=202, content={"ok": True,
+                                          "accepted": "close"},
+                headers={"Cache-Control": "no-store"})
+        result = control_session_window(RUNFILE_PATH, action)
+        return JSONResponse(
+            status_code=200 if result.get("ok") else 409,
+            content=result, headers={"Cache-Control": "no-store"})
 
     @app.get("/settings", response_class=HTMLResponse)
     def settings_page():
@@ -2420,10 +2465,14 @@ def main():
     ap.add_argument("--room-url", default=None,
                     help="room host base url; tenants whose roster "
                          "declares a room get bodies there")
+    ap.add_argument("--session-controls", action="store_true",
+                    help="expose capability-bound controls for the owned "
+                         "Windows app window")
     args = ap.parse_args()
 
     app = build_app(room_url=args.room_url, record_health=True,
-                    auto_launch=True)
+                    auto_launch=True,
+                    session_controls=args.session_controls)
 
     import uvicorn
     try:

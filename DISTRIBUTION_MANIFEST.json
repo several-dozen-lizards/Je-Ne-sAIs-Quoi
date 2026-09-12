@@ -1,7 +1,7 @@
 {
   "format": 2,
-  "version": "0.11.0",
-  "files": 302,
+  "version": "0.11.1",
+  "files": 305,
   "contains_personal_data": false,
   "empty_local_roots": [
     "personas",
@@ -181,8 +181,10 @@
     "INSTALL_ATELIER_GPU.bat": "49c105417e2ae9d12a16e67e7547e54e52e2c6b3a474966177ead09f40f344f1",
     "INSTALL_JNSQ.bat": "0cc6e306cd124acb5346f20fbc9cd5023b0db3c89f19c4ba91e7550f55e21ffd",
     "INSTALL_JNSQ.command": "b446e48bf74614d798483a8571c1a47e66814b402c2142f78d521471125ec378",
+    "JNSQ.bat": "e30d78adfe6f2871b7c2971aed60a6d20dc1d5c5fabe603f7fe001ca8f87091e",
     "LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
     "README.md": "597a717de0455ee90d2ad9deb94b0d5dd419375341bec7df662fed2719cb6bd7",
+    "RELEASE_NOTES.md": "a4fafddb9936d69ed9f0c39fd5a11393bae65ddc709040c6e50022284371e18f",
     "requirements.txt": "f0397a54b6b333e9c1289ba05b3f6feee8df9d1be70c65c8975656c52d012d74",
     "room/__init__.py": "7095f6cbb0b61f7374669ec93cce972dd6d3c4a45d18cba7f0eb5ba85932f62d",
     "room/body_workshop.html": "890e4b34e13ae4140b9f628a23f0564142e298266b0e6a6434d0df13959070a7",
@@ -201,7 +203,7 @@
     "shell/archive_reader_runtime.py": "93c5833d36227400f73d201f79fd6cd0bdd02fb3722afa89e5e8bc0a13771bb6",
     "shell/atelier_runtime.py": "35357d794c698fad675fa4355fa8dbf7b332b7ca552870f0304d0ecdc79e1d06",
     "shell/autonomy_circulation.py": "d326166c087cf1d28cb14204e773741f802375ca86134d1842e0137c94c05576",
-    "shell/boot.py": "c429c072efe8c282858a54452ccf28a423eb95ab42162a3ea64944d5e4abc319",
+    "shell/boot.py": "46405864743b67f282f4c651868c8214a464733c17084f024e86030d89240032",
     "shell/chatterbox_tts_server.py": "93992dc72a5c4b6ef6888acfc81866fdd808365e9a95742a4e0b390dea21ae83",
     "shell/chatterbox_tts_service.py": "d5d059db2ec90620715e74e6695ddb228037cf8e3cbb64b48a00fd9ed30f6148",
     "shell/cockpit.html": "2923f44e4c43ac7030ebac521d841127a1a78d13309ba61764d16db3432129e8",
@@ -214,7 +216,7 @@
     "shell/document_reader_runtime.py": "72fc8064fcadf0e2c2e3cd6218bef82d48e33db25cebdbb9852548720236360a",
     "shell/env_store.py": "e32e0fade285c871e200d45644eefc22dc7be11851ed0e7ad98e4d6597d78c46",
     "shell/factory.py": "f73c975b301cfed2a47379962b326af29a5ba0c244c48fbd4897e32d52b82ab4",
-    "shell/fangwall.html": "c7e5802508d7e1be9146374bc4cc9ee17c692967f2b5f31a7c7e01d8d3bb76f2",
+    "shell/fangwall.html": "1852348178039a550ef92fce06cd67a298984fa49885705e91495c9b77167e26",
     "shell/first_run.py": "814911687ef93cc76bf42c2aed763a69fcc2f94a7a93406083cb20f7081dd946",
     "shell/image_input.py": "e3ce1d1d8d1fccee3423ba81bfb82010710e1c6fb436b0a522ca4e177a5522d0",
     "shell/intention_loom_runtime.py": "b0471368b9da88bda85ffcc8d15f4f7d4a05932938d4635747a7d1da61911b11",
@@ -237,7 +239,8 @@
     "shell/research_desk_runtime.py": "f77ff106e2b834220e8a9bb8106655b0ddf1021b07505ef9941c3cd6030d5b8d",
     "shell/resource_ecology_status.py": "f1547f5cc254c021147a699fdeb15ad615068122df1092661854fa49cf39b934",
     "shell/rest_entrainment_audit.py": "e0a3ccbb47759532d52ad459e1c1af5669ff833c5152270f6723e89f114b3aa8",
-    "shell/router.py": "ff5f9c917c4e1adfcad7455e3fb77ea9d265400a47ff491cd17b14b90339bd81",
+    "shell/router.py": "c08f850c7da1e9387921631e30992573e91c6fd15e08fdf6d37f25b452b04522",
+    "shell/session_window.py": "f653f0f3e3987018a38831f3be1beccfa9b6045430ec11af216cfb1000ea5fab",
     "shell/settings.html": "c14ebf84764dc72388b9e39d9178af665174174a8a26aa42ebb0d22c6af67314",
     "shell/system_prompts.py": "858d50b8e0d42acd9189e98cefe221d2f990e07f4a5be12f7b26154618cbc30b",
     "shell/ui_background.py": "05ff6aa0288cae535963fc4cc23db79b5a97739de8973c443441e4b9420ca206",
@@ -311,6 +314,6 @@
     "UPDATE_JNSQ.bat": "21c0ba7c15a43eb06bc6a317ee8cf5b6910c36a53bde7ec615ea6a673ef10bdc",
     "UPDATE_JNSQ.command": "bc3ed6e255375db324c1e0fe3802b173d72c15caefbb4921762bca4d7c0afdc9",
     "UPDATE_JNSQ.ps1": "cd76bcb23f09bd9214450fb5fa6ce2d7a4286fa8b701e41d9d6dc28231f3a29b",
-    "VERSION": "795d6bc79574d2aec03ad9cfec404bb95083c9dd210e6521e0d4199772d28d44"
+    "VERSION": "fe8b23410c0d9003e70c141ca726f3c669bbc0bf7e3acb7ba35f23cf7260332b"
   }
 }

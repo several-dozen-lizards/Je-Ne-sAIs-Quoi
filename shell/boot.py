@@ -7,8 +7,7 @@ instead of spawning a rival household. --stop reads the runfile and
 takes it all down.
 
 START_NEXUS uses --session: a dedicated browser window owns the household.
-Firefox is preferred when it is installed; Chromium browsers remain the
-fallback. The launcher waits on that real process handle; closing the window
+On Windows a Chromium app window is preferred; Firefox is the fallback. The launcher waits on that real process handle; closing the window
 flows directly into stop(). Refreshes and inner pane changes do not resemble
 a session ending and cannot kill the household.
 
@@ -30,6 +29,8 @@ import uuid
 import webbrowser
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
 RUNFILE = os.path.join(ROOT, "jnsq_running.json")
 BOOT_LOCKFILE = os.path.join(ROOT, ".jnsq_boot.lock")
 LOGDIR = os.path.join(ROOT, "logs")
@@ -161,15 +162,6 @@ def _session_browser():
              os.environ.get("PROGRAMFILES"),
              os.environ.get("LOCALAPPDATA")]
 
-    firefox_candidates = [shutil.which("firefox")]
-    firefox_candidates.extend(
-        os.path.join(root, "Mozilla Firefox", "firefox.exe")
-        for root in roots if root)
-    firefox = next((path for path in firefox_candidates
-                    if path and os.path.isfile(path)), None)
-    if firefox:
-        return "firefox", firefox
-
     chromium_candidates = [shutil.which("msedge"), shutil.which("chrome")]
     suffixes = [
         os.path.join("Microsoft", "Edge", "Application", "msedge.exe"),
@@ -182,7 +174,16 @@ def _session_browser():
                                for suffix in suffixes)
     chromium = next((path for path in chromium_candidates
                      if path and os.path.isfile(path)), None)
-    return ("chromium", chromium) if chromium else (None, None)
+    if chromium:
+        return "chromium", chromium
+
+    firefox_candidates = [shutil.which("firefox")]
+    firefox_candidates.extend(
+        os.path.join(root, "Mozilla Firefox", "firefox.exe")
+        for root in roots if root)
+    firefox = next((path for path in firefox_candidates
+                    if path and os.path.isfile(path)), None)
+    return ("firefox", firefox) if firefox else (None, None)
 
 
 def _launch_session_browser(url: str):
@@ -211,7 +212,9 @@ def _launch_session_browser(url: str):
             "--disable-extensions",
             "--disable-sync",
         ]
-    return subprocess.Popen(command, **_new_process_group_kwargs())
+    process = subprocess.Popen(command, **_new_process_group_kwargs())
+    process.jnsq_window_family = family
+    return process
 
 
 def _new_process_group_kwargs() -> dict:
@@ -354,7 +357,7 @@ def stop(*, expected_generation: str | None = None,
             expected_browser_pid=expected_browser_pid)
 
 
-def _boot_unlocked(open_browser: bool = True):
+def _boot_unlocked(open_browser: bool = True, session_controls: bool = False):
     # already up? Report and open the door instead of double-spawning.
     if os.path.exists(RUNFILE):
         run = _read_runfile()
@@ -455,10 +458,12 @@ def _boot_unlocked(open_browser: bool = True):
         print("Room host failed — see logs\\room_host.log")
         _stop_unlocked()
         return None
-    router_pid = _spawn([os.path.join("shell", "router.py"),
-                         "--port", str(router_port),
-                         "--room-url", f"http://127.0.0.1:{room_port}"],
-                        "router.log")
+    router_command = [os.path.join("shell", "router.py"),
+                      "--port", str(router_port),
+                      "--room-url", f"http://127.0.0.1:{room_port}"]
+    if session_controls:
+        router_command.append("--session-controls")
+    router_pid = _spawn(router_command, "router.log")
     run["router_pid"] = router_pid
     _write_runfile(run)
     tenants = _wait(f"http://127.0.0.1:{router_port}/api/personas", 60,
@@ -491,14 +496,29 @@ def _boot_unlocked(open_browser: bool = True):
     return run
 
 
-def boot(open_browser: bool = True):
+def boot(open_browser: bool = True, session_controls: bool = False):
     with _boot_lock():
-        return _boot_unlocked(open_browser=open_browser)
+        return _boot_unlocked(open_browser=open_browser,
+                              session_controls=session_controls)
+
+
+def _native_window_preparer():
+    """Resolve the optional native bridge before changing session state."""
+    if os.name != "nt":
+        return None
+    from shell.session_window import prepare_session_window
+    return prepare_session_window
 
 
 def run_session() -> int:
     """Own the household for exactly the life of its dedicated window."""
-    run = boot(open_browser=False)
+    try:
+        window_preparer = _native_window_preparer()
+    except Exception as exc:
+        print("JNSQ native session window is unavailable "
+              f"({type(exc).__name__}); nothing was started.")
+        return 1
+    run = boot(open_browser=False, session_controls=True)
     if not run:
         return 1
     with _boot_lock():
@@ -512,8 +532,34 @@ def run_session() -> int:
         url = f"http://127.0.0.1:{run['router_port']}/"
         browser = _launch_session_browser(url)
         if browser is not None:
+            # Publish ownership before Edge finishes constructing its final app
+            # frame. A styling failure must never orphan the window or break
+            # close -> checkpoint -> household shutdown.
             run["session_browser_pid"] = browser.pid
             _write_runfile(run)
+            if (os.name == "nt"
+                    and getattr(browser, "jnsq_window_family", "")
+                    == "chromium"):
+                try:
+                    start_path = os.path.join(ROOT, "JNSQ.bat")
+                    command = (f'{os.environ.get("COMSPEC", "cmd.exe")} '
+                               f'/c ""{start_path}""')
+                    prepared = window_preparer(
+                        browser.pid,
+                        icon_path=os.path.join(
+                            ROOT, "assets", "jnsq", "favicon.ico"),
+                        relaunch_command=command)
+                except Exception as exc:
+                    prepared = {
+                        "ok": False,
+                        "error": f"preparation_failed:{type(exc).__name__}",
+                    }
+                run["session_window"] = prepared
+                _write_runfile(run)
+                print("  session window: "
+                      + ("frameless, resizable, maximized"
+                         if prepared.get("ok")
+                         else prepared.get("error", "preparation failed")))
     if browser is None:
         print("No supported owned session browser was found (Firefox, Edge, "
               "Chrome, Brave, or Chromium).")

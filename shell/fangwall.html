@@ -63,6 +63,16 @@ header{height:74px;display:flex;align-items:center;gap:18px;padding:0 24px;
 #status{margin-left:auto;color:var(--dim);font-size:.82rem;display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;text-align:right}
 #status a{color:var(--mint);text-underline-offset:2px}
 #status a:hover{color:var(--gold)}
+#window-controls{display:flex;align-items:stretch;align-self:stretch;
+  flex:0 0 auto;margin-right:-24px}
+#window-controls[hidden]{display:none}
+.window-control{width:46px;border:0;border-left:1px solid var(--line);
+  border-radius:0;background:transparent;color:var(--ink);
+  font:18px/1 "Segoe UI Symbol",sans-serif;cursor:pointer;
+  transition:background .14s,color .14s}
+.window-control:hover,.window-control:focus-visible{background:color-mix(in srgb,var(--mint) 20%,var(--panel));outline:none}
+.window-control.close:hover,.window-control.close:focus-visible{background:#c42b1c;color:#fff}
+.window-control:disabled{opacity:.5;cursor:wait}
 #updateNotice{position:fixed;z-index:14;top:84px;right:14px;width:min(400px,calc(100vw - 28px));
   border:1px solid color-mix(in srgb,var(--mint) 65%,var(--line));border-radius:var(--radius);
   background:color-mix(in srgb,var(--panel) 96%,var(--bg));padding:14px 16px;
@@ -192,6 +202,7 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
     <button type="button" data-top-page="settings"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21H9.6v-.1A1.7 1.7 0 0 0 8.5 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3V9.6h.1A1.7 1.7 0 0 0 4.6 8.5a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1A1.7 1.7 0 0 0 15.5 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.13.37.35.71.65.98.3.27.68.42 1.08.42H21v4h-.1a1.7 1.7 0 0 0-1.5.6z"/></svg><span>Settings</span></button>
     <button type="button" data-top-page="about"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 10.5v6M12 7.5h.01"/></svg><span>About</span></button></nav>
   <div id="status"><span id="statusText">connecting…</span> · <a href="https://ko-fi.com/a_dozen_lizards" target="_blank" rel="noopener">Support this work</a></div>
+  <div id="window-controls" aria-label="JNSQ window controls" hidden><button class="window-control minimize" type="button" aria-label="Minimize JNSQ" title="Minimize JNSQ">−</button><button class="window-control size" type="button" aria-label="Restore JNSQ window" title="Restore JNSQ window">❐</button><button class="window-control close" type="button" aria-label="Close JNSQ" title="Close JNSQ">×</button></div>
 </header>
 <section class="top-page on" id="page-personas"><div class="app">
   <nav class="panel-tabs" id="panelTabs" aria-label="Household panes"></nav>
@@ -317,6 +328,33 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
 <script>
 const CFG = /*CONFIG*/;
 const $ = id => document.getElementById(id);
+if(CFG.session_window?.enabled){
+  $("window-controls").hidden=false;
+  $("window-controls").querySelector(".minimize").onclick=event=>controlSessionWindow("minimize",event.currentTarget);
+  $("window-controls").querySelector(".size").onclick=event=>controlSessionWindow("toggle-maximize",event.currentTarget);
+  $("window-controls").querySelector(".close").onclick=event=>controlSessionWindow("close",event.currentTarget);
+}
+
+async function controlSessionWindow(action,button){
+  button.disabled=true;
+  try{
+    const response=await fetch(`/api/session-window/${action}`,{
+      method:"POST",keepalive:action==="close",
+      headers:{"X-JNSQ-Session-Window-Token":CFG.session_window.token}
+    });
+    const result=await response.json();
+    if(!response.ok||!result.ok)throw new Error(result.error||"window control failed");
+    if(action==="toggle-maximize"){
+      button.textContent=result.maximized?"❐":"□";
+      button.setAttribute("aria-label",result.maximized?"Restore JNSQ window":"Maximize JNSQ window");
+      button.title=result.maximized?"Restore JNSQ window":"Maximize JNSQ window";
+    }
+    if(action!=="close")button.disabled=false;
+  }catch(error){
+    button.disabled=false;
+    button.title=`Could not ${action} JNSQ: ${error.message}`;
+  }
+}
 const storedVisible=localStorage.getItem("jnsq.public.visible");
 const state = {personas:{}, models:[], modelInfo:{}, selected:new Set(), active:null, voicePid:null, lookPid:null, rosterPid:null, modelTarget:null,
   initialized:false,widths:{},theme:null,creativeCatalogs:{},creativePersona:localStorage.getItem("jnsq.creative.persona")||""};

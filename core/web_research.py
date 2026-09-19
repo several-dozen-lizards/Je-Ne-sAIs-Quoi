@@ -492,7 +492,7 @@ class ReadOnlyWebResearch:
                  "https://lite.duckduckgo.com/lite/"):
         self.client = client or httpx.Client(
             timeout=httpx.Timeout(15.0, connect=8.0), follow_redirects=False,
-            headers={"User-Agent": "JNSQ-ResearchDesk/1.0 (read-only)"})
+            headers={"User-Agent": "JNAIQ-ResearchDesk/1.0 (read-only)"})
         self.resolver = resolver
         self.search_url = search_url
         self.fallback_search_url = fallback_search_url

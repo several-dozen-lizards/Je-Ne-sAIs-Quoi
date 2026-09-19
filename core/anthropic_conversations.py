@@ -51,7 +51,7 @@ def _atomic_json(path: Path, value) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     handle = tempfile.NamedTemporaryFile(
         mode="w", encoding="utf-8", newline="\n", delete=False,
-        prefix=".jnsq-anthropic-", suffix=".tmp", dir=path.parent)
+        prefix=".jnaiq-anthropic-", suffix=".tmp", dir=path.parent)
     try:
         with handle:
             json.dump(value, handle, ensure_ascii=False, indent=2,
@@ -447,7 +447,7 @@ class AnthropicConversationArchive:
             return target
         target.parent.mkdir(parents=True, exist_ok=True)
         temporary = tempfile.NamedTemporaryFile(
-            delete=False, dir=target.parent, prefix=".jnsq-anthropic-",
+            delete=False, dir=target.parent, prefix=".jnaiq-anthropic-",
             suffix=".tmp")
         temporary_path = Path(temporary.name)
         temporary.close()

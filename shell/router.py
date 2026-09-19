@@ -51,7 +51,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 PERSONAS_DIR = os.path.join(ROOT, "personas")
-ASSET_DIR = os.path.join(ROOT, "assets", "jnsq")
+ASSET_DIR = os.path.join(ROOT, "assets", "jnaiq")
 MANIFEST_PATH = os.path.join(ROOT, "DISTRIBUTION_MANIFEST.json")
 VERSION_PATH = os.path.join(ROOT, "VERSION")
 PUBLIC_MANIFEST_URL = (
@@ -731,12 +731,12 @@ class PersonaProcess:
 
 def build_app(room_url: str = None, *, record_health: bool = False,
               auto_launch: bool = False) -> FastAPI:
-    app = FastAPI(title="JNSQ shell/router")
+    app = FastAPI(title="JNAIQ shell/router")
     startup_health = (record_model_start_health if record_health
                       else lambda *args, **kwargs: None)
     if os.path.isdir(ASSET_DIR):
         app.mount("/assets", StaticFiles(directory=ASSET_DIR),
-                  name="jnsq-assets")
+                  name="jnaiq-assets")
     app.state.registry = discover_personas()
     app.state.processes = {}
     app.state.room_url = room_url
@@ -773,7 +773,7 @@ def build_app(room_url: str = None, *, record_health: bool = False,
         return not fetch_site or fetch_site in {"same-origin", "none"}
 
     def _archive_api_allowed(request: Request) -> bool:
-        supplied = request.headers.get("x-jnsq-archive-token", "")
+        supplied = request.headers.get("x-jnaiq-archive-token", "")
         return (_archive_request_is_local(request)
                 and bool(supplied)
                 and hmac.compare_digest(
@@ -1041,8 +1041,8 @@ def build_app(room_url: str = None, *, record_health: bool = False,
 
     @app.get("/api/version")
     def version_info():
-        updater_name = ("UPDATE_JNSQ.command" if sys.platform == "darwin"
-                        else "UPDATE_JNSQ.bat")
+        updater_name = ("UPDATE_JNAIQ.command" if sys.platform == "darwin"
+                        else "UPDATE_JNAIQ.bat")
         return {"version": installed_version(),
                 "updater": os.path.exists(os.path.join(ROOT, updater_name)),
                 "updater_name": updater_name}
@@ -1072,13 +1072,13 @@ def build_app(room_url: str = None, *, record_health: bool = False,
     def version_check():
         """Read-only startup/manual check; applying remains an offline act.
 
-        JNSQ must be stopped before engine files change, so this endpoint
+        JNAIQ must be stopped before engine files change, so this endpoint
         reports availability only. The platform updater owns the validated
-        patch while JNSQ is stopped.
+        patch while JNAIQ is stopped.
         """
         request = urllib.request.Request(
             PUBLIC_MANIFEST_URL,
-            headers={"User-Agent": "JNSQ-Version-Check",
+            headers={"User-Agent": "JNAIQ-Version-Check",
                      "Cache-Control": "no-cache"})
         try:
             with urllib.request.urlopen(request, timeout=8) as response:
@@ -1087,9 +1087,9 @@ def build_app(room_url: str = None, *, record_health: bool = False,
             if not latest:
                 raise ValueError("GitHub manifest has no version")
             current = installed_version()
-            updater_name = ("UPDATE_JNSQ.command"
+            updater_name = ("UPDATE_JNAIQ.command"
                             if sys.platform == "darwin"
-                            else "UPDATE_JNSQ.bat")
+                            else "UPDATE_JNAIQ.bat")
             return {"version": current, "latest": latest,
                     "update_available": public_update_available(
                         current, latest),
@@ -1497,7 +1497,7 @@ def build_app(room_url: str = None, *, record_health: bool = False,
                        f"<td>{entry.get('model','—')}</td>"
                        f"<td>{status}</td><td>{link}</td></tr>")
         return ("<html><body style='font-family:monospace;background:#111;"
-               "color:#eee;padding:2rem'><h2>JNSQ shell/router</h2>"
+               "color:#eee;padding:2rem'><h2>JNAIQ shell/router</h2>"
                "<table border=1 cellpadding=8 style='border-color:#444'>"
                "<tr><th>persona</th><th>kind</th><th>model</th>"
                "<th>status</th><th>link</th></tr>" + "".join(rows) +
@@ -2038,7 +2038,7 @@ def build_app(room_url: str = None, *, record_health: bool = False,
 
     @app.post("/api/models/{model}/vision/test")
     def model_vision_test(model: str):
-        """Send JNSQ's public icon through one declared visual vessel.
+        """Send JNAIQ's public icon through one declared visual vessel.
 
         This endpoint is never automatic: the Settings button is the explicit
         act that may incur a provider charge. No persona or user image is used.
@@ -2058,7 +2058,7 @@ def build_app(room_url: str = None, *, record_health: bool = False,
                 "vision_max_tokens", 420))
             observation = (client.chat(
                 "Report observable visual features only. Do not infer emotion, intent, or symbolism.",
-                "Describe this public JNSQ test icon in one short sentence.",
+                "Describe this public JNAIQ test icon in one short sentence.",
                 max_tokens=max(48, min(420, declared_max)), temperature=0.0,
                 images=[{"media_type": "image/png", "data": encoded,
                          "detail": "low"}]) or "").strip()
@@ -2230,7 +2230,7 @@ def build_app(room_url: str = None, *, record_health: bool = False,
             with urllib.request.urlopen(request, timeout=timeout) as upstream:
                 return Response(content=upstream.read(), media_type="audio/wav",
                                 headers={"Cache-Control": "no-store",
-                                         "X-JNSQ-Provider": "qwen3-tts"})
+                                         "X-JNAIQ-Provider": "qwen3-tts"})
         except urllib.error.HTTPError as error:
             try:
                 content = json.loads(error.read().decode("utf-8"))

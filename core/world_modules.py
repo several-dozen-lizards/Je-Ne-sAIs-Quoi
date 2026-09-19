@@ -1,4 +1,4 @@
-"""Portable, inspectable assemblies for JNSQ world authoring.
+"""Portable, inspectable assemblies for JNAIQ world authoring.
 
 A module is a relative arrangement of ordinary room objects.  It owns no live
 room state and has no renderer authority: stamping compiles its members back
@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Iterable, Mapping
 
 
-SCHEMA = "jnsq-world-module/0.1"
+SCHEMA = "jnaiq-world-module/0.1"
 MAX_MEMBERS = 128
 
 

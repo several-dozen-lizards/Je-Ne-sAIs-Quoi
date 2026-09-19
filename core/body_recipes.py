@@ -11,10 +11,10 @@ from datetime import datetime, timezone
 from core.body_packages import BodyPackageError
 
 
-RECIPE_FORMAT = "jnsq-body-recipe/0.3"
+RECIPE_FORMAT = "jnaiq-body-recipe/0.3"
 COMPATIBLE_RECIPE_FORMATS = {
-    RECIPE_FORMAT, "jnsq-body-recipe/0.2", "jnsq-body-recipe/0.1"}
-BODY_FAMILY = "jnsq-humanoid-01"
+    RECIPE_FORMAT, "jnaiq-body-recipe/0.2", "jnaiq-body-recipe/0.1"}
+BODY_FAMILY = "jnaiq-humanoid-01"
 PILOT_TARGET = "starter_persona"
 PARAMETERS = (
     "height", "shoulder_width", "hip_width", "torso_length",

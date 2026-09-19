@@ -9,7 +9,7 @@ The budget is a persistent resource reservoir rather than a polling clock:
 credits refill continuously, are spent only by real autonomy episodes, and
 fall back to the resident's local idle vessel when unavailable.  A rolling
 token wall provides a second, provider-agnostic ceiling even when model prices
-are unavailable or change independently of JNSQ.
+are unavailable or change independently of JNAIQ.
 """
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Build and reopen a deterministic non-persona AT8 JNSQ master bundle."""
+"""Build and reopen a deterministic non-persona AT8 JNAIQ master bundle."""
 from __future__ import annotations
 
 import argparse
@@ -45,7 +45,7 @@ def main() -> int:
     if not artifact_id.endswith(composition_sha[:16]):
         raise ValueError("composition content address does not match its bytes")
     graph = json.loads(composition_bytes)
-    if graph.get("format") != "jnsq.composition.v1":
+    if graph.get("format") != "jnaiq.composition.v1":
         raise ValueError("composition format is not admitted")
     sources = []
     entries = []
@@ -73,7 +73,7 @@ def main() -> int:
             "path": f"composition/{artifact_id}.json",
             "sha256": composition_sha,
         },
-        "format": "jnsq.bundle.v1",
+        "format": "jnaiq.bundle.v1",
         "policy": {
             "autoplay": False, "external_references": False,
             "nested_compositions": False, "user_initiated": True,
@@ -89,7 +89,7 @@ def main() -> int:
     total = sum(len(data) for _, data in ordered)
     if total > 96 * 1024 * 1024:
         raise ValueError("AT8 bundle exceeds the 96 MiB boundary")
-    bundle = output / f"{artifact_id}.jnsq"
+    bundle = output / f"{artifact_id}.jnaiq"
     with zipfile.ZipFile(bundle, "w", compression=zipfile.ZIP_STORED) as archive:
         for name, data in ordered:
             info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))

@@ -2,7 +2,7 @@
 
 This is deliberately separate from ``personas/``.  A user is a human
 account.  A user persona is a role-play identity owned by that account;
-it is not an autonomous JNSQ model persona and never inherits the user's
+it is not an autonomous JNAIQ model persona and never inherits the user's
 bedrock implicitly.
 
 On disk::
@@ -63,7 +63,7 @@ def _write_yaml(path: str, value) -> None:
     rendered = yaml.safe_dump(value, allow_unicode=True, sort_keys=False)
     # Prove our own output parses before it can replace the live document.
     yaml.safe_load(rendered)
-    fd, tmp = tempfile.mkstemp(prefix=".jnsq-", suffix=".tmp",
+    fd, tmp = tempfile.mkstemp(prefix=".jnaiq-", suffix=".tmp",
                                dir=os.path.dirname(path), text=True)
     try:
         with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:

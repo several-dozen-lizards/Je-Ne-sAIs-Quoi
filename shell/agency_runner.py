@@ -1,10 +1,10 @@
-"""Bounded production binding from persona ownership to the JNSQ bridge.
+"""Bounded production binding from persona ownership to the JNAIQ bridge.
 
 This module still contains no trigger, queue, route, organ, or policy.  The
 agency runtime must already possess an immutable task envelope, an admitted
 graph-derived budget, a tool/authority binding, and a persona controller
 context.  The binding owns one fresh model adapter for that run and returns
-only after the Pydantic/JNSQ owner has closed it.
+only after the Pydantic/JNAIQ owner has closed it.
 """
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Offline smoke test for a clean JNSQ starter tree."""
+"""Offline smoke test for a clean JNAIQ starter tree."""
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
@@ -33,11 +33,11 @@ def main():
     mac_start = (ROOT / "START_NEXUS.command").read_text(encoding="utf-8")
     assert ".venv/bin/python" in mac_start
     assert "shell/boot.py --session" in mac_start
-    for name in ("INSTALL_JNSQ.command", "START_NEXUS.command",
-                 "STOP_NEXUS.command", "UPDATE_JNSQ.command"):
+    for name in ("INSTALL_JNAIQ.command", "START_NEXUS.command",
+                 "STOP_NEXUS.command", "UPDATE_JNAIQ.command"):
         assert (ROOT / name).is_file(), f"macOS launcher is missing: {name}"
-    assert (ROOT / "tools" / "setup_jnsq_macos.py").is_file()
-    assert (ROOT / "tools" / "update_jnsq.py").is_file()
+    assert (ROOT / "tools" / "setup_jnaiq_macos.py").is_file()
+    assert (ROOT / "tools" / "update_jnaiq.py").is_file()
     boot = (ROOT / "shell" / "boot.py").read_text(encoding="utf-8")
     assert "def run_session()" in boot and "browser.wait()" in boot
     assert "session_browser_pid" in boot
@@ -45,9 +45,9 @@ def main():
     assert 'Je Ne S<span class="ai">ai</span>s Quoi' in shell
     assert 'id="personaHome"' in shell and 'id="panelTabs"' in shell
     assert "openPanel" in shell and "renderPanelTabs" in shell
-    assert "personas().map" in shell and "jnsq.public.visible" in shell
+    assert "personas().map" in shell and "jnaiq.public.visible" in shell
     assert 'className="panel-resizer"' in shell
-    assert "jnsq.public.widths" in shell and "wirePanelResizers" in shell
+    assert "jnaiq.public.widths" in shell and "wirePanelResizers" in shell
     assert "data-icon" in shell and "openPersonaLook" in shell
     assert 'id="lookDialog"' in shell and "speaker_colors" in shell
     assert "/assets/hex_color.js" in shell
@@ -84,7 +84,7 @@ def main():
     assert "function nexusIcon()" in shell and 'class="nexus-icon"' in shell
     assert "🌍 The Nexus" not in shell
     assert "function openNexus()" in shell
-    assert "/assets/jnsq_favicon.svg" in shell
+    assert "/assets/jnaiq_favicon.svg" in shell
     assert "a local home for persistent AI personas" not in shell
     assert "scrollbar-color:var(--mint)" in shell
     assert "--panel2:color-mix(in srgb,var(--panel) 82%,var(--mint))" in shell
@@ -93,7 +93,7 @@ def main():
     assert 'id="updateNotice" role="status"' in shell
     assert 'fetch("/api/version/check",{cache:"no-store"})' in shell
     assert 'href="/settings#updates"' in shell
-    assert "JNSQ will not install it while running" in shell
+    assert "JNAIQ will not install it while running" in shell
     about = (ROOT / "shell" / "about.html").read_text(encoding="utf-8")
     usage = (ROOT / "shell" / "model_calls.html").read_text(
         encoding="utf-8")
@@ -137,9 +137,9 @@ def main():
                 "terrain3d_canary_01.json").exists()
     assert "local SVG/PNG" in about and "authority 0 by default" in about
     cockpit = (ROOT / "shell" / "cockpit.html").read_text(encoding="utf-8")
-    assert "JNSQ cockpit" not in cockpit and 'class="brand-mark"' not in cockpit
+    assert "JNAIQ cockpit" not in cockpit and 'class="brand-mark"' not in cockpit
     assert "Conversation · Je Ne Sais Quoi" in cockpit
-    assert "jnsq_icon_animated_128.apng" in cockpit
+    assert "jnaiq_icon_animated_128.apng" in cockpit
     assert "setThinking(true)" in cockpit and "setThinking(false)" in cockpit
     assert "setInterval" not in cockpit
     assert "thought-label" not in cockpit
@@ -186,7 +186,7 @@ def main():
     assert "function saveAtelierCompositionPng" in cockpit
     assert "function saveAtelierCompositionWav" in cockpit
     assert "function saveAtelierCompositionBundle" in cockpit
-    assert 'format:"jnsq.bundle.v1"' in cockpit
+    assert 'format:"jnaiq.bundle.v1"' in cockpit
     assert "function mountAtelierAudio" in cockpit
     assert "new OfflineAudioContext" in cockpit
     assert "stopAtelierAudioPlayers(\"page hidden\")" in cockpit
@@ -281,24 +281,24 @@ def main():
     assert '@app.delete("/api/ui/conversation-background")' in room_host
     assert '/assets/hex_color.js' in nexus
     assert 'class="speaker-choice"' in nexus
-    assert 'jnsq.nexus.presenceWidth' in nexus
+    assert 'jnaiq.nexus.presenceWidth' in nexus
     assert 'class="speaker-mark"' in nexus
     assert "function speakerProfile" in nexus
     assert "function fallbackColor" in nexus
     assert "avatar_url" in nexus and "--speaker-color" in nexus
     assert '<header><div><h1>The Nexus</h1>' in nexus
-    assert 'jnsq_favicon.svg' not in nexus
+    assert 'jnaiq_favicon.svg' not in nexus
     assert "const fonts={system:" in nexus and "humanist:" in nexus
     assert 't.font_scale' in nexus and '--theme-motion-duration' in nexus
     assert 'id="organScope"' in cockpit
     assert 'id="saveOrgans"' in cockpit
     assert 'JSON.stringify({enabled, scope})' in cockpit
-    for name in ("favicon.ico", "jnsq_favicon.svg",
-                 "jnsq_icon_animated_128.apng", "favicon-180.png",
+    for name in ("favicon.ico", "jnaiq_favicon.svg",
+                 "jnaiq_icon_animated_128.apng", "favicon-180.png",
                  "hex_color.js"):
-        assert (ROOT / "assets" / "jnsq" / name).is_file(), name
-    assert (ROOT / "assets" / "jnsq" /
-            "jnsq-venetian-mask-space.png").is_file()
+        assert (ROOT / "assets" / "jnaiq" / name).is_file(), name
+    assert (ROOT / "assets" / "jnaiq" /
+            "jnaiq-venetian-mask-space.png").is_file()
     import yaml
     glm_spec = yaml.safe_load((ROOT / "specs" / "models" /
                                "glm-5.yaml").read_text(encoding="utf-8"))
@@ -310,8 +310,8 @@ def main():
     assert gpt_spec["sampling"]["temperature"]["mode"] == "omit"
     assert gpt_spec["reasoning"]["effort"] == "low"
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    assert "jnsq_favicon.svg" in readme
-    assert "jnsq-venetian-mask-space.png" in readme
+    assert "jnaiq_favicon.svg" in readme
+    assert "jnaiq-venetian-mask-space.png" in readme
     assert "Ambient camera and microphone" in readme
     assert "body/perception/images/" in readme
     assert "body/intention_loom/" in readme
@@ -319,8 +319,8 @@ def main():
     assert "no publishing or" in readme
     assert "INSTALL_ATELIER_GPU.bat" in readme
     assert "Windows and macOS" in readme
-    assert "INSTALL_JNSQ.command" in readme
-    assert "UPDATE_JNSQ.command" in readme
+    assert "INSTALL_JNAIQ.command" in readme
+    assert "UPDATE_JNAIQ.command" in readme
     assert "Windows-only" in readme
     assert "host-compiled kinetic SVG" in readme
     assert "normalized motion vectors" in readme
@@ -345,9 +345,9 @@ def main():
     assert "no fixed barge-in delay" in readme
     assert "linguistic clause boundary" in readme
     assert "public builds never contain it" in readme
-    installer = (ROOT / "INSTALL_JNSQ.bat").read_text(encoding="utf-8")
-    setup = (ROOT / "SETUP_JNSQ.ps1").read_text(encoding="utf-8")
-    assert "SETUP_JNSQ.ps1" in installer
+    installer = (ROOT / "INSTALL_JNAIQ.bat").read_text(encoding="utf-8")
+    setup = (ROOT / "SETUP_JNAIQ.ps1").read_text(encoding="utf-8")
+    assert "SETUP_JNAIQ.ps1" in installer
     assert "Python.Python.3.12" in setup
     assert 'Join-Path $Root ".venv"' in setup
     assert "pip\", \"install\", \"--requirement" in setup
@@ -371,16 +371,16 @@ def main():
     assert 'torch==2.11.0; sys_platform == "darwin"' in requirements
     assert ('torchvision==0.26.0; sys_platform == "darwin"'
             in requirements)
-    updater = (ROOT / "UPDATE_JNSQ.ps1").read_text(encoding="utf-8")
-    update_launcher = (ROOT / "UPDATE_JNSQ.bat").read_text(encoding="utf-8")
-    assert "UPDATE_JNSQ.ps1" in update_launcher
+    updater = (ROOT / "UPDATE_JNAIQ.ps1").read_text(encoding="utf-8")
+    update_launcher = (ROOT / "UPDATE_JNAIQ.bat").read_text(encoding="utf-8")
+    assert "UPDATE_JNAIQ.ps1" in update_launcher
     assert "managed_files" in updater and "Get-FileHash" in updater
     assert "requirementsChanged" in updater
     assert "Previous managed files were restored" in updater
     assert updater.index("Checking patched source files") < updater.index(
         "Copy-Item -LiteralPath $packageManifestPath")
     assert "local-life data" in updater
-    mac_updater = (ROOT / "tools" / "update_jnsq.py").read_text(
+    mac_updater = (ROOT / "tools" / "update_jnaiq.py").read_text(
         encoding="utf-8")
     assert "managed_files" in mac_updater and "safe_relative" in mac_updater
     assert "Previous managed files were restored" in mac_updater
@@ -413,7 +413,7 @@ def main():
     for launcher in ("INSTALL_QWEN_TTS.bat", "START_QWEN_TTS.bat",
                      "STOP_QWEN_TTS.bat"):
         assert not (ROOT / launcher).exists()
-    assert "public JNSQ" in settings and "may incur" in settings
+    assert "public JNAIQ" in settings and "may incur" in settings
     assert "cheap + reliable recommendation" in settings
     assert "organ_prompts" in settings and "/api/version/check" in settings
     assert not list(ROOT.rglob("test_*.py")), "public build contains dev tests"
@@ -479,7 +479,7 @@ def main():
     # runfile instead of being mistaken for a liveness failure.
     from shell import boot as household_boot
     with tempfile.TemporaryDirectory() as tmp:
-        runfile = Path(tmp) / "jnsq_running.json"
+        runfile = Path(tmp) / "jnaiq_running.json"
         with mock.patch.object(household_boot, "RUNFILE", str(runfile)), \
                 mock.patch.object(household_boot, "_free_port",
                                   side_effect=(43101, 43102)), \
@@ -562,7 +562,7 @@ def main():
             "fresh roster duplicated a shared household default")
         assert roster["enabled_organs"]
         assert "enabled_organs" not in roster["entries"][0]
-    print("JNSQ starter smoke test: PASS")
+    print("JNAIQ starter smoke test: PASS")
 
 
 if __name__ == "__main__":

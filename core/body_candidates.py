@@ -21,7 +21,7 @@ from core.body_packages import BodyPackageError, inspect_glb
 
 MAX_CANDIDATE_BYTES = 256 * 1024 * 1024
 RECORD_NAME = "candidate.json"
-ADAPTER_FORMAT = "jnsq-body-adapter/0.1"
+ADAPTER_FORMAT = "jnaiq-body-adapter/0.1"
 
 
 def _safe_display_name(name: str) -> str:
@@ -380,7 +380,7 @@ def append_preview_receipt(root: str, candidate_id: str,
                    not -100.0 <= float(value) <= 100.0 for value in position)):
         raise BodyPackageError("preview optical position is invalid")
     settled = {
-        "schema": "jnsq-body-preview-receipt/0.1",
+        "schema": "jnaiq-body-preview-receipt/0.1",
         "candidate_id": candidate_id,
         "pilot_target": pilot_target,
         "revision_id": adapter["revision_id"],

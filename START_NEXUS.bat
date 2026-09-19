@@ -1,5 +1,5 @@
 @echo off
-title JNSQ Household
+title JNAIQ Household
 cd /d "%~dp0"
 if exist ".venv\Scripts\python.exe" (
   ".venv\Scripts\python.exe" -X utf8 shell\boot.py --session
@@ -8,6 +8,6 @@ if exist ".venv\Scripts\python.exe" (
 )
 if errorlevel 1 (
   echo.
-  echo JNSQ could not start. The details are above.
+  echo JNAIQ could not start. The details are above.
   pause
 )

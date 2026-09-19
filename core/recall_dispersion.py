@@ -16,8 +16,8 @@ import os
 from typing import Any, Mapping, Sequence
 
 
-LEGACY_SCHEMA = "jnsq.recall_dispersion_shadow.v1"
-PERSISTED_SCHEMA = "jnsq.recall_dispersion_shadow.v2"
+LEGACY_SCHEMA = "jnaiq.recall_dispersion_shadow.v1"
+PERSISTED_SCHEMA = "jnaiq.recall_dispersion_shadow.v2"
 SUPPORTED_SCHEMAS = (LEGACY_SCHEMA, PERSISTED_SCHEMA)
 ARM_NAMES = (
     "band_weighted_deterministic",

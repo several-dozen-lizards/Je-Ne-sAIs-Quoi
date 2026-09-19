@@ -7,7 +7,7 @@ if [ -x ".venv/bin/python" ]; then
 else
   PYTHON="python3"
 fi
-"$PYTHON" -X utf8 tools/update_jnsq.py "$@"
+"$PYTHON" -X utf8 tools/update_jnaiq.py "$@"
 STATUS=$?
 read -r -p "Press Return to close."
 exit "$STATUS"

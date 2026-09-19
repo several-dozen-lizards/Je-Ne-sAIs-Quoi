@@ -12,12 +12,14 @@ Set-StrictMode -Version Latest
 
 $Root = $PSScriptRoot
 $LocalManifestPath = Join-Path $Root "DISTRIBUTION_MANIFEST.json"
-$Runfile = Join-Path $Root "jnsq_running.json"
+$Runfile = Join-Path $Root "jnaiq_running.json"
+$LegacyRunfile = Join-Path $Root "jnsq_running.json"
 $UpdateLog = Join-Path $Root "logs\update.log"
 $TempRoot = $null
 $LocalLifeRoots = @("users", "personas", "people", "logs", "exports", ".venv", ".git")
 $PrivateRuntimeNames = @(
-    ".env", ".jnsq_local.json", "jnsq_running.json", "room_world.json",
+    ".env", ".jnaiq_local.json", ".jnsq_local.json",
+    "jnaiq_running.json", "jnsq_running.json", "room_world.json",
     "household_theme.json", "nexus_theme.json", "custom_presets.json",
     "conversation_background.json", "conversation_area_background.json",
     "nexus_background.json", "conversation_background.bin",
@@ -90,7 +92,7 @@ function Resolve-ManagedPath([string]$Base, [string]$Relative) {
     $relativeWindows = $portable.Replace("/", "\")
     $full = [IO.Path]::GetFullPath((Join-Path $Base $relativeWindows))
     if (-not $full.StartsWith($baseFull, [StringComparison]::OrdinalIgnoreCase)) {
-        throw "The update path escaped the JNSQ folder: $Relative"
+        throw "The update path escaped the JNAIQ folder: $Relative"
     }
     return $full
 }
@@ -117,7 +119,7 @@ try {
     } else { "pre-updater" }
 
     Write-Step "Checking GitHub (local version: $localVersion)"
-    $headers = @{ "User-Agent" = "JNSQ-Updater"; "Cache-Control" = "no-cache" }
+    $headers = @{ "User-Agent" = "JNAIQ-Updater"; "Cache-Control" = "no-cache" }
     $remoteManifest = Invoke-RestMethod -Uri $ManifestUrl -Headers $headers
     if (-not $remoteManifest.version) {
         throw "GitHub's manifest has no version. No files were changed."
@@ -139,13 +141,14 @@ try {
         Write-Host "  Update left untouched."
         exit 0
     }
-    if (Test-Path -LiteralPath $Runfile) {
-        throw "JNSQ is running. Use STOP_NEXUS.bat, then run UPDATE_JNSQ.bat again."
+    if ((Test-Path -LiteralPath $Runfile) -or
+            (Test-Path -LiteralPath $LegacyRunfile)) {
+        throw "JNAIQ is running. Use STOP_NEXUS.bat, then run UPDATE_JNAIQ.bat again."
     }
 
-    $TempRoot = Join-Path ([IO.Path]::GetTempPath()) ("jnsq-update-" + [guid]::NewGuid().ToString("N"))
+    $TempRoot = Join-Path ([IO.Path]::GetTempPath()) ("jnaiq-update-" + [guid]::NewGuid().ToString("N"))
     New-Item -ItemType Directory -Path $TempRoot | Out-Null
-    $archive = Join-Path $TempRoot "jnsq.zip"
+    $archive = Join-Path $TempRoot "jnaiq.zip"
     $expanded = Join-Path $TempRoot "expanded"
 
     Write-Step "Downloading version $remoteVersion"
@@ -155,7 +158,7 @@ try {
         Test-Path -LiteralPath (Join-Path $_.FullName "DISTRIBUTION_MANIFEST.json")
     } | Select-Object -First 1
     if ($null -eq $packageRoot) {
-        throw "The downloaded archive does not contain a JNSQ public package."
+        throw "The downloaded archive does not contain a JNAIQ public package."
     }
     $packageManifestPath = Join-Path $packageRoot.FullName "DISTRIBUTION_MANIFEST.json"
     $packageManifest = Read-Json $packageManifestPath
@@ -275,7 +278,7 @@ try {
     if (-not (Test-Path -LiteralPath $venvPython)) {
         Write-Step "Creating the missing local environment"
         & powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File `
-            (Join-Path $Root "SETUP_JNSQ.ps1") -NoLaunch -SkipIdentity -NonInteractive
+            (Join-Path $Root "SETUP_JNAIQ.ps1") -NoLaunch -SkipIdentity -NonInteractive
         if ($LASTEXITCODE -ne 0) {
             throw "Environment setup failed after patching."
         }
@@ -301,7 +304,7 @@ try {
     Write-Host "  Changed managed files: $changed"
     Write-Host "  Retired managed files: $removed"
     Write-Host "  Local identities, personas, memories, histories, keys, and .venv were preserved."
-    Write-Host "  Start JNSQ with START_NEXUS.bat."
+    Write-Host "  Start JNAIQ with START_NEXUS.bat."
     exit 0
 } catch {
     $message = $_.Exception.Message
@@ -344,7 +347,7 @@ try {
         $tempBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd("\") + "\"
         $resolvedTemp = [IO.Path]::GetFullPath($TempRoot)
         if ($resolvedTemp.StartsWith($tempBase, [StringComparison]::OrdinalIgnoreCase) -and
-                (Split-Path -Leaf $resolvedTemp).StartsWith("jnsq-update-")) {
+                (Split-Path -Leaf $resolvedTemp).StartsWith("jnaiq-update-")) {
             Remove-Item -LiteralPath $resolvedTemp -Recurse -Force
         }
     }

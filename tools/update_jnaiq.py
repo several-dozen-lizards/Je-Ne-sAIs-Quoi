@@ -25,7 +25,8 @@ DEFAULT_ARCHIVE_URL = (
 LOCAL_LIFE_ROOTS = {"users", "personas", "people", "logs", "exports",
                     ".venv", ".git"}
 PRIVATE_RUNTIME_NAMES = {
-    ".env", ".jnsq_local.json", "jnsq_running.json", "room_world.json",
+    ".env", ".jnaiq_local.json", ".jnsq_local.json",
+    "jnaiq_running.json", "jnsq_running.json", "room_world.json",
     "household_theme.json", "nexus_theme.json", "custom_presets.json",
     "conversation_background.json", "conversation_area_background.json",
     "nexus_background.json", "conversation_background.bin",
@@ -67,7 +68,7 @@ def safe_relative(value: str) -> Path:
 
 def download_json(url: str) -> dict:
     request = urllib.request.Request(
-        url, headers={"User-Agent": "JNSQ-Updater", "Cache-Control": "no-cache"})
+        url, headers={"User-Agent": "JNAIQ-Updater", "Cache-Control": "no-cache"})
     with urllib.request.urlopen(request, timeout=30) as response:
         value = json.loads(response.read().decode("utf-8"))
     return value if isinstance(value, dict) else {}
@@ -75,7 +76,7 @@ def download_json(url: str) -> dict:
 
 def download(url: str, destination: Path) -> None:
     request = urllib.request.Request(
-        url, headers={"User-Agent": "JNSQ-Updater", "Cache-Control": "no-cache"})
+        url, headers={"User-Agent": "JNAIQ-Updater", "Cache-Control": "no-cache"})
     with urllib.request.urlopen(request, timeout=120) as response, \
             destination.open("wb") as handle:
         shutil.copyfileobj(response, handle)
@@ -96,7 +97,7 @@ def package_root(expanded: Path) -> Path:
     matches = [path.parent for path in expanded.rglob(MANIFEST_NAME)
                if path.is_file()]
     if len(matches) != 1:
-        raise ValueError("downloaded archive does not contain one JNSQ package")
+        raise ValueError("downloaded archive does not contain one JNAIQ package")
     return matches[0]
 
 
@@ -142,13 +143,14 @@ def main() -> int:
             if answer not in {"", "y", "yes"}:
                 print("  Update left untouched.")
                 return 0
-        if (ROOT / "jnsq_running.json").exists():
+        if any((ROOT / name).exists()
+               for name in ("jnaiq_running.json", "jnsq_running.json")):
             raise RuntimeError(
-                "JNSQ is running. Use STOP_NEXUS.command, then update again.")
+                "JNAIQ is running. Use STOP_NEXUS.command, then update again.")
 
-        with tempfile.TemporaryDirectory(prefix="jnsq-update-") as temp_name:
+        with tempfile.TemporaryDirectory(prefix="jnaiq-update-") as temp_name:
             temp = Path(temp_name)
-            archive = temp / "jnsq.zip"
+            archive = temp / "jnaiq.zip"
             expanded = temp / "expanded"
             print(f"  > Downloading version {remote_version}")
             download(args.archive_url, archive)
@@ -193,7 +195,7 @@ def main() -> int:
             python = venv_python(ROOT)
             if not python.is_file():
                 raise RuntimeError(
-                    "The local environment is missing. Run INSTALL_JNSQ.command first.")
+                    "The local environment is missing. Run INSTALL_JNAIQ.command first.")
             if requirements_changed:
                 print("  > Installing newly required dependencies")
                 result = subprocess.run(
@@ -258,7 +260,7 @@ def main() -> int:
             print(f"  Changed managed files: {len(changes)}")
             print(f"  Retired managed files: {len(removals)}")
             print("  Local identities, personas, memories, histories, keys, and .venv were preserved.")
-            print("  Start JNSQ with START_NEXUS.command.")
+            print("  Start JNAIQ with START_NEXUS.command.")
             return 0
     except Exception as exc:
         print(f"\n  UPDATE STOPPED: {exc}")

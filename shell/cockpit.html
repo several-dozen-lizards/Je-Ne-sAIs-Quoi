@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Conversation · Je Ne Sais Quoi</title>
 <link rel="icon" href="/assets/favicon.ico" sizes="any">
-<link rel="icon" type="image/svg+xml" href="/assets/jnsq_favicon.svg">
+<link rel="icon" type="image/svg+xml" href="/assets/jnaiq_favicon.svg">
 <link rel="apple-touch-icon" href="/assets/favicon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -954,7 +954,7 @@
         <button class="sensory-control" id="microphone" type="button" title="start ambient acoustic perception"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9.2" y="3.5" width="5.6" height="10" rx="2.8"/><path d="M6 11.5a6 6 0 0 0 12 0"/><path d="M12 17.5v3"/><path d="M9 20.5h6"/></svg><span class="control-label">microphone</span></button>
       </div>
       <label id="afferent-autostart-label"><input id="afferent-autostart" type="checkbox">
-        start camera and microphone when JNSQ opens</label>
+        start camera and microphone when JNAIQ opens</label>
       <div id="camera-panel"><video id="camera-feed" autoplay muted playsinline></video>
         <div class="afferent-copy"><div id="camera-story">Camera is local until visual change crosses the
           salience threshold. Admitted change becomes an ordered visual episode; only its selected frames are stored and transduced.</div>
@@ -1639,7 +1639,7 @@ function closeBodyLab(){
   $("bodyLabFrame").src="about:blank";$("bodyLabToggle").focus();
 }
 
-const userPersonaStorageKey = () => `jnsq.userPersona.${currentPersona}`;
+const userPersonaStorageKey = () => `jnaiq.userPersona.${currentPersona}`;
 function selectedUserPersona() {
   const id=$("user-persona").value;
   const persona=userPersonas.find(item=>item.id===id);
@@ -1714,8 +1714,8 @@ function restyleMessages() {
 }
 
 function applyAccessibility() {
-  const reduce = localStorage.getItem("jnsq.reduceMotion") === "true";
-  const contrast = localStorage.getItem("jnsq.highContrast") === "true";
+  const reduce = localStorage.getItem("jnaiq.reduceMotion") === "true";
+  const contrast = localStorage.getItem("jnaiq.highContrast") === "true";
   document.body.dataset.reducedMotion = String(reduce);
   document.body.dataset.highContrast = String(contrast);
   $("themeReduce").checked = reduce; $("themeContrast").checked = contrast;
@@ -1930,7 +1930,7 @@ async function uploadPersonaAvatar() {
     CONFIG.persona_avatar=result.avatar_url;paintPersonaAvatarPreview();restyleMessages();
     $("themePersonaAvatarFile").value="";
     status.textContent=`${personaLabel()} portrait saved locally and applied.`;
-    if(window.parent!==window)window.parent.postMessage({type:"jnsq-theme-refresh",
+    if(window.parent!==window)window.parent.postMessage({type:"jnaiq-theme-refresh",
       scope:"persona-presentation",persona:CONFIG.persona,content_free:true},"*");
   }catch(error){status.textContent=`Avatar did not change: ${error.message||error}`}
   finally{button.disabled=false}
@@ -1942,7 +1942,7 @@ function presetOptions(doc) {
     .map(id=>{assigned.add(id);return `<option value="${escapeOption(id)}">${escapeOption(doc.presets[id])}</option>`}).join("");
     return options?`<optgroup label="${escapeOption(label)}">${options}</optgroup>`:"";};
   let html=Object.entries(doc.preset_collections||{}).map(([label,ids])=>group(label,ids)).join("");
-  html+=group("JNSQ collection",Object.keys(doc.presets||{}).filter(id=>!assigned.has(id)&&!custom.has(id)));
+  html+=group("JNAIQ collection",Object.keys(doc.presets||{}).filter(id=>!assigned.has(id)&&!custom.has(id)));
   html+=group("Custom",doc.custom_presets||[]);return html;
 }
 
@@ -1977,7 +1977,7 @@ async function saveAppearance(reset=false) {
   const r=await res.json();
   if (!res.ok||r.error) { $("themenote").textContent="⚠ "+(r.error||res.statusText); return false; }
   if (window.parent !== window)
-    window.parent.postMessage({type:"jnsq-theme-refresh",scope,
+    window.parent.postMessage({type:"jnaiq-theme-refresh",scope,
       persona:currentPersona,content_free:true},"*");
   await fetchTheme(reset ? `reset ${scope} layer` : `saved ${scope} layer`);
   return true;
@@ -1994,10 +1994,10 @@ function bindAppearance() {
     fillAppearance(tokens); applyTheme(tokens);
   });
   $("themeReduce").addEventListener("change",()=>{
-    localStorage.setItem("jnsq.reduceMotion",$("themeReduce").checked);applyAccessibility();
+    localStorage.setItem("jnaiq.reduceMotion",$("themeReduce").checked);applyAccessibility();
   });
   $("themeContrast").addEventListener("change",()=>{
-    localStorage.setItem("jnsq.highContrast",$("themeContrast").checked);applyAccessibility();
+    localStorage.setItem("jnaiq.highContrast",$("themeContrast").checked);applyAccessibility();
   });
   $("themeSave").onclick=()=>saveAppearance(false);
   $("themeReset").onclick=()=>saveAppearance(true);
@@ -2377,7 +2377,7 @@ async function fetchRestFieldCalibration(){
 }
 
 let salienceStream=null,outcomeStream=null,salienceSelected=null;
-const CONVERSATION_THREAD_KEY="jnsq.private-conversation-thread.v1";
+const CONVERSATION_THREAD_KEY="jnaiq.private-conversation-thread.v1";
 function conversationThreadId(){
   let value=localStorage.getItem(CONVERSATION_THREAD_KEY)||"";
   if(!/^[a-zA-Z0-9_-]{8,180}$/.test(value)){
@@ -2604,7 +2604,7 @@ function openAutonomousPanel(organ){
     document_reader:"document-library",atelier:"atelier",research_desk:"research-desk"};
   const panel=$(ids[organ]);if(!panel)return;
   setInspectorOpen(true);panel.classList.remove("collapsed");
-  localStorage.setItem("jnsq.sec."+panel.id,"open");
+  localStorage.setItem("jnaiq.sec."+panel.id,"open");
   panel.scrollIntoView({behavior:"smooth",block:"start"})
 }
 async function openAutonomousWork(work){
@@ -2899,7 +2899,7 @@ function markCreativeItemViewed(item,source=null){
   card?.classList.remove("is-new");card?.querySelector(".creative-new-badge")?.remove();
   updateCreativeShelfSummary();
   if(window.parent!==window)window.parent.postMessage({
-    type:"jnsq-creative-viewed",persona:String(lastState?.persona||currentPersona||""),
+    type:"jnaiq-creative-viewed",persona:String(lastState?.persona||currentPersona||""),
     work_id:id,content_free:true
   },"*")
 }
@@ -2916,7 +2916,7 @@ function updateCreativeShelfSummary(){
   toggle.textContent=creativeViewOpen?"← back to chat":(newCount?`creative work · ${newCount} new`:"creative work");
   toggle.setAttribute("aria-label",creativeViewOpen?"Back to chat":"Open creative work");
   if(window.parent!==window)window.parent.postMessage({
-    type:"jnsq-creative-inventory",persona:String(lastState?.persona||""),
+    type:"jnaiq-creative-inventory",persona:String(lastState?.persona||""),
     newest_at:newest,new_count:newCount,total:count,content_free:true},"*")
 }
 let writingModalState=null,writingModalRequest=0;
@@ -3143,7 +3143,7 @@ function drawAtelierCanvas(canvas,scene,time){
 async function mountAtelierCanvas(artifact,canvas){
   const response=await fetch(`/api/atelier/artifacts/${encodeURIComponent(artifact.artifact_id)}`);
   const scene=await response.json();if(!response.ok)throw new Error(scene.error||response.status);
-  if(scene.format!=="jnsq.canvas.v1"||!Array.isArray(scene.nodes)||!Array.isArray(scene.motions))throw new Error("Canvas scene format refused");
+  if(scene.format!=="jnaiq.canvas.v1"||!Array.isArray(scene.nodes)||!Array.isArray(scene.motions))throw new Error("Canvas scene format refused");
   canvas.width=scene.width;canvas.height=scene.height;canvas.style.aspectRatio=`${scene.width}/${scene.height}`;
   canvas.setAttribute("aria-label",artifact.title||"private Canvas artifact");
   let frame=0,visible=true,stopped=false;
@@ -3164,7 +3164,7 @@ async function mountAtelierCanvas(artifact,canvas){
   atelierCanvasLoops.set(artifact.artifact_id,stop);return canvas
 }
 window.JNSQ_ATELIER_CANVAS=Object.freeze({
-  format:"jnsq.canvas.v1",draw:drawAtelierCanvas,mount:mountAtelierCanvas,
+  format:"jnaiq.canvas.v1",draw:drawAtelierCanvas,mount:mountAtelierCanvas,
   stopAll:stopAtelierCanvasLoops
 });
 const atelier3DLoops=new Map();
@@ -3246,10 +3246,10 @@ function createScene3DRenderer(canvas,scene){
   return draw
 }
 async function mountAtelier3D(artifact,canvas){
-  const response=await fetch(`/api/atelier/artifacts/${encodeURIComponent(artifact.artifact_id)}`),scene=await response.json();if(!response.ok)throw new Error(scene.error||response.status);if(scene.format!=="jnsq.scene3d.v1"||!Array.isArray(scene.objects)||!Array.isArray(scene.lights)||!Array.isArray(scene.motions))throw new Error("3D scene format refused");
+  const response=await fetch(`/api/atelier/artifacts/${encodeURIComponent(artifact.artifact_id)}`),scene=await response.json();if(!response.ok)throw new Error(scene.error||response.status);if(scene.format!=="jnaiq.scene3d.v1"||!Array.isArray(scene.objects)||!Array.isArray(scene.lights)||!Array.isArray(scene.motions))throw new Error("3D scene format refused");
   canvas.width=scene.width;canvas.height=scene.height;canvas.style.aspectRatio=`${scene.width}/${scene.height}`;canvas.setAttribute("aria-label",artifact.title||"private trusted 3D artifact");const draw=createScene3DRenderer(canvas,scene);let frame=0,visible=true,stopped=false;const reduced=()=>window.matchMedia("(prefers-reduced-motion: reduce)").matches||canvas.ownerDocument.body?.dataset.reducedMotion==="true";const still=()=>draw(0);const schedule=()=>{if(stopped)return;if(reduced()){if(frame){cancelAnimationFrame(frame);frame=0}still();return}if(visible&&!frame)frame=requestAnimationFrame(tick)};const tick=now=>{frame=0;if(stopped||!visible)return;draw(now/1000);schedule()};const intersection=new IntersectionObserver(entries=>{visible=Boolean(entries[0]?.isIntersecting);if(!visible&&frame){cancelAnimationFrame(frame);frame=0}else schedule()},{threshold:.01}),mutation=new MutationObserver(schedule),media=window.matchMedia("(prefers-reduced-motion: reduce)"),motionRoot=canvas.ownerDocument?.documentElement;media.addEventListener("change",schedule);if(motionRoot)mutation.observe(motionRoot,{attributes:true,subtree:true,attributeFilter:["data-reduced-motion"]});still();intersection.observe(canvas);schedule();const stop=()=>{if(stopped)return;stopped=true;if(frame)cancelAnimationFrame(frame);intersection.disconnect();mutation.disconnect();media.removeEventListener("change",schedule);draw.dispose()};atelier3DLoops.set(artifact.artifact_id,stop);return canvas
 }
-window.JNSQ_ATELIER_3D=Object.freeze({format:"jnsq.scene3d.v1",mount:mountAtelier3D,stopAll:stopAtelier3DLoops});
+window.JNSQ_ATELIER_3D=Object.freeze({format:"jnaiq.scene3d.v1",mount:mountAtelier3D,stopAll:stopAtelier3DLoops});
 const atelierAudioBuffers=new Map(),atelierAudioPlayers=new Map();
 let atelierAudioContext=null;
 function clearAtelierAudioBuffers(){atelierAudioBuffers.clear()}
@@ -3259,7 +3259,7 @@ function atelierAudioNoise(seed,eventIndex,cycleIndex){
 }
 function validateAtelierScore(score){
   const duration=Number(score?.return_seconds),rate=Number(score?.sample_rate),loops=Number(score?.return_cycles);
-  if(score?.format!=="jnsq.score.v1"||!Array.isArray(score.voices)||!Array.isArray(score.events))throw new Error("procedural score format refused");
+  if(score?.format!=="jnaiq.score.v1"||!Array.isArray(score.voices)||!Array.isArray(score.events))throw new Error("procedural score format refused");
   if(!Number.isFinite(duration)||duration<=0||duration>120||!Number.isInteger(rate)||rate<16000||rate>48000)throw new Error("procedural score render boundary refused");
   if(!Number.isInteger(loops)||loops<2||loops>6||score.voices.length<1||score.voices.length>6||score.events.length<1||score.events.length>96)throw new Error("procedural score graph boundary refused");
   return score
@@ -3340,7 +3340,7 @@ async function mountAtelierAudio(artifact,play,save,status){
   save.onclick=()=>saveAtelierAudio(artifact,save,status)
 }
 window.JNSQ_ATELIER_AUDIO=Object.freeze({
-  format:"jnsq.score.v1",load:loadAtelierAudio,render:renderAtelierAudioBuffer,
+  format:"jnaiq.score.v1",load:loadAtelierAudio,render:renderAtelierAudioBuffer,
   stopAll:stopAtelierAudioPlayers
 });
 const atelierCompositionPlayers=new Map(),atelierCompositionMounts=new Map();
@@ -3360,7 +3360,7 @@ async function atelierBoundBytes(artifactId,expectedSha){
 }
 function validateAtelierComposition(graph){
   const timeline=graph?.timeline,tracks=graph?.tracks;
-  if(graph?.format!=="jnsq.composition.v1"||!Array.isArray(tracks)||tracks.length<2||tracks.length>12)throw new Error("composition graph format refused");
+  if(graph?.format!=="jnaiq.composition.v1"||!Array.isArray(tracks)||tracks.length<2||tracks.length>12)throw new Error("composition graph format refused");
   if(!Number.isFinite(timeline?.loop_seconds)||timeline.loop_seconds<=0||timeline.loop_seconds>80||!Number.isFinite(timeline?.return_seconds)||timeline.return_seconds<=0||timeline.return_seconds>480||!Number.isInteger(timeline?.return_cycles)||timeline.return_cycles<2||timeline.return_cycles>6)throw new Error("composition timeline boundary refused");
   const ids=new Set();tracks.forEach(track=>{const start=Number(track.start_seconds),duration=Number(track.duration_seconds);
     if(ids.has(track.artifact_id)||track.medium==="composition"||!Number.isFinite(start)||!Number.isFinite(duration)||start<0||duration<=0||start+duration>timeline.loop_seconds+.002)throw new Error("composition track boundary refused");ids.add(track.artifact_id)});
@@ -3369,12 +3369,12 @@ function validateAtelierComposition(graph){
 async function loadAtelierCompositionSource(track){
   const {bytes,type}=await atelierBoundBytes(track.artifact_id,track.sha256),text=new TextDecoder().decode(bytes);
   if(track.medium==="canvas"){
-    const scene=JSON.parse(text);if(scene.format!=="jnsq.canvas.v1"||!Array.isArray(scene.nodes)||!Array.isArray(scene.motions))throw new Error("composition Canvas source refused");
+    const scene=JSON.parse(text);if(scene.format!=="jnaiq.canvas.v1"||!Array.isArray(scene.nodes)||!Array.isArray(scene.motions))throw new Error("composition Canvas source refused");
     const canvas=document.createElement("canvas");canvas.width=scene.width;canvas.height=scene.height;
     return {track,canvas,draw:time=>drawAtelierCanvas(canvas,scene,time),rawBytes:bytes,type,dispose:()=>{}}
   }
   if(track.medium==="scene3d"){
-    const scene=JSON.parse(text);if(scene.format!=="jnsq.scene3d.v1"||!Array.isArray(scene.objects)||!Array.isArray(scene.lights)||!Array.isArray(scene.motions))throw new Error("composition 3D source refused");
+    const scene=JSON.parse(text);if(scene.format!=="jnaiq.scene3d.v1"||!Array.isArray(scene.objects)||!Array.isArray(scene.lights)||!Array.isArray(scene.motions))throw new Error("composition 3D source refused");
     const canvas=document.createElement("canvas");canvas.width=scene.width;canvas.height=scene.height;
     const draw=createScene3DRenderer(canvas,scene);
     return {track,canvas,draw,rawBytes:bytes,type,dispose:()=>draw.dispose()}
@@ -3428,12 +3428,12 @@ function atelierZipStore(entries){
   const encoder=new TextEncoder(),locals=[],centrals=[];let offset=0,centralSize=0;
   for(const entry of entries){const name=encoder.encode(entry.name),data=entry.data instanceof Uint8Array?entry.data:new Uint8Array(entry.data),crc=atelierZipCrc32(data),local=new Uint8Array(30+name.length+data.length),lv=new DataView(local.buffer);lv.setUint32(0,0x04034b50,true);lv.setUint16(4,20,true);lv.setUint16(6,0,true);lv.setUint16(8,0,true);lv.setUint16(10,0,true);lv.setUint16(12,33,true);lv.setUint32(14,crc,true);lv.setUint32(18,data.length,true);lv.setUint32(22,data.length,true);lv.setUint16(26,name.length,true);lv.setUint16(28,0,true);local.set(name,30);local.set(data,30+name.length);locals.push(local);
     const central=new Uint8Array(46+name.length),cv=new DataView(central.buffer);cv.setUint32(0,0x02014b50,true);cv.setUint16(4,20,true);cv.setUint16(6,20,true);cv.setUint16(8,0,true);cv.setUint16(10,0,true);cv.setUint16(12,0,true);cv.setUint16(14,33,true);cv.setUint32(16,crc,true);cv.setUint32(20,data.length,true);cv.setUint32(24,data.length,true);cv.setUint16(28,name.length,true);cv.setUint16(30,0,true);cv.setUint16(32,0,true);cv.setUint16(34,0,true);cv.setUint16(36,0,true);cv.setUint32(38,0,true);cv.setUint32(42,offset,true);central.set(name,46);centrals.push(central);centralSize+=central.length;offset+=local.length}
-  const end=new Uint8Array(22),view=new DataView(end.buffer);view.setUint32(0,0x06054b50,true);view.setUint16(4,0,true);view.setUint16(6,0,true);view.setUint16(8,entries.length,true);view.setUint16(10,entries.length,true);view.setUint32(12,centralSize,true);view.setUint32(16,offset,true);view.setUint16(20,0,true);return new Blob([...locals,...centrals,end],{type:"application/vnd.jnsq.bundle+zip"})
+  const end=new Uint8Array(22),view=new DataView(end.buffer);view.setUint32(0,0x06054b50,true);view.setUint16(4,0,true);view.setUint16(6,0,true);view.setUint16(8,entries.length,true);view.setUint16(10,entries.length,true);view.setUint32(12,centralSize,true);view.setUint32(16,offset,true);view.setUint16(20,0,true);return new Blob([...locals,...centrals,end],{type:"application/vnd.jnaiq.bundle+zip"})
 }
 function atelierCompositionSourcePath(track){const extension=track.medium==="svg"?"svg":track.medium==="png"?"png":track.medium==="webp"?"webp":"json";return `sources/${track.artifact_id}.${extension}`}
 async function saveAtelierCompositionBundle(artifact,graph,graphBytes,sources,button,status){
   button.disabled=true;status.textContent="binding the provenance bundle…";
-  try{const manifest={format:"jnsq.bundle.v1",artifact:{artifact_id:artifact.artifact_id,medium:"composition",sha256:artifact.sha256,title:artifact.title||""},composition:{format:graph.format,path:`composition/${artifact.artifact_id}.json`,sha256:artifact.sha256},policy:{autoplay:false,external_references:false,nested_compositions:false,user_initiated:true},sources:graph.tracks.map(track=>({artifact_id:track.artifact_id,family:track.family,medium:track.medium,path:atelierCompositionSourcePath(track),sha256:track.sha256,variant:track.variant})),timeline:graph.timeline},manifestBytes=new TextEncoder().encode(atelierCanonicalJson(manifest)+"\n"),entries=[{name:"manifest.json",data:manifestBytes},{name:manifest.composition.path,data:new Uint8Array(graphBytes)},...sources.map(source=>({name:atelierCompositionSourcePath(source.track),data:new Uint8Array(source.rawBytes)}))],total=entries.reduce((sum,entry)=>sum+entry.data.length,0);if(total>96*1024*1024)throw new Error("composition bundle exceeds the 96 MiB boundary");const blob=atelierZipStore(entries);saveAtelierMaster(blob,`${artifact.artifact_id}.jnsq`);status.textContent=`JNSQ bundle offered · ${entries.length} hash-bound entries · ${(blob.size/1048576).toFixed(2)} MiB`
+  try{const manifest={format:"jnaiq.bundle.v1",artifact:{artifact_id:artifact.artifact_id,medium:"composition",sha256:artifact.sha256,title:artifact.title||""},composition:{format:graph.format,path:`composition/${artifact.artifact_id}.json`,sha256:artifact.sha256},policy:{autoplay:false,external_references:false,nested_compositions:false,user_initiated:true},sources:graph.tracks.map(track=>({artifact_id:track.artifact_id,family:track.family,medium:track.medium,path:atelierCompositionSourcePath(track),sha256:track.sha256,variant:track.variant})),timeline:graph.timeline},manifestBytes=new TextEncoder().encode(atelierCanonicalJson(manifest)+"\n"),entries=[{name:"manifest.json",data:manifestBytes},{name:manifest.composition.path,data:new Uint8Array(graphBytes)},...sources.map(source=>({name:atelierCompositionSourcePath(source.track),data:new Uint8Array(source.rawBytes)}))],total=entries.reduce((sum,entry)=>sum+entry.data.length,0);if(total>96*1024*1024)throw new Error("composition bundle exceeds the 96 MiB boundary");const blob=atelierZipStore(entries);saveAtelierMaster(blob,`${artifact.artifact_id}.jnaiq`);status.textContent=`JNAIQ bundle offered · ${entries.length} hash-bound entries · ${(blob.size/1048576).toFixed(2)} MiB`
   }catch(error){status.textContent=`bundle refused: ${error.message||error}`}finally{button.disabled=false}
 }
 async function playAtelierComposition(artifact,graph,sources,canvas,button,status){
@@ -3460,7 +3460,7 @@ async function mountAtelierComposition(artifact,canvas,play,status){
 }
 document.addEventListener("visibilitychange",()=>{if(document.hidden)stopAtelierCompositions("page hidden")});
 window.addEventListener("pagehide",()=>{stopAtelierCompositions("page left");clearAtelierCompositionMounts()});
-window.JNSQ_ATELIER_COMPOSITION=Object.freeze({format:"jnsq.composition.v1",mount:mountAtelierComposition,draw:drawAtelierComposition,stopAll:stopAtelierCompositions});
+window.JNSQ_ATELIER_COMPOSITION=Object.freeze({format:"jnaiq.composition.v1",mount:mountAtelierComposition,draw:drawAtelierComposition,stopAll:stopAtelierCompositions});
 let atelierLightboxState=null;
 function closeAtelierLightbox({restoreFocus=true}={}){
   if(!atelierLightboxState)return;
@@ -3603,7 +3603,7 @@ function renderAtelier(runtime){
       const masters=document.createElement("div");masters.className="atelier-master-controls";
       const png=document.createElement("button");png.type="button";png.textContent="save frame PNG";png.disabled=true;
       const wav=document.createElement("button");wav.type="button";wav.textContent="mix master WAV";wav.disabled=true;
-      const bundle=document.createElement("button");bundle.type="button";bundle.textContent="save .jnsq bundle";bundle.disabled=true;masters.append(png,wav,bundle);card.appendChild(masters);
+      const bundle=document.createElement("button");bundle.type="button";bundle.textContent="save .jnaiq bundle";bundle.disabled=true;masters.append(png,wav,bundle);card.appendChild(masters);
       mountAtelierComposition(artifact,visual,play,status).then(({graph,sources,graphBytes})=>{perceive.disabled=false;png.disabled=false;bundle.disabled=false;wav.disabled=!sources.some(source=>source.track.family==="audio");png.onclick=()=>saveAtelierCompositionPng(artifact,visual,png,status);wav.onclick=()=>saveAtelierCompositionWav(artifact,graph,sources,wav,status);bundle.onclick=()=>saveAtelierCompositionBundle(artifact,graph,graphBytes,sources,bundle,status)}).catch(error=>{play.disabled=true;perceive.disabled=true;png.disabled=true;wav.disabled=true;bundle.disabled=true;status.textContent=`composition refused: ${error.message||error}`});host.appendChild(card);return
     }
     const perceive=document.createElement("button");perceive.type="button";
@@ -4920,7 +4920,7 @@ const voiceOutputProviders={
         headers:{"Content-Type":"application/json"},body:JSON.stringify({text})}).then(async response=>{
           if(!response.ok){let detail={};try{detail=await response.json()}catch(_){}
             throw new Error(detail.error||`Qwen3-TTS ${response.status}`)}
-          return {audio:await response.blob(),synthesisMs:response.headers.get("X-JNSQ-Synthesis-Ms")}});
+          return {audio:await response.blob(),synthesisMs:response.headers.get("X-JNAIQ-Synthesis-Ms")}});
       this.tail=this.tail.catch(()=>{}).then(()=>ready).then(async value=>{
         if(controller.signal.aborted)return;
         const objectUrl=URL.createObjectURL(value.audio),player=new Audio(objectUrl);
@@ -4931,7 +4931,7 @@ const voiceOutputProviders={
         if("webkitPreservesPitch" in player)player.webkitPreservesPitch=true;
         player.volume=Math.max(0,Math.min(1,Number(policy.volume||1)));
         try{await new Promise((resolve,reject)=>{let startedReceipt=false;
-          player._jnsqResolve=resolve;
+          player._jnaiqResolve=resolve;
           player.onplaying=()=>{if(startedReceipt)return;startedReceipt=true;
             hooks.start({synthesis_ms:value.synthesisMs,pitch_preserved:true})};
           player.onended=resolve;player.onerror=()=>reject(new Error("generated voice audio could not play"));
@@ -4942,7 +4942,7 @@ const voiceOutputProviders={
       }).catch(error=>{if(error.name!=="AbortError"&&!controller.signal.aborted)hooks.error({error:error.message})})
         .finally(()=>this.controllers.delete(controller));return controller},
     cancel(){for(const controller of this.controllers)controller.abort();this.controllers.clear();
-      for(const player of this.players){try{player.pause();player._jnsqResolve?.();
+      for(const player of this.players){try{player.pause();player._jnaiqResolve?.();
         player.removeAttribute("src");player.load()}catch(_){}}
       this.players.clear();for(const objectUrl of this.objectUrls)URL.revokeObjectURL(objectUrl);
       this.objectUrls.clear();this.tail=Promise.resolve()}
@@ -5738,7 +5738,7 @@ function setThinking(active) {
   mark.classList.toggle("busy", active);
   mark.setAttribute("aria-label", active ? "response is loading" : "ready");
   icon.src = active && !reduced
-    ? `/assets/jnsq_icon_animated_128.apng?turn=${++thoughtSerial}`
+    ? `/assets/jnaiq_icon_animated_128.apng?turn=${++thoughtSerial}`
     : "/assets/favicon-48.png";
 }
 
@@ -5773,7 +5773,7 @@ async function cancelActiveTurn(){
 
 function requestHouseholdHealthCheck(){
   if(window.parent&&window.parent!==window)
-    window.parent.postMessage({type:"jnsq-service-health-check"},"*")
+    window.parent.postMessage({type:"jnaiq-service-health-check"},"*")
 }
 
 async function sendTurn() {
@@ -5972,7 +5972,7 @@ $("say").addEventListener("drop",async e=>{
 $("attach").onclick=()=>$("image-picker").click();
 $("camera").onclick=startCamera;
 $("microphone").onclick=startMicrophone;
-const AFFERENT_AUTOSTART_KEY="jnsq.afferents.autostart";
+const AFFERENT_AUTOSTART_KEY="jnaiq.afferents.autostart";
 $("afferent-autostart").checked=localStorage.getItem(AFFERENT_AUTOSTART_KEY)==="true";
 $("afferent-autostart").onchange=()=>{
   localStorage.setItem(AFFERENT_AUTOSTART_KEY,String($("afferent-autostart").checked));
@@ -6122,8 +6122,8 @@ $("altered-adjust").onclick=()=>alteredAction("adjust");
 $("altered-abort").onclick=()=>alteredAction("abort");
 $("saveOrgans").onclick = pushOrgans;
 
-const BODY_OPEN_KEY = "jnsq.cockpit.bodyOpen.v2";
-const RECEIPTS_OPEN_KEY = "jnsq.cockpit.receiptsOpen.v2";
+const BODY_OPEN_KEY = "jnaiq.cockpit.bodyOpen.v2";
+const RECEIPTS_OPEN_KEY = "jnaiq.cockpit.receiptsOpen.v2";
 function setInspectorOpen(open, persist = true) {
   $("cockpit-main").classList.toggle("inspector-collapsed", !open);
   $("bodyToggle").textContent = open ? "hide body functions" : "show body functions";
@@ -6158,7 +6158,7 @@ function setReceiptsOpen(open, persist = true) {
   $("receiptsToggle").setAttribute("aria-expanded", String(open));
   if (persist) localStorage.setItem(RECEIPTS_OPEN_KEY, String(open));
 }
-const savedInspectorWidth = Number(localStorage.getItem("jnsq.cockpit.bodyWidth"));
+const savedInspectorWidth = Number(localStorage.getItem("jnaiq.cockpit.bodyWidth"));
 if (Number.isFinite(savedInspectorWidth) && savedInspectorWidth >= 280)
   $("cockpit-main").style.setProperty("--inspector-width", `${savedInspectorWidth}px`);
 setInspectorOpen(localStorage.getItem(BODY_OPEN_KEY) === "true", false);
@@ -6198,7 +6198,7 @@ for(const group of bodyGroups){
   const content=document.createElement("div");content.className="body-group-content";
   for(const id of group.panels){const panel=$(id);if(panel)content.appendChild(panel)}
   section.append(toggle,content);$("inspector").appendChild(section);
-  const key=`jnsq.bodyGroup.${group.id}`;const stored=localStorage.getItem(key);
+  const key=`jnaiq.bodyGroup.${group.id}`;const stored=localStorage.getItem(key);
   const open=stored===null?Boolean(group.open):stored==="open";
   section.classList.toggle("collapsed",!open);toggle.setAttribute("aria-expanded",String(open));
   toggle.onclick=()=>{const closed=section.classList.toggle("collapsed");
@@ -6219,7 +6219,7 @@ document.querySelectorAll("#inspector .body-group-content > .panel").forEach(p =
   [...p.children].filter(k => k !== head).forEach(k => wrap.appendChild(k));
   p.appendChild(wrap);
   h2.classList.add("sec-toggle");
-  const key = "jnsq.sec." + (p.id || h2.textContent.trim());
+  const key = "jnaiq.sec." + (p.id || h2.textContent.trim());
   p.classList.toggle("collapsed", localStorage.getItem(key) !== "open");
   h2.addEventListener("click", () => {
     const closed = p.classList.toggle("collapsed");
@@ -6242,7 +6242,7 @@ $("column-resizer").onpointerdown = event => {
   handle.onpointerup = pointer => {
     move(pointer); handle.releasePointerCapture(pointer.pointerId);
     handle.classList.remove("dragging"); handle.onpointermove = handle.onpointerup = null;
-    localStorage.setItem("jnsq.cockpit.bodyWidth", String(Math.round($("inspector").getBoundingClientRect().width)));
+    localStorage.setItem("jnaiq.cockpit.bodyWidth", String(Math.round($("inspector").getBoundingClientRect().width)));
   };
 };
 $("user-persona").addEventListener("change",()=>{
@@ -6274,7 +6274,7 @@ document.addEventListener("visibilitychange", () => {
 });
 window.addEventListener("message", event => {
   if(event.source!==window.parent)return;
-  if(event.data?.type==="jnsq-creative-view-state"&&event.data.content_free===true){
+  if(event.data?.type==="jnaiq-creative-view-state"&&event.data.content_free===true){
     const pid=String(event.data.persona||"").toLowerCase();
     if(currentPersona!=="persona"&&pid&&pid!==String(currentPersona).toLowerCase())return;
     CREATIVE_SEEN_AT=Math.max(CREATIVE_SEEN_AT,Math.max(0,Number(event.data.seen_at)||0));
@@ -6282,13 +6282,13 @@ window.addEventListener("message", event => {
       if(id)CREATIVE_VIEWED_IDS.add(String(id));
     syncCreativeViewedMarkers();return
   }
-  if(event.data&&event.data.type==="jnsq-host-presentation"){
+  if(event.data&&event.data.type==="jnaiq-host-presentation"){
     document.body.dataset.hostPresentation=
       event.data.visible===true?"visible":"hidden";
     syncHostPresentationRuntime();
     return;
   }
-  if (event.data && event.data.type === "jnsq-theme-refresh") fetchTheme();
+  if (event.data && event.data.type === "jnaiq-theme-refresh") fetchTheme();
 });
 </script>
 </body>

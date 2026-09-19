@@ -5,21 +5,23 @@ import json
 import os
 import tempfile
 
-FILENAME = ".jnsq_local.json"
+FILENAME = ".jnaiq_local.json"
+LEGACY_FILENAMES = (".jnsq_local.json",)
 
 
 def load_local_identity(repo: str) -> dict:
-    path = os.path.join(repo, FILENAME)
-    try:
-        with open(path, encoding="utf-8") as f:
-            value = json.load(f)
-        user_id = str(value.get("user_id") or "").strip()
-        display_name = str(value.get("display_name") or user_id).strip()
-        if user_id and display_name:
-            return {"user_id": user_id, "display_name": display_name,
-                    "configured": True}
-    except (OSError, ValueError, TypeError):
-        pass
+    for filename in (FILENAME, *LEGACY_FILENAMES):
+        path = os.path.join(repo, filename)
+        try:
+            with open(path, encoding="utf-8") as f:
+                value = json.load(f)
+            user_id = str(value.get("user_id") or "").strip()
+            display_name = str(value.get("display_name") or user_id).strip()
+            if user_id and display_name:
+                return {"user_id": user_id, "display_name": display_name,
+                        "configured": True}
+        except (OSError, ValueError, TypeError):
+            pass
     try:
         from core.users import list_users
         users = list_users(repo)
@@ -38,7 +40,7 @@ def save_local_identity(repo: str, user_id: str, display_name: str) -> dict:
     from core.users import slugify
     value = {"user_id": slugify(user_id),
              "display_name": (display_name or user_id).strip()}
-    fd, tmp = tempfile.mkstemp(prefix=".jnsq-local-", suffix=".tmp",
+    fd, tmp = tempfile.mkstemp(prefix=".jnaiq-local-", suffix=".tmp",
                                dir=repo, text=True)
     try:
         with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as f:
@@ -54,7 +56,7 @@ def save_local_identity(repo: str, user_id: str, display_name: str) -> dict:
 def local_user_directory(repo: str) -> dict:
     """Return human accounts with this installation's owner guaranteed.
 
-    Early public installs could have ``.jnsq_local.json`` without a matching
+    Early public installs could have a legacy local-identity file without a matching
     ``users/<id>/account.yaml``.  The local identity is still real enough to
     enter and speak in the Nexus; account setup can enrich it later.
     """

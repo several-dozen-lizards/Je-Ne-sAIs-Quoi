@@ -14,8 +14,8 @@ import os
 from typing import Any
 
 
-SCHEMA = "jnsq-world-recipe/0.1"
-SURFACE_SCHEMA = "jnsq-terrain-surface/0.1"
+SCHEMA = "jnaiq-world-recipe/0.1"
+SURFACE_SCHEMA = "jnaiq-terrain-surface/0.1"
 _FINITE_LIMIT = 1_000_000.0
 
 
@@ -175,7 +175,7 @@ class TerrainSurface:
         z_m = _finite(z_m, "z_m")
         if not self.in_bounds(x_m, z_m):
             return {
-                "schema": "jnsq-terrain-sample/0.1",
+                "schema": "jnaiq-terrain-sample/0.1",
                 "surface_id": self.surface_id,
                 "surface_revision_id": self.revision_id,
                 "position_m": [x_m, z_m],
@@ -198,7 +198,7 @@ class TerrainSurface:
         traversability = self._traversability(
             x_m, z_m, slope, weights)
         return {
-            "schema": "jnsq-terrain-sample/0.1",
+            "schema": "jnaiq-terrain-sample/0.1",
             "surface_id": self.surface_id,
             "surface_revision_id": self.revision_id,
             "position_m": [round(x_m, 3), round(z_m, 3)],

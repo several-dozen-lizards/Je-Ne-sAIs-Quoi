@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Je Ne Sais Quoi</title>
 <link rel="icon" href="/assets/favicon.ico" sizes="any">
-<link rel="icon" type="image/svg+xml" href="/assets/jnsq_favicon.svg">
+<link rel="icon" type="image/svg+xml" href="/assets/jnaiq_favicon.svg">
 <link rel="apple-touch-icon" href="/assets/favicon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -176,7 +176,7 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
 </head>
 <body>
 <aside id="updateNotice" role="status" aria-live="polite" hidden>
-  <div class="update-title">A JNSQ update is available</div>
+  <div class="update-title">A JNAIQ update is available</div>
   <p id="updateMessage"></p>
   <div class="update-actions">
     <a class="update-link" href="/settings#updates" target="_blank" rel="noopener">View update steps</a>
@@ -184,7 +184,7 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
   </div>
 </aside>
 <header>
-  <button class="brand-home" id="homeButton" type="button" title="persona home" aria-label="Persona home"><img class="brand-icon" src="/assets/jnsq_favicon.svg" alt=""></button>
+  <button class="brand-home" id="homeButton" type="button" title="persona home" aria-label="Persona home"><img class="brand-icon" src="/assets/jnaiq_favicon.svg" alt=""></button>
   <div class="brand">Je Ne S<span class="ai">ai</span>s Quoi</div>
   <nav class="top-nav"><button class="on" type="button" data-top-page="personas"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 10.5 12 3l8.5 7.5"/><path d="M5.5 9v11h13V9M9.5 20v-6h5v6"/></svg><span>Household</span></button>
     <button type="button" data-top-page="nexus"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5h16v11H9l-5 4z"/><path d="M8 10h8M8 13h5"/></svg><span>Chat</span></button>
@@ -239,8 +239,8 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
     <main><div id="workspace" class="workspace"></div></main>
   </section>
 </div></section>
-<section class="top-page" id="page-usage"><iframe src="/model-calls" title="JNSQ model usage"></iframe></section>
-<section class="top-page" id="page-settings"><iframe src="/settings" title="JNSQ settings"></iframe></section>
+<section class="top-page" id="page-usage"><iframe src="/model-calls" title="JNAIQ model usage"></iframe></section>
+<section class="top-page" id="page-settings"><iframe src="/settings" title="JNAIQ settings"></iframe></section>
 <section class="top-page" id="page-about"><iframe src="/about" title="About Je Ne Sais Quoi"></iframe></section>
 
 <dialog id="voiceDialog">
@@ -287,7 +287,7 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
   <div class="modal-body">
     <p class="note" id="modelContext">Register a model once; it becomes available to every persona in this household.</p>
     <div class="model-form">
-      <label>JNSQ model name<input id="mname" placeholder="qwen3-8b"></label>
+      <label>JNAIQ model name<input id="mname" placeholder="qwen3-8b"></label>
       <label>Connection type<select id="mfamily">
         <option value="ollama">Ollama · local</option>
         <option value="ollama_openai">Ollama · OpenAI-compatible local</option>
@@ -317,20 +317,20 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
 <script>
 const CFG = /*CONFIG*/;
 const $ = id => document.getElementById(id);
-const storedVisible=localStorage.getItem("jnsq.public.visible");
+const storedVisible=localStorage.getItem("jnaiq.public.visible");
 const state = {personas:{}, models:[], modelInfo:{}, selected:new Set(), active:null, voicePid:null, lookPid:null, rosterPid:null, modelTarget:null,
-  initialized:false,widths:{},theme:null,creativeCatalogs:{},creativePersona:localStorage.getItem("jnsq.creative.persona")||""};
+  initialized:false,widths:{},theme:null,creativeCatalogs:{},creativePersona:localStorage.getItem("jnaiq.creative.persona")||""};
 try { for (const id of JSON.parse(storedVisible||"[]")) state.selected.add(id); }
 catch (_) {}
-try { state.widths=JSON.parse(localStorage.getItem("jnsq.public.widths")||"{}"); } catch (_) {}
-state.active=localStorage.getItem("jnsq.public.active")||null;
+try { state.widths=JSON.parse(localStorage.getItem("jnaiq.public.widths")||"{}"); } catch (_) {}
+state.active=localStorage.getItem("jnaiq.public.active")||null;
 const esc = value => String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
 
 function showTopPage(page){
   const surface=page==="nexus"?"personas":page;
   document.querySelectorAll("[data-top-page]").forEach(button=>button.classList.toggle("on",button.dataset.topPage===page));
   document.querySelectorAll(".top-page").forEach(section=>section.classList.toggle("on",section.id===`page-${surface}`));
-  localStorage.setItem("jnsq.public.page",page);
+  localStorage.setItem("jnaiq.public.page",page);
 }
 document.querySelectorAll("[data-top-page]").forEach(button=>button.onclick=()=>{
   if(button.dataset.topPage==="nexus")openNexus();
@@ -345,8 +345,8 @@ function openPanel(id){
 }
 function openNexus(){showTopPage("nexus");openPanel("world");}
 $("homeButton").onclick=showHome;
-const initialPage=["personas","nexus","usage","settings","about"].includes(localStorage.getItem("jnsq.public.page"))?
-  localStorage.getItem("jnsq.public.page"):"personas";
+const initialPage=["personas","nexus","usage","settings","about"].includes(localStorage.getItem("jnaiq.public.page"))?
+  localStorage.getItem("jnaiq.public.page"):"personas";
 if(initialPage==="nexus")openNexus();else if(["usage","settings","about"].includes(initialPage))showTopPage(initialPage);else showHome();
 
 async function request(url, options={}){
@@ -355,8 +355,8 @@ async function request(url, options={}){
   if(!res.ok||body.error)throw new Error(body.error||`${res.status} ${res.statusText}`);
   return body;
 }
-function persist(){localStorage.setItem("jnsq.public.visible",JSON.stringify([...state.selected]));
-  if(state.active)localStorage.setItem("jnsq.public.active",state.active);else localStorage.removeItem("jnsq.public.active");}
+function persist(){localStorage.setItem("jnaiq.public.visible",JSON.stringify([...state.selected]));
+  if(state.active)localStorage.setItem("jnaiq.public.active",state.active);else localStorage.removeItem("jnaiq.public.active");}
 function personas(){return Object.entries(state.personas).filter(([,p])=>p.kind==="model_persona");}
 function mark(p){return `<span class="persona-mark"><span>${esc(p.icon||"🦋")}</span>${
   p.avatar_url?`<img src="${esc(p.avatar_url)}" alt="">`:""}</span>`}
@@ -467,7 +467,7 @@ function configureModelFamily(){const family=$("mfamily").value,isOllamaCompat=f
 }
 function openModelDialog(personaId=null){state.modelTarget=personaId;$("modelError").textContent="";
   $("modelTitle").textContent=personaId?`Register a model · ${state.personas[personaId]?.display_name||personaId}`:"Install a model";
-  $("modelContext").textContent=personaId?"Register it once, then JNSQ will add it to this persona's roster.":
+  $("modelContext").textContent=personaId?"Register it once, then JNAIQ will add it to this persona's roster.":
     "Register it once; it becomes available to every persona in this household, including personas you create later.";
   $("modelSave").textContent=personaId?"Install + add to roster":"Install model";configureModelFamily();$("modelDialog").showModal();}
 function renderPersonaList(){
@@ -490,8 +490,8 @@ function renderPersonaList(){
   document.querySelectorAll("[data-icon]").forEach(el=>el.onclick=()=>openPersonaLook(el.dataset.icon));
 }
 
-const publicCreativeSeenKey=pid=>`jnsq.creative.seen.${pid}`;
-const publicCreativeViewedKey=pid=>`jnsq.creative.viewed.${pid}`;
+const publicCreativeSeenKey=pid=>`jnaiq.creative.seen.${pid}`;
+const publicCreativeViewedKey=pid=>`jnaiq.creative.viewed.${pid}`;
 const publicCreativeWorks=catalog=>(catalog?.works||[]).filter(item=>
   item.organ==="atelier"||item.organ==="writing_desk");
 const publicCreativeWorkTime=item=>Math.max(0,Number(item?.updated_at||item?.created_at)||0);
@@ -524,7 +524,7 @@ function choosePublicCreativePersona(){
   const entries=personas();
   if(entries.some(([pid])=>pid===state.creativePersona))return state.creativePersona;
   state.creativePersona=(entries.find(([,info])=>info.alive)||entries[0]||[])[0]||"";
-  if(state.creativePersona)localStorage.setItem("jnsq.creative.persona",state.creativePersona);
+  if(state.creativePersona)localStorage.setItem("jnaiq.creative.persona",state.creativePersona);
   return state.creativePersona
 }
 function publicCreativeFrameURL(pid=choosePublicCreativePersona()){
@@ -574,7 +574,7 @@ $("publicCreativeDetails").ontoggle=()=>{
   else $("publicCreativeFrame").removeAttribute("src")
 };
 $("publicCreativePersona").onchange=event=>{
-  state.creativePersona=event.target.value;localStorage.setItem("jnsq.creative.persona",state.creativePersona);
+  state.creativePersona=event.target.value;localStorage.setItem("jnaiq.creative.persona",state.creativePersona);
   renderPublicCreativeSelector();mountPublicCreativeFrame(true)
 };
 function syncWorkspace(){
@@ -638,7 +638,7 @@ function wirePanelResizers(){document.querySelectorAll(".panel-resizer").forEach
     left.style.flex=`0 0 ${newLeft}px`;right.style.flex=`0 0 ${newRight}px`;};
   handle.onpointerup=()=>{handle.classList.remove("dragging");handle.onpointermove=null;handle.onpointerup=null;
     for(const panel of $("workspace").querySelectorAll("[data-panel]"))state.widths[panel.dataset.panel]=Math.round(panel.getBoundingClientRect().width);
-    localStorage.setItem("jnsq.public.widths",JSON.stringify(state.widths));};});}
+    localStorage.setItem("jnaiq.public.widths",JSON.stringify(state.widths));};});}
 async function startPersona(id,button){
   button.disabled=true;button.textContent="starting…";
   try{await request(`/api/personas/${encodeURIComponent(id)}/start`,{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
@@ -746,20 +746,20 @@ function applyHouseTheme(tokens,media=null){if(!tokens)return;const root=documen
   root.style.setProperty("--base-font-size",`${16*scale}px`);root.style.setProperty("--theme-glow",glow);root.style.setProperty("--theme-glow-radius",`${2+glow*28}px`);root.style.setProperty("--theme-motion",motion);
   root.style.setProperty("--background-opacity",Number.isFinite(Number(tokens.background_opacity))?tokens.background_opacity:.32);
   root.style.setProperty("--conversation-background",media?.url?`url("${new URL(media.url,location.href).href}?v=${encodeURIComponent(media.revision||"0")}")`:"none");
-  document.body.dataset.density=tokens.density||"cozy";document.body.dataset.background=tokens.background||"stars";window.dispatchEvent(new Event("jnsq-theme-applied"))}
+  document.body.dataset.density=tokens.density||"cozy";document.body.dataset.background=tokens.background||"stars";window.dispatchEvent(new Event("jnaiq-theme-applied"))}
 async function loadHouseTheme(){try{const theme=await request("/api/ui/theme");state.theme=theme;applyHouseTheme(theme.tokens,theme.conversation_background);
   const media=theme.conversation_background?{...theme.conversation_background,url:new URL(theme.conversation_background.url,location.href).href}:null;
-  document.querySelectorAll("iframe").forEach(frame=>frame.contentWindow?.postMessage({type:"jnsq-theme-refresh",tokens:theme.tokens,conversation_background:media},"*"))}catch(_){}}
-window.addEventListener("message",event=>{if(event.data?.type==="jnsq-theme-refresh")loadHouseTheme()});
-window.addEventListener("message",async event=>{if(event.data?.type==="jnsq-theme-request"&&event.source){
-  try{const theme=await request("/api/ui/theme");event.source.postMessage({type:"jnsq-theme-refresh",tokens:theme.tokens},"*")}catch(_){}}});
+  document.querySelectorAll("iframe").forEach(frame=>frame.contentWindow?.postMessage({type:"jnaiq-theme-refresh",tokens:theme.tokens,conversation_background:media},"*"))}catch(_){}}
+window.addEventListener("message",event=>{if(event.data?.type==="jnaiq-theme-refresh")loadHouseTheme()});
+window.addEventListener("message",async event=>{if(event.data?.type==="jnaiq-theme-request"&&event.source){
+  try{const theme=await request("/api/ui/theme");event.source.postMessage({type:"jnaiq-theme-refresh",tokens:theme.tokens},"*")}catch(_){}}});
 window.addEventListener("message",event=>{
-  if(!["jnsq-creative-inventory","jnsq-creative-viewed"].includes(event.data?.type)||event.data.content_free!==true)return;
+  if(!["jnaiq-creative-inventory","jnaiq-creative-viewed"].includes(event.data?.type)||event.data.content_free!==true)return;
   const pid=String(event.data.persona||"").toLowerCase(),info=state.personas[pid];let trusted=false;
   try{const origin=new URL(event.origin);trusted=Boolean(info?.port)&&
     ["127.0.0.1","localhost","::1"].includes(origin.hostname)&&Number(origin.port)===Number(info.port)}catch(_error){}
   if(!trusted)return;
-  if(event.data.type==="jnsq-creative-viewed"){
+  if(event.data.type==="jnaiq-creative-viewed"){
     const id=String(event.data.work_id||"");
     const known=publicCreativeWorks(state.creativeCatalogs[pid]).some(item=>publicCreativeWorkId(item)===id);
     if(known&&rememberPublicCreativeViewed(pid,id)){renderPublicCreativeSelector();mountPublicCreativeFrame(true)}
@@ -774,11 +774,11 @@ async function checkForUpdateAtStartup(){
     if(!response.ok){document.body.dataset.updateCheck="unavailable";return}
     const update=await response.json();
     if(!update.update_available){document.body.dataset.updateCheck="current";return}
-    try{if(sessionStorage.getItem("jnsq.update.dismissed")===update.latest){document.body.dataset.updateCheck="dismissed";return}}catch(_error){}
+    try{if(sessionStorage.getItem("jnaiq.update.dismissed")===update.latest){document.body.dataset.updateCheck="dismissed";return}}catch(_error){}
     const notice=$("updateNotice");notice.dataset.latest=update.latest;
     $("updateMessage").textContent=
       `Version ${update.latest} is current; this installation is ${update.version}. `+
-      `JNSQ will not install it while running. Stop JNSQ, then run ${update.updater_name||"the platform updater"}.`;
+      `JNAIQ will not install it while running. Stop JNAIQ, then run ${update.updater_name||"the platform updater"}.`;
     notice.hidden=false;
     document.body.dataset.updateCheck="available";
   }catch(_error){
@@ -787,7 +787,7 @@ async function checkForUpdateAtStartup(){
   }
 }
 $("updateDismiss").onclick=()=>{const notice=$("updateNotice");
-  try{sessionStorage.setItem("jnsq.update.dismissed",notice.dataset.latest||"")}catch(_error){}
+  try{sessionStorage.setItem("jnaiq.update.dismissed",notice.dataset.latest||"")}catch(_error){}
   notice.hidden=true;document.body.dataset.updateCheck="dismissed"};
 refresh();loadHouseTheme();checkForUpdateAtStartup();
 </script>
@@ -841,7 +841,7 @@ refresh();loadHouseTheme();checkForUpdateAtStartup();
     ctx.globalAlpha = 1;
   }
   readColors(); resize();
-  addEventListener("jnsq-theme-applied",readColors);
+  addEventListener("jnaiq-theme-applied",readColors);
   addEventListener("resize", resize);
   document.addEventListener("visibilitychange", () => {
     if (document.hidden){ cancelAnimationFrame(raf); raf = 0; }

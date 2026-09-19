@@ -403,7 +403,7 @@ def collect_resource_ecology(*, engine, leases=None, controller=None,
         "memory_derived_indexes": _memory_evidence(
             persona, engine, memory_curation, observed_at),
         "hardware_slack": _missing(
-            persona, "no authoritative JNSQ CPU/GPU/VRAM monitor exists"),
+            persona, "no authoritative JNAIQ CPU/GPU/VRAM monitor exists"),
         "external_ingress": _ingress_evidence(
             persona, engine, mailbox, controller, observed_at),
     })

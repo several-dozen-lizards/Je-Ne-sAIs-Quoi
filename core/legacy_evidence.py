@@ -55,7 +55,7 @@ def _atomic_json(path: Path, value) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     handle = tempfile.NamedTemporaryFile(
         mode="w", encoding="utf-8", newline="\n", delete=False,
-        prefix=".jnsq-evidence-", suffix=".tmp", dir=path.parent)
+        prefix=".jnaiq-evidence-", suffix=".tmp", dir=path.parent)
     try:
         with handle:
             json.dump(value, handle, ensure_ascii=False, indent=2,
@@ -251,7 +251,7 @@ class LegacyEvidenceArchive:
             return target
         target.parent.mkdir(parents=True, exist_ok=True)
         handle = tempfile.NamedTemporaryFile(
-            delete=False, dir=target.parent, prefix=".jnsq-evidence-",
+            delete=False, dir=target.parent, prefix=".jnaiq-evidence-",
             suffix=".tmp")
         try:
             handle.close()

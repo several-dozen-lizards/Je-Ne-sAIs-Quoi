@@ -1,8 +1,8 @@
-"""Pydantic AI bridge over JNSQ's neutral async model-event seam.
+"""Pydantic AI bridge over JNAIQ's neutral async model-event seam.
 
 The persona-local agency runtime may import this bridge only after a genuine
 field winner, organ/config policy, model capability, and runtime dependency all
-admit a run.  It gives that bounded run a fresh JNSQ assembly for every
+admit a run.  It gives that bounded run a fresh JNAIQ assembly for every
 provider request while keeping authority, cancellation, provider
 configuration, and teardown host-owned.
 """
@@ -219,7 +219,7 @@ def _response_turn(message: ModelResponse) -> ModelTurn:
             raise BridgeContractError(
                 f"unsupported response part {type(part).__name__}")
     finish = message.provider_details or {}
-    original = finish.get("jnsq_finish_reason")
+    original = finish.get("jnaiq_finish_reason")
     if not original:
         original = (
             "tool_calls" if any(
@@ -343,7 +343,7 @@ def _response(events: Sequence[ModelEvent]) -> ModelResponse:
         parts,
         usage=_usage(terminal.usage),
         finish_reason=normalized,
-        provider_details={"jnsq_finish_reason": finish or None},
+        provider_details={"jnaiq_finish_reason": finish or None},
     )
 
 
@@ -368,7 +368,7 @@ class PydanticJNSQBridge:
         state.cancellation.raise_if_cancelled()
         if state.snapshot is None or state.snapshot_consumed:
             raise BridgeContractError(
-                "model request has no fresh unconsumed JNSQ assembly")
+                "model request has no fresh unconsumed JNAIQ assembly")
         if _digest(_initial_task(messages)) != state.task_digest:
             raise BridgeContractError(
                 "Pydantic task diverged from the run envelope")
@@ -475,7 +475,7 @@ class JNSQBridgeRunOwner:
         self.state = state
         self.bridge = PydanticJNSQBridge(state)
         self.model = FunctionModel(
-            self.bridge.request, model_name="jnsq-p2c1-bridge")
+            self.bridge.request, model_name="jnaiq-p2c1-bridge")
         self.agent = Agent(
             self.model,
             output_type=[str, DeferredToolRequests],
@@ -483,7 +483,7 @@ class JNSQBridgeRunOwner:
             tools=tools,
             capabilities=[_hooks()],
             retries={"tools": 0, "output": 0},
-            name="jnsq-s1-p2c1-bridge",
+            name="jnaiq-s1-p2c1-bridge",
         )
         self.agent.instrument = False
 

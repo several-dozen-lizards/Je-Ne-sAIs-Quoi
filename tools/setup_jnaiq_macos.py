@@ -1,4 +1,4 @@
-"""macOS setup for the public JNSQ distribution."""
+"""macOS setup for the public JNAIQ distribution."""
 from __future__ import annotations
 
 import argparse
@@ -10,7 +10,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 VENV = ROOT / ".venv"
 VENV_PYTHON = VENV / "bin" / "python"
-IDENTITY = ROOT / ".jnsq_local.json"
+IDENTITY = ROOT / ".jnaiq_local.json"
 
 
 def checked(label: str, command: list[str]) -> None:
@@ -26,10 +26,10 @@ def main() -> int:
     args = parser.parse_args()
 
     if sys.platform != "darwin":
-        print("This installer is for macOS. On Windows, run INSTALL_JNSQ.bat.")
+        print("This installer is for macOS. On Windows, run INSTALL_JNAIQ.bat.")
         return 1
     if sys.version_info < (3, 10) or sys.version_info >= (3, 13):
-        print("JNSQ currently supports Python 3.10 through 3.12.")
+        print("JNAIQ currently supports Python 3.10 through 3.12.")
         print("Install Python 3.12 from https://www.python.org/downloads/macos/")
         return 1
 
@@ -37,23 +37,23 @@ def main() -> int:
     print("  --------------------------------")
     try:
         if not VENV_PYTHON.is_file():
-            checked("Creating JNSQ's private Python environment",
+            checked("Creating JNAIQ's private Python environment",
                     [sys.executable, "-m", "venv", str(VENV)])
         else:
             print("  Reusing the existing .venv")
         checked("Updating the environment installer",
                 [str(VENV_PYTHON), "-m", "pip", "install", "--upgrade", "pip"])
-        checked("Installing JNSQ dependencies",
+        checked("Installing JNAIQ dependencies",
                 [str(VENV_PYTHON), "-m", "pip", "install", "--requirement",
                  str(ROOT / "requirements.txt")])
         checked("Checking required libraries",
                 [str(VENV_PYTHON), "-c",
                  "import fastapi,pydantic,requests,uvicorn,yaml;print('  Required libraries: OK')"])
-        checked("Checking JNSQ source files",
+        checked("Checking JNAIQ source files",
                 [str(VENV_PYTHON), "-m", "compileall", "-q", "adapters",
                  "core", "harness", "room", "shell"])
-        for name in ("INSTALL_JNSQ.command", "START_NEXUS.command",
-                     "STOP_NEXUS.command", "UPDATE_JNSQ.command"):
+        for name in ("INSTALL_JNAIQ.command", "START_NEXUS.command",
+                     "STOP_NEXUS.command", "UPDATE_JNAIQ.command"):
             path = ROOT / name
             if path.exists():
                 path.chmod(path.stat().st_mode | 0o111)

@@ -177,7 +177,7 @@ class PromptAssembly:
                 "image_count": len(message.get("images") or ()),
             })
         self.decision_receipt = {
-            "schema": "jnsq.prompt_assembly_decision.v0",
+            "schema": "jnaiq.prompt_assembly_decision.v0",
             "policy": {
                 "name": "current_prompt_assembly",
                 "revision": 0,

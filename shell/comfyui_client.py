@@ -81,7 +81,7 @@ def build_sdxl_workflow(*, checkpoint: str, prompt: str,
     if len(checkpoint) > 260 or len(prompt) > 6000 \
             or len(str(negative_prompt or "")) > 3000:
         raise ValueError("diffusion workflow text exceeds its boundary")
-    if not str(filename_prefix or "").startswith("jnsq_atelier/"):
+    if not str(filename_prefix or "").startswith("jnaiq_atelier/"):
         raise ValueError("diffusion output prefix escaped the Atelier namespace")
     p = dict(parameters or {})
     workflow = {
@@ -221,7 +221,7 @@ class ComfyUIClient:
         parameters = derive_diffusion_parameters(
             source_digest, expression_vector, aspect)
         client_id = uuid.uuid4().hex
-        prefix = f"jnsq_atelier/{str(source_digest)[:16]}"
+        prefix = f"jnaiq_atelier/{str(source_digest)[:16]}"
         workflow = build_sdxl_workflow(
             checkpoint=self.config.checkpoint, prompt=prompt,
             negative_prompt=negative_prompt, parameters=parameters,

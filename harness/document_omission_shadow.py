@@ -15,7 +15,7 @@ def opaque_document_ref(anchor: str) -> str:
     if not value:
         raise ValueError("document anchor is required")
     digest = hashlib.sha256(
-        ("jnsq.document.anchor.v1\0" + value).encode("utf-8")).hexdigest()
+        ("jnaiq.document.anchor.v1\0" + value).encode("utf-8")).hexdigest()
     return "document:v1:" + digest
 
 
@@ -59,7 +59,7 @@ def build_document_evidence_trace(document_receipt, rendered_block,
         })
     candidate = dict(candidate_decision or {})
     trace = {
-        "schema": "jnsq.document_prompt_evidence.v0",
+        "schema": "jnaiq.document_prompt_evidence.v0",
         "source_kind": "human_owned_document_anchor",
         "block_name": "document_library",
         "candidate_ordinal": candidate.get("ordinal"),
@@ -94,7 +94,7 @@ def analyze_document_recovery_demands(records):
     eligible = rendered = excerpted = cut_count = 0
     for receipt_index, record in enumerate(records or ()):
         trace = dict(record.get("evidence_trace") or {})
-        if trace.get("schema") != "jnsq.document_prompt_evidence.v0":
+        if trace.get("schema") != "jnaiq.document_prompt_evidence.v0":
             continue
         anchors = [item for item in (trace.get("anchors") or ())
                    if isinstance(item, dict) and item.get("evidence_ref")]
@@ -117,7 +117,7 @@ def analyze_document_recovery_demands(records):
                 continue
             prior = prior_cuts[evidence_ref][-1]
             links.append({
-                "schema": "jnsq.document_recovery_demand.v0",
+                "schema": "jnaiq.document_recovery_demand.v0",
                 "cut_cycle_id": prior["cycle_id"],
                 "need_cycle_id": str(record.get("cycle_id") or ""),
                 "receipt_distance": receipt_index - prior["receipt_index"],
@@ -136,7 +136,7 @@ def analyze_document_recovery_demands(records):
             })
 
     return {
-        "schema": "jnsq.document_recovery_demand_summary.v0",
+        "schema": "jnaiq.document_recovery_demand_summary.v0",
         "eligible_anchor_events": eligible,
         "rendered_complete_events": rendered,
         "source_renderer_excerpt_events": excerpted,

@@ -63,7 +63,7 @@ class Engine:
 
 
 def build_app() -> FastAPI:
-    app = FastAPI(title="JNSQ private Chatterbox Turbo")
+    app = FastAPI(title="JNAIQ private Chatterbox Turbo")
     app.state.engine = Engine()
 
     @app.get("/health")
@@ -82,8 +82,8 @@ def build_app() -> FastAPI:
             return JSONResponse(status_code=503, content={
                 "error": str(error)[:500], "provider": "chatterbox-turbo"})
         return Response(audio, media_type="audio/wav", headers={
-            "X-JNSQ-Sample-Rate": str(rate),
-            "X-JNSQ-Synthesis-Ms": str(round((time.monotonic() - started) * 1000)),
+            "X-JNAIQ-Sample-Rate": str(rate),
+            "X-JNAIQ-Synthesis-Ms": str(round((time.monotonic() - started) * 1000)),
             "Cache-Control": "no-store"})
     return app
 

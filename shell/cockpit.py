@@ -106,7 +106,7 @@ from harness.model_call_receipts import (
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
-ASSET_DIR = os.path.join(REPO, "assets", "jnsq")
+ASSET_DIR = os.path.join(REPO, "assets", "jnaiq")
 
 
 @contextmanager
@@ -755,7 +755,7 @@ def avatar_scene_observation(frame: dict) -> str:
         return (", ".join(candidates) if candidates else
                 "no named member or object center in this camera frustum")
 
-    if schema == "jnsq-avatar-sweep/0.1":
+    if schema == "jnaiq-avatar-sweep/0.1":
         ordered = []
         views = list(grounding.get("ordered_views") or [])[:4]
         for index, view in enumerate(views):
@@ -781,7 +781,7 @@ def avatar_scene_observation(frame: dict) -> str:
             "relation, not pixel visibility, occlusion, surface detail, or "
             "subjective significance.")
 
-    if schema != "jnsq-avatar-frustum/0.1":
+    if schema != "jnaiq-avatar-frustum/0.1":
         return ""
     event_kind = str(grounding.get("event_kind") or
                      frame.get("cause") or "scene change")[:40]
@@ -806,7 +806,7 @@ def avatar_visual_episode_vector(frame: dict) -> dict:
     """
     grounding = dict(frame.get("scene_grounding") or {})
     views = (list(grounding.get("ordered_views") or [])[:4]
-             if grounding.get("schema") == "jnsq-avatar-sweep/0.1"
+             if grounding.get("schema") == "jnaiq-avatar-sweep/0.1"
              else [grounding])
     views = [dict(view or {}) for view in views] or [{}]
 
@@ -852,7 +852,7 @@ def avatar_visual_episode_vector(frame: dict) -> dict:
                   if key in vector]
         return sum(values) / len(values) if values else default
 
-    is_sweep = grounding.get("schema") == "jnsq-avatar-sweep/0.1"
+    is_sweep = grounding.get("schema") == "jnaiq-avatar-sweep/0.1"
     if is_sweep:
         step = abs(float(grounding.get("step_deg", 0.0) or 0.0))
         orientation_change = unit(
@@ -949,7 +949,7 @@ def ingest_avatar_vision(engine, frame: dict) -> dict:
         engagement = engine.claim_visual_engagement(frame) or {}
     grounded_observation = avatar_scene_observation(frame)
     grounding = frame.get("scene_grounding") or {}
-    is_sweep = grounding.get("schema") == "jnsq-avatar-sweep/0.1"
+    is_sweep = grounding.get("schema") == "jnaiq-avatar-sweep/0.1"
     focused_model = (getattr(engine, "focused_vision_model", None)
                      if engagement else None)
     focused_error_type = ""
@@ -7784,10 +7784,10 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
               research_desk_runtime=None,
               atelier_runtime=None) -> FastAPI:
     from shell.local_identity import load_local_identity
-    app = FastAPI(title="JNSQ cockpit", version=CONTRACT_VERSION)
+    app = FastAPI(title="JNAIQ cockpit", version=CONTRACT_VERSION)
     if os.path.isdir(ASSET_DIR):
         app.mount("/assets", StaticFiles(directory=ASSET_DIR),
-                  name="jnsq-assets")
+                  name="jnaiq-assets")
     app.state.engine = engine
     persona_dir = getattr(engine, "pdir", "")
     memory_organ = getattr(engine, "organ", None)
@@ -11039,12 +11039,12 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
                 audio, media_type, evidence = synthesize_cloud_voice(
                     provider, projected, config["voice"])
                 headers = {"Cache-Control": "no-store",
-                           "X-JNSQ-Provider": provider,
-                           "X-JNSQ-Spoken-Chars": str(len(projected))}
+                           "X-JNAIQ-Provider": provider,
+                           "X-JNAIQ-Spoken-Chars": str(len(projected))}
                 if evidence.get("request_id"):
-                    headers["X-JNSQ-Request-Id"] = evidence["request_id"]
+                    headers["X-JNAIQ-Request-Id"] = evidence["request_id"]
                 if evidence.get("character_cost"):
-                    headers["X-JNSQ-Character-Cost"] = evidence["character_cost"]
+                    headers["X-JNAIQ-Character-Cost"] = evidence["character_cost"]
                 return Response(audio, media_type=media_type, headers=headers)
             except Exception as error:
                 return JSONResponse(status_code=503, content={
@@ -11068,10 +11068,10 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
                 audio = response.read()
                 headers = {
                     "Cache-Control": "no-store",
-                    "X-JNSQ-Provider": provider,
-                    "X-JNSQ-Spoken-Chars": str(len(projected)),
+                    "X-JNAIQ-Provider": provider,
+                    "X-JNAIQ-Spoken-Chars": str(len(projected)),
                 }
-                for name in ("X-JNSQ-Sample-Rate", "X-JNSQ-Synthesis-Ms"):
+                for name in ("X-JNAIQ-Sample-Rate", "X-JNAIQ-Synthesis-Ms"):
                     if response.headers.get(name):
                         headers[name] = response.headers[name]
                 return Response(audio, media_type="audio/wav", headers=headers)

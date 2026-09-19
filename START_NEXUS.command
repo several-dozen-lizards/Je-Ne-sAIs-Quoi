@@ -11,7 +11,7 @@ fi
 STATUS=$?
 if [ "$STATUS" -ne 0 ]; then
   echo
-  echo "JNSQ could not start. The details are above."
+  echo "JNAIQ could not start. The details are above."
   read -r -p "Press Return to close."
 fi
 exit "$STATUS"

@@ -1,8 +1,9 @@
-# JNSQ v2 repo hygiene — clean history from commit zero
+# JNAIQ v2 repo hygiene — clean history from commit zero
 __pycache__/
 *.pyc
 .env
 *.env
+.jnaiq_local.json
 .jnsq_local.json
 voice_defaults.json
 users/
@@ -22,7 +23,9 @@ personas/*/tropism.json
 people/
 exports/
 logs/
+jnaiq_running.json
 jnsq_running.json
+.jnaiq_boot.lock
 .jnsq_boot.lock
 room/room_world.json*
 room/conversations.jsonl*

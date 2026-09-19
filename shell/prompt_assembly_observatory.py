@@ -302,7 +302,7 @@ def read_prompt_assembly(root, persona, *, hours=24,
         stamp = _timestamp(record.get("recorded_at"))
         if cutoff is not None and (stamp is None or stamp < cutoff):
             continue
-        if record.get("schema") != "jnsq.prompt_assembly_decision.v0":
+        if record.get("schema") != "jnaiq.prompt_assembly_decision.v0":
             malformed += 1
             continue
         records.append(record)

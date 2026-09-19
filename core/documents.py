@@ -93,7 +93,7 @@ def _atomic_json(path: Path, value) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     rendered = json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True)
     json.loads(rendered)
-    fd, tmp = tempfile.mkstemp(prefix=".jnsq-doc-", suffix=".tmp",
+    fd, tmp = tempfile.mkstemp(prefix=".jnaiq-doc-", suffix=".tmp",
                                dir=path.parent, text=True)
     try:
         with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
@@ -131,7 +131,7 @@ def _extract(data: bytes, suffix: str) -> tuple[str, str]:
             from pypdf import PdfReader
         except ImportError as exc:
             raise DocumentError(
-                "PDF import needs pypdf; install the JNSQ requirements") from exc
+                "PDF import needs pypdf; install the JNAIQ requirements") from exc
         try:
             pages = []
             for number, page in enumerate(PdfReader(io.BytesIO(data)).pages, 1):
@@ -145,7 +145,7 @@ def _extract(data: bytes, suffix: str) -> tuple[str, str]:
             from docx import Document
         except ImportError as exc:
             raise DocumentError(
-                "DOCX import needs python-docx; install the JNSQ requirements") from exc
+                "DOCX import needs python-docx; install the JNAIQ requirements") from exc
         try:
             doc = Document(io.BytesIO(data))
             parts = [p.text for p in doc.paragraphs if p.text.strip()]
@@ -774,7 +774,7 @@ class DocumentLibrary:
         }
         target_root.mkdir(parents=True, exist_ok=True)
         staging = Path(tempfile.mkdtemp(
-            prefix=".jnsq-doc-", dir=target_root))
+            prefix=".jnaiq-doc-", dir=target_root))
         try:
             (staging / f"source{suffix}").write_bytes(data)
             (staging / "text.txt").write_text(text, encoding="utf-8", newline="\n")

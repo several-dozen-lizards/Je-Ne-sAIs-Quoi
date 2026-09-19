@@ -12,7 +12,12 @@ $Root = $PSScriptRoot
 $VenvPath = Join-Path $Root ".venv"
 $VenvPython = Join-Path $VenvPath "Scripts\python.exe"
 $Requirements = Join-Path $Root "requirements.txt"
-$Identity = Join-Path $Root ".jnsq_local.json"
+$Identity = Join-Path $Root ".jnaiq_local.json"
+$LegacyIdentity = Join-Path $Root ".jnsq_local.json"
+if (-not (Test-Path -LiteralPath $Identity) -and
+        (Test-Path -LiteralPath $LegacyIdentity)) {
+    Copy-Item -LiteralPath $LegacyIdentity -Destination $Identity
+}
 $SetupLog = Join-Path $Root "logs\setup.log"
 $PythonDownload = "https://www.python.org/downloads/windows/"
 
@@ -145,7 +150,7 @@ try {
             Write-Host "Python still needs to be installed." -ForegroundColor Yellow
             Write-Host "Opening the official Python download page..."
             Start-Process $PythonDownload
-            throw "After Python is installed, double-click INSTALL_JNSQ.bat again."
+            throw "After Python is installed, double-click INSTALL_JNAIQ.bat again."
         }
     }
 
@@ -156,7 +161,7 @@ try {
             Invoke-Checked "Repairing the incomplete local environment" `
                 $python.Command ($python.Prefix + @("-m", "venv", "--clear", $VenvPath))
         } else {
-            Invoke-Checked "Creating JNSQ's private Python environment" `
+            Invoke-Checked "Creating JNAIQ's private Python environment" `
                 $python.Command ($python.Prefix + @("-m", "venv", $VenvPath))
         }
     } else {
@@ -165,13 +170,13 @@ try {
 
     Invoke-Checked "Updating the environment installer" $VenvPython `
         @("-m", "pip", "install", "--upgrade", "pip")
-    Invoke-Checked "Installing JNSQ dependencies" $VenvPython `
+    Invoke-Checked "Installing JNAIQ dependencies" $VenvPython `
         @("-m", "pip", "install", "--requirement", $Requirements)
     Invoke-Checked "Checking required libraries" $VenvPython @(
         "-c",
         "import fastapi, pydantic, requests, uvicorn, yaml; print('  Required libraries: OK')"
     )
-    Invoke-Checked "Checking JNSQ source files" $VenvPython @(
+    Invoke-Checked "Checking JNAIQ source files" $VenvPython @(
         "-m", "compileall", "-q", "adapters", "core", "harness", "room", "shell"
     )
 

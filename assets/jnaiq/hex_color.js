@@ -1,4 +1,4 @@
-/* Shared exact-color editor for JNSQ's native color swatches. */
+/* Shared exact-color editor for JNAIQ's native color swatches. */
 (() => {
   const HEX = /^#?[0-9a-f]{6}$/i;
 
@@ -14,7 +14,7 @@
   }
 
   function syncOne(input) {
-    const field = input.parentElement?.querySelector(":scope > .jnsq-hex-code");
+    const field = input.parentElement?.querySelector(":scope > .jnaiq-hex-code");
     if (field && document.activeElement !== field)
       field.value = String(input.value || "#000000").toUpperCase();
   }
@@ -22,14 +22,14 @@
   function wireOne(input) {
     if (input.dataset.hexWired === "true") return;
     input.dataset.hexWired = "true";
-    input.classList.add("jnsq-color-swatch");
+    input.classList.add("jnaiq-color-swatch");
     const wrap = document.createElement("span");
-    wrap.className = "jnsq-color-control";
+    wrap.className = "jnaiq-color-control";
     input.parentNode.insertBefore(wrap, input);
     wrap.appendChild(input);
     const field = document.createElement("input");
     field.type = "text";
-    field.className = "jnsq-hex-code";
+    field.className = "jnaiq-hex-code";
     field.maxLength = 7;
     field.spellcheck = false;
     field.autocomplete = "off";
@@ -67,18 +67,18 @@
       .forEach(syncOne);
   }
 
-  if (!document.getElementById("jnsq-hex-color-style")) {
+  if (!document.getElementById("jnaiq-hex-color-style")) {
     const style = document.createElement("style");
-    style.id = "jnsq-hex-color-style";
+    style.id = "jnaiq-hex-color-style";
     style.textContent = `
-      .jnsq-color-control{display:grid;grid-template-columns:44px minmax(78px,1fr);
+      .jnaiq-color-control{display:grid;grid-template-columns:44px minmax(78px,1fr);
         gap:6px;align-items:center;width:100%}
-      .jnsq-color-control>.jnsq-color-swatch{width:44px!important;min-width:44px;
+      .jnaiq-color-control>.jnaiq-color-swatch{width:44px!important;min-width:44px;
         height:34px!important;padding:2px!important}
-      .jnsq-color-control>.jnsq-hex-code{width:100%;min-width:0;
+      .jnaiq-color-control>.jnaiq-hex-code{width:100%;min-width:0;
         font-family:var(--font-mono,Consolas,monospace);font-size:.78rem;
         letter-spacing:.03em;text-transform:uppercase}
-      .jnsq-color-control>.jnsq-hex-code[aria-invalid="true"]{
+      .jnaiq-color-control>.jnaiq-hex-code[aria-invalid="true"]{
         border-color:var(--warn,var(--danger,#d97b6c));
         box-shadow:0 0 0 1px color-mix(in srgb,var(--warn,var(--danger,#d97b6c)) 35%,transparent)}
     `;
@@ -105,5 +105,5 @@
   if (document.readyState === "loading")
     document.addEventListener("DOMContentLoaded", start, {once: true});
   else start();
-  addEventListener("jnsq-theme-applied", () => sync());
+  addEventListener("jnaiq-theme-applied", () => sync());
 })();

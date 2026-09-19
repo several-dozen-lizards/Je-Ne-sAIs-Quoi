@@ -28,7 +28,7 @@ from core.locomotion import (
 
 REACH_M = 1.2          # arm's length: capability + contact gate
 WALL_MARGIN_M = 0.3    # radial clamp: bodies stay off the lattice
-ISLAND_BOUNDARY_ID = "jnsq_island_mesh_v1"
+ISLAND_BOUNDARY_ID = "jnaiq_island_mesh_v1"
 # These vectors mirror the authored island build: a broad rim with one
 # deliberately pulled-in cove. Godot performs the final exact mesh-footprint
 # check; this host-side envelope keeps canonical destinations conservative.

@@ -21,7 +21,7 @@ def build_persona_den(persona: str, display_name: str = None) -> Room:
 def build_world() -> dict:
     nexus = Room("nexus", "the Nexus", 4.0,
                  "The commons. Where this household can cross paths.",
-                 movement_boundary="jnsq_island_mesh_v1")
+                 movement_boundary="jnaiq_island_mesh_v1")
     nexus.objects = {o.id: o for o in [
         RoomObject("public_desk", "the commons board", [2.0, -3.0],
                    mass_kg=30.0, capability="commons_board",

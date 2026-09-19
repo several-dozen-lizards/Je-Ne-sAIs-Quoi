@@ -1,4 +1,4 @@
-"""Read-only inspection and manifest validation for JNSQ 3D bodies.
+"""Read-only inspection and manifest validation for JNAIQ 3D bodies.
 
 The inspector deliberately describes what an asset exposes.  It does not
 rewrite rigs, install models, or claim capabilities that cannot be observed in
@@ -15,7 +15,7 @@ import struct
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
 
-BODY_FORMAT = "jnsq-body/0.1"
+BODY_FORMAT = "jnaiq-body/0.1"
 GLB_MAGIC = b"glTF"
 GLB_JSON_CHUNK = 0x4E4F534A
 MAX_MANIFEST_BYTES = 256 * 1024
@@ -141,10 +141,10 @@ def inspect_glb(path: str) -> dict:
         if not isinstance(node, dict):
             continue
         extras = node.get("extras") if isinstance(node.get("extras"), dict) else {}
-        category = extras.get("jnsq_fit_category")
-        name = extras.get("jnsq_fit_asset_name")
-        source_sha256 = extras.get("jnsq_fit_source_sha256")
-        morph_targets = extras.get("jnsq_fit_morph_targets")
+        category = extras.get("jnaiq_fit_category")
+        name = extras.get("jnaiq_fit_asset_name")
+        source_sha256 = extras.get("jnaiq_fit_source_sha256")
+        morph_targets = extras.get("jnaiq_fit_morph_targets")
         if not isinstance(category, str) or not isinstance(name, str):
             continue
         if (not isinstance(source_sha256, str) or
@@ -158,7 +158,7 @@ def inspect_glb(path: str) -> dict:
             "morph_targets": (
                 int(morph_targets)
                 if isinstance(morph_targets, (int, float)) else 0),
-            "rigged": bool(extras.get("jnsq_fit_rigged", False)),
+            "rigged": bool(extras.get("jnaiq_fit_rigged", False)),
         })
     morph_names: List[str] = []
     primitive_count = 0
@@ -229,7 +229,7 @@ def inspect_glb(path: str) -> dict:
 
 
 def validate_manifest(data: Mapping[str, Any]) -> dict:
-    """Validate the minimal jnsq-body/0.1 manifest without touching assets."""
+    """Validate the minimal jnaiq-body/0.1 manifest without touching assets."""
     if not isinstance(data, Mapping):
         raise BodyPackageError("body manifest must be an object")
     unknown_format = data.get("format")
@@ -241,7 +241,7 @@ def validate_manifest(data: Mapping[str, Any]) -> dict:
     if os.path.isabs(model) or ".." in model.replace("\\", "/").split("/"):
         raise BodyPackageError("body model must remain inside its package")
     if not model.casefold().endswith(".glb"):
-        raise BodyPackageError("jnsq-body/0.1 requires a GLB model")
+        raise BodyPackageError("jnaiq-body/0.1 requires a GLB model")
     roles = data.get("roles", {})
     expressions = data.get("expressions", {})
     attachment_points = data.get("attachment_points", {})

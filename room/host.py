@@ -185,7 +185,7 @@ def _catalog_item(stem: str, detail: dict) -> dict:
         "packaged": bool(detail.get("packaged", False)),
         "size_m": max(0.02, min(6.0, size)),
         "capability": metadata.get("capability")
-        or metadata.get("jnsq_capability"),
+        or metadata.get("jnaiq_capability"),
         "thumbnail_url": thumbnail_url,
         "thumbnail_ready": thumbnail_ready,
     }
@@ -536,7 +536,7 @@ class BodyPreviewReceiptReq(BaseModel):
 
 class BodyRecipeReq(BaseModel):
     name: str
-    body_family: str = "jnsq-humanoid-01"
+    body_family: str = "jnaiq-humanoid-01"
     pilot_target: str = BODY_RECIPE_PILOT
     parameters: dict = None
     face: dict = None
@@ -633,7 +633,7 @@ class ObjectProfileReq(BaseModel):
 
 
 def build_app() -> FastAPI:
-    app = FastAPI(title="JNSQ room host", version=CONTRACT_VERSION)
+    app = FastAPI(title="JNAIQ room host", version=CONTRACT_VERSION)
     app.state.avatar_vision = {}
     app.state.local_weather = LocalWeather(
         os.environ.get("JNSQ_LOCAL_WEATHER",
@@ -641,10 +641,10 @@ def build_app() -> FastAPI:
         os.path.join(REPO, "room_tuning.json"))
     app.state.weather_wakeup = asyncio.Event()
     app.state.weather_task = None
-    jnsq_assets = os.path.join(REPO, "assets", "jnsq")
-    if os.path.isdir(jnsq_assets):
-        app.mount("/assets", StaticFiles(directory=jnsq_assets),
-                  name="jnsq-assets")
+    jnaiq_assets = os.path.join(REPO, "assets", "jnaiq")
+    if os.path.isdir(jnaiq_assets):
+        app.mount("/assets", StaticFiles(directory=jnaiq_assets),
+                  name="jnaiq-assets")
     world = build_world()
     app.state.rooms = world["rooms"]
     app.state.adjacency = world["adjacency"]
@@ -959,7 +959,7 @@ def build_app() -> FastAPI:
     @app.get("/api/world-recipes")
     def world_recipes():
         return {
-            "schema": "jnsq-world-recipe-index/0.1",
+            "schema": "jnaiq-world-recipe-index/0.1",
             "recipes": [
                 recipe.summary()
                 for recipe in app.state.world_recipes.values()],
@@ -1904,7 +1904,7 @@ def build_app() -> FastAPI:
     @app.get("/api/world-modules")
     def world_module_index():
         """Inspectable library; corrupt/quarantined files are not advertised."""
-        return {"schema": "jnsq-world-module-index/0.1",
+        return {"schema": "jnaiq-world-module-index/0.1",
                 "modules": [{
                     "module_id": module.module_id,
                     "name": module.name,
@@ -2130,7 +2130,7 @@ def build_app() -> FastAPI:
                     package = json.load(handle)
                 metadata = package.get("metadata", {})
                 stats = package.get("stats", {})
-                if (package.get("schema") == "jnsq-scenery-package-1"
+                if (package.get("schema") == "jnaiq-scenery-package-1"
                         and isinstance(metadata, dict)
                         and isinstance(stats, dict)):
                     detail.update({
@@ -2175,9 +2175,9 @@ def build_app() -> FastAPI:
         existing asset is never overwritten implicitly.
         """
         raw_name = urllib.parse.unquote(
-            request.headers.get("x-jnsq-filename", "")).strip()
+            request.headers.get("x-jnaiq-filename", "")).strip()
         category = request.headers.get(
-            "x-jnsq-category", "misc").strip().lower()
+            "x-jnaiq-category", "misc").strip().lower()
         if category not in OBJECT_CATALOG_CATEGORIES:
             return JSONResponse(status_code=400, content={
                 "error": "category must be seating, beds, surfaces, "
@@ -2226,7 +2226,7 @@ def build_app() -> FastAPI:
             return JSONResponse(status_code=409, content={
                 "error": f"an asset named '{safe_stem}' already exists"})
         fd, temporary = tempfile.mkstemp(
-            prefix=".jnsq_object_import_", suffix=ext, dir=root)
+            prefix=".jnaiq_object_import_", suffix=ext, dir=root)
         inspection = None
         try:
             with os.fdopen(fd, "wb") as handle:
@@ -2249,7 +2249,7 @@ def build_app() -> FastAPI:
                                 for part in display_name.split())
         sidecar = target + ".scenery.json"
         package = {
-            "schema": "jnsq-scenery-package-1",
+            "schema": "jnaiq-scenery-package-1",
             "asset": safe_stem,
             "metadata": {
                 "category": category,
@@ -2265,7 +2265,7 @@ def build_app() -> FastAPI:
             },
         }
         fd, temporary = tempfile.mkstemp(
-            prefix=".jnsq_object_metadata_", suffix=".json", dir=root)
+            prefix=".jnaiq_object_metadata_", suffix=".json", dir=root)
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as handle:
                 json.dump(package, handle, indent=2, ensure_ascii=False)
@@ -2350,8 +2350,8 @@ def build_app() -> FastAPI:
     @app.get("/api/avatar-bodies/builder/recipes")
     def body_builder_recipes():
         return {
-            "schema": "jnsq-body-builder/0.1",
-            "body_family": "jnsq-humanoid-01",
+            "schema": "jnaiq-body-builder/0.1",
+            "body_family": "jnaiq-humanoid-01",
             "pilot_target": BODY_RECIPE_PILOT,
             "recipes": list_recipes(_body_recipe_root()),
             "install_enabled": False,

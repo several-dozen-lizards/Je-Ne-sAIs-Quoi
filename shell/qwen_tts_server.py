@@ -2,7 +2,7 @@
 
 This process owns the heavyweight GPU model and returns only WAV audio.  It
 has no persona state, accounts, room access, or public network API after model
-installation.  JNSQ's cockpit remains the authority over what may be spoken.
+installation.  JNAIQ's cockpit remains the authority over what may be spoken.
 """
 from __future__ import annotations
 
@@ -77,7 +77,7 @@ class Engine:
 
 
 def build_app(model_name: str = DEFAULT_MODEL) -> FastAPI:
-    app = FastAPI(title="JNSQ private Qwen3-TTS")
+    app = FastAPI(title="JNAIQ private Qwen3-TTS")
     app.state.engine = Engine(model_name)
 
     @app.get("/health")
@@ -96,8 +96,8 @@ def build_app(model_name: str = DEFAULT_MODEL) -> FastAPI:
             return JSONResponse(status_code=503, content={
                 "error": str(error)[:500], "provider": "qwen3-tts"})
         return Response(audio, media_type="audio/wav", headers={
-            "X-JNSQ-Sample-Rate": str(rate),
-            "X-JNSQ-Synthesis-Ms": str(round(
+            "X-JNAIQ-Sample-Rate": str(rate),
+            "X-JNAIQ-Synthesis-Ms": str(round(
                 (time.monotonic() - started) * 1000)),
             "Cache-Control": "no-store"})
     return app

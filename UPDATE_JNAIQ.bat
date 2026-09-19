@@ -11,7 +11,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0UPDATE_JNSQ.ps1" %*
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0UPDATE_JNAIQ.ps1" %*
 set "JNSQ_UPDATE_RESULT=%ERRORLEVEL%"
 
 echo.

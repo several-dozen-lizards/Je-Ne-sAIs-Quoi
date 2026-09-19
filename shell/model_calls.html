@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>JNSQ model usage</title>
+  <title>JNAIQ model usage</title>
   <style>
     :root{color-scheme:dark;--bg:#121018;--panel:#1b1822;--ink:#f5f1fa;
       --dim:#afa6ba;--line:#3b3446;--accent:#8bdbca;--accent2:#d7a7ff;
@@ -94,7 +94,7 @@ function render(data){const t=data.totals,total=(t.input_tokens||0)+(t.output_to
   $("calls").textContent=nf.format(t.calls);$("errors").textContent=t.errors?`${t.errors} failed · ${duration(t.error_ms)} interrupted/error time excluded`:"no failed calls";
   $("time").textContent=duration(t.model_ms);$("tokens").textContent=nf.format(total);
   $("tokenmix").textContent=`${nf.format(t.input_tokens)} in · ${nf.format(t.output_tokens)} out · ${nf.format(t.reasoning_tokens)} reasoning`;
-  if(!t.calls){$("integrity").className="notice good";$("integrity").textContent="No model calls recorded in this window. This view fills locally as JNSQ calls a model; prompts and replies never enter it.";}
+  if(!t.calls){$("integrity").className="notice good";$("integrity").textContent="No model calls recorded in this window. This view fills locally as JNAIQ calls a model; prompts and replies never enter it.";}
   const issues=[];if(data.integrity.malformed_lines)issues.push(`${data.integrity.malformed_lines} older malformed ledger line${data.integrity.malformed_lines===1?"":"s"} skipped`);
   if(t.missing_usage)issues.push(`${t.missing_usage} call${t.missing_usage===1?"":"s"} missing token usage`);
   if(t.length_finishes)issues.push(`${t.length_finishes} call${t.length_finishes===1?"":"s"} ended at its output ceiling`);

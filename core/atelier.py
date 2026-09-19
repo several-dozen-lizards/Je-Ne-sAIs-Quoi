@@ -733,7 +733,7 @@ def compile_canvas_scene(scene, motions, expression_vector=None) -> dict:
     else:
         width, height = round(960 * aspect), 960
     compiled = {
-        "format": "jnsq.canvas.v1", "width": width, "height": height,
+        "format": "jnaiq.canvas.v1", "width": width, "height": height,
         "background": background, "nodes": nodes,
         "motions": compiled_motions,
     }
@@ -891,7 +891,7 @@ def compile_audio_score(score, expression_vector=None) -> dict:
             "probability": probability,
         })
     compiled = {
-        "format": "jnsq.score.v1", "sample_rate": 24000,
+        "format": "jnaiq.score.v1", "sample_rate": 24000,
         "tempo_bpm": round(compiled_tempo, 6), "beats": beats,
         "seconds_per_beat": round(seconds_per_beat, 6),
         "loop_seconds": round(loop_seconds, 6),
@@ -913,7 +913,7 @@ def compile_audio_score(score, expression_vector=None) -> dict:
     return {
         "data": encoded, "json": canonical, "sha256": _sha(encoded),
         "bytes": len(encoded), "medium": "audio",
-        "media_type": "application/vnd.jnsq.score+json",
+        "media_type": "application/vnd.jnaiq.score+json",
         "variant": "procedural_audio", "score_format": compiled["format"],
         "voice_count": len(voices), "event_count": len(events),
         "score_digest": _digest({"voices": voices, "events": events}),
@@ -1094,7 +1094,7 @@ def compile_scene3d(scene, motions, expression_vector=None) -> dict:
             "axis_z": round(axis_z, 6),
         })
     compiled = {
-        "format": "jnsq.scene3d.v1", "width": 960, "height": 720,
+        "format": "jnaiq.scene3d.v1", "width": 960, "height": 720,
         "background": background,
         "camera": {**camera, "fov": round(max(28, min(
             82, camera["fov"] + 5 * (body["drive"] - body["settling"]))), 6)},
@@ -1111,7 +1111,7 @@ def compile_scene3d(scene, motions, expression_vector=None) -> dict:
     return {
         "data": encoded, "json": canonical, "sha256": _sha(encoded),
         "bytes": len(encoded), "medium": "scene3d",
-        "media_type": "application/vnd.jnsq.scene3d+json",
+        "media_type": "application/vnd.jnaiq.scene3d+json",
         "variant": "trusted_3d", "scene_format": compiled["format"],
         "width": compiled["width"], "height": compiled["height"],
         "object_count": len(objects), "light_count": len(lights),
@@ -1251,7 +1251,7 @@ def compile_composition(composition, artifact_resolver,
     tracks.sort(key=lambda value: (value["depth"], value["start_seconds"],
                                    value["artifact_id"]))
     compiled = {
-        "format": "jnsq.composition.v1",
+        "format": "jnaiq.composition.v1",
         "width": round(960 * aspect), "height": 960,
         "background": background,
         "timeline": {
@@ -1277,7 +1277,7 @@ def compile_composition(composition, artifact_resolver,
     return {
         "data": encoded, "json": canonical, "sha256": _sha(encoded),
         "bytes": len(encoded), "medium": "composition",
-        "media_type": "application/vnd.jnsq.composition+json",
+        "media_type": "application/vnd.jnaiq.composition+json",
         "variant": "cross_medium", "composition_format": compiled["format"],
         "width": compiled["width"], "height": compiled["height"],
         "track_count": len(tracks), "family_count": len(families),
@@ -2004,7 +2004,7 @@ class Atelier:
                 "host_compiled_composition": True,
                 "nested_composition": False,
                 "user_initiated_master_export": True,
-                "master_formats": ["png", "wav", "jnsq.bundle.v1"],
+                "master_formats": ["png", "wav", "jnaiq.bundle.v1"],
                 "remote_references": False,
                 "overwrite": False,
                 "delete": False,

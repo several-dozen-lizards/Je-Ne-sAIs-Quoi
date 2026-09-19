@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>JNSQ settings</title>
+<title>JNAIQ settings</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Alegreya:wght@400;600;700&family=Bebas+Neue&family=Caveat:wght@400;600;700&family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Lexend:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&family=Permanent+Marker&family=Playfair+Display:wght@400;600;700&family=Quicksand:wght@400;500;600;700&family=Roboto+Slab:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -100,8 +100,8 @@ table{width:100%;border-collapse:collapse;margin-top:12px;font-size:.8rem}th,td{
 </head>
 <body>
 <div class="shell">
-  <div class="heading"><img src="/assets/jnsq_favicon.svg" alt=""><div>
-    <h1>Settings</h1><div class="note">The shared controls for this local JNSQ home.</div>
+  <div class="heading"><img src="/assets/jnaiq_favicon.svg" alt=""><div>
+    <h1>Settings</h1><div class="note">The shared controls for this local JNAIQ home.</div>
   </div></div>
   <nav class="tabs">
     <button class="btn tab" data-page="model-calls"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m13.5 2-7 11H12l-1.5 9 7-11H12z"/></svg><span>Model calls</span></button>
@@ -193,10 +193,10 @@ table{width:100%;border-collapse:collapse;margin-top:12px;font-size:.8rem}th,td{
     <h2>Visual input</h2>
     <p class="note">The active model receives image pixels directly when its spec declares vision support.
       For a text-only active model, choose the visual vessel that reports observable features to the persona.
-      JNSQ never changes this choice silently.</p>
+      JNAIQ never changes this choice silently.</p>
     <div class="card"><h3>Price, quality, and change</h3>
       <p class="note">There is no permanent “best.” Provider prices and model quality move. Each option below
-        shows the metadata installed today; you choose the tradeoff per persona. Testing sends only JNSQ's
+        shows the metadata installed today; you choose the tradeoff per persona. Testing sends only JNAIQ's
         public mask icon and may incur that provider's normal charge.</p></div>
     <div class="card"><h3>Current balance</h3>
       <p><b>GLM-4.6V-FlashX</b> is the present cheap + reliable recommendation.
@@ -248,8 +248,8 @@ table{width:100%;border-collapse:collapse;margin-top:12px;font-size:.8rem}th,td{
   <section class="page" id="page-updates">
     <h2>Updates</h2><div class="card"><div class="note">Installed public version</div>
       <div class="version" id="currentVersion">checking…</div>
-      <p class="note">Checking is read-only. To install an available patch, stop JNSQ and double-click
-        <b id="updaterName">the platform updater</b> in the JNSQ folder. The updater fingerprints engine files and leaves
+      <p class="note">Checking is read-only. To install an available patch, stop JNAIQ and double-click
+        <b id="updaterName">the platform updater</b> in the JNAIQ folder. The updater fingerprints engine files and leaves
         local accounts, personas, memories, histories, keys, and the existing environment outside its reach.</p>
       <div class="actions"><button class="btn go" id="checkUpdate">Check GitHub</button>
         <span class="note" id="updateNote"></span></div></div>
@@ -307,7 +307,7 @@ async function saveSpeakerTokens(name,colorValue,glyph){
   themeDoc=await request("/api/ui/theme",{method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({patch:{tokens}})});
   preview=clone(themeDoc.tokens);applyTheme(preview);
-  parent.postMessage({type:"jnsq-theme-refresh"},"*")}
+  parent.postMessage({type:"jnaiq-theme-refresh"},"*")}
 function renderPersonaFaces(){const box=$("settingsPersonaIcons");box.textContent="";
   for(const [id,p] of Object.entries(personas).filter(([,v])=>v.kind==="model_persona").sort()){
     const name=p.display_name||id;
@@ -359,7 +359,7 @@ function applyBackgroundMedia(media){const root=document.documentElement;
 function presetOptions(doc){const assigned=new Set(),custom=new Set(doc.custom_presets||[]);
   const group=(label,ids)=>{const options=(ids||[]).filter(id=>doc.presets?.[id]!==undefined).map(id=>{assigned.add(id);return `<option value="${esc(id)}">${esc(doc.presets[id])}</option>`}).join("");return options?`<optgroup label="${esc(label)}">${options}</optgroup>`:""};
   let html=Object.entries(doc.preset_collections||{}).map(([label,ids])=>group(label,ids)).join("");
-  html+=group("JNSQ collection",Object.keys(doc.presets||{}).filter(id=>!assigned.has(id)&&!custom.has(id)));
+  html+=group("JNAIQ collection",Object.keys(doc.presets||{}).filter(id=>!assigned.has(id)&&!custom.has(id)));
   html+=group("Custom",doc.custom_presets||[]);return html}
 function updatePresetActions(){const custom=new Set(themeDoc?.custom_presets||[]),id=$("housePreset").value;
   $("housePresetUpdate").disabled=!custom.has(id);$("housePresetDelete").disabled=!custom.has(id)}
@@ -374,7 +374,7 @@ async function saveTheme(reset=false,note=""){const button=$(reset?"houseThemeRe
   try{const tokens={};for(const key of dirty)tokens[key]=preview[key];const patch={};if(dirty.size)patch.tokens=tokens;
     if(presetDirty)patch.preset=$("housePreset").value;await request("/api/ui/theme",{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({patch,reset,replace:presetDirty})});await loadTheme(note||(reset?"Household layer reset.":"Household appearance saved."));
-    parent.postMessage({type:"jnsq-theme-refresh"},"*");return true}catch(error){$("houseThemeNote").textContent=error.message;return false}finally{button.disabled=false}}
+    parent.postMessage({type:"jnaiq-theme-refresh"},"*");return true}catch(error){$("houseThemeNote").textContent=error.message;return false}finally{button.disabled=false}}
 $("houseThemeSave").onclick=()=>saveTheme(false);$("houseThemeReset").onclick=()=>saveTheme(true);
 $("houseBackgroundUpload").onclick=async()=>{const file=$("houseBackgroundFile").files?.[0];if(!file){$("houseThemeNote").textContent="Choose an image first.";return}
   const button=$("houseBackgroundUpload");button.disabled=true;try{const result=await request("/api/ui/conversation-background",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({data_url:await fileDataUrl(file)})});
@@ -495,7 +495,7 @@ async function saveVisionRoute(id,button){const select=document.querySelector(`[
     else visionNotices[id]=`Saved ${model||"no fallback"}.`;await loadVision()}catch(error){visionNotices[id]=error.message;renderVisionRoutes()}finally{button.disabled=false}}
 async function testVisionRoute(id,button){const selected=document.querySelector(`[data-vision-select="${CSS.escape(id)}"]`)?.value;
   const active=modelByName(personas[id]?.model),model=selected||(active?.vision?active.name:null);if(!model){visionNotices[id]="Choose a fallback, or use a direct-vision active model.";renderVisionRoutes();return}
-  button.disabled=true;visionNotices[id]=`Testing ${model} with the public JNSQ icon…`;
+  button.disabled=true;visionNotices[id]=`Testing ${model} with the public JNAIQ icon…`;
   const note=document.querySelector(`[data-vision-note="${CSS.escape(id)}"]`);if(note)note.textContent=visionNotices[id];
   try{const result=await request(`/api/models/${encodeURIComponent(model)}/vision/test`,{method:"POST"});visionNotices[id]=`PASS · ${result.observation}`}
   catch(error){visionNotices[id]=`FAILED · ${error.message}`}finally{renderVisionRoutes()}}
@@ -509,7 +509,7 @@ function renderVoiceInput(){const picker=$("voiceInputPersona"),button=$("voiceI
   picker.onchange=updateTarget;updateTarget()}
 $("voiceInputOpen").onclick=()=>{const id=$("voiceInputPersona").value;if(!id)return;
   if(window.parent===window){location.href="/";return}
-  window.parent.postMessage({type:"jnsq-open-persona",persona:id},location.origin)};
+  window.parent.postMessage({type:"jnaiq-open-persona",persona:id},location.origin)};
 function renderVoiceDefaults(value={}){const set=(id,key)=>{$(id).value=Number(value[key]??1)};
   set("voiceRate","rate_scale");set("voicePitch","pitch_scale");set("voiceVolume","volume_scale");
   $("voiceRateValue").textContent=`${Math.round(Number($("voiceRate").value)*100)}%`;
@@ -551,7 +551,7 @@ let updaterName="the platform updater";
 async function loadVersion(){try{const data=await request("/api/version");$("currentVersion").textContent=data.version;updaterName=data.updater_name||updaterName;$("updaterName").textContent=updaterName;
   if(!data.updater)$("updateNote").textContent="This build predates the updater."}catch(error){$("currentVersion").textContent="unknown"}}
 $("checkUpdate").onclick=async()=>{const button=$("checkUpdate");button.disabled=true;$("updateNote").textContent="Checking…";
-  try{const data=await request("/api/version/check");$("updateNote").textContent=data.update_available?`Version ${data.latest} is available. Stop JNSQ, then run ${updaterName}.`:`Version ${data.version} is current.`}
+  try{const data=await request("/api/version/check");$("updateNote").textContent=data.update_available?`Version ${data.latest} is available. Stop JNAIQ, then run ${updaterName}.`:`Version ${data.version} is current.`}
   catch(error){$("updateNote").textContent=error.message}finally{button.disabled=false}};
 function showPage(page){if(!settingsPages.has(page))return;currentPage=page;
   if(location.hash!==`#${page}`)history.replaceState(null,"",`#${page}`);
@@ -563,7 +563,7 @@ window.addEventListener("hashchange",()=>showPage(String(location.hash||"").repl
 async function init(){try{const [personaData,modelData]=await Promise.all([request("/api/personas"),request("/api/models")]);personas=personaData;models=modelData.models||[]}catch(_){}await loadTheme();loadVersion();showPage(currentPage)}
 init();
 const JNSQ_KEYS=["bg","panel","line","ink","dim","accent","accent2","warn","good"];
-async function jnsqTheme(){
+async function jnaiqTheme(){
   try{
     const r=await (await fetch("/api/ui/theme")).json();
     const t=r.tokens||{}; const root=document.documentElement;
@@ -572,8 +572,8 @@ async function jnsqTheme(){
     root.style.setProperty("--font-ui",themeFontStack(t.font));root.style.setProperty("--font-display",themeFontStack(t.font));
   }catch(e){}
 }
-window.addEventListener("message",e=>{if(e.data&&e.data.type==="jnsq-theme-refresh")jnsqTheme()});
-jnsqTheme();
+window.addEventListener("message",e=>{if(e.data&&e.data.type==="jnaiq-theme-refresh")jnaiqTheme()});
+jnaiqTheme();
 </script>
 </body>
 </html>

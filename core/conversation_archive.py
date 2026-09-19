@@ -36,7 +36,7 @@ def _atomic_json(path: Path, value) -> None:
     rendered = json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True)
     json.loads(rendered)
     fd, temporary = tempfile.mkstemp(
-        prefix=".jnsq-archive-", suffix=".tmp", dir=path.parent, text=True)
+        prefix=".jnaiq-archive-", suffix=".tmp", dir=path.parent, text=True)
     try:
         with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
             handle.write(rendered + "\n")

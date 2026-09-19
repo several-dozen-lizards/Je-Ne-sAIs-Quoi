@@ -4913,7 +4913,7 @@ class TurnEngine:
                         "retrieved_anchors") or []))),
                 # Exact opaque anchors preserve the source relationship of the
                 # present encounter without copying remote record text into
-                # JNSQ's canonical memory store.
+                # JNAIQ's canonical memory store.
                 "external_mcp_anchors": rendered_mcp_anchors,
                 "images": [public_image_record(i) for i in visible_images],
                 "visual_observation": visual_observation,
@@ -5018,7 +5018,7 @@ class TurnEngine:
             # Observer durability cannot cost a resident the completed turn.
             oscillator_consequence_persistence = {
                 "status": "failed",
-                "schema": "jnsq.oscillator_consequence.v1",
+                "schema": "jnaiq.oscillator_consequence.v1",
                 "scope": "persona_private",
                 "causal_readback": False,
                 "error_type": type(error).__name__,

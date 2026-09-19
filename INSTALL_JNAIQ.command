@@ -9,7 +9,7 @@ if ! command -v python3 >/dev/null 2>&1; then
   read -r -p "Press Return to close."
   exit 1
 fi
-python3 tools/setup_jnsq_macos.py "$@"
+python3 tools/setup_jnaiq_macos.py "$@"
 STATUS=$?
 if [ "$STATUS" -ne 0 ]; then
   read -r -p "Press Return to close."

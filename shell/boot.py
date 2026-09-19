@@ -2,7 +2,7 @@
 Brings up room host + router (which spawns all roster'd personas with
 bodies), on FRESH OS-assigned ports every time (10048 law: never fight
 a lingering socket). Liveness verified via API, never stdout. PIDs and
-ports recorded to jnsq_running.json so re-runs detect the live stack
+ports recorded to jnaiq_running.json so re-runs detect the live stack
 instead of spawning a rival household. --stop reads the runfile and
 takes it all down.
 
@@ -30,8 +30,15 @@ import uuid
 import webbrowser
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-RUNFILE = os.path.join(ROOT, "jnsq_running.json")
-BOOT_LOCKFILE = os.path.join(ROOT, ".jnsq_boot.lock")
+RUNFILE = os.path.join(ROOT, "jnaiq_running.json")
+LEGACY_RUNFILES = (
+    os.path.join(ROOT, "jnsq_running.json"),
+    os.path.join(ROOT, ".jnsq_running.json"),
+)
+_legacy_boot_lock = os.path.join(ROOT, ".jnsq_boot.lock")
+BOOT_LOCKFILE = (_legacy_boot_lock if any(os.path.exists(path)
+                                          for path in LEGACY_RUNFILES)
+                 else os.path.join(ROOT, ".jnaiq_boot.lock"))
 LOGDIR = os.path.join(ROOT, "logs")
 FIREFOX_SESSION_PROFILE = os.path.join(LOGDIR, "browser-session-firefox")
 CHROMIUM_SESSION_PROFILE = os.path.join(LOGDIR, "browser-session")
@@ -63,7 +70,7 @@ def _boot_lock(timeout: float = 180.0):
             except (OSError, IOError):
                 if time.monotonic() >= deadline:
                     raise TimeoutError(
-                        "another JNSQ stop/boot transaction is still active")
+                        "another JNAIQ stop/boot transaction is still active")
                 time.sleep(.1)
         yield
     finally:
@@ -79,19 +86,17 @@ def _boot_lock(timeout: float = 180.0):
 
 
 def _read_runfile():
-    if not os.path.exists(RUNFILE):
-        return None
-    try:
-        with open(RUNFILE, encoding="utf-8") as f:
-            value = json.load(f)
-    except (OSError, TypeError, ValueError):
-        return None
-    return value if isinstance(value, dict) else None
-
-
-def _legacy_runfile_path() -> str:
-    """The pre-canonical dotfile must not remain a competing authority."""
-    return os.path.join(os.path.dirname(RUNFILE), ".jnsq_running.json")
+    for path in (RUNFILE, *LEGACY_RUNFILES):
+        if not os.path.exists(path):
+            continue
+        try:
+            with open(path, encoding="utf-8") as f:
+                value = json.load(f)
+        except (OSError, TypeError, ValueError):
+            continue
+        if isinstance(value, dict):
+            return value
+    return None
 
 
 def _write_runfile(run: dict):
@@ -111,8 +116,7 @@ def _write_runfile(run: dict):
             os.remove(temporary)
         except FileNotFoundError:
             pass
-    legacy = _legacy_runfile_path()
-    if os.path.abspath(legacy) != os.path.abspath(RUNFILE):
+    for legacy in LEGACY_RUNFILES:
         try:
             os.remove(legacy)
         except FileNotFoundError:
@@ -338,10 +342,11 @@ def _stop_unlocked(*, expected_generation: str | None = None,
         os.remove(RUNFILE)
     except FileNotFoundError:
         pass
-    try:
-        os.remove(_legacy_runfile_path())
-    except FileNotFoundError:
-        pass
+    for legacy in LEGACY_RUNFILES:
+        try:
+            os.remove(legacy)
+        except FileNotFoundError:
+            pass
     print("Household down. Bodies persist in journals; positions reset "
           "on next boot (known v0).")
 
@@ -356,8 +361,8 @@ def stop(*, expected_generation: str | None = None,
 
 def _boot_unlocked(open_browser: bool = True):
     # already up? Report and open the door instead of double-spawning.
-    if os.path.exists(RUNFILE):
-        run = _read_runfile()
+    run = _read_runfile()
+    if run:
         router_port = run.get("router_port") if run else None
         if router_port and _alive(
                 f"http://127.0.0.1:{router_port}/api/personas") \
@@ -394,7 +399,7 @@ def _boot_unlocked(open_browser: bool = True):
         _stop_unlocked()
 
     room_port, router_port = _free_port(), _free_port()
-    print(f"JNSQ household boot — room:{room_port} router:{router_port}")
+    print(f"JNAIQ household boot — room:{room_port} router:{router_port}")
 
     comfy_run = {}
     try:
@@ -507,7 +512,7 @@ def run_session() -> int:
             run = current
         owner = run.get("session_browser_pid")
         if owner and _pid_alive(owner):
-            print("A JNSQ session window already owns this household.")
+            print("A JNAIQ session window already owns this household.")
             return 0
         url = f"http://127.0.0.1:{run['router_port']}/"
         browser = _launch_session_browser(url)
@@ -527,7 +532,7 @@ def run_session() -> int:
         return 0
 
     print("\n  SESSION WINDOW OWNS THE HOUSEHOLD")
-    print("  Close that window when you are done; JNSQ will stop cleanly.")
+    print("  Close that window when you are done; JNAIQ will stop cleanly.")
     try:
         browser.wait()
     except KeyboardInterrupt:

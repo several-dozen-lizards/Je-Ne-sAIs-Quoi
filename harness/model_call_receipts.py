@@ -20,7 +20,7 @@ import uuid
 
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _DEFAULT_PATH = os.path.join(_REPO, "logs", "model_calls.jsonl")
-_SCOPE = ContextVar("jnsq_model_call_scope", default=None)
+_SCOPE = ContextVar("jnaiq_model_call_scope", default=None)
 _WRITE_LOCK = threading.Lock()
 
 

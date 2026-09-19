@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>JNSQ Body Compatibility Workshop</title>
+  <title>JNAIQ Body Compatibility Workshop</title>
   <style>
     :root{color-scheme:dark;--ink:#edf6ef;--muted:#9cb1a2;--line:#33483b;
       --panel:#121b17;--deep:#09100d;--green:#7feda7;--gold:#e7c56c;
@@ -61,7 +61,7 @@
     </summary>
     <div class="builder-inner">
     <h2>Parametric body builder · experimental</h2>
-    <p>Shape a separate <strong>jnsq-humanoid-01</strong> bench body. Every control below changes rendered geometry or material. Recipes are reversible, Testy-only, and cannot become anyone's current body.</p>
+    <p>Shape a separate <strong>jnaiq-humanoid-01</strong> bench body. Every control below changes rendered geometry or material. Recipes are reversible, Testy-only, and cannot become anyone's current body.</p>
     <div class="builder-layout">
       <div>
         <label for="builderRecipe">Saved recipe</label>
@@ -235,7 +235,7 @@ const FACE_FIELDS=[
   ["jaw_projection","Jaw projection"],["jaw_definition","Jaw definition"],
   ["chin_height","Chin height"],["chin_projection","Chin projection"]
 ];
-const BUILDER_DEFAULT={name:"Testy builder draft",body_family:"jnsq-humanoid-01",pilot_target:"starter_persona",
+const BUILDER_DEFAULT={name:"Testy builder draft",body_family:"jnaiq-humanoid-01",pilot_target:"starter_persona",
   parameters:{height:.5,shoulder_width:.5,hip_width:.5,torso_length:.5,limb_length:.5,head_scale:.5,eye_scale:.5},
   face:Object.fromEntries(FACE_FIELDS.map(([key])=>[key,.5])),
   surface:{body_color:"#69d49a",accent_color:"#c9ffe0",roughness:.62,metallic:.08}};
@@ -254,7 +254,7 @@ function readAxis(id){const value=$(id).value;return value?value.split(",").map(
 function proposed(report,role){return report.role_candidates?.[role]?.[0]?.name||""}
 const clone=value=>JSON.parse(JSON.stringify(value));
 function readBuilder(){
-  const recipe={name:$("builderName").value.trim(),body_family:"jnsq-humanoid-01",pilot_target:"starter_persona",parameters:{},face:{},surface:{body_color:$("bodyColor").value,accent_color:$("accentColor").value}};
+  const recipe={name:$("builderName").value.trim(),body_family:"jnaiq-humanoid-01",pilot_target:"starter_persona",parameters:{},face:{},surface:{body_color:$("bodyColor").value,accent_color:$("accentColor").value}};
   for(const [key] of BUILDER_FIELDS){const value=Number(document.querySelector(`[data-builder="${key}"]`).value);(key in BUILDER_DEFAULT.parameters?recipe.parameters:recipe.surface)[key]=value}
   for(const [key] of FACE_FIELDS)recipe.face[key]=Number(document.querySelector(`[data-face="${key}"]`).value);
   const live=readHumanMorphs(),identity={...recipeIdentity,...live};
@@ -274,7 +274,7 @@ function writeBuilder(recipe,commit=true){
   if(commit)builderLast=JSON.stringify(readBuilder());applyBuilderPreview()
 }
 function applyBuilderPreview(){
-  if(!builderReady)return;const apply=$("builderFrame")?.contentWindow?.jnsqBodyBuilderApply;
+  if(!builderReady)return;const apply=$("builderFrame")?.contentWindow?.jnaiqBodyBuilderApply;
   if(typeof apply==="function")apply(JSON.stringify(readBuilder()))
 }
 function commitBuilderChange(){
@@ -297,9 +297,9 @@ async function saveBuilderRecipe(){
   try{const url=activeRecipe?`/api/avatar-bodies/builder/recipes/${activeRecipe}`:"/api/avatar-bodies/builder/recipes",response=await fetch(url,{method:activeRecipe?"PUT":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}),data=await response.json();if(!response.ok)throw new Error(data.error||`HTTP ${response.status}`);activeRecipe=data.recipe_id;builderLast=JSON.stringify(readBuilder());await loadBuilderRecipes(activeRecipe);$("builderState").className="";$("builderState").textContent=`Saved revision ${data.revision_id.slice(0,8)} · Testy bench only · install disabled.`}catch(error){$("builderState").className="error";$("builderState").textContent=error.message}
 }
 function readHumanMorphs(){const values={};document.querySelectorAll("[data-human-morph]").forEach(input=>values[input.dataset.humanMorph]=Number(input.value));return values}
-function applyHumanMorphPreview(){if(!humanPreviewReady)return;const apply=$("previewFrame").contentWindow?.jnsqHumanMorphApply;if(typeof apply==="function")apply(JSON.stringify(readHumanMorphs()))}
+function applyHumanMorphPreview(){if(!humanPreviewReady)return;const apply=$("previewFrame").contentWindow?.jnaiqHumanMorphApply;if(typeof apply==="function")apply(JSON.stringify(readHumanMorphs()))}
 function readExpressionPreview(){const values={};document.querySelectorAll("[data-expression-preview]").forEach(input=>values[input.dataset.expressionPreview]=Number(input.value));return values}
-function applyExpressionPreview(){if(!humanPreviewReady)return;const apply=$("previewFrame").contentWindow?.jnsqExpressionApply;if(typeof apply==="function")apply(JSON.stringify(readExpressionPreview()))}
+function applyExpressionPreview(){if(!humanPreviewReady)return;const apply=$("previewFrame").contentWindow?.jnaiqExpressionApply;if(typeof apply==="function")apply(JSON.stringify(readExpressionPreview()))}
 function paintExpressionPreview(morphs){
   const available=new Set(morphs),controls=TRANSIENT_EXPRESSIONS.filter(([_id,_label,morph])=>available.has(morph));
   $("expressionPreviewSection").hidden=!controls.length;
@@ -337,8 +337,8 @@ $("builderUndo").onclick=()=>{if(!builderHistory.length)return;builderFuture.pus
 $("builderRedo").onclick=()=>{if(!builderFuture.length)return;builderHistory.push(readBuilder());writeBuilder(builderFuture.pop());paintBuilderButtons();$("builderState").textContent="Later recipe state restored · unsaved."};
 window.addEventListener("message",event=>{
   if(event.origin!==location.origin)return;
-  if(event.source===$("builderFrame").contentWindow&&event.data?.type==="jnsq-body-builder-ready"){builderReady=true;applyBuilderPreview();$("builderState").textContent="Sealed Testy builder ready · install disabled."}
-  if(event.source===$("previewFrame").contentWindow&&event.data?.type==="jnsq-human-morph-ready"){humanPreviewReady=true;applyHumanMorphPreview();applyExpressionPreview()}
+  if(event.source===$("builderFrame").contentWindow&&event.data?.type==="jnaiq-body-builder-ready"){builderReady=true;applyBuilderPreview();$("builderState").textContent="Sealed Testy builder ready · install disabled."}
+  if(event.source===$("previewFrame").contentWindow&&event.data?.type==="jnaiq-human-morph-ready"){humanPreviewReady=true;applyHumanMorphPreview();applyExpressionPreview()}
 });
 writeBuilder(BUILDER_DEFAULT);paintBuilderButtons();
 $("legacyBuilder").addEventListener("toggle",()=>{

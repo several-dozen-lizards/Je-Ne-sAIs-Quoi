@@ -8,7 +8,7 @@ import os
 from typing import Any, Mapping
 
 
-PERSISTED_SCHEMA = "jnsq.oscillator_consequence.v1"
+PERSISTED_SCHEMA = "jnaiq.oscillator_consequence.v1"
 RECALL_WEIGHT_KEYS = (
     "emotion", "semantic", "importance", "familiarity", "recency", "entity",
 )

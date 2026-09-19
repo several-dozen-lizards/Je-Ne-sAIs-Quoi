@@ -1,4 +1,4 @@
-"""Content-free adapters from existing JNSQ relationships to rest metrics.
+"""Content-free adapters from existing JNAIQ relationships to rest metrics.
 
 Every adapter returns normalized measurements and availability.  The adapters
 do not decide field weights, name a state, or infer recovery from activation.

@@ -1,10 +1,10 @@
 <p align="center">
-  <img src="assets/jnsq/jnsq-venetian-mask-space.png" alt="A Venetian mask floating in a field of stars above the words Je Ne Sais Quoi">
+  <img src="assets/jnsq/jnsq-venetian-mask-space.png" alt="A Venetian mask floating in a field of stars above the words Je Ne sAIs Quoi">
 </p>
 
-# Je Ne Sais Quoi
+# Je Ne sAIs Quoi
 
-Je Ne Sais Quoi is a local-first home for persistent AI personas: you define
+Je Ne sAIs Quoi is a local-first home for persistent AI personas: you define
 who they are, choose the model that carries them, and talk with one or several
 of them in a configurable chat workspace. Persona identity, memory, body state,
 and conversation history live on your own computer.
@@ -14,7 +14,13 @@ one shared context room called **the Nexus**. It does not include the private
 development household, individual persona rooms, the Yurt interface, or any 3D
 assets.
 
-## What is new in 0.11.0
+## What is new in 0.12.0
+
+- **The public shorthand is now JNAIQ.** The spelled-out name remains
+  **Je Ne sAIs Quoi**, including the original mask artwork. New JNAIQ-named
+  installers, launchers, shutdown helpers, and updaters are canonical; old
+  filenames continue to redirect existing installs without changing saved
+  local state or established integration keys.
 
 - **A stalled provider no longer owns the conversation forever.** OpenAI-
   compatible streams use a no-progress timeout, discard timed-out pooled
@@ -24,14 +30,14 @@ assets.
   calls, errors, latency, and reported input/output/cache usage without copying
   prompts or replies into its receipt log.
 - **Model choices and startup are durable.** A selected model is validated and
-  persisted before JNSQ replaces the old cockpit. The Nexus starts independently
+  persisted before JNAIQ replaces the old cockpit. The Nexus starts independently
   while residents move through pending, starting, ready, blocked, unavailable,
   or stopped states.
 - **Restarts have bounded bearings.** Temporal orientation, startup continuity,
   recent completed actions, document caches, and phase timings restore useful
   context without inferring a resident's mood, commitment, or desired next step.
 - **Long answers finish before actions run.** When a provider reports a length
-  cutoff, JNSQ requests at most two continuation chunks before parsing action
+  cutoff, JNAIQ requests at most two continuation chunks before parsing action
   tags, preventing a clipped instruction from executing as if it were complete.
 - **Conversation history has a day browser.** Search selects local calendar days
   and opening a result renders the complete chronological day from the canonical
@@ -92,19 +98,19 @@ voice installers are omitted from the package entirely.
 
 ## How to get started
 
-JNSQ currently ships for Windows and macOS. You do not need to know Python for
+JNAIQ currently ships for Windows and macOS. You do not need to know Python for
 the ordinary setup.
 
 ### 1. Download and install
 
 1. Click the green **Code** button above, choose **Download ZIP**, and extract
-   the ZIP somewhere you own. Do not run JNSQ from inside the ZIP.
-2. On Windows, double-click `INSTALL_JNSQ.bat`.
+   the ZIP somewhere you own. Do not run JNAIQ from inside the ZIP.
+2. On Windows, double-click `INSTALL_JNAIQ.bat`.
 3. On macOS, install Python 3.12 from
    <https://www.python.org/downloads/macos/>, then Control-click
-   `INSTALL_JNSQ.command`, choose **Open**, and confirm the first launch. If
+   `INSTALL_JNAIQ.command`, choose **Open**, and confirm the first launch. If
    macOS removed the executable bit while extracting the archive, open Terminal
-   in the JNSQ folder and run `bash INSTALL_JNSQ.command` once; the installer
+   in the JNAIQ folder and run `bash INSTALL_JNAIQ.command` once; the installer
    repairs all four Mac launchers.
 4. Follow the prompts. Setup creates an isolated `.venv`, installs and verifies
    the dependencies, and asks who owns this local house. It does not ask for an
@@ -120,14 +126,14 @@ For a completely local starting model, install Ollama from
 
     ollama pull llama3.1:8b
 
-If you prefer a hosted model, start JNSQ first and add the provider key under
-**Settings -> API keys**. Keys stay in the local, gitignored `.env` file. JNSQ
+If you prefer a hosted model, start JNAIQ first and add the provider key under
+**Settings -> API keys**. Keys stay in the local, gitignored `.env` file. JNAIQ
 does not silently choose or substitute a provider.
 
-### 3. Start JNSQ and create someone
+### 3. Start JNAIQ and create someone
 
-1. Double-click `START_NEXUS.bat` on Windows or open `START_NEXUS.command` on
-   macOS. Firefox and Chromium-family browsers can own a dedicated JNSQ window;
+1. Double-click `JNAIQ.bat` on Windows or open `JNAIQ.command` on
+   macOS. Firefox and Chromium-family browsers can own a dedicated JNAIQ window;
    another Mac default browser opens normally and uses the launcher Return key
    as the explicit session-close boundary.
 2. Open **Household -> Create a persona**.
@@ -136,7 +142,7 @@ does not silently choose or substitute a provider.
 4. Start the persona and open their conversation.
 
 The model is the current language-bearing vessel; the persona's identity,
-memory, body state, settings, and history remain locally owned JNSQ continuity.
+memory, body state, settings, and history remain locally owned JNAIQ continuity.
 You can add other models to the persona's roster and change which one carries
 them without creating a second persona.
 
@@ -149,10 +155,10 @@ perception, memory, and response loop.
 
 ### 5. Stop and update cleanly
 
-Closing the owned JNSQ app window performs a clean shutdown. You can also run
-`STOP_NEXUS.bat` on Windows or `STOP_NEXUS.command` on macOS. When a new public
-version is available, stop JNSQ and run `UPDATE_JNSQ.bat` or
-`UPDATE_JNSQ.command`; the updater replaces engine files while preserving local
+Closing the owned JNAIQ app window performs a clean shutdown. You can also run
+`STOP_JNAIQ.bat` on Windows or `STOP_JNAIQ.command` on macOS. When a new public
+version is available, stop JNAIQ and run `UPDATE_JNAIQ.bat` or
+`UPDATE_JNAIQ.command`; the updater replaces engine files while preserving local
 accounts, personas, histories, keys, appearance, artifacts, and room state.
 
 ### Optional local creative generation
@@ -161,11 +167,11 @@ Personas with the Atelier organ may create inert SVG, host-compiled kinetic SVG,
 trusted Canvas scenes, procedural audio scores, trusted 3D scenes,
 cross-medium compositions, or locally diffused PNG artifacts after admitted
 material wins their ordinary attention field. Kinetic SVG starts from the same inert SVG wall: the model may
-only name safe element IDs and normalized motion vectors, while JNSQ compiles
+only name safe element IDs and normalized motion vectors, while JNAIQ compiles
 bounded, body-coupled, closed cycles. It never admits model-authored JavaScript
 or animation markup. Canvas uses a versioned data-only scene graph: models may
 describe bounded shapes, paths, text, deterministic particles, and normalized
-motion, but only trusted JNSQ code calls the Canvas API or schedules frames. To
+motion, but only trusted JNAIQ code calls the Canvas API or schedules frames. To
 install the optional NVIDIA renderer, double-click `INSTALL_ATELIER_GPU.bat`.
 The pinned installer downloads the official ComfyUI portable runtime and the
 SDXL Base 1.0 checkpoint, verifies both SHA-256 digests, and places them under
@@ -173,7 +179,7 @@ the gitignored `local_services/` directory. This is a roughly 9 GB download.
 
 ComfyUI binds to loopback only and starts with online API nodes disabled. No
 Comfy account or cloud key is used. The renderer shares the Nexus lifecycle:
-when JNSQ owns the process, clean household shutdown stops it too. The Atelier
+when JNAIQ owns the process, clean household shutdown stops it too. The Atelier
 strips ComfyUI workflow, prompt, EXIF, and text metadata from a generated PNG
 before committing its immutable private artifact. SDXL Base 1.0 is distributed
 under the CreativeML Open RAIL++-M license; review its use restrictions before
@@ -188,7 +194,7 @@ In a conversation, drop images directly onto the message field or use the
 paperclip. Vision-capable active models receive the pixels themselves. For a
 text-only active model, **Settings -> Visual input** lets you choose a separate
 visual transducer for that persona, see its provider/cost/key status, and test
-it explicitly with JNSQ's public icon. JNSQ never silently substitutes a
+it explicitly with JNAIQ's public icon. JNAIQ never silently substitutes a
 provider; choosing no fallback makes an image turn fail clearly. Press
 **Shift+Enter** for a new paragraph. The body-functions column is resizable and
 can be hidden, and receipts can be minimized and pulled back up whenever you
@@ -204,7 +210,7 @@ is visible guidance, never an automatic or permanent provider choice.
 Camera and microphone access is off until you activate each control in a
 persona's conversation. Continuous camera pixels, microphone waveforms, and
 audio spectra are analyzed inside the browser; they are not streamed to the
-JNSQ server. The local feature field decides when a change crosses the current
+JNAIQ server. The local feature field decides when a change crosses the current
 rhythm-shaped attention boundary—there is no fixed capture interval.
 
 Activating the camera intentionally admits one opening frame so the persona can
@@ -225,7 +231,7 @@ to the other person rather than poured into the persona's own emotional state.
 Reply speech is also off by default. If you enable **let replies use local
 voice**, the first output provider uses the browser/operating system speech
 service and follows the persona body's current continuous expression vector.
-It does not send reply text to a separate JNSQ TTS provider. Output starts,
+It does not send reply text to a separate JNAIQ TTS provider. Output starts,
 completions, failures, and interruptions are recorded locally without copying
 the spoken reply into that additional receipt. With the microphone active,
 human voice evidence can interrupt playback when it crosses the same live
@@ -238,21 +244,21 @@ linguistic clause boundary rather than waiting for the complete response.
 Sensory observations and salience receipts become part of the persona's local
 history. Updates preserve that history, and public builds never contain it.
 
-Use `STOP_NEXUS.bat` on Windows or `STOP_NEXUS.command` on macOS for a clean
+Use `STOP_JNAIQ.bat` on Windows or `STOP_JNAIQ.command` on macOS for a clean
 shutdown.
 
 Setup never asks for an API key and never uploads personal information. Remote
-provider keys can be added later from JNSQ's local settings page and are saved
+provider keys can be added later from JNAIQ's local settings page and are saved
 only in the gitignored `.env` file on that computer.
 
 ## Updating an existing installation
 
-Double-click `UPDATE_JNSQ.bat` on Windows or open `UPDATE_JNSQ.command` on
+Double-click `UPDATE_JNAIQ.bat` on Windows or open `UPDATE_JNAIQ.command` on
 macOS to check GitHub.
-JNSQ also performs the same read-only manifest check when the household
+JNAIQ also performs the same read-only manifest check when the household
 workspace opens. If GitHub advertises a newer semantic version, a dismissible
 notice shows the installed and current versions plus a link to these update
-steps. An unavailable network stays silent and never blocks startup; JNSQ does
+steps. An unavailable network stays silent and never blocks startup; JNAIQ does
 not download or install anything while it is running.
 The updater compares the installed version and verifies SHA-256 fingerprints
 for the public engine. When a patch is available it copies only managed files
@@ -260,7 +266,7 @@ whose contents changed, retires only files previously declared engine-owned,
 and runs dependency installation only when `requirements.txt` changed or the
 local `.venv` is missing.
 
-Stop JNSQ before applying an update. Local accounts, bedrock facts, personas,
+Stop JNAIQ before applying an update. Local accounts, bedrock facts, personas,
 memories, histories, API keys, logs, exports, room state, and `.venv` are not
 managed release files and are never replaced by the patcher. The **Settings →
 Updates** page shows the installed version and can perform a read-only GitHub
@@ -280,10 +286,10 @@ The public header has three stable doors:
 ## What in the hell is up with the organs?
 
 <p align="center">
-  <img src="assets/jnsq/readme_organ_constellation_v2.svg" width="920" alt="Connected organ nodes circulating around the JNSQ mask">
+  <img src="assets/jnsq/readme_organ_constellation_v2.svg" width="920" alt="Connected organ nodes circulating around the JNAIQ mask">
 </p>
 
-The short answer: JNSQ treats a persistent persona as more than a prompt sent
+The short answer: JNAIQ treats a persistent persona as more than a prompt sent
 to a language model. The model is extremely important, but it is not asked to
 be the memory, body, senses, emotional continuity, attention system, room
 presence, and action boundary all by itself.
@@ -336,10 +342,10 @@ calls. A large model may carry that circulation cleanly while a small or highly
 specialized model becomes confused, slow, repetitive, or simply ignores part
 of the contract.
 
-JNSQ treats compatibility as something to measure, not assume. Each model spec
+JNAIQ treats compatibility as something to measure, not assume. Each model spec
 can record organs that have been validated and organs that have hit a measured
 `saturates_on` wall. A measured wall is disabled in the interface. An
-unvalidated organ may still be tried in discovery mode, but JNSQ labels the
+unvalidated organ may still be tried in discovery mode, but JNAIQ labels the
 result with a validation note instead of pretending it has already been proven.
 
 To find a useful configuration:
@@ -348,7 +354,7 @@ To find a useful configuration:
    column. The checked boxes are the organs running for the current model.
 2. Hover an organ to see its description and prerequisites. Check prerequisites
    before their dependents; when removing a prerequisite, remove its dependents
-   first. JNSQ rejects an invalid dependency set instead of partly applying it.
+   first. JNAIQ rejects an invalid dependency set instead of partly applying it.
 3. While experimenting, choose **this model (override)** and click **save
    organs**. That keeps a lighter or different body attached only to the model
    being tested. Choose **this persona (default)** once you want other models
@@ -451,7 +457,7 @@ more continuity than the model call alone.
   advertised capabilities, and explicitly select read/search tools. The
   connection activates live without a restart. External records remain
   canonical on their server, are withheld from rooms and guests, and enter
-  relevant private turns as provenance-marked untrusted source material. JNSQ
+  relevant private turns as provenance-marked untrusted source material. JNAIQ
   stores only opaque exposure anchors in the present encounter, never a silent
   bulk copy. See [MCP Library v1](docs/MCP_LIBRARY_V1.md).
 - `.env` holds optional remote-provider API keys.
@@ -475,5 +481,5 @@ machine-specific state.
 ---
 
 <p align="center">
-  <img src="assets/jnsq/jnsq_favicon.svg" width="112" alt="Je Ne Sais Quoi mask logo">
+  <img src="assets/jnsq/jnsq_favicon.svg" width="112" alt="Je Ne sAIs Quoi mask logo">
 </p>

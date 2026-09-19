@@ -43,7 +43,7 @@ runtime:
   latency_class: "unknown"
 quirks:
   - "distinct discovered API model ID; do not treat Terra as a reasoning-effort setting"
-  - "shares Sol's surrounding JNSQ configuration for an interpretable variant comparison"
+  - "shares Sol's surrounding JNAIQ configuration for an interpretable variant comparison"
 harness:
   last_mechanical_pass: null
   fidelity_floor_results: {}

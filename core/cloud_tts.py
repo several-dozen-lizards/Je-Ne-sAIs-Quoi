@@ -16,7 +16,7 @@ import urllib.request
 
 HUME_ENDPOINT = "https://api.hume.ai/v0/tts"
 ELEVEN_ENDPOINT = "https://api.elevenlabs.io/v1/text-to-speech"
-CLOUD_TTS_USER_AGENT = "JNSQ-TTS/1.0"
+CLOUD_TTS_USER_AGENT = "JNAIQ-TTS/1.0"
 
 
 def _settings_key(name: str) -> str:

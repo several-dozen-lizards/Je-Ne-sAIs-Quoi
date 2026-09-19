@@ -67,11 +67,11 @@ def main() -> int:
     svg_path.write_bytes(compiled["svg"].encode("utf-8"))
     page = output / "index.html"
     page.write_text(
-        "<!doctype html><meta charset=utf-8><title>JNSQ AT3 kinetic canary</title>"
+        "<!doctype html><meta charset=utf-8><title>JNAIQ AT3 kinetic canary</title>"
         "<style>html,body{margin:0;min-height:100%;background:#02030a;display:grid;"
         "place-items:center}img{width:min(92vw,960px);height:auto;box-shadow:0 0 70px "
         "#20d9a344;border-radius:20px}</style>"
-        f"<img src=\"{svg_path.name}\" alt=\"JNSQ kinetic SVG canary\">",
+        f"<img src=\"{svg_path.name}\" alt=\"JNAIQ kinetic SVG canary\">",
         encoding="utf-8")
     receipt = {
         "ok": True, "artifact": str(svg_path), "page": str(page),

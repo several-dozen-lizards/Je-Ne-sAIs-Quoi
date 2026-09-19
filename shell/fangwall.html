@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Je Ne Sais Quoi</title>
+<title>Je Ne sAIs Quoi</title>
 <link rel="icon" href="/assets/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/assets/jnsq_favicon.svg">
 <link rel="apple-touch-icon" href="/assets/favicon-180.png">
@@ -176,7 +176,7 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
 </head>
 <body>
 <aside id="updateNotice" role="status" aria-live="polite" hidden>
-  <div class="update-title">A JNSQ update is available</div>
+  <div class="update-title">A JNAIQ update is available</div>
   <p id="updateMessage"></p>
   <div class="update-actions">
     <a class="update-link" href="/settings#updates" target="_blank" rel="noopener">View update steps</a>
@@ -239,9 +239,9 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
     <main><div id="workspace" class="workspace"></div></main>
   </section>
 </div></section>
-<section class="top-page" id="page-usage"><iframe src="/model-calls" title="JNSQ model usage"></iframe></section>
-<section class="top-page" id="page-settings"><iframe src="/settings" title="JNSQ settings"></iframe></section>
-<section class="top-page" id="page-about"><iframe src="/about" title="About Je Ne Sais Quoi"></iframe></section>
+<section class="top-page" id="page-usage"><iframe src="/model-calls" title="JNAIQ model usage"></iframe></section>
+<section class="top-page" id="page-settings"><iframe src="/settings" title="JNAIQ settings"></iframe></section>
+<section class="top-page" id="page-about"><iframe src="/about" title="About Je Ne sAIs Quoi"></iframe></section>
 
 <dialog id="voiceDialog">
   <div class="modal-head"><h2 id="voiceTitle">Persona voice</h2>
@@ -287,7 +287,7 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
   <div class="modal-body">
     <p class="note" id="modelContext">Register a model once; it becomes available to every persona in this household.</p>
     <div class="model-form">
-      <label>JNSQ model name<input id="mname" placeholder="qwen3-8b"></label>
+      <label>JNAIQ model name<input id="mname" placeholder="qwen3-8b"></label>
       <label>Connection type<select id="mfamily">
         <option value="ollama">Ollama · local</option>
         <option value="ollama_openai">Ollama · OpenAI-compatible local</option>
@@ -467,7 +467,7 @@ function configureModelFamily(){const family=$("mfamily").value,isOllamaCompat=f
 }
 function openModelDialog(personaId=null){state.modelTarget=personaId;$("modelError").textContent="";
   $("modelTitle").textContent=personaId?`Register a model · ${state.personas[personaId]?.display_name||personaId}`:"Install a model";
-  $("modelContext").textContent=personaId?"Register it once, then JNSQ will add it to this persona's roster.":
+  $("modelContext").textContent=personaId?"Register it once, then JNAIQ will add it to this persona's roster.":
     "Register it once; it becomes available to every persona in this household, including personas you create later.";
   $("modelSave").textContent=personaId?"Install + add to roster":"Install model";configureModelFamily();$("modelDialog").showModal();}
 function renderPersonaList(){
@@ -778,7 +778,7 @@ async function checkForUpdateAtStartup(){
     const notice=$("updateNotice");notice.dataset.latest=update.latest;
     $("updateMessage").textContent=
       `Version ${update.latest} is current; this installation is ${update.version}. `+
-      `JNSQ will not install it while running. Stop JNSQ, then run ${update.updater_name||"the platform updater"}.`;
+      `JNAIQ will not install it while running. Stop JNAIQ, then run ${update.updater_name||"the platform updater"}.`;
     notice.hidden=false;
     document.body.dataset.updateCheck="available";
   }catch(_error){

@@ -131,7 +131,7 @@ def _extract(data: bytes, suffix: str) -> tuple[str, str]:
             from pypdf import PdfReader
         except ImportError as exc:
             raise DocumentError(
-                "PDF import needs pypdf; install the JNSQ requirements") from exc
+                "PDF import needs pypdf; install the JNAIQ requirements") from exc
         try:
             pages = []
             for number, page in enumerate(PdfReader(io.BytesIO(data)).pages, 1):
@@ -145,7 +145,7 @@ def _extract(data: bytes, suffix: str) -> tuple[str, str]:
             from docx import Document
         except ImportError as exc:
             raise DocumentError(
-                "DOCX import needs python-docx; install the JNSQ requirements") from exc
+                "DOCX import needs python-docx; install the JNAIQ requirements") from exc
         try:
             doc = Document(io.BytesIO(data))
             parts = [p.text for p in doc.paragraphs if p.text.strip()]

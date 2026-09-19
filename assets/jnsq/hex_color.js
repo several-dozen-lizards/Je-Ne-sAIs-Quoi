@@ -1,4 +1,4 @@
-/* Shared exact-color editor for JNSQ's native color swatches. */
+/* Shared exact-color editor for JNAIQ's native color swatches. */
 (() => {
   const HEX = /^#?[0-9a-f]{6}$/i;
 

@@ -1,4 +1,4 @@
-"""Persona-private, typed awareness episodes from existing JNSQ senses.
+"""Persona-private, typed awareness episodes from existing JNAIQ senses.
 
 This organ is a circulation junction, not a second canonical store.  Weather,
 room, project, relationship, resource, and public-research systems retain

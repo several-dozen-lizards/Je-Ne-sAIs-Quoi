@@ -1,4 +1,4 @@
-"""Portable, inspectable assemblies for JNSQ world authoring.
+"""Portable, inspectable assemblies for JNAIQ world authoring.
 
 A module is a relative arrangement of ordinary room objects.  It owns no live
 room state and has no renderer authority: stamping compiles its members back

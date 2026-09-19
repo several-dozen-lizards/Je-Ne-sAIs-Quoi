@@ -1,4 +1,4 @@
-"""Build and reopen a deterministic non-persona AT8 JNSQ master bundle."""
+"""Build and reopen a deterministic non-persona AT8 JNAIQ master bundle."""
 from __future__ import annotations
 
 import argparse

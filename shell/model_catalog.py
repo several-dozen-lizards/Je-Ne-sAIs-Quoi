@@ -1,4 +1,4 @@
-"""Discover model IDs from the same API doors JNSQ can register.
+"""Discover model IDs from the same API doors JNAIQ can register.
 
 Credentials are read from environment variables and are never returned.
 Discovery is advisory: a user can always type an endpoint manually when a

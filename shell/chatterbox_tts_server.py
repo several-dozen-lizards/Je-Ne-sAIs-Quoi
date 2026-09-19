@@ -63,7 +63,7 @@ class Engine:
 
 
 def build_app() -> FastAPI:
-    app = FastAPI(title="JNSQ private Chatterbox Turbo")
+    app = FastAPI(title="JNAIQ private Chatterbox Turbo")
     app.state.engine = Engine()
 
     @app.get("/health")

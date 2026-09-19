@@ -27,7 +27,7 @@ wire:
     # chain of thought.
     think: false
     # Resource retention, not a behavioral clock: amortize cold model loading
-    # across work that is still triggered by JNSQ's own thresholds.
+    # across work that is still triggered by JNAIQ's own thresholds.
     keep_alive: "10m"
 capabilities:
   tool_use: false

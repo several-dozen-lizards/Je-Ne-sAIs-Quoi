@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>JNSQ settings</title>
+<title>JNAIQ settings</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Alegreya:wght@400;600;700&family=Bebas+Neue&family=Caveat:wght@400;600;700&family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Lexend:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&family=Permanent+Marker&family=Playfair+Display:wght@400;600;700&family=Quicksand:wght@400;500;600;700&family=Roboto+Slab:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -101,7 +101,7 @@ table{width:100%;border-collapse:collapse;margin-top:12px;font-size:.8rem}th,td{
 <body>
 <div class="shell">
   <div class="heading"><img src="/assets/jnsq_favicon.svg" alt=""><div>
-    <h1>Settings</h1><div class="note">The shared controls for this local JNSQ home.</div>
+    <h1>Settings</h1><div class="note">The shared controls for this local JNAIQ home.</div>
   </div></div>
   <nav class="tabs">
     <button class="btn tab" data-page="model-calls"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m13.5 2-7 11H12l-1.5 9 7-11H12z"/></svg><span>Model calls</span></button>
@@ -193,10 +193,10 @@ table{width:100%;border-collapse:collapse;margin-top:12px;font-size:.8rem}th,td{
     <h2>Visual input</h2>
     <p class="note">The active model receives image pixels directly when its spec declares vision support.
       For a text-only active model, choose the visual vessel that reports observable features to the persona.
-      JNSQ never changes this choice silently.</p>
+      JNAIQ never changes this choice silently.</p>
     <div class="card"><h3>Price, quality, and change</h3>
       <p class="note">There is no permanent “best.” Provider prices and model quality move. Each option below
-        shows the metadata installed today; you choose the tradeoff per persona. Testing sends only JNSQ's
+        shows the metadata installed today; you choose the tradeoff per persona. Testing sends only JNAIQ's
         public mask icon and may incur that provider's normal charge.</p></div>
     <div class="card"><h3>Current balance</h3>
       <p><b>GLM-4.6V-FlashX</b> is the present cheap + reliable recommendation.
@@ -248,8 +248,8 @@ table{width:100%;border-collapse:collapse;margin-top:12px;font-size:.8rem}th,td{
   <section class="page" id="page-updates">
     <h2>Updates</h2><div class="card"><div class="note">Installed public version</div>
       <div class="version" id="currentVersion">checking…</div>
-      <p class="note">Checking is read-only. To install an available patch, stop JNSQ and double-click
-        <b id="updaterName">the platform updater</b> in the JNSQ folder. The updater fingerprints engine files and leaves
+      <p class="note">Checking is read-only. To install an available patch, stop JNAIQ and double-click
+        <b id="updaterName">the platform updater</b> in the JNAIQ folder. The updater fingerprints engine files and leaves
         local accounts, personas, memories, histories, keys, and the existing environment outside its reach.</p>
       <div class="actions"><button class="btn go" id="checkUpdate">Check GitHub</button>
         <span class="note" id="updateNote"></span></div></div>
@@ -359,7 +359,7 @@ function applyBackgroundMedia(media){const root=document.documentElement;
 function presetOptions(doc){const assigned=new Set(),custom=new Set(doc.custom_presets||[]);
   const group=(label,ids)=>{const options=(ids||[]).filter(id=>doc.presets?.[id]!==undefined).map(id=>{assigned.add(id);return `<option value="${esc(id)}">${esc(doc.presets[id])}</option>`}).join("");return options?`<optgroup label="${esc(label)}">${options}</optgroup>`:""};
   let html=Object.entries(doc.preset_collections||{}).map(([label,ids])=>group(label,ids)).join("");
-  html+=group("JNSQ collection",Object.keys(doc.presets||{}).filter(id=>!assigned.has(id)&&!custom.has(id)));
+  html+=group("JNAIQ collection",Object.keys(doc.presets||{}).filter(id=>!assigned.has(id)&&!custom.has(id)));
   html+=group("Custom",doc.custom_presets||[]);return html}
 function updatePresetActions(){const custom=new Set(themeDoc?.custom_presets||[]),id=$("housePreset").value;
   $("housePresetUpdate").disabled=!custom.has(id);$("housePresetDelete").disabled=!custom.has(id)}
@@ -495,7 +495,7 @@ async function saveVisionRoute(id,button){const select=document.querySelector(`[
     else visionNotices[id]=`Saved ${model||"no fallback"}.`;await loadVision()}catch(error){visionNotices[id]=error.message;renderVisionRoutes()}finally{button.disabled=false}}
 async function testVisionRoute(id,button){const selected=document.querySelector(`[data-vision-select="${CSS.escape(id)}"]`)?.value;
   const active=modelByName(personas[id]?.model),model=selected||(active?.vision?active.name:null);if(!model){visionNotices[id]="Choose a fallback, or use a direct-vision active model.";renderVisionRoutes();return}
-  button.disabled=true;visionNotices[id]=`Testing ${model} with the public JNSQ icon…`;
+  button.disabled=true;visionNotices[id]=`Testing ${model} with the public JNAIQ icon…`;
   const note=document.querySelector(`[data-vision-note="${CSS.escape(id)}"]`);if(note)note.textContent=visionNotices[id];
   try{const result=await request(`/api/models/${encodeURIComponent(model)}/vision/test`,{method:"POST"});visionNotices[id]=`PASS · ${result.observation}`}
   catch(error){visionNotices[id]=`FAILED · ${error.message}`}finally{renderVisionRoutes()}}
@@ -551,7 +551,7 @@ let updaterName="the platform updater";
 async function loadVersion(){try{const data=await request("/api/version");$("currentVersion").textContent=data.version;updaterName=data.updater_name||updaterName;$("updaterName").textContent=updaterName;
   if(!data.updater)$("updateNote").textContent="This build predates the updater."}catch(error){$("currentVersion").textContent="unknown"}}
 $("checkUpdate").onclick=async()=>{const button=$("checkUpdate");button.disabled=true;$("updateNote").textContent="Checking…";
-  try{const data=await request("/api/version/check");$("updateNote").textContent=data.update_available?`Version ${data.latest} is available. Stop JNSQ, then run ${updaterName}.`:`Version ${data.version} is current.`}
+  try{const data=await request("/api/version/check");$("updateNote").textContent=data.update_available?`Version ${data.latest} is available. Stop JNAIQ, then run ${updaterName}.`:`Version ${data.version} is current.`}
   catch(error){$("updateNote").textContent=error.message}finally{button.disabled=false}};
 function showPage(page){if(!settingsPages.has(page))return;currentPage=page;
   if(location.hash!==`#${page}`)history.replaceState(null,"",`#${page}`);

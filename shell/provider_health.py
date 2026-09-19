@@ -150,7 +150,7 @@ def _current_configuration_issues(personas_dir: str, indexes) -> list[dict]:
         try:
             spec = load_spec(name)
         except Exception:
-            issues.append({"code": "model_unavailable", "provider": "JNSQ",
+            issues.append({"code": "model_unavailable", "provider": "JNAIQ",
                            "resource": name, "occurrences": 1,
                            "last_seen": "configuration"})
             continue
@@ -266,7 +266,7 @@ def _incident_copy(issue: dict) -> dict:
     elif code == "missing_key":
         key = issue.get("key_env") or "the required API key"
         title = f"{provider} key is missing"
-        explanation = f"A configured route needs {key}, but JNSQ cannot find it."
+        explanation = f"A configured route needs {key}, but JNAIQ cannot find it."
         fix = "Open API keys, save the key, then restart the affected resident."
         action = {"label": "Open API keys", "href": "/settings#keys"}
     elif code == "authentication_failed":
@@ -286,7 +286,7 @@ def _incident_copy(issue: dict) -> dict:
                "otherwise choose a model your provider account can access.")
     elif code == "local_service_unreachable":
         title = f"{provider} cannot be reached"
-        explanation = "JNSQ could not connect to the configured local model service."
+        explanation = "JNAIQ could not connect to the configured local model service."
         fix = f"Start {provider}, confirm its model is installed, then retry or restart the resident."
     elif code == "rate_limited":
         title = f"{provider} is rate-limiting requests"

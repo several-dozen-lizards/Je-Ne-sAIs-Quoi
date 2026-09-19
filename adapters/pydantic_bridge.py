@@ -1,8 +1,8 @@
-"""Pydantic AI bridge over JNSQ's neutral async model-event seam.
+"""Pydantic AI bridge over JNAIQ's neutral async model-event seam.
 
 The persona-local agency runtime may import this bridge only after a genuine
 field winner, organ/config policy, model capability, and runtime dependency all
-admit a run.  It gives that bounded run a fresh JNSQ assembly for every
+admit a run.  It gives that bounded run a fresh JNAIQ assembly for every
 provider request while keeping authority, cancellation, provider
 configuration, and teardown host-owned.
 """
@@ -368,7 +368,7 @@ class PydanticJNSQBridge:
         state.cancellation.raise_if_cancelled()
         if state.snapshot is None or state.snapshot_consumed:
             raise BridgeContractError(
-                "model request has no fresh unconsumed JNSQ assembly")
+                "model request has no fresh unconsumed JNAIQ assembly")
         if _digest(_initial_task(messages)) != state.task_digest:
             raise BridgeContractError(
                 "Pydantic task diverged from the run envelope")

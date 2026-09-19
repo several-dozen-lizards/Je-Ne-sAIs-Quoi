@@ -7784,7 +7784,7 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
               research_desk_runtime=None,
               atelier_runtime=None) -> FastAPI:
     from shell.local_identity import load_local_identity
-    app = FastAPI(title="JNSQ cockpit", version=CONTRACT_VERSION)
+    app = FastAPI(title="JNAIQ cockpit", version=CONTRACT_VERSION)
     if os.path.isdir(ASSET_DIR):
         app.mount("/assets", StaticFiles(directory=ASSET_DIR),
                   name="jnsq-assets")

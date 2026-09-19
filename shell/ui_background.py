@@ -2,7 +2,7 @@
 
 The file is deliberately separate from theme JSON: opacity and selection are
 theme tokens, while potentially large private images remain local assets.
-The Settings/Je Ne Sais Quoi wallpaper and the Nexus wallpaper belong to the
+The Settings/Je Ne sAIs Quoi wallpaper and the Nexus wallpaper belong to the
 household.  A persona cockpit's outer and inner conversation images belong to
 the persona whose cockpit displays them.
 """

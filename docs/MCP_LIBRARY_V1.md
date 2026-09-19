@@ -1,9 +1,9 @@
 # MCP Library v1 -- resident-owned read-only continuity
 
-JNSQ can mount one or more Model Context Protocol servers as an external
-library for a resident. The server remains canonical. JNSQ retrieves bounded
+JNAIQ can mount one or more Model Context Protocol servers as an external
+library for a resident. The server remains canonical. JNAIQ retrieves bounded
 source excerpts for a relevant private turn; it does not bulk-copy, rewrite,
-delete, publish, or automatically convert those records into JNSQ memories.
+delete, publish, or automatically convert those records into JNAIQ memories.
 
 This first cut supports:
 
@@ -22,7 +22,7 @@ elicitation, arbitrary tool discovery/execution, or automatic migration.
 Open the resident's cockpit, expand **Logs & archives**, and choose **add
 connection** under **external MCP library**. You can fill the local command or
 hosted URL directly, or paste the server JSON already used by another MCP
-client. JNSQ separates any pasted environment values into its gitignored
+client. JNAIQ separates any pasted environment values into its gitignored
 `.env`; the resident connector file stores variable names only.
 
 Choose **inspect this server** to perform one explicit MCP handshake. Inspection
@@ -61,7 +61,7 @@ mcp_library:
           limit_argument: limit
 ```
 
-`environment` contains environment-variable **names**, never credentials. JNSQ
+`environment` contains environment-variable **names**, never credentials. JNAIQ
 passes only those names plus a small set of operating-system variables needed
 to start the exact command. The command is launched directly, never through a
 shell.
@@ -93,7 +93,7 @@ and the deployment's network boundary; do not connect an untrusted server.
 ## Read-only tool mapping
 
 MCP standardizes discovery and invocation, not the semantics of a custom memory
-schema. Every tool JNSQ may call must therefore appear in `tools`. JNSQ verifies
+schema. Every tool JNAIQ may call must therefore appear in `tools`. JNAIQ verifies
 that the server advertised the exact name and declared the configured query
 argument before calling it. There is no fallback to an unlisted tool.
 
@@ -116,7 +116,7 @@ such as `id`, `uri`, `path`, `title`, `name`, `content`, `text`, `body`, and
 
 ## Runtime behavior
 
-Local JNSQ recall runs first. External retrieval pressure is then calculated
+Local JNAIQ recall runs first. External retrieval pressure is then calculated
 from explicit memory/file language, query specificity, question form, named
 anchors, and the coverage already supplied by local recall. The server is
 called only when their combined score reaches `activation_threshold`.

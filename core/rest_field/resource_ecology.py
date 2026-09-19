@@ -243,7 +243,7 @@ RESOURCE_SPECS = {
         }),
     },
     "hardware_slack": {
-        "owner": "no authoritative JNSQ hardware-resource monitor found",
+        "owner": "no authoritative JNAIQ hardware-resource monitor found",
         "receipt_owner": "unavailable",
         "consumption_event": (
             "local model, vision, voice, Atelier, and rendering processes can "

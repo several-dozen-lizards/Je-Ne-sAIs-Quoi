@@ -1,4 +1,4 @@
-"""Lifecycle boundary for JNSQ's optional private Qwen3-TTS runtime."""
+"""Lifecycle boundary for JNAIQ's optional private Qwen3-TTS runtime."""
 from __future__ import annotations
 
 import argparse

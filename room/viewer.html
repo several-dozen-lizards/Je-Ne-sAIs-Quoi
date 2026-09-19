@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Je Ne Sais Quoi · Nexus</title>
+<title>Je Ne sAIs Quoi · Nexus</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Alegreya:wght@400;600;700&family=Bebas+Neue&family=Caveat:wght@400;600;700&family=Cinzel:wght@400;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Lexend:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&family=Permanent+Marker&family=Playfair+Display:wght@400;600;700&family=Quicksand:wght@400;500;600;700&family=Roboto+Slab:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -65,7 +65,7 @@ button{cursor:pointer;color:var(--mint)}button:hover{border-color:var(--mint)}bu
     <details class="card sidebar-card manage-people" id="managePeople"><summary>Manage people</summary><div class="manage-people-body"><div class="sidebar-head"><button class="sidebar-toggle" id="sidebarToggle" type="button" aria-expanded="true" title="Collapse the Nexus sidebar">collapse sidebar</button></div><div class="sidebar-content">
       <details class="sidebar-section" data-nexus-section="invite"><summary>Bring someone into the Nexus</summary><div class="section-body">
         <div class="door"><select id="joinMember" aria-label="User or persona to add"></select><button id="joinButton">add</button></div>
-        <div class="note" id="doorNote">Choose from the users and personas currently in this JNSQ home.</div></div></details>
+        <div class="note" id="doorNote">Choose from the users and personas currently in this JNAIQ home.</div></div></details>
       <details class="sidebar-section" data-nexus-section="present" open><summary>Present now</summary><div class="section-body"><div class="members" id="members"></div></div></details>
       <details class="sidebar-section" data-nexus-section="objects" open><summary>Shared objects</summary><div class="section-body"><div class="objects" id="objects"></div></div></details>
       <details class="sidebar-section" data-nexus-section="appearance"><summary>Nexus appearance</summary><div class="section-body">
@@ -207,7 +207,7 @@ window.addEventListener("pagehide",()=>{closed=true});window.startNexus=initial;
     window.JNSQThemeSurface?.apply(t);
     repaintSpeakers();window.dispatchEvent(new CustomEvent("jnsq-theme-applied"));
   }
-  function presetOptions(doc){const assigned=new Set(),custom=new Set(doc.custom_presets||[]);const group=(label,ids)=>{const options=(ids||[]).filter(id=>doc.presets?.[id]!==undefined).map(id=>{assigned.add(id);return `<option value="${esc(id)}">${esc(doc.presets[id])}</option>`}).join("");return options?`<optgroup label="${esc(label)}">${options}</optgroup>`:""};let html=Object.entries(doc.preset_collections||{}).map(([label,ids])=>group(label,ids)).join("");html+=group("JNSQ collection",Object.keys(doc.presets||{}).filter(id=>!assigned.has(id)&&!custom.has(id)));html+=group("Custom",doc.custom_presets||[]);return html}
+  function presetOptions(doc){const assigned=new Set(),custom=new Set(doc.custom_presets||[]);const group=(label,ids)=>{const options=(ids||[]).filter(id=>doc.presets?.[id]!==undefined).map(id=>{assigned.add(id);return `<option value="${esc(id)}">${esc(doc.presets[id])}</option>`}).join("");return options?`<optgroup label="${esc(label)}">${options}</optgroup>`:""};let html=Object.entries(doc.preset_collections||{}).map(([label,ids])=>group(label,ids)).join("");html+=group("JNAIQ collection",Object.keys(doc.presets||{}).filter(id=>!assigned.has(id)&&!custom.has(id)));html+=group("Custom",doc.custom_presets||[]);return html}
   function fill(doc){themeDoc=doc;const preset=$("nexusPreset");preset.innerHTML=presetOptions(doc);preset.value=doc.preset;for(const [key,id] of Object.entries(controls))if(doc.tokens[key]!==undefined)$(id).value=doc.tokens[key];dirty.clear();presetDirty=false;$("nexusBackgroundRemove").disabled=doc.conversation_background?.source!=="nexus";window.JNSQHexColors?.sync();apply(doc.tokens,doc.conversation_background)}
   function readTokens(){const tokens={};for(const [key,id] of Object.entries(controls))tokens[key]=numberKeys.has(key)?Number($(id).value):$(id).value;return tokens}
   function preview(){const base=presetDirty?themeDoc.preset_tokens[$("nexusPreset").value]||{}:themeDoc.tokens;apply({...base,...readTokens(),speaker_colors:themeDoc.tokens.speaker_colors,speaker_icons:themeDoc.tokens.speaker_icons},themeDoc.conversation_background);$("nexusAppearanceStatus").textContent=readTokens().background==="image"&&!themeDoc.conversation_background?"Choose and upload a Nexus background image below.":"Previewing unsaved Nexus changes."}

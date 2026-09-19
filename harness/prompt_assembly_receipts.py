@@ -16,7 +16,7 @@ def finalize_prompt_assembly_receipt(receipt, *, cycle_id, model_calls=()):
     result = copy.deepcopy(receipt)
     result["cycle_id"] = str(cycle_id or "")
     # ISO's extended offset (``-04:00``) is accepted by the Python 3.10
-    # runtime used by JNSQ.  The reader also preserves compatibility with
+    # runtime used by JNAIQ.  The reader also preserves compatibility with
     # older receipts written with the basic ``-0400`` form.
     result["recorded_at"] = datetime.now().astimezone().isoformat(
         timespec="seconds")

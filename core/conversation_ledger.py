@@ -78,7 +78,7 @@ class TextConversationArchive:
 
     def _header(self, date: str) -> str:
         return (
-            "JNSQ Conversation Archive\n"
+            "JNAIQ Conversation Archive\n"
             f"Owner: {self.owner}\n"
             f"Scope: {self.scope}\n"
             f"Date: {date} (UTC)\n"

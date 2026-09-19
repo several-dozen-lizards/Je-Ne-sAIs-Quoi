@@ -633,7 +633,7 @@ class ObjectProfileReq(BaseModel):
 
 
 def build_app() -> FastAPI:
-    app = FastAPI(title="JNSQ room host", version=CONTRACT_VERSION)
+    app = FastAPI(title="JNAIQ room host", version=CONTRACT_VERSION)
     app.state.avatar_vision = {}
     app.state.local_weather = LocalWeather(
         os.environ.get("JNSQ_LOCAL_WEATHER",

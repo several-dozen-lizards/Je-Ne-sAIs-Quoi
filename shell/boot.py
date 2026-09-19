@@ -63,7 +63,7 @@ def _boot_lock(timeout: float = 180.0):
             except (OSError, IOError):
                 if time.monotonic() >= deadline:
                     raise TimeoutError(
-                        "another JNSQ stop/boot transaction is still active")
+                        "another JNAIQ stop/boot transaction is still active")
                 time.sleep(.1)
         yield
     finally:
@@ -394,7 +394,7 @@ def _boot_unlocked(open_browser: bool = True):
         _stop_unlocked()
 
     room_port, router_port = _free_port(), _free_port()
-    print(f"JNSQ household boot — room:{room_port} router:{router_port}")
+    print(f"JNAIQ household boot — room:{room_port} router:{router_port}")
 
     comfy_run = {}
     try:
@@ -475,7 +475,7 @@ def _boot_unlocked(open_browser: bool = True):
     _write_runfile(run)
 
     print("\n  THE HOUSEHOLD IS UP\n  " + "=" * 40)
-    print(f"  Je Ne Sais Quoi (status): http://127.0.0.1:{router_port}/")
+    print(f"  Je Ne sAIs Quoi (status): http://127.0.0.1:{router_port}/")
     if not tenants:
         print("  No personas yet — create the first one from the workspace.")
     for pid_, info in tenants.items():
@@ -507,7 +507,7 @@ def run_session() -> int:
             run = current
         owner = run.get("session_browser_pid")
         if owner and _pid_alive(owner):
-            print("A JNSQ session window already owns this household.")
+            print("A JNAIQ session window already owns this household.")
             return 0
         url = f"http://127.0.0.1:{run['router_port']}/"
         browser = _launch_session_browser(url)
@@ -527,7 +527,7 @@ def run_session() -> int:
         return 0
 
     print("\n  SESSION WINDOW OWNS THE HOUSEHOLD")
-    print("  Close that window when you are done; JNSQ will stop cleanly.")
+    print("  Close that window when you are done; JNAIQ will stop cleanly.")
     try:
         browser.wait()
     except KeyboardInterrupt:

@@ -1,4 +1,4 @@
-"""Live adapters from canonical JNSQ systems into typed awareness episodes."""
+"""Live adapters from canonical JNAIQ systems into typed awareness episodes."""
 from __future__ import annotations
 
 import datetime as dt

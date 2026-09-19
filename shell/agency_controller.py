@@ -7,7 +7,7 @@ seam the cockpit needs before any of those may be attached:
 * one dedicated asyncio loop thread per persona;
 * one active run at a time;
 * a monotonic external-demand epoch;
-* first-reason cancellation through JNSQ's neutral CancellationToken;
+* first-reason cancellation through JNAIQ's neutral CancellationToken;
 * non-overlapping explicit replacement;
 * bounded lifecycle status and receipts;
 * complete shutdown before the persona engine closes.

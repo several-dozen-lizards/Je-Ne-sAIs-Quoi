@@ -1,4 +1,4 @@
-"""Lifecycle boundary for JNSQ's optional private Chatterbox runtime."""
+"""Lifecycle boundary for JNAIQ's optional private Chatterbox runtime."""
 from __future__ import annotations
 
 import argparse

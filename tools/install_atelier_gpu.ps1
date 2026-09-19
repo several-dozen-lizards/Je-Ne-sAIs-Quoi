@@ -15,7 +15,7 @@ New-Item -ItemType Directory -Force -Path $ServiceRoot | Out-Null
 if (-not (Test-Path -LiteralPath $Archive) -or
     (Get-FileHash -Algorithm SHA256 -LiteralPath $Archive).Hash.ToLowerInvariant() -ne $ComfySha) {
   Write-Host 'Downloading official ComfyUI v0.28.0 NVIDIA portable (2.09 GB)...'
-  Start-BitsTransfer -Source $ComfyUrl -Destination $Archive -DisplayName 'JNSQ ComfyUI portable'
+  Start-BitsTransfer -Source $ComfyUrl -Destination $Archive -DisplayName 'JNAIQ ComfyUI portable'
 }
 if ((Get-FileHash -Algorithm SHA256 -LiteralPath $Archive).Hash.ToLowerInvariant() -ne $ComfySha) {
   throw 'ComfyUI archive failed its pinned SHA-256 check.'
@@ -30,7 +30,7 @@ if (-not $SkipModel) {
   if (-not (Test-Path -LiteralPath $ModelPath) -or
       (Get-FileHash -Algorithm SHA256 -LiteralPath $ModelPath).Hash.ToLowerInvariant() -ne $ModelSha) {
     Write-Host 'Downloading Stability AI SDXL Base 1.0 (6.94 GB)...'
-    Start-BitsTransfer -Source $ModelUrl -Destination $ModelPath -DisplayName 'JNSQ SDXL Base 1.0'
+    Start-BitsTransfer -Source $ModelUrl -Destination $ModelPath -DisplayName 'JNAIQ SDXL Base 1.0'
   }
   if ((Get-FileHash -Algorithm SHA256 -LiteralPath $ModelPath).Hash.ToLowerInvariant() -ne $ModelSha) {
     throw 'SDXL checkpoint failed its pinned SHA-256 check.'

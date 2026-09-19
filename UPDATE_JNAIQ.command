@@ -7,11 +7,7 @@ if [ -x ".venv/bin/python" ]; then
 else
   PYTHON="python3"
 fi
-"$PYTHON" -X utf8 shell/boot.py --session
+"$PYTHON" -X utf8 tools/update_jnaiq.py "$@"
 STATUS=$?
-if [ "$STATUS" -ne 0 ]; then
-  echo
-  echo "JNAIQ could not start. The details are above."
-  read -r -p "Press Return to close."
-fi
+read -r -p "Press Return to close."
 exit "$STATUS"

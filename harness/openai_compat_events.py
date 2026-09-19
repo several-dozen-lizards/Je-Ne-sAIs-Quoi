@@ -1,4 +1,4 @@
-"""Async OpenAI-compatible Chat Completions -> neutral JNSQ events."""
+"""Async OpenAI-compatible Chat Completions -> neutral JNAIQ events."""
 from __future__ import annotations
 
 import asyncio

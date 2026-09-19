@@ -1,4 +1,4 @@
-"""Async Anthropic SSE -> neutral JNSQ model events.
+"""Async Anthropic SSE -> neutral JNAIQ model events.
 
 The transport owns I/O and cancellation.  ``AnthropicEventParser`` is a pure,
 incremental state machine: fixtures can feed it provider payloads without a

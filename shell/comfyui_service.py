@@ -1,4 +1,4 @@
-"""Lifecycle boundary for JNSQ's optional private ComfyUI portable runtime."""
+"""Lifecycle boundary for JNAIQ's optional private ComfyUI portable runtime."""
 from __future__ import annotations
 
 import argparse
@@ -97,7 +97,7 @@ def start(*, wait_seconds=120.0) -> dict:
         if record.get("owned") and record.get("pid") \
                 and _pid_is_owned_python(record["pid"]):
             return {**record, "started": False, "reachable": True,
-                    "reason": "JNSQ's loopback ComfyUI is already alive"}
+                    "reason": "JNAIQ's loopback ComfyUI is already alive"}
         return {"started": False, "owned": False, "reachable": True,
                 "reason": "an external loopback ComfyUI is already alive"}
     if not installed():

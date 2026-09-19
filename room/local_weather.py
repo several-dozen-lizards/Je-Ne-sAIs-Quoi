@@ -155,7 +155,7 @@ def fetch_weather(latitude: float, longitude: float, *, timeout=12) -> dict:
     })
     request = urllib.request.Request(
         f"{OPEN_METEO}?{query}",
-        headers={"User-Agent": "JNSQ-local-weather/1.0"})
+        headers={"User-Agent": "JNAIQ-local-weather/1.0"})
     with urllib.request.urlopen(request, timeout=timeout) as response:
         payload = json.loads(response.read().decode("utf-8"))
     return normalize_response(payload)

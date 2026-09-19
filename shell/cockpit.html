@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Conversation · Je Ne Sais Quoi</title>
+<title>Conversation · Je Ne sAIs Quoi</title>
 <link rel="icon" href="/assets/favicon.ico" sizes="any">
 <link rel="icon" type="image/svg+xml" href="/assets/jnsq_favicon.svg">
 <link rel="apple-touch-icon" href="/assets/favicon-180.png">
@@ -87,7 +87,7 @@
     * { scroll-behavior:auto !important; transition-duration:.01ms !important; }
   }
   body[data-reduced-motion="true"] #atmosphere * { animation:none !important; }
-  /* Je Ne Sais Quoi may hide this presentation while the persona remains fully
+  /* Je Ne sAIs Quoi may hide this presentation while the persona remains fully
      alive. Pause only decorative atmosphere paint: perception, streams,
      model work, audio, and autonomy are deliberately outside this rule. */
   body[data-host-presentation="hidden"] #atmosphere * {
@@ -862,7 +862,7 @@
       <div class="lab-state" id="bodyLabState" role="status">checking local room host…</div>
       <button class="lab-close" id="bodyLabClose" type="button">close lab</button>
     </div>
-    <iframe id="bodyLabFrame" title="JNSQ2 body compatibility workshop"></iframe>
+    <iframe id="bodyLabFrame" title="JNAIQ body compatibility workshop"></iframe>
   </section>
 </div>
 <main id="cockpit-main" class="inspector-collapsed">
@@ -954,7 +954,7 @@
         <button class="sensory-control" id="microphone" type="button" title="start ambient acoustic perception"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9.2" y="3.5" width="5.6" height="10" rx="2.8"/><path d="M6 11.5a6 6 0 0 0 12 0"/><path d="M12 17.5v3"/><path d="M9 20.5h6"/></svg><span class="control-label">microphone</span></button>
       </div>
       <label id="afferent-autostart-label"><input id="afferent-autostart" type="checkbox">
-        start camera and microphone when JNSQ opens</label>
+        start camera and microphone when JNAIQ opens</label>
       <div id="camera-panel"><video id="camera-feed" autoplay muted playsinline></video>
         <div class="afferent-copy"><div id="camera-story">Camera is local until visual change crosses the
           salience threshold. Admitted change becomes an ordered visual episode; only its selected frames are stored and transduced.</div>
@@ -1942,7 +1942,7 @@ function presetOptions(doc) {
     .map(id=>{assigned.add(id);return `<option value="${escapeOption(id)}">${escapeOption(doc.presets[id])}</option>`}).join("");
     return options?`<optgroup label="${escapeOption(label)}">${options}</optgroup>`:"";};
   let html=Object.entries(doc.preset_collections||{}).map(([label,ids])=>group(label,ids)).join("");
-  html+=group("JNSQ collection",Object.keys(doc.presets||{}).filter(id=>!assigned.has(id)&&!custom.has(id)));
+  html+=group("JNAIQ collection",Object.keys(doc.presets||{}).filter(id=>!assigned.has(id)&&!custom.has(id)));
   html+=group("Custom",doc.custom_presets||[]);return html;
 }
 
@@ -3433,7 +3433,7 @@ function atelierZipStore(entries){
 function atelierCompositionSourcePath(track){const extension=track.medium==="svg"?"svg":track.medium==="png"?"png":track.medium==="webp"?"webp":"json";return `sources/${track.artifact_id}.${extension}`}
 async function saveAtelierCompositionBundle(artifact,graph,graphBytes,sources,button,status){
   button.disabled=true;status.textContent="binding the provenance bundle…";
-  try{const manifest={format:"jnsq.bundle.v1",artifact:{artifact_id:artifact.artifact_id,medium:"composition",sha256:artifact.sha256,title:artifact.title||""},composition:{format:graph.format,path:`composition/${artifact.artifact_id}.json`,sha256:artifact.sha256},policy:{autoplay:false,external_references:false,nested_compositions:false,user_initiated:true},sources:graph.tracks.map(track=>({artifact_id:track.artifact_id,family:track.family,medium:track.medium,path:atelierCompositionSourcePath(track),sha256:track.sha256,variant:track.variant})),timeline:graph.timeline},manifestBytes=new TextEncoder().encode(atelierCanonicalJson(manifest)+"\n"),entries=[{name:"manifest.json",data:manifestBytes},{name:manifest.composition.path,data:new Uint8Array(graphBytes)},...sources.map(source=>({name:atelierCompositionSourcePath(source.track),data:new Uint8Array(source.rawBytes)}))],total=entries.reduce((sum,entry)=>sum+entry.data.length,0);if(total>96*1024*1024)throw new Error("composition bundle exceeds the 96 MiB boundary");const blob=atelierZipStore(entries);saveAtelierMaster(blob,`${artifact.artifact_id}.jnsq`);status.textContent=`JNSQ bundle offered · ${entries.length} hash-bound entries · ${(blob.size/1048576).toFixed(2)} MiB`
+  try{const manifest={format:"jnsq.bundle.v1",artifact:{artifact_id:artifact.artifact_id,medium:"composition",sha256:artifact.sha256,title:artifact.title||""},composition:{format:graph.format,path:`composition/${artifact.artifact_id}.json`,sha256:artifact.sha256},policy:{autoplay:false,external_references:false,nested_compositions:false,user_initiated:true},sources:graph.tracks.map(track=>({artifact_id:track.artifact_id,family:track.family,medium:track.medium,path:atelierCompositionSourcePath(track),sha256:track.sha256,variant:track.variant})),timeline:graph.timeline},manifestBytes=new TextEncoder().encode(atelierCanonicalJson(manifest)+"\n"),entries=[{name:"manifest.json",data:manifestBytes},{name:manifest.composition.path,data:new Uint8Array(graphBytes)},...sources.map(source=>({name:atelierCompositionSourcePath(source.track),data:new Uint8Array(source.rawBytes)}))],total=entries.reduce((sum,entry)=>sum+entry.data.length,0);if(total>96*1024*1024)throw new Error("composition bundle exceeds the 96 MiB boundary");const blob=atelierZipStore(entries);saveAtelierMaster(blob,`${artifact.artifact_id}.jnsq`);status.textContent=`JNAIQ bundle offered · ${entries.length} hash-bound entries · ${(blob.size/1048576).toFixed(2)} MiB`
   }catch(error){status.textContent=`bundle refused: ${error.message||error}`}finally{button.disabled=false}
 }
 async function playAtelierComposition(artifact,graph,sources,canvas,button,status){

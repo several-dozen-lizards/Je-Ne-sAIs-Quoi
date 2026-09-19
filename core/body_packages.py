@@ -1,4 +1,4 @@
-"""Read-only inspection and manifest validation for JNSQ 3D bodies.
+"""Read-only inspection and manifest validation for JNAIQ 3D bodies.
 
 The inspector deliberately describes what an asset exposes.  It does not
 rewrite rigs, install models, or claim capabilities that cannot be observed in

@@ -1,4 +1,4 @@
-"""Create the human account belonging to this local JNSQ installation."""
+"""Create the human account belonging to this local JNAIQ installation."""
 from __future__ import annotations
 
 import argparse
@@ -26,7 +26,7 @@ def configure(username: str, display_name: str = "", repo: str = ROOT) -> dict:
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Set up this local JNSQ home")
+    ap = argparse.ArgumentParser(description="Set up this local JNAIQ home")
     ap.add_argument("--username")
     ap.add_argument("--display-name", default="")
     ap.add_argument("--root", default=ROOT, help=argparse.SUPPRESS)
@@ -34,14 +34,14 @@ def main():
     if args.username:
         username, display = args.username, args.display_name
     else:
-        print("\nWho owns this JNSQ home?")
+        print("\nWho owns this JNAIQ home?")
         username = input("Username: ").strip()
         display = input("Display name (Enter to use username): ").strip()
     result = configure(username, display, args.root)
     who = result["identity"]["display_name"]
-    print(f"\nThis JNSQ home now belongs to {who}.")
+    print(f"\nThis JNAIQ home now belongs to {who}.")
     print("Start it with START_NEXUS.bat, then create a persona from the "
-          "chat workspace. Closing its JNSQ window stops the household "
+          "chat workspace. Closing its JNAIQ window stops the household "
           "cleanly.")
 
 

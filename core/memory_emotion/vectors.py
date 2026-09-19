@@ -135,7 +135,7 @@ class VectorStore:
         status = self.health_status(memory_ids)
         state = "HEALTHY" if self._embedder_healthy else "UNAVAILABLE"
         print(
-            f"[JNSQ EMBEDDER HEALTH] {persona} {state} "
+            f"[JNAIQ EMBEDDER HEALTH] {persona} {state} "
             f"model={_MODEL_NAME} sidecar="
             f"{status['covered']}/{status['records']}",
             flush=True)

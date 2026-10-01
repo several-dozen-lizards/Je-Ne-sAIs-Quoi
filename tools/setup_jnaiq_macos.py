@@ -53,7 +53,8 @@ def main() -> int:
                 [str(VENV_PYTHON), "-m", "compileall", "-q", "adapters",
                  "core", "harness", "room", "shell"])
         for name in ("INSTALL_JNAIQ.command", "START_NEXUS.command",
-                     "STOP_NEXUS.command", "UPDATE_JNAIQ.command"):
+                     "STOP_NEXUS.command", "UPDATE_JNAIQ.command",
+                     "BEDROCK_GATEWAY.command"):
             path = ROOT / name
             if path.exists():
                 path.chmod(path.stat().st_mode | 0o111)

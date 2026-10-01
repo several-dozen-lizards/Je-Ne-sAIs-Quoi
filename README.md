@@ -14,6 +14,15 @@ one shared context room called **the Nexus**. It does not include the private
 development household, individual persona rooms, the Yurt interface, or any 3D
 assets.
 
+## What is new in 0.12.1
+
+- **Model setup is easier.** Provider keys are available before registration,
+  catalogs can supply current IDs, and a linked guide covers hosted and local
+  connections. Existing Kimi, Muse, Gemini, and Hermes registrations are included.
+- **Amazon Bedrock has guided setup.** Choose a regional Runtime or Mantle
+  endpoint, or launch the optional Converse gateway for Claude and Nova.
+  Updates preserve its local configuration and separate environment.
+
 ## What is new in 0.12.0
 
 - **JNSQ is now JNAIQ.** The public launchers, asset paths, documentation, and
@@ -128,6 +137,14 @@ For a completely local starting model, install Ollama from
 If you prefer a hosted model, start JNAIQ first and add the provider key under
 **Settings -> API keys**. Keys stay in the local, gitignored `.env` file. JNAIQ
 does not silently choose or substitute a provider.
+
+Open **Household → Install a model** to choose a hosted provider or local
+server, load its current model catalog, and register the connection. Provider
+keys are available in Settings before registration. Amazon Bedrock has direct
+Runtime and Mantle presets plus an optional guided Converse gateway for Claude,
+Nova, and other compatible models. See the [model setup guide](docs/MODEL_SETUP.md)
+for every preset, regional setup, and troubleshooting. The same guide is linked
+inside the Install a model form.
 
 ### 3. Start JNAIQ and create someone
 

@@ -22,11 +22,14 @@ DEFAULT_MANIFEST_URL = (
 DEFAULT_ARCHIVE_URL = (
     "https://github.com/several-dozen-lizards/"
     "Je-Ne-sAIs-Quoi/archive/refs/heads/main.zip")
-LOCAL_LIFE_ROOTS = {"users", "personas", "people", "logs", "exports",
+LOCAL_LIFE_ROOTS = {"users", "personas", "people", "logs", "exports", "state", "scratch", "local_services",
                     ".venv", ".git"}
 PRIVATE_RUNTIME_NAMES = {
     ".env", ".jnaiq_local.json", ".jnsq_local.json",
     "jnaiq_running.json", "jnsq_running.json", "room_world.json",
+    "conversations.jsonl", "conversation_hearth.jsonl",
+    "conversation_lineage.jsonl", "private_conversations.jsonl",
+    "private_conversation_diagnostic_audit.jsonl",
     "household_theme.json", "nexus_theme.json", "custom_presets.json",
     "conversation_background.json", "conversation_area_background.json",
     "nexus_background.json", "conversation_background.bin",

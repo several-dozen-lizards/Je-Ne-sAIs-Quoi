@@ -63,6 +63,16 @@ header{height:74px;display:flex;align-items:center;gap:18px;padding:0 24px;
 #status{margin-left:auto;color:var(--dim);font-size:.82rem;display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;text-align:right}
 #status a{color:var(--mint);text-underline-offset:2px}
 #status a:hover{color:var(--gold)}
+#window-controls{display:flex;align-items:stretch;align-self:stretch;
+  flex:0 0 auto;margin-right:-24px}
+#window-controls[hidden]{display:none}
+.window-control{width:46px;border:0;border-left:1px solid var(--line);
+  border-radius:0;background:transparent;color:var(--ink);
+  font:18px/1 "Segoe UI Symbol",sans-serif;cursor:pointer;
+  transition:background .14s,color .14s}
+.window-control:hover,.window-control:focus-visible{background:color-mix(in srgb,var(--mint) 20%,var(--panel));outline:none}
+.window-control.close:hover,.window-control.close:focus-visible{background:#c42b1c;color:#fff}
+.window-control:disabled{opacity:.5;cursor:wait}
 #updateNotice{position:fixed;z-index:14;top:84px;right:14px;width:min(400px,calc(100vw - 28px));
   border:1px solid color-mix(in srgb,var(--mint) 65%,var(--line));border-radius:var(--radius);
   background:color-mix(in srgb,var(--panel) 96%,var(--bg));padding:14px 16px;
@@ -126,6 +136,7 @@ body[data-density="roomy"] .persona-home{padding:50px}body[data-density="roomy"]
 .inline-help summary{font-size:.75rem}.help-grid{display:grid;gap:8px;margin-top:9px;color:var(--dim);
   font-size:.75rem;line-height:1.45}.help-grid b{color:var(--ink)}.cost{color:var(--gold)}
 .model-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.model-form .wide{grid-column:1/-1}
+.model-form [hidden]{display:none!important}
 .model-note{white-space:pre-line}.or-row{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
   gap:8px;align-items:end}.or-row>span{color:var(--dim);padding-bottom:9px;text-align:center}
 .panel-screen{display:none;height:100%;min-height:0;position:relative;z-index:1}.panel-screen.on{display:block}
@@ -192,6 +203,7 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
     <button type="button" data-top-page="settings"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21H9.6v-.1A1.7 1.7 0 0 0 8.5 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3V9.6h.1A1.7 1.7 0 0 0 4.6 8.5a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1A1.7 1.7 0 0 0 15.5 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.13.37.35.71.65.98.3.27.68.42 1.08.42H21v4h-.1a1.7 1.7 0 0 0-1.5.6z"/></svg><span>Settings</span></button>
     <button type="button" data-top-page="about"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 10.5v6M12 7.5h.01"/></svg><span>About</span></button></nav>
   <div id="status"><span id="statusText">connecting…</span> · <a href="https://ko-fi.com/a_dozen_lizards" target="_blank" rel="noopener">Support this work</a></div>
+  <div id="window-controls" aria-label="JNAIQ window controls" hidden><button class="window-control minimize" type="button" aria-label="Minimize JNAIQ" title="Minimize JNAIQ">−</button><button class="window-control size" type="button" aria-label="Restore JNAIQ window" title="Restore JNAIQ window">❐</button><button class="window-control close" type="button" aria-label="Close JNAIQ" title="Close JNAIQ">×</button></div>
 </header>
 <section class="top-page on" id="page-personas"><div class="app">
   <nav class="panel-tabs" id="panelTabs" aria-label="Household panes"></nav>
@@ -298,16 +310,31 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
         <option value="openai">OpenAI</option><option value="gemini">Google Gemini</option>
         <option value="openrouter">OpenRouter</option><option value="together">Together AI</option>
         <option value="groq">Groq</option><option value="mistral">Mistral</option>
-        <option value="deepseek">DeepSeek</option><option value="zai">Z.AI · GLM</option>
-        <option value="xai">xAI · Grok</option><option value="lmstudio">LM Studio · local</option>
+        <option value="deepseek">DeepSeek</option><option value="meta">Meta Model API · Muse</option>
+        <option value="kimi">Kimi · Moonshot AI</option>
+        <option value="bedrock">Amazon Bedrock · Runtime</option>
+        <option value="bedrock_mantle">Amazon Bedrock · Mantle</option>
+        <option value="bedrock_gateway">Amazon Bedrock · Converse gateway</option>
+        <option value="zai">Z.AI · GLM</option>
+        <option value="xai">xAI · Grok</option><option value="fireworks">Fireworks AI</option>
+        <option value="deepinfra">DeepInfra</option><option value="cerebras">Cerebras</option>
+        <option value="sambanova">SambaNova</option><option value="nvidia">NVIDIA NIM</option>
+        <option value="huggingface">Hugging Face</option><option value="lmstudio">LM Studio · local</option>
+        <option value="llamacpp">llama.cpp · local</option><option value="vllm">vLLM · local</option>
+        <option value="localai">LocalAI · local</option><option value="jan">Jan · local</option>
+        <option value="textgen">text-generation-webui · local</option>
+        <option value="koboldcpp">KoboldCpp · local</option>
+        <option value="litellm">LiteLLM gateway · local</option>
         <option value="custom">Custom / self-hosted</option>
       </select></label>
       <label id="mbaseWrap" hidden>Base URL<input id="mbase" placeholder="http://localhost:1234/v1"></label>
+      <label id="mregionWrap" hidden>AWS region<input id="mregion" value="us-east-1" placeholder="us-east-1"></label>
       <div class="or-row wide"><label>Known model<select id="mknown"><option value="">choose…</option></select></label>
         <span>or</span><label>Other model ID<input id="mendpoint" placeholder="model ID or local tag"></label></div>
       <label id="mkeyenvWrap" hidden>Credential slot name<input id="mkeyenv" placeholder="OPENAI_API_KEY"></label>
       <label>Context window · tokens<input id="mwindow" type="number" min="256" step="1" placeholder="8192"></label>
-      <div class="wide"><button class="ghost" type="button" id="mdiscover">Load available models</button></div>
+      <div class="wide"><button class="ghost" type="button" id="mdiscover">Load available models</button>
+        <a href="/model-setup" target="_blank" rel="noopener">Model setup guide</a></div>
     </div>
     <p class="note model-note" id="modelNote"></p><div class="error" id="modelError"></div>
     <div class="modal-actions"><button class="primary" type="button" id="modelSave">Install model</button></div>
@@ -317,6 +344,33 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
 <script>
 const CFG = /*CONFIG*/;
 const $ = id => document.getElementById(id);
+if(CFG.session_window?.enabled){
+  $("window-controls").hidden=false;
+  $("window-controls").querySelector(".minimize").onclick=event=>controlSessionWindow("minimize",event.currentTarget);
+  $("window-controls").querySelector(".size").onclick=event=>controlSessionWindow("toggle-maximize",event.currentTarget);
+  $("window-controls").querySelector(".close").onclick=event=>controlSessionWindow("close",event.currentTarget);
+}
+
+async function controlSessionWindow(action,button){
+  button.disabled=true;
+  try{
+    const response=await fetch(`/api/session-window/${action}`,{
+      method:"POST",keepalive:action==="close",
+      headers:{"X-JNAIQ-Session-Window-Token":CFG.session_window.token}
+    });
+    const result=await response.json();
+    if(!response.ok||!result.ok)throw new Error(result.error||"window control failed");
+    if(action==="toggle-maximize"){
+      button.textContent=result.maximized?"❐":"□";
+      button.setAttribute("aria-label",result.maximized?"Restore JNAIQ window":"Maximize JNAIQ window");
+      button.title=result.maximized?"Restore JNAIQ window":"Maximize JNAIQ window";
+    }
+    if(action!=="close")button.disabled=false;
+  }catch(error){
+    button.disabled=false;
+    button.title=`Could not ${action} JNAIQ: ${error.message}`;
+  }
+}
 const storedVisible=localStorage.getItem("jnaiq.public.visible");
 const state = {personas:{}, models:[], modelInfo:{}, selected:new Set(), active:null, voicePid:null, lookPid:null, rosterPid:null, modelTarget:null,
   initialized:false,widths:{},theme:null,creativeCatalogs:{},creativePersona:localStorage.getItem("jnaiq.creative.persona")||""};
@@ -415,19 +469,43 @@ const MODEL_PRESETS={
   groq:{base:"https://api.groq.com/openai/v1",key:"GROQ_API_KEY",hint:"Groq model id"},
   mistral:{base:"https://api.mistral.ai/v1",key:"MISTRAL_API_KEY",hint:"model id, e.g. mistral-small-latest"},
   deepseek:{base:"https://api.deepseek.com/v1",key:"DEEPSEEK_API_KEY",hint:"model id, e.g. deepseek-chat"},
+  meta:{base:"https://api.meta.ai/v1",key:"MODEL_API_KEY",hint:"model id, e.g. muse-spark-1.3",window:1048576},
+  kimi:{base:"https://api.moonshot.ai/v1",key:"MOONSHOT_API_KEY",hint:"model id, e.g. kimi-k3"},
+  bedrock:{base:"https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1",key:"AWS_BEARER_TOKEN_BEDROCK",hint:"Chat Completions model or system inference profile ID"},
+  bedrock_mantle:{base:"https://bedrock-mantle.us-east-1.api.aws/v1",key:"AWS_BEARER_TOKEN_BEDROCK",hint:"model ID from this region's Mantle catalog"},
+  bedrock_gateway:{base:"http://127.0.0.1:4000/v1",key:"JNAIQ_BEDROCK_GATEWAY_KEY",hint:"bedrock-chat (start BEDROCK_GATEWAY first)"},
   zai:{base:"https://api.z.ai/api/paas/v4",key:"ZAI_API_KEY",hint:"model id, e.g. glm-5.1",window:200000},
   xai:{base:"https://api.x.ai/v1",key:"XAI_API_KEY",hint:"model id, e.g. grok-3"},
+  fireworks:{base:"https://api.fireworks.ai/inference/v1",key:"FIREWORKS_API_KEY",hint:"model id, e.g. accounts/fireworks/models/..."},
+  deepinfra:{base:"https://api.deepinfra.com/v1/openai",key:"DEEPINFRA_API_KEY",hint:"DeepInfra model id"},
+  cerebras:{base:"https://api.cerebras.ai/v1",key:"CEREBRAS_API_KEY",hint:"model id, e.g. gpt-oss-120b"},
+  sambanova:{base:"https://api.sambanova.ai/v1",key:"SAMBANOVA_API_KEY",hint:"SambaNova model id"},
+  nvidia:{base:"https://integrate.api.nvidia.com/v1",key:"NVIDIA_API_KEY",hint:"catalog id, e.g. openai/gpt-oss-20b"},
+  huggingface:{base:"https://router.huggingface.co/v1",key:"HF_TOKEN",hint:"Hugging Face inference model id"},
   lmstudio:{base:"http://localhost:1234/v1",key:"OPENAI_API_KEY",hint:"model id currently loaded in LM Studio"},
+  llamacpp:{base:"http://localhost:8080/v1",key:"LOCAL_API_KEY",hint:"model id served by llama.cpp"},
+  vllm:{base:"http://localhost:8000/v1",key:"LOCAL_API_KEY",hint:"model id served by vLLM"},
+  localai:{base:"http://localhost:8080/v1",key:"LOCAL_API_KEY",hint:"model id configured in LocalAI"},
+  jan:{base:"http://localhost:1337/v1",key:"LOCAL_API_KEY",hint:"model id loaded in Jan"},
+  textgen:{base:"http://localhost:5000/v1",key:"LOCAL_API_KEY",hint:"model id loaded in text-generation-webui"},
+  koboldcpp:{base:"http://localhost:5001/v1",key:"LOCAL_API_KEY",hint:"model id served by KoboldCpp"},
+  litellm:{base:"http://localhost:4000/v1",key:"LITELLM_MASTER_KEY",hint:"gateway alias for Azure / Bedrock / Vertex / Cohere / 100+ providers"},
   custom:{base:"",key:"OPENAI_API_KEY",hint:"model id served by your endpoint"}
 };
 const KNOWN_MODEL_IDS={
   anthropic:["claude-sonnet-4-6","claude-sonnet-4-5-20250929","claude-haiku-4-5-20251001"],ollama:[],
-  openai:["gpt-5.6-sol","gpt-5.6-terra","gpt-5.6-luna","gpt-5.5","gpt-5.4","gpt-5.4-mini","gpt-5.2","gpt-5.1","gpt-5","gpt-5-mini","gpt-4.1","gpt-4.1-mini"],
+  openai:["gpt-6-astra","gpt-5.6-sol","gpt-5.6-terra","gpt-5.6-luna","gpt-5.5","gpt-5.5-pro","gpt-5.4","gpt-5.4-pro","gpt-5.4-mini","gpt-5.4-nano","gpt-5.3-codex","gpt-5.2","gpt-5.2-pro","gpt-5.1","gpt-5","gpt-5-pro","gpt-5-mini","gpt-5-nano","o3-pro","o3","gpt-4.1","gpt-4.1-mini","gpt-4o","gpt-4o-mini"],
   gemini:["gemini-3.5-flash","gemini-3.1-pro-preview","gemini-2.5-pro","gemini-2.5-flash"],
-  openrouter:[],together:["meta-llama/Llama-3.3-70B-Instruct-Turbo"],
+  openrouter:["nousresearch/hermes-4-405b"],together:["meta-llama/Llama-3.3-70B-Instruct-Turbo"],
   groq:["llama-3.3-70b-versatile","llama-3.1-8b-instant"],mistral:["mistral-large-latest","mistral-small-latest"],
-  deepseek:["deepseek-chat","deepseek-reasoner"],zai:["glm-5.1","glm-5","glm-5-turbo","glm-4.7","glm-4.7-flash","glm-4.6v-flash"],
-  xai:["grok-4.5","grok-3"],lmstudio:[],custom:[]
+  deepseek:["deepseek-chat","deepseek-reasoner"],
+  meta:["muse-spark-1.3","muse-spark-1.2","muse-spark-1.1"],
+  kimi:["kimi-k3","kimi-k2.7-code","kimi-k2.7-code-highspeed","kimi-k2.6"],
+  zai:["glm-5.1","glm-5","glm-5-turbo","glm-4.7","glm-4.7-flash","glm-4.6v-flash"],
+  xai:["grok-4.5","grok-3"],fireworks:[],deepinfra:[],
+  cerebras:["gpt-oss-120b","llama3.1-8b","zai-glm-4.7"],sambanova:[],
+  nvidia:["openai/gpt-oss-20b","openai/gpt-oss-120b"],huggingface:[],
+  lmstudio:[],llamacpp:[],vllm:[],localai:[],jan:[],textgen:[],koboldcpp:[],litellm:[],custom:[]
 };
 const normalizedBase=value=>(value||"").replace(/\/+$/,"");
 function suggestedModelName(endpoint){return endpoint.trim().toLowerCase().replace(/^models\//,"")
@@ -450,20 +528,36 @@ function modelCredentialStory(){
   if(family==="ollama_openai")return "Local OpenAI-compatible Ollama: OLLAMA_API_KEY is an optional credential slot only.";
   if(family==="anthropic")return state.modelInfo.anthropic_key_set?"ANTHROPIC_API_KEY is set.":
     "Anthropic needs ANTHROPIC_API_KEY. Put the secret in Settings → API keys; secrets never go in model specs.";
+  if(family==="openai_compat"&&$("mpreset").value==="bedrock_gateway")return "Run BEDROCK_GATEWAY from your JNAIQ folder. It sets up the optional gateway for Converse models such as Claude and Nova. Calls go to AWS and incur AWS charges. Register bedrock-chat here; the setup guide has the steps.";
+  if(family==="openai_compat"&&/\/\/bedrock-(runtime|mantle)\./.test(base))return "Save your Bedrock API key in Settings → API keys → AWS_BEARER_TOKEN_BEDROCK. Choose your AWS region and a model that supports Chat Completions on this endpoint. Runtime has no model-list endpoint: copy the model or system profile ID from AWS. Claude / Nova Converse models use the gateway. AWS charges apply.";
   const local=/\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)[:\/]/.test(base);
   return local?`Local server. ${key} is only a credential slot name and is usually unused.`:
     `${key} is a credential slot name, not the secret. Put its value in Settings → API keys.`;
 }
 function applyModelPreset(){const preset=MODEL_PRESETS[$("mpreset").value];if(!preset)return;
   $("mbase").value=preset.base;$("mkeyenv").value=preset.key;$("mkeyenv").readOnly=$("mpreset").value!=="custom";
-  $("mendpoint").placeholder=preset.hint;$("mwindow").value=preset.window||"";fillKnownModels();$("modelNote").textContent=modelCredentialStory();}
+  $("mendpoint").placeholder=preset.hint;$("mwindow").value=preset.window||"";
+  const regional=["bedrock","bedrock_mantle"].includes($("mpreset").value);$("mregionWrap").hidden=!regional;
+  if(regional)applyBedrockRegion();else updateModelDiscovery();
+  fillKnownModels();$("modelNote").textContent=modelCredentialStory();}
+function updateModelDiscovery(){
+  const runtime=$("mfamily").value==="openai_compat"&&/^https:\/\/bedrock-runtime\.[a-z0-9-]+\.amazonaws\.com\//.test($("mbase").value);
+  $("mdiscover").disabled=runtime;$("mdiscover").title=runtime?"Copy the model or system inference profile ID from AWS; Runtime does not offer /models.":"Load this connection's catalog; model access still depends on your account.";
+}
+function applyBedrockRegion(){const region=$("mregion").value.trim(),preset=$("mpreset").value;
+  if(!/^[a-z]{2}(?:-[a-z]+)+-\d+$/.test(region)){$("modelError").textContent="Enter an AWS region such as us-east-1.";return false}
+  $("modelError").textContent="";$("mbase").value=preset==="bedrock"?`https://bedrock-runtime.${region}.amazonaws.com/openai/v1`:`https://bedrock-mantle.${region}.api.aws/v1`;
+  fillKnownModels();updateModelDiscovery();$("modelNote").textContent=modelCredentialStory();
+  return true;
+}
 function configureModelFamily(){const family=$("mfamily").value,isOllamaCompat=family==="ollama_openai",isCompat=family==="openai_compat"||isOllamaCompat;
   $("mpresetWrap").hidden=family!=="openai_compat";$("mbaseWrap").hidden=!isCompat;$("mkeyenvWrap").hidden=!isCompat;
+  $("mregionWrap").hidden=true;
   if(family==="ollama"){$("mendpoint").placeholder="Ollama tag, e.g. hermes3:8b";$("mwindow").placeholder="8192";}
   else if(family==="ollama_openai"){$("mendpoint").placeholder="Ollama tag, e.g. qwen3:8b";$("mwindow").placeholder="8192";$("mbase").value="http://localhost:11434/v1";$("mkeyenv").value="OLLAMA_API_KEY";}
   else if(family==="anthropic"){$("mendpoint").placeholder="API model id, e.g. claude-sonnet-4-6";$("mwindow").placeholder="200000";}
   else applyModelPreset();
-  fillKnownModels();$("modelNote").textContent=modelCredentialStory();
+  fillKnownModels();updateModelDiscovery();$("modelNote").textContent=modelCredentialStory();
 }
 function openModelDialog(personaId=null){state.modelTarget=personaId;$("modelError").textContent="";
   $("modelTitle").textContent=personaId?`Register a model · ${state.personas[personaId]?.display_name||personaId}`:"Install a model";
@@ -531,7 +625,7 @@ function publicCreativeFrameURL(pid=choosePublicCreativePersona()){
   const info=state.personas[pid];if(!pid||!info?.alive||!info.port)return "";
   const seen=Math.max(0,Number(localStorage.getItem(publicCreativeSeenKey(pid)))||0);
   const viewed=JSON.stringify([...publicCreativeViewedIds(pid)]);
-  return `http://127.0.0.1:${Number(info.port)}/?surface=creative&embedded=household&seen=${encodeURIComponent(seen)}&viewed=${encodeURIComponent(viewed)}&host_visible=true`
+  return `http://127.0.0.1:${Number(info.port)}/?surface=creative&embedded=household&collection_scope=legacy&seen=${encodeURIComponent(seen)}&viewed=${encodeURIComponent(viewed)}&host_visible=true`
 }
 function renderPublicCreativeSelector(){
   const selector=$("publicCreativePersona"),shell=$("publicCreativeShell");if(!selector||!shell)return;
@@ -674,6 +768,8 @@ $("rosterSave").onclick=async()=>{const button=$("rosterSave"),model=$("rosterMo
 $("installModel").onclick=()=>openModelDialog();
 $("modelClose").onclick=()=>$("modelDialog").close();
 $("mfamily").onchange=configureModelFamily;$("mpreset").onchange=applyModelPreset;
+$("mregion").oninput=applyBedrockRegion;
+$("mbase").oninput=()=>{fillKnownModels();updateModelDiscovery();$("modelNote").textContent=modelCredentialStory()};
 $("mkeyenv").oninput=()=>{$("modelNote").textContent=/^[A-Z][A-Z0-9_]*$/.test($("mkeyenv").value.trim())?
   modelCredentialStory():"This field takes a credential slot NAME such as OPENAI_API_KEY, not the secret itself."};
 $("mknown").onchange=()=>{if(!$("mknown").value)return;$("mendpoint").value="";
@@ -689,6 +785,7 @@ $("mdiscover").onclick=async()=>{const button=$("mdiscover"),family=$("mfamily")
   catch(error){$("modelError").textContent=`${error.message} You can still enter a model ID manually.`}
   finally{button.disabled=false;button.textContent="Load available models"}};
 $("modelSave").onclick=async()=>{const button=$("modelSave"),endpoint=$("mendpoint").value.trim()||$("mknown").value;
+  if($("mfamily").value==="openai_compat"&&["bedrock","bedrock_mantle"].includes($("mpreset").value)&&!applyBedrockRegion())return;
   const body={name:$("mname").value.trim(),family:$("mfamily").value,endpoint};
   const windowTokens=$("mwindow").value.trim();if(windowTokens)body.window_tokens=Number(windowTokens);
   if(body.family==="openai_compat"||body.family==="ollama_openai"){body.base_url=$("mbase").value.trim();const key=$("mkeyenv").value.trim();if(key)body.api_key_env=key}
@@ -718,7 +815,7 @@ async function openPersonaLook(id){
   $("lookTitle").textContent=`Change look · ${p?.display_name||id}`;$("lookIcon").value=p?.icon||"🦋";
   $("lookColor").value=named(state.theme?.tokens?.speaker_colors,p?.display_name||id)||"#b985ff";
   $("lookPreview").innerHTML=p?.avatar_url?`<img src="${esc(p.avatar_url)}" alt="">`:esc($("lookIcon").value);
-  $("lookFile").value="";$("lookError").textContent="";window.JNSQHexColors?.sync();$("lookDialog").showModal();
+  $("lookFile").value="";$("lookError").textContent="";window.JNAIQHexColors?.sync();$("lookDialog").showModal();
 }
 $("lookIcon").oninput=()=>{if(!state.personas[state.lookPid]?.avatar_url)$("lookPreview").textContent=$("lookIcon").value};
 $("lookClose").onclick=()=>$("lookDialog").close();

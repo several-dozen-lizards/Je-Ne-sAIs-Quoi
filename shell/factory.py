@@ -343,8 +343,8 @@ SPEC_FAMILIES = {
         "needs_env": "ANTHROPIC_API_KEY",
     },
     "openai_compat": {
-        "label": "OpenAI-compatible (LM Studio / llama.cpp / vLLM / "
-                 "OpenRouter / Groq …)",
+        "label": "OpenAI-compatible (OpenAI / Gemini / OpenRouter / "
+                 "Fireworks / Cerebras / NVIDIA / local servers …)",
         "endpoint_hint": "model id, e.g. qwen2.5-7b-instruct",
         "default_window": 8192,
         "needs_env": "OPENAI_API_KEY",   # NAME only; optional for local
@@ -444,7 +444,8 @@ harness:
 OPENAI_COMPAT_SPEC = """\
 # @NAME@ — user-added OpenAI-compatible model, scaffolded by the
 # factory @DATE@. One wire shape, many servers: LM Studio, llama.cpp,
-# vLLM, OpenRouter, Together, Groq. KEY LAW: api_key_env below NAMES
+# vLLM, OpenRouter, Together, Groq, Fireworks, DeepInfra, Cerebras,
+# SambaNova, NVIDIA, and Hugging Face. KEY LAW: api_key_env below NAMES
 # an environment variable — the value NEVER goes in this file. Local
 # servers typically need no key at all (unset env -> no auth header).
 # NOTHING here is verified — run the harness MECHANICAL TIER before
@@ -510,16 +511,33 @@ def _temperature_policy_block(base_url: str, endpoint: str) -> str:
                 "    mode: dynamic\n"
                 "    min: 0.0\n"
                 "    max: 1.0\n"
+                "    precision: 2\n"
+                "  top_p:\n"
+                "    mode: dynamic\n"
+                "    min: 0.5\n"
+                "    max: 1.0\n"
                 "    precision: 2")
-    if host == "api.openai.com" and model.startswith("gpt-5"):
+    bedrock_gpt = (host.startswith(("bedrock-runtime.", "bedrock-mantle."))
+                   and (host.endswith(".amazonaws.com")
+                        or host.endswith(".api.aws"))
+                   and any(prefix in model for prefix in
+                           ("openai.gpt-5", "openai.gpt-6")))
+    if bedrock_gpt or (host == "api.openai.com"
+                       and model.startswith(("gpt-5", "gpt-6"))):
         return ("sampling:\n"
                 "  temperature:\n"
+                "    mode: omit\n"
+                "  top_p:\n"
                 "    mode: omit\n"
                 "reasoning:\n"
                 "  effort: low")
     return ("sampling:\n"
             "  temperature:\n"
-            "    mode: dynamic")
+            "    mode: dynamic\n"
+            "  top_p:\n"
+            "    mode: dynamic\n"
+            "    min: 0.5\n"
+            "    max: 1.0")
 
 
 def scaffold_model_spec(name: str, family: str, endpoint: str,
@@ -625,6 +643,34 @@ def scaffold_model_spec(name: str, family: str, endpoint: str,
                .replace("@DATE@", time.strftime("%Y-%m-%d"))
                .replace("@WINDOW@", str(window))
                .replace("@PRACTICAL@", str(int(window * 0.85))))
+    # Re-registering a known API endpoint under a new local name must retain
+    # its wire constraints (e.g. Kimi's token parameter and fixed sampling).
+    # Copy mechanical declarations only, never model identity or resident data.
+    if family in {"openai_compat", "ollama_openai"}:
+        import copy
+        from pathlib import Path
+        import yaml
+        registered = yaml.safe_load(text)
+        for candidate in sorted(Path(REPO, "specs", "models").glob("*.yaml")):
+            source = yaml.safe_load(candidate.read_text(encoding="utf-8")) or {}
+            ident = source.get("identity") or {}
+            if (ident.get("provider") != "openai_compat"
+                    or ident.get("endpoint") != endpoint
+                    or (ident.get("base_url") or "").rstrip("/") != base_url):
+                continue
+            for field in ("sampling", "reasoning", "wire", "capabilities"):
+                if field in source:
+                    registered[field] = copy.deepcopy(source[field])
+            for field in ("token_limit_param", "service"):
+                if field in ident:
+                    registered["identity"][field] = ident[field]
+            if window_tokens is None and source.get("context"):
+                window = int(source["context"]["window_tokens"])
+                registered["context"]["window_tokens"] = window
+                registered["context"]["practical_window_tokens"] = int(
+                    source["context"].get("practical_window_tokens", window * 0.85))
+            text = yaml.safe_dump(registered, sort_keys=False, allow_unicode=True)
+            break
     with open(path, "w", encoding="utf-8") as f:
         f.write(text)
     needs = None

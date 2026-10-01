@@ -6,6 +6,7 @@ provider does not expose a model-list endpoint.
 """
 import os
 import re
+from urllib.parse import urlparse
 
 import requests
 
@@ -13,6 +14,38 @@ import requests
 ANTHROPIC_MODELS_URL = "https://api.anthropic.com/v1/models"
 OLLAMA_TAGS_URL = "http://localhost:11434/api/tags"
 _ENV_NAME = re.compile(r"[A-Z][A-Z0-9_]*$")
+
+# Optional setup slots are visible before any model is registered. Values
+# remain server-side; installing a hosted model makes its slot required.
+PROVIDER_KEY_SLOTS = {
+    "ANTHROPIC_API_KEY": "Anthropic",
+    "OPENAI_API_KEY": "OpenAI",
+    "GEMINI_API_KEY": "Google Gemini",
+    "OPENROUTER_API_KEY": "OpenRouter",
+    "TOGETHER_API_KEY": "Together AI",
+    "GROQ_API_KEY": "Groq",
+    "MISTRAL_API_KEY": "Mistral",
+    "DEEPSEEK_API_KEY": "DeepSeek",
+    "MODEL_API_KEY": "Meta Model API",
+    "MOONSHOT_API_KEY": "Kimi / Moonshot AI",
+    "ZAI_API_KEY": "Z.AI",
+    "XAI_API_KEY": "xAI",
+    "FIREWORKS_API_KEY": "Fireworks AI",
+    "DEEPINFRA_API_KEY": "DeepInfra",
+    "CEREBRAS_API_KEY": "Cerebras",
+    "SAMBANOVA_API_KEY": "SambaNova",
+    "NVIDIA_API_KEY": "NVIDIA NIM",
+    "HF_TOKEN": "Hugging Face",
+    "AWS_BEARER_TOKEN_BEDROCK": "Amazon Bedrock",
+    "JNAIQ_BEDROCK_GATEWAY_KEY": "JNAIQ Bedrock gateway",
+    "LITELLM_MASTER_KEY": "LiteLLM gateway",
+    "LOCAL_API_KEY": "Local model server (if authentication is enabled)",
+}
+
+
+def is_bedrock_runtime(base_url: str) -> bool:
+    host = (urlparse(base_url).hostname or "").lower()
+    return bool(re.fullmatch(r"bedrock-runtime\.[a-z0-9-]+\.amazonaws\.com", host))
 
 
 def _response_error(response) -> RuntimeError:
@@ -71,6 +104,12 @@ def discover_models(family: str, base_url: str = None,
     base = (base_url or "").strip().rstrip("/")
     if not re.match(r"^https?://", base):
         raise ValueError("OpenAI-compatible discovery needs an http(s) base URL")
+    if is_bedrock_runtime(base):
+        raise ValueError(
+            "Amazon Bedrock Runtime has no OpenAI /models endpoint. "
+            "Copy the Chat Completions model or system inference profile ID "
+            "from your AWS model catalog, or use the Bedrock Mantle preset "
+            "for supported models. Converse models use the Bedrock gateway.")
     key_name = (api_key_env or "").strip() or "OPENAI_API_KEY"
     if not _ENV_NAME.fullmatch(key_name):
         raise ValueError("API key env var must be UPPER_SNAKE")

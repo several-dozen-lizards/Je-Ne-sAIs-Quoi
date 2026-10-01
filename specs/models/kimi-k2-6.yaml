@@ -1,0 +1,53 @@
+# Kimi K2.6 — Moonshot AI's general-purpose model, configured without hidden
+# thinking for quicker resident conversation and clean multi-step boundaries.
+# Registered from the 2026-09-21 API contract; live access remains unverified.
+identity:
+  name: "kimi-k2-6"
+  family: "openai_chat"
+  base_model: "Kimi K2.6"
+  provider: "openai_compat"
+  service: "moonshot"
+  endpoint: "kimi-k2.6"
+  base_url: "https://api.moonshot.ai/v1"
+  api_key_env: "MOONSHOT_API_KEY"
+  locality: "api"
+context:
+  window_tokens: 256000
+  practical_window_tokens: 217600
+  block_budgets: {}
+prompt_structure:
+  system_prompt: true
+  template: "openai_messages"
+  strict_alternation: false
+  prefill_supported: false
+  stop_sequences: []
+sampling:
+  temperature:
+    mode: omit
+  top_p:
+    mode: omit
+wire:
+  chat_completions:
+    include_stream_usage: true
+    thinking:
+      type: "disabled"
+capabilities:
+  tool_use: true
+  vision: true
+  structured_output: "unknown"
+  streaming: true
+module_capability:
+  validated: []
+  saturates_on: []
+  ceiling_notes: "registered from provider documentation; JNAIQ behavioral ceiling not yet measured"
+runtime:
+  gpu_constraints: "server-side"
+  cost: "$0.16 cached input / $0.95 input / $4.00 output per MTok (Kimi, checked 2026-09-21)"
+  latency_class: "unknown"
+quirks:
+  - "thinking is explicitly disabled for this JNAIQ vessel"
+  - "non-thinking temperature is provider-fixed at 0.6 and top_p at 0.95; JNAIQ omits both controls"
+  - "provider supports tool use without reasoning_content retention in this non-thinking mode"
+harness:
+  last_mechanical_pass: null
+  fidelity_floor_results: {}

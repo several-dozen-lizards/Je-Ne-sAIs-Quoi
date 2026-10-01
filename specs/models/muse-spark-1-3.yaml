@@ -1,0 +1,54 @@
+# Muse Spark 1.3 — Meta Model API's standard-tier flagship.
+# Registered from the 2026-09-21 API contract; live account access remains
+# unverified until a MODEL_API_KEY canary succeeds.
+identity:
+  name: "muse-spark-1-3"
+  family: "openai_chat"
+  base_model: "Muse Spark 1.3"
+  provider: "openai_compat"
+  service: "meta_model_api"
+  endpoint: "muse-spark-1.3"
+  base_url: "https://api.meta.ai/v1"
+  api_key_env: "MODEL_API_KEY"
+  token_limit_param: "max_completion_tokens"
+  locality: "api"
+context:
+  window_tokens: 1048576
+  practical_window_tokens: 891290
+  block_budgets: {}
+prompt_structure:
+  system_prompt: true
+  template: "openai_messages"
+  strict_alternation: false
+  prefill_supported: false
+  stop_sequences: []
+sampling:
+  temperature:
+    mode: omit
+  top_p:
+    mode: omit
+reasoning:
+  effort: low
+wire:
+  chat_completions:
+    include_stream_usage: true
+capabilities:
+  tool_use: false
+  vision: true
+  structured_output: "unknown"
+  streaming: true
+module_capability:
+  validated: []
+  saturates_on: []
+  ceiling_notes: "registered from provider documentation; JNAIQ behavioral ceiling not yet measured"
+runtime:
+  gpu_constraints: "server-side"
+  cost: "$0.15 cached input / $1.25 input / $4.25 output per MTok (standard tier, checked 2026-09-21)"
+  latency_class: "unknown"
+quirks:
+  - "standard tier is documented as not used to improve Meta products; contributor-tier model ids are intentionally not seeded"
+  - "Meta recommends the Responses API for preserving reasoning across tool loops"
+  - "tool use stays disabled until JNAIQ can preserve Muse reasoning state across tool rounds"
+harness:
+  last_mechanical_pass: null
+  fidelity_floor_results: {}

@@ -16,10 +16,13 @@ $Runfile = Join-Path $Root "jnaiq_running.json"
 $LegacyRunfile = Join-Path $Root "jnsq_running.json"
 $UpdateLog = Join-Path $Root "logs\update.log"
 $TempRoot = $null
-$LocalLifeRoots = @("users", "personas", "people", "logs", "exports", ".venv", ".git")
+$LocalLifeRoots = @("users", "personas", "people", "logs", "exports", "state", "scratch", "local_services", ".venv", ".git")
 $PrivateRuntimeNames = @(
     ".env", ".jnaiq_local.json", ".jnsq_local.json",
     "jnaiq_running.json", "jnsq_running.json", "room_world.json",
+    "conversations.jsonl", "conversation_hearth.jsonl",
+    "conversation_lineage.jsonl", "private_conversations.jsonl",
+    "private_conversation_diagnostic_audit.jsonl",
     "household_theme.json", "nexus_theme.json", "custom_presets.json",
     "conversation_background.json", "conversation_area_background.json",
     "nexus_background.json", "conversation_background.bin",

@@ -1020,6 +1020,12 @@ def build_app(room_url: str = None, *, record_health: bool = False,
             page = f.read()
         return page.replace("/*CONFIG*/", _json.dumps(cfg))
 
+    @app.get("/model-setup", response_class=HTMLResponse)
+    def model_setup_page():
+        with open(os.path.join(ROOT, "shell", "model_setup.html"),
+                  encoding="utf-8") as f:
+            return f.read()
+
     @app.get("/about", response_class=HTMLResponse)
     def about_page():
         """Public field guide: setup, features, embodiment, and receipts."""
@@ -1988,7 +1994,14 @@ def build_app(room_url: str = None, *, record_health: bool = False,
             capabilities = spec.get("capabilities") or {}
             runtime = spec.get("runtime") or {}
             base_url = ident.get("base_url") or ""
-            if "api.z.ai" in base_url:
+            from urllib.parse import urlparse
+            provider_host = (urlparse(base_url).hostname or "").lower()
+            if (provider_host.startswith("bedrock-runtime.")
+                    and provider_host.endswith(".amazonaws.com")) or (
+                    provider_host.startswith("bedrock-mantle.")
+                    and provider_host.endswith(".api.aws")):
+                vendor = "Amazon Bedrock"
+            elif "api.z.ai" in base_url:
                 vendor = "Z.AI"
             elif "api.openai.com" in base_url:
                 vendor = "OpenAI"
@@ -2123,6 +2136,9 @@ def build_app(room_url: str = None, *, record_health: bool = False,
                             ("ELEVENLABS_API_KEY", "ElevenLabs voice output")):
             needed.setdefault(name, {"optional": True, "used_by": []})[
                 "used_by"].append(label)
+        from shell.model_catalog import PROVIDER_KEY_SLOTS
+        for name, label in PROVIDER_KEY_SLOTS.items():
+            needed.setdefault(name, {"optional": True, "used_by": [label]})
         keys = [{"env": n, "set": bool(os.environ.get(n)),
                  "optional": v["optional"], "used_by": v["used_by"]}
                 for n, v in sorted(needed.items())]

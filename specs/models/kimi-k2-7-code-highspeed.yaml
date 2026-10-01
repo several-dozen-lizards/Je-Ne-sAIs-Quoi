@@ -1,0 +1,50 @@
+# Kimi K2.7 Code HighSpeed — the faster serving tier of K2.7 Code. Registered
+# from the 2026-09-21 API contract; live account access remains unverified.
+identity:
+  name: "kimi-k2-7-code-highspeed"
+  family: "openai_chat"
+  base_model: "Kimi K2.7 Code HighSpeed"
+  provider: "openai_compat"
+  service: "moonshot"
+  endpoint: "kimi-k2.7-code-highspeed"
+  base_url: "https://api.moonshot.ai/v1"
+  api_key_env: "MOONSHOT_API_KEY"
+  locality: "api"
+context:
+  window_tokens: 256000
+  practical_window_tokens: 217600
+  block_budgets: {}
+prompt_structure:
+  system_prompt: true
+  template: "openai_messages"
+  strict_alternation: false
+  prefill_supported: false
+  stop_sequences: []
+sampling:
+  temperature:
+    mode: omit
+  top_p:
+    mode: omit
+wire:
+  chat_completions:
+    include_stream_usage: true
+capabilities:
+  tool_use: false
+  vision: true
+  structured_output: "unknown"
+  streaming: true
+module_capability:
+  validated: []
+  saturates_on: []
+  ceiling_notes: "registered from provider documentation; JNAIQ behavioral ceiling not yet measured"
+runtime:
+  gpu_constraints: "server-side"
+  cost: "see current Kimi API pricing"
+  latency_class: "fast"
+quirks:
+  - "same model family as K2.7 Code on a faster, capacity-sensitive serving tier"
+  - "thinking cannot be disabled; provider fixes temperature=1.0 and top_p=0.95"
+  - "tool use stays disabled until JNAIQ can preserve the provider's reasoning_content across tool rounds"
+harness:
+  last_mechanical_pass: null
+  fidelity_floor_results: {}

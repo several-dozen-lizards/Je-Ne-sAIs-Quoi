@@ -1,7 +1,7 @@
 {
   "format": 2,
   "version": "0.12.1",
-  "files": 316,
+  "files": 317,
   "contains_personal_data": false,
   "empty_local_roots": [
     "personas",
@@ -185,7 +185,7 @@
     "INSTALL_JNAIQ.bat": "eb2ef424cb31d294c10d81883271fc4d112935732afedb971044ae44fb2adae9",
     "INSTALL_JNAIQ.command": "df204f420a13d2f7fefa53f2d05171da113bec616c49be579c7f9c9fc23530fd",
     "LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
-    "README.md": "b18f32e32824c51cb5ff1574481acf4b1f15aceaf5266165011ac2f3ad99404a",
+    "README.md": "5743222cfa001f7c10179cdc33f132fc54c92a6aa5aa3f3e787403f0b31f2c43",
     "requirements.txt": "f0397a54b6b333e9c1289ba05b3f6feee8df9d1be70c65c8975656c52d012d74",
     "room/__init__.py": "7095f6cbb0b61f7374669ec93cce972dd6d3c4a45d18cba7f0eb5ba85932f62d",
     "room/body_workshop.html": "e90b1125d3e5cb071aa3bdb5e8bfa3f1e72fc2ac66f7e1d5f9b2a995aa58492f",
@@ -325,6 +325,7 @@
     "UPDATE_JNAIQ.bat": "8988299b866672f724e4be6c6920fc9b4c126b7c1ca9f003085a004cb3aaa107",
     "UPDATE_JNAIQ.command": "675b4ddc91ab5f07ebaaeb73a01096028f9ffa0e79d893c06abbd3be78287a80",
     "UPDATE_JNAIQ.ps1": "aafa8a6c4a81cfdabee6c2d601611dd781b709f9f29d6e53ddbd5dc61b3b2dcd",
-    "VERSION": "f6ee69bf1c4b27a242266ccb5aeb4aa8c8306345b9ebe4ff7335b8c940452b81"
+    "VERSION": "f6ee69bf1c4b27a242266ccb5aeb4aa8c8306345b9ebe4ff7335b8c940452b81",
+    "docs/JNAIQ_0_12_1_USER_SETUP_GUIDE.md": "671d3aa4874b9e712a22975997c97d4344291f6c7c18ecee20352b9bf6fbd123"
   }
 }

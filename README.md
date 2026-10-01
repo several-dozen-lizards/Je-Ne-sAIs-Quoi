@@ -9,6 +9,10 @@ who they are, choose the model that carries them, and talk with one or several
 of them in a configurable chat workspace. Persona identity, memory, body state,
 and conversation history live on your own computer.
 
+**Start here:** [Setup guide for new and current users](docs/JNAIQ_0_12_1_USER_SETUP_GUIDE.md).
+Install JNAIQ, update an existing household, connect local or hosted models
+(including Amazon Bedrock), and check your first reply.
+
 This public build is intentionally narrow. It has chats, persona creation, and
 one shared context room called **the Nexus**. It does not include the private
 development household, individual persona rooms, the Yurt interface, or any 3D

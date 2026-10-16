@@ -71,6 +71,39 @@ def _parse_time(value: str) -> dt.datetime:
     return parsed.astimezone(dt.timezone.utc)
 
 
+def island_weather(current: dict) -> dict:
+    """Map the same observation to the richer outdoor island renderer."""
+    evidence = yurt_weather(current)
+    e = evidence['evidence']
+    code, cloud = e['weather_code'], e['cloud_cover_pct'] / 100
+    wet = e['precipitation_mm']
+    snow = e['snowfall_cm']
+    if code in (95, 96, 99):
+        kind = 'storm'
+    elif snow > .02 or code in (*range(71, 78), 85, 86):
+        kind = 'snow'
+    elif evidence['weather'] == 'storm':
+        kind = 'storm'
+    elif evidence['weather'] == 'rain':
+        kind = 'rain'
+    elif code in (45, 48):
+        kind = 'fog'
+    elif cloud >= .97 or code == 3:
+        kind = 'overcast'
+    elif cloud > .08 or code in (1, 2):
+        kind = 'scattered'
+    else:
+        kind = 'clear'
+    # Saturating intensity follows measured precipitation/wind; cloud coverage
+    # inverts weatherProfile's existing coverage slider formula.
+    strength = (.1 + .9 * (cloud - .08) / .89 if kind == 'scattered' else
+                snow / (snow + .25) if kind == 'snow' and snow else
+                max(wet / (wet + 1), e['wind_kmh'] / (e['wind_kmh'] + 55))
+                if kind == 'storm' else wet / (wet + 1)
+                if kind == 'rain' and wet else cloud if cloud else .5)
+    return {'weather': kind, 'strength': round(max(.1, min(1, strength)), 3)}
+
+
 def normalize_response(payload: dict, *, fetched_at=None) -> dict:
     current = dict(payload.get("current") or {})
     if not current:
@@ -201,6 +234,8 @@ class LocalWeather:
             "precision": self.config.get("precision"),
             "hemisphere": self.config.get("hemisphere"),
             "status": dict(self.status),
+            "island": island_weather(self.status['current'])
+            if self.status.get('current') else None,
         }
 
     def configure(self, *, enabled, latitude=None, longitude=None,
@@ -242,9 +277,6 @@ class LocalWeather:
         try:
             result = fetcher(
                 self.config["latitude"], self.config["longitude"])
-            tuning = self._read(self.tuning_path)
-            tuning["weather"] = result["weather"]
-            atomic_json(self.tuning_path, tuning)
             self.status = {**result, "ok": True, "error": ""}
         except Exception as exc:
             # Hold last valid room state. Failure is visible but never becomes

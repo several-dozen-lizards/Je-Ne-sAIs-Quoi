@@ -1,0 +1,164 @@
+{
+  "model_sha256": "098d78b73c57b902fa1a8a90976b6e8c44d19c5a9244115acd0ac2412b8acbee",
+  "components": [
+    {
+      "category": "clothes",
+      "name": "male_casualsuit01",
+      "source_sha256": "78503ed7f56c149843d85e06e1164bc6871ce7319b2ef689237046352cc90de4",
+      "license": "CC0-1.0"
+    },
+    {
+      "category": "hair",
+      "name": "short01",
+      "source_sha256": "ae1ffaa98da5753b803b3a173bede4895d2215e6bb94763f3765a71f0e984f35",
+      "license": "CC0-1.0"
+    },
+    {
+      "category": "eyes",
+      "name": "low-poly",
+      "source_sha256": "68582e28e9176cba7cfcf35208f671b6201b8d1bc95c32decff61a3160ec34d8",
+      "license": "CC0-1.0"
+    },
+    {
+      "category": "teeth",
+      "name": "teeth_base",
+      "source_sha256": "9edc3deff3bb97a95c791878064dd069a74a38f95ea6d9707a9ba68d888b3b5c",
+      "license": "CC0-1.0"
+    },
+    {
+      "category": "tongue",
+      "name": "tongue01",
+      "source_sha256": "61d825899cd78ff3146fa1324118060cb44b095fae1427d408c199ade74e3c9e",
+      "license": "CC0-1.0"
+    }
+  ],
+  "images": [
+    {
+      "name": "young_lightskinned_male_diffuse2",
+      "sha256": "03efe1f6b0ae52429649dcefc9dcaef6058032f874a251169cc3e2ed473c3874",
+      "matches": [
+        {
+          "path": "skins/young_caucasian_male2/young_lightskinned_male_diffuse2.png",
+          "match": "exact_bytes"
+        }
+      ]
+    },
+    {
+      "name": "brown_eye",
+      "sha256": "4659691c7295ad6206c78b003e5fd0e5f91dcd53032fa914a229bb48cabe424b",
+      "matches": [
+        {
+          "path": "eyes/materials/brown_eye.png",
+          "match": "exact_bytes"
+        }
+      ]
+    },
+    {
+      "name": "male_casualsuit01_normal",
+      "sha256": "ff029fc5a3350ebc72813cdf050afcffd23064c7701d99e664572713cfa98a5f",
+      "matches": [
+        {
+          "path": "clothes/male_casualsuit01/male_casualsuit01_normal.png",
+          "match": "exact_bytes"
+        },
+        {
+          "path": "clothes/male_casualsuit01/toigo_male_casual_suit_01_khaki/male_casualsuit01_normal.png",
+          "match": "exact_bytes"
+        },
+        {
+          "path": "clothes/male_casualsuit01/toigo_male_casual_suit_01_purple_shirt/male_casualsuit01_normal.png",
+          "match": "exact_bytes"
+        },
+        {
+          "path": "clothes/male_casualsuit01/toigo_male_casual_suit_01_purple_shirt_with_black_jeans/male_casualsuit01_normal.png",
+          "match": "exact_bytes"
+        },
+        {
+          "path": "clothes/male_casualsuit01/toigo_male_casual_suit_01_red_shirt_with_black_jeans/male_casualsuit01_normal.png",
+          "match": "exact_bytes"
+        },
+        {
+          "path": "clothes/male_casualsuit01/toigo_male_casual_suit_01_teal_shirt_with_black_jeans/male_casualsuit01_normal.png",
+          "match": "exact_bytes"
+        },
+        {
+          "path": "clothes/male_casualsuit01/toigo_male_casual_suit_01_white_shirt/male_casualsuit01_normal.png",
+          "match": "exact_bytes"
+        },
+        {
+          "path": "clothes/male_casualsuit01/toigo_male_casual_suit_01_yellow_shirt/male_casualsuit01_normal.png",
+          "match": "exact_bytes"
+        }
+      ]
+    },
+    {
+      "name": "male_casualsuit01_diffuse",
+      "sha256": "3fd0bba5dcbdea0ac427f644a6c7c298938f7369b8f96626621ce1e88989394e",
+      "matches": [
+        {
+          "path": "clothes/male_casualsuit01/male_casualsuit01_diffuse.png",
+          "match": "exact_bytes"
+        }
+      ]
+    },
+    {
+      "name": "short01_diffuse",
+      "sha256": "f34a0957184e3d1e911ed59245f874f8d4843f61ee44ff49f43edb4be0196949",
+      "matches": [
+        {
+          "path": "hair/short01/short01_diffuse.png",
+          "match": "exact_bytes"
+        }
+      ]
+    },
+    {
+      "name": "teeth",
+      "sha256": "d0afb57869c6fbb56b98f5efc4aec629ee7593e70d8dd2bfb9de923acfb65f43",
+      "matches": [
+        {
+          "path": "teeth/teeth_base/teeth.png",
+          "match": "exact_bytes"
+        },
+        {
+          "path": "teeth/teeth_shape01/teeth.png",
+          "match": "exact_bytes"
+        },
+        {
+          "path": "teeth/teeth_shape02/teeth.png",
+          "match": "exact_bytes"
+        },
+        {
+          "path": "teeth/teeth_shape03/teeth.png",
+          "match": "exact_bytes"
+        },
+        {
+          "path": "teeth/teeth_shape04/teeth.png",
+          "match": "exact_bytes"
+        },
+        {
+          "path": "teeth/teeth_shape05/teeth.png",
+          "match": "exact_bytes"
+        }
+      ]
+    },
+    {
+      "name": "tongue01_diffuse",
+      "sha256": "3150be398e48e8ba1feac164c3143c16c0b2e959d9ffb6155f0171f59cfb4ea9",
+      "matches": [
+        {
+          "path": "tongue/tongue01/tongue01_diffuse.png",
+          "match": "exact_bytes"
+        }
+      ]
+    }
+  ],
+  "all_textures_matched": true,
+  "meshes": [
+    "base",
+    "low-poly.001",
+    "male_casualsuit01",
+    "short01",
+    "teeth_base.001",
+    "tongue01.001"
+  ]
+}

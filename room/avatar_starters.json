@@ -1,0 +1,16 @@
+{
+  "schema": "jnsq-avatar-starters/1",
+  "starters": [
+    {
+      "name": "Human starter · casual clothes",
+      "candidate_id": "a5bbba7fd0df4fefaa8c9ecba8d0faea",
+      "group": "Curated starter",
+      "appearance": {
+        "hairstyle": "short01",
+        "beard": "none",
+        "hair": "#ffffff",
+        "hair_lightness": 0
+      }
+    }
+  ]
+}

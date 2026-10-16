@@ -1,0 +1,133 @@
+{
+  "commons_couch": {
+    "kind": "seat",
+    "height": 0.336176377,
+    "surface": 0.161317228,
+    "width": 1,
+    "depth": 0.389408113,
+    "facing_deg": 180,
+    "center": [
+      -0.026675958,
+      0.046088553
+    ],
+    "source": "commons_couch.glb"
+  },
+  "couch": {
+    "kind": "seat",
+    "height": 0.409443951,
+    "surface": 0.20484217,
+    "width": 1,
+    "depth": 0.338712611,
+    "facing_deg": 180,
+    "center": [
+      0,
+      0.044029546
+    ],
+    "source": "couch.glb"
+  },
+  "dream_engine_bed_celestial": {
+    "kind": "bed",
+    "height": 0.488313831,
+    "surface": 0.28453547,
+    "width": 0.723914017,
+    "depth": 1,
+    "facing_deg": 180,
+    "center": [
+      0.000383762,
+      0.004594378
+    ],
+    "source": "dream_engine_bed_celestial.glb"
+  },
+  "dream_engine_bed_rose": {
+    "kind": "bed",
+    "height": 0.37978648,
+    "surface": 0.263035937,
+    "width": 1,
+    "depth": 0.421844432,
+    "facing_deg": -90,
+    "center": [
+      0.02365,
+      0.00208813
+    ],
+    "source": "dream_engine_bed_rose.glb"
+  },
+  "greenchair_01": {
+    "kind": "seat",
+    "height": 1.572605176,
+    "surface": 0.681507475,
+    "width": 1,
+    "depth": 0.987064109,
+    "facing_deg": 180,
+    "center": [
+      0.002414634,
+      0.090304329
+    ],
+    "source": "greenchair_01.glb"
+  },
+  "neon_dreambed": {
+    "kind": "bed",
+    "height": 0.740071445,
+    "surface": 0.295049464,
+    "width": 0.88014646,
+    "depth": 1,
+    "facing_deg": 180,
+    "center": [
+      -0.002457262,
+      0.003350254
+    ],
+    "source": "neon_dreambed.glb",
+    "review": "Headboard orientation corrected from rendered model"
+  },
+  "opalescent_dreambed": {
+    "kind": "bed",
+    "height": 0.628976694,
+    "surface": 0.268421916,
+    "width": 0.929718586,
+    "depth": 1,
+    "facing_deg": 180,
+    "center": [
+      -0.005565662,
+      0.078571429
+    ],
+    "source": "opalescent_dreambed.glb"
+  },
+  "ph_plastic_monobloc_chair_01": {
+    "kind": "seat",
+    "height": 1.37076564,
+    "surface": 0.697247454,
+    "width": 1,
+    "depth": 0.977768972,
+    "facing_deg": 180,
+    "center": [
+      0,
+      0.113335054
+    ],
+    "source": "ph_plastic_monobloc_chair_01.glb"
+  },
+  "schoolchair_01": {
+    "kind": "seat",
+    "height": 1.489860448,
+    "surface": 0.746978422,
+    "width": 0.837984757,
+    "depth": 1,
+    "facing_deg": 180,
+    "center": [
+      0.000264311,
+      0.133103943
+    ],
+    "source": "schoolchair_01.glb"
+  },
+  "woodenchair_01": {
+    "kind": "seat",
+    "height": 3.303697559,
+    "surface": 0.960088908,
+    "width": 1,
+    "depth": 0.956826283,
+    "facing_deg": 180,
+    "center": [
+      0,
+      0.013910352
+    ],
+    "source": "woodenchair_01.glb"
+  }
+}

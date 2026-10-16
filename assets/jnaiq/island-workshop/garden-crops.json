@@ -1,0 +1,23 @@
+{
+  "radish": {
+    "name": "Radishes",
+    "growthHours": 12,
+    "yield": 8,
+    "leaf": "#538849",
+    "fruit": "#ce4264"
+  },
+  "lettuce": {
+    "name": "Lettuce",
+    "growthHours": 24,
+    "yield": 4,
+    "leaf": "#86ad55",
+    "fruit": "#a3c875"
+  },
+  "tomato": {
+    "name": "Tomatoes",
+    "growthHours": 48,
+    "yield": 10,
+    "leaf": "#447442",
+    "fruit": "#df5839"
+  }
+}

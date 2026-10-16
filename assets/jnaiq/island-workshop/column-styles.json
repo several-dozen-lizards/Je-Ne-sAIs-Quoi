@@ -1,0 +1,86 @@
+{
+  "doric": {
+    "name": "Greek-inspired Doric",
+    "material": "stone",
+    "form": "fluted",
+    "capital": "cushion"
+  },
+  "ionic": {
+    "name": "Greek-inspired Ionic",
+    "material": "marble",
+    "form": "fluted",
+    "capital": "scrolls"
+  },
+  "corinthian": {
+    "name": "Corinthian-inspired foliage",
+    "material": "marble",
+    "form": "fluted",
+    "capital": "leaves"
+  },
+  "tuscan": {
+    "name": "Roman-inspired Tuscan",
+    "material": "stone",
+    "form": "smooth",
+    "capital": "rings"
+  },
+  "composite": {
+    "name": "Roman-inspired Composite",
+    "material": "marble",
+    "form": "fluted",
+    "capital": "composite"
+  },
+  "timber": {
+    "name": "Square timber post",
+    "material": "timber",
+    "form": "square",
+    "capital": "brace"
+  },
+  "rustic": {
+    "name": "Rough tree-trunk post",
+    "material": "timber",
+    "form": "rough",
+    "capital": "plain"
+  },
+  "moroccan": {
+    "name": "Moroccan-inspired carved pier",
+    "material": "plaster",
+    "form": "octagon",
+    "capital": "carved"
+  },
+  "lotus": {
+    "name": "Egyptian-inspired lotus",
+    "material": "stone",
+    "form": "bundle",
+    "capital": "lotus"
+  },
+  "deco": {
+    "name": "Art Deco stepped pier",
+    "material": "concrete",
+    "form": "square",
+    "capital": "stepped"
+  },
+  "dwarven": {
+    "name": "Dwarven stone pillar",
+    "material": "stone",
+    "form": "octagon",
+    "capital": "stepped"
+  },
+  "organic": {
+    "name": "Branching organic column",
+    "material": "timber",
+    "form": "rough",
+    "capital": "branches"
+  },
+  "alien": {
+    "name": "Alien spiral support",
+    "material": "copper",
+    "form": "twisted",
+    "capital": "fins"
+  },
+  "fantasy": {
+    "name": "Fantasy crystal pillar",
+    "material": "marble",
+    "form": "crystal",
+    "capital": "crystals"
+  }
+}

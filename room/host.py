@@ -356,7 +356,7 @@ def _load_world(app):
                         rec.get("gaze_yaw_deg", 0.0),
                         rec.get("gaze_pitch_deg", 0.0),
                         rec.get("gesture", ""),
-                        rec.get("movement") or {})
+                        rec.get("movement") or {}, height_m=rec.get("height_m", 0.0))
                 elif isinstance(rec, list) and len(rec) == 2:
                     mpos = room._clamp_inside(list(rec))
                     room.members[m] = Member(
@@ -464,6 +464,7 @@ class TravelReq(BaseModel):
 
 
 class ActionReq(BaseModel):
+    payload: dict | None = None
     member: str
     action: str            # move_to | body_motion | say | write | express
     object: str = None
@@ -696,6 +697,9 @@ def build_app() -> FastAPI:
             app.state.adjacency[rid] = ["nexus"]
             app.state.adjacency.setdefault("nexus", []).append(rid)
             app.state.seed_ids[rid] = set(den.objects)
+    from room.public_worlds_runtime import prepare, install as install_public_worlds
+    prepare(app, REPO)
+    install_public_worlds(app, REPO, _body_candidate_root)
     if _load_world(app):
         print("[room host] world state restored from disk")
     for rid, room in app.state.rooms.items():
@@ -720,7 +724,7 @@ def build_app() -> FastAPI:
         # behind the world lock -- the lock serializes world
         # mutations, not downloads -- and never trigger a persist.
         p = request.url.path
-        if p.startswith("/3d"):
+        if p.startswith("/3d") and p not in {"/3d", "/3d/"}:
             response = await call_next(request)
             # Godot's package is hundreds of megabytes, so `no-store` would
             # make every visit download it again.  `no-cache` keeps the local
@@ -1005,7 +1009,8 @@ def build_app() -> FastAPI:
         if not room:
             return JSONResponse(status_code=404,
                                 content={"error": f"no room '{rid}'"})
-        return room.snapshot(observer=member)
+        from room.public_worlds_runtime import snapshot
+        return snapshot(app, REPO, room, member)
 
     @app.get("/api/rooms/{rid}/events")
     def room_events(rid: str, since: int = 0, surface: int = 0):
@@ -1347,8 +1352,9 @@ def build_app() -> FastAPI:
             return JSONResponse(status_code=409, content={
                 "error": f"no door from {here.id} to {req.to}"})
         dest = app.state.rooms[req.to]
+        prepared = dest.prepare_join(req.member)
         here.leave(req.member)              # departure percept, this side
-        dest.join(req.member)               # arrival percept, that side
+        dest.join(req.member, prepared=prepared)  # arrival already validated
         app.state.where[req.member] = dest.id
         return {"ok": True, "from": here.id, "to": dest.id,
                 "room": dest.snapshot()}
@@ -1360,6 +1366,8 @@ def build_app() -> FastAPI:
             return JSONResponse(status_code=409, content={
                 "error": f"{req.member} is nowhere — join a room first"})
 
+        if (req.payload or {}).get("expected_room") not in (None, room.id):
+            return JSONResponse({"error":"Your location changed; reopen this view."}, status_code=409)
         if req.action == "move_to":
             return room.move_to(req.member, req.object)
 
@@ -1446,7 +1454,7 @@ def build_app() -> FastAPI:
 
         if req.action == "walk":
             # free walking: the room is a place, not a menu
-            return room.walk(req.member, req.to or [], req.heading_deg)
+            return room.walk(req.member, req.to or [], req.heading_deg, (req.payload or {}).get("control"))
 
         if req.action == "look_at":
             return room.look_at(req.member, req.object)
@@ -2572,7 +2580,7 @@ def build_app() -> FastAPI:
     # at /3d. Soft-skip when no export exists -- the host never
     # breaks on a machine that hasn't exported yet.
     web_dir = os.path.join(REPO, "godot-room", "export", "web")
-    if os.path.isdir(web_dir):
+    if False and os.path.isdir(web_dir):  # Designer export is not a household renderer.
         app.mount("/3d", StaticFiles(directory=web_dir, html=True))
         print("[room host] 3D web export mounted at /3d")
 

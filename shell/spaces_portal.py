@@ -174,3 +174,6 @@ def install(app,root,room_url=None):
             return response({'url':base+expected+'&member='+quote(local_member(),safe='')})
         except (httpx.HTTPError,ValueError,AttributeError):
             return response({'error':'The environment could not be opened. Refresh and try again.'},503)
+
+    from shell.public_worlds_portal import install as install_public_worlds
+    install_public_worlds(app, root, base, allowed, local_member)

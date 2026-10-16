@@ -1,0 +1,194 @@
+[
+  {
+    "id": "storage",
+    "label": "Storage",
+    "words": [
+      "cabinet",
+      "cupboard",
+      "drawer",
+      "dresser",
+      "wardrobe",
+      "chest",
+      "trunk",
+      "locker",
+      "bin",
+      "basket",
+      "crate",
+      "box"
+    ]
+  },
+  {
+    "id": "shelves",
+    "label": "Shelves",
+    "words": [
+      "shelf",
+      "shelves",
+      "shelving",
+      "bookcase",
+      "bookshelf",
+      "rack"
+    ]
+  },
+  {
+    "id": "seating",
+    "label": "Seating",
+    "words": [
+      "chair",
+      "armchair",
+      "sofa",
+      "couch",
+      "seat",
+      "stool",
+      "bench",
+      "ottoman",
+      "recliner",
+      "beanbag"
+    ]
+  },
+  {
+    "id": "beds",
+    "label": "Beds",
+    "words": [
+      "bed",
+      "bunk",
+      "mattress",
+      "cot",
+      "hammock"
+    ]
+  },
+  {
+    "id": "surfaces",
+    "label": "Surfaces",
+    "words": [
+      "table",
+      "desk",
+      "counter",
+      "workbench",
+      "nightstand",
+      "night stand",
+      "shelf",
+      "shelves",
+      "shelving"
+    ]
+  },
+  {
+    "id": "decorations",
+    "label": "Decorations",
+    "words": [
+      "vase",
+      "rug",
+      "carpet",
+      "painting",
+      "picture",
+      "poster",
+      "portrait",
+      "frame",
+      "statue",
+      "sculpture",
+      "ornament",
+      "plant",
+      "flower",
+      "curtain",
+      "mirror",
+      "cushion",
+      "pillow",
+      "decoration"
+    ]
+  },
+  {
+    "id": "lights",
+    "label": "Lights",
+    "words": [
+      "lamp",
+      "light",
+      "lantern",
+      "chandelier",
+      "sconce",
+      "candle",
+      "torch"
+    ]
+  },
+  {
+    "id": "appliances",
+    "label": "Appliances",
+    "words": [
+      "fridge",
+      "refrigerator",
+      "oven",
+      "stove",
+      "microwave",
+      "toaster",
+      "kettle",
+      "washer",
+      "dryer",
+      "dishwasher",
+      "appliance",
+      "television",
+      "tv",
+      "fan",
+      "computer",
+      "monitor",
+      "sink",
+      "toilet",
+      "bathtub",
+      "shower"
+    ]
+  },
+  {
+    "id": "structural",
+    "label": "Structural",
+    "words": [
+      "wall",
+      "door",
+      "window",
+      "stairs",
+      "stair",
+      "steps",
+      "column",
+      "pillar",
+      "beam",
+      "arch",
+      "floor",
+      "roof",
+      "fence",
+      "gate",
+      "railing",
+      "portal",
+      "teleporter"
+    ]
+  },
+  {
+    "id": "handheld",
+    "label": "Usable / handheld",
+    "words": [
+      "book",
+      "mug",
+      "cup",
+      "bottle",
+      "glass",
+      "plate",
+      "bowl",
+      "spoon",
+      "fork",
+      "knife",
+      "tool",
+      "hammer",
+      "brush",
+      "pen",
+      "pencil",
+      "notebook",
+      "phone",
+      "guitar",
+      "instrument",
+      "ball",
+      "toy",
+      "scissors",
+      "key"
+    ]
+  },
+  {
+    "id": "other",
+    "label": "Other",
+    "words": []
+  }
+]

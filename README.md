@@ -512,6 +512,37 @@ machine-specific state.
 
 Open **Builders** in JNAIQ to connect to your separately installed Windows editors. Start the installed Builders server, then connect from JNAIQ to open either editor. [Download the optional curated Builders preview](https://github.com/several-dozen-lizards/JNSQ-Builders/releases/tag/v0.2.0-preview.1). It includes the editor rendering runtimes, one finished avatar starter, six furniture objects and landscape materials. World Builder offers default-off experimental VR viewing; physical headset behavior is untested. Install into a new folder. The main JNAIQ download contains no 3D asset packs. Saved builder work stays in its separate installation; back up the entire folder. The Builders connection opens the standalone editors; it does not assign bodies or publish worlds to residents.
 
-## Worlds and household avatars
+## Public worlds and avatar assignment (preview 4)
 
-Open **Worlds** to discover an installed household renderer, open published environments, and apply or restore avatars from the household library. The UI checks the runtime APIs before enabling controls; the standalone Builders installation alone does not supply household assignment or environment publication. Missing optional components are shown explicitly. Opening a place does not move residents. Walking inside requires entering through a household portal. The renderer unloads when you leave Worlds; Chat stays available.
+Use a fresh folder for this manual prerelease. Keep your existing installation
+and saved work. Run INSTALL_JNAIQ.bat, then start JNAIQ normally. Stable main and
+the normal updater remain unchanged.
+
+The optional Builders remain separate. In Avatar Creator, save your design and
+export its GLB. In JNAIQ's Worlds page, choose that GLB and Import avatar, select
+a household member, and Apply avatar. Restore previous reverses an assignment.
+Edit the original saved design in Builders, export again and assign the new entry.
+
+For worlds, install Node.js from https://nodejs.org and run
+INSTALL_3D_RUNTIME.bat in this JNAIQ folder. It downloads the same verified
+world and application archives (about 641 MB total) from Builders preview 0.2.0-preview.1; only verified landscape maps and six furniture models are extracted. No unfinished
+models or saved creations are bundled. A previously downloaded ZIP may be reused
+with `.venv\Scripts\python.exe tools\install_public_3d.py --archive "path-to-world.zip"`.
+Keep the matching application ZIP beside the world ZIP when reusing downloads.
+The installer rejects altered existing assets and never touches another installation.
+
+Export JSON from World Builder and use Import and publish world in Worlds.
+Choose Travel here to enter as your local user. Open environment only views it.
+Travel and Return to Nexus update the same room host used by Chat; travel between
+destinations passes through the Nexus. This never moves other household members.
+The original Nexus continues using its ordinary room view; published worlds use
+the 3D visitor. The visitor's Travel menu uses the same authoritative host.
+
+To update a world, edit the original Builder save, export it, select Update in
+the import destination menu, and import again. Preserve its name. Occupied worlds
+and stale revisions reject replacement; previous saved Builder work is retained.
+
+VR is off by default. Enable Experimental VR in Worlds, open a published world,
+then use Headset. This is clunky experimental support, not a hardware-qualified
+VR release. Walking animations and unverified motion packs are omitted; assigned
+avatars retain their exported shape and materials.

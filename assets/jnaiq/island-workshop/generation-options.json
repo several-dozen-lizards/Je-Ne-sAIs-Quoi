@@ -1,0 +1,216 @@
+{
+  "landforms": {
+    "flat": "Flat plains",
+    "hills": "Rolling hills",
+    "uplands": "Uplands",
+    "cliffs": "Cliff terraces",
+    "ridges": "Mountain ridges",
+    "mesas": "Mesas",
+    "crater": "Crater basin",
+    "dunes": "Dunes"
+  },
+  "communities": {
+    "auto": {
+      "name": "Mixed broadleaf trees",
+      "plants": [
+        "tree",
+        "maple",
+        "sycamore",
+        "shrub"
+      ]
+    },
+    "woodland": {
+      "name": "Maple & sycamore woodland",
+      "plants": [
+        "maple",
+        "sycamore",
+        "tree",
+        "maple"
+      ]
+    },
+    "sumac": {
+      "name": "Staghorn sumac thicket",
+      "plants": [
+        "staghorn_sumac_summer",
+        "staghorn_sumac_summer",
+        "staghorn_sumac_winter"
+      ]
+    },
+    "pine": {
+      "name": "Pine woodland",
+      "plants": [
+        "pine",
+        "pine",
+        "bare",
+        "shrub"
+      ]
+    },
+    "desert": {
+      "name": "Joshua & cactus garden",
+      "plants": [
+        "joshua",
+        "cactus",
+        "cactus",
+        "joshua"
+      ]
+    },
+    "savanna": {
+      "name": "Baobab savanna",
+      "plants": [
+        "baobab",
+        "baobab",
+        "shrub",
+        "bare"
+      ]
+    },
+    "jungle": {
+      "name": "Jungle canopy",
+      "plants": [
+        "jungle",
+        "banana",
+        "palm",
+        "bird_of_paradise"
+      ]
+    },
+    "bare": {
+      "name": "Bare woodland",
+      "plants": [
+        "bare",
+        "bare",
+        "shrub"
+      ]
+    },
+    "enchanted": {
+      "name": "Enchanted woodland",
+      "plants": [
+        "giant_mushroom",
+        "glow_shrooms",
+        "spiral_fern",
+        "lantern_plant",
+        "tree"
+      ]
+    },
+    "alien": {
+      "name": "Alien garden",
+      "plants": [
+        "coral_tree",
+        "lantern_plant",
+        "star_bloom",
+        "crystal_lotus",
+        "spiral_fern"
+      ]
+    },
+    "fungi": {
+      "name": "Giant fungi grove",
+      "plants": [
+        "giant_mushroom",
+        "glow_shrooms",
+        "shelf_fungus"
+      ]
+    },
+    "meadow": {
+      "name": "Meadow flowers & grasses",
+      "plants": [
+        "meadow_grass",
+        "meadow_daisies",
+        "creeping_thyme",
+        "wildflower_carpet",
+        "lavender"
+      ]
+    },
+    "mushrooms": {
+      "name": "Small woodland mushrooms",
+      "plants": [
+        "button_mushrooms",
+        "toadstool_patch",
+        "chanterelle_patch",
+        "glowcap_patch"
+      ]
+    },
+    "flowering": {
+      "name": "Flowering bushes",
+      "plants": [
+        "lavender",
+        "flowering_heath",
+        "hibiscus_bush",
+        "firewheel_bush"
+      ]
+    },
+    "roses": {
+      "name": "Rose garden",
+      "plants": [
+        "rose_crimson_formal",
+        "rose_blush_cottage",
+        "rose_ivory_vase",
+        "rose_apricot_sprawl",
+        "rose_yellow_spray",
+        "rose_magenta_climber"
+      ]
+    },
+    "tall_garden": {
+      "name": "Tall grasses & giant flowers",
+      "plants": [
+        "pampas_grass",
+        "foxglove",
+        "giant_rhubarb",
+        "rainbow_protea"
+      ]
+    },
+    "palms": {
+      "name": "Palms & tropical flowers",
+      "plants": [
+        "palm",
+        "banana",
+        "bird_of_paradise"
+      ]
+    },
+    "ferns": {
+      "name": "Woodland ferns & occasional deadwood",
+      "plants": [
+        "woodland_fern",
+        "lady_fern",
+        "sword_fern",
+        "woodland_fern",
+        "lady_fern",
+        "sword_fern",
+        "woodland_fern",
+        "lady_fern",
+        "sword_fern",
+        "woodland_fern",
+        "lady_fern",
+        "sword_fern",
+        "woodland_fern",
+        "lady_fern",
+        "sword_fern",
+        "woodland_fern",
+        "lady_fern",
+        "sword_fern",
+        "tree_stump",
+        "fallen_log"
+      ]
+    },
+    "shrubs": {
+      "name": "Leafy shrub patches",
+      "plants": [
+        "shrub"
+      ]
+    }
+  },
+  "rocks": {
+    "rock": "Weathered boulders",
+    "river_rock": "Smooth river stones",
+    "slate_rock": "Layered slate",
+    "basalt_rock": "Basalt columns",
+    "standing_rock": "Standing stones",
+    "rock_cluster": "Boulder tumbles",
+    "amethyst": "Amethyst",
+    "quartz": "Quartz",
+    "azure_crystal": "Azure crystal",
+    "rose_quartz": "Rose quartz",
+    "citrine_points": "Citrine",
+    "emerald_shards": "Emerald",
+    "glow_crystal_cyan": "Glowing cyan crystal",
+    "glow_crystal_violet": "Glowing violet crystal",
+    "glow_crystal_amber": "Glowing amber crystal"
+  }
+}

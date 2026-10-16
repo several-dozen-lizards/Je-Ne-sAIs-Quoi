@@ -1,3 +1,7 @@
+> **0.12.2 preview 1:** opt-in main-app test build. Optional 3D builders and
+> household 3D runtime are not included. Read [Testing notes](TESTING.md)
+> before installing; use a fresh folder.
+
 <p align="center">
   <img src="assets/jnaiq/jnaiq-venetian-mask-space.png" alt="A Venetian mask floating in a field of stars above the words Je Ne Sais Quoi">
 </p>
@@ -29,7 +33,7 @@ assets.
 
 ## What is new in 0.12.0
 
-- **JNSQ is now JNAIQ.** The public launchers, asset paths, documentation, and
+- **The public name is JNAIQ.** The public launchers, asset paths, documentation, and
   runtime-facing name now use JNAIQ. Existing local identity and running-state
   files remain readable and migrate forward without replacing personas,
   histories, keys, appearance, artifacts, or room state.
@@ -503,3 +507,11 @@ machine-specific state.
 <p align="center">
   <img src="assets/jnaiq/jnaiq_favicon.svg" width="112" alt="Je Ne Sais Quoi mask logo">
 </p>
+
+## Optional Avatar Creator and World Builder
+
+Open **Builders** in JNAIQ to connect to your separately installed Windows editors. Start the installed Builders server, then connect from JNAIQ to open either editor. The refreshed download remains unavailable in this unpublished candidate until its reviewed asset package passes release checks. The main JNAIQ download contains no 3D asset packs. Saved builder work stays in its separate installation; back up the entire folder. The Builders connection opens the standalone editors; it does not assign bodies or publish worlds to residents.
+
+## Worlds and household avatars
+
+Open **Worlds** to discover an installed household renderer, open published environments, and apply or restore avatars from the household library. The UI checks the runtime APIs before enabling controls; the standalone Builders installation alone does not supply household assignment or environment publication. Missing optional components are shown explicitly. Opening a place does not move residents. Walking inside requires entering through a household portal. The renderer unloads when you leave Worlds; Chat stays available.

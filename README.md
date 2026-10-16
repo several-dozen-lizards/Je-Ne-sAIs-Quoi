@@ -13,14 +13,56 @@ who they are, choose the model that carries them, and talk with one or several
 of them in a configurable chat workspace. Persona identity, memory, body state,
 and conversation history live on your own computer.
 
-**Start here:** [Setup guide for new and current users](docs/JNAIQ_0_12_1_USER_SETUP_GUIDE.md).
-Install JNAIQ, update an existing household, connect local or hosted models
-(including Amazon Bedrock), and check your first reply.
+**Try the public release:** [Download JNAIQ 0.12.3](https://github.com/several-dozen-lizards/Je-Ne-sAIs-Quoi/releases/tag/v0.12.3).
+On Windows, extract **JNAIQ-0.12.3.zip** into a fresh folder and run
+**INSTALL_JNAIQ.bat**. Use **START_NEXUS.bat** for later launches.
+[Setup guide](docs/JNAIQ_0_12_1_USER_SETUP_GUIDE.md) · [Getting started and testing notes](TESTING.md)
 
-This public build is intentionally narrow. It has chats, persona creation, and
-one shared context room called **the Nexus**. It does not include the private
-development household, individual persona rooms, the Yurt interface, or any 3D
-assets.
+JNAIQ supports local and hosted models. Your saved household stays on your
+computer; choosing a cloud model sends the conversation context to that provider
+using your own credentials. The public package starts with an empty household
+and the shared **Nexus** room, ready for your own personas.
+
+## What is new in 0.12.3
+
+- **Avatars you can assign.** Import an Avatar Creator GLB in **Worlds**, apply it
+  to a household member, and restore the previous assignment when needed.
+- **Worlds you can visit.** Import a World Builder JSON export, publish it, and
+  travel there as your local user. Move between destinations or return to the
+  Nexus. Opening a view alone does not move anyone.
+- **Keep creating after the first save.** Reopen original designs in the Builders,
+  edit and export again. Import revised avatars as new entries, or use **Update**
+  for an existing world. Occupied worlds and stale edits are protected.
+- **A JNAIQ-themed creative workspace.** Builders and Worlds have setup help;
+  the getting-started introduction can be dismissed and reopened later.
+- **Optional 3D downloads.** The main app stays small. Avatar Creator and World
+  Builder are [separate curated downloads](https://github.com/several-dozen-lizards/JNSQ-Builders/releases/tag/v0.2.0-preview.1),
+  with a finished avatar starter and verified scenery assets. Unfinished models
+  and assets with unverified redistribution terms are omitted.
+- **Experimental VR.** Available as an opt-in setting in Worlds, off by default.
+  Physical-headset behavior is still untested and likely clunky. This feature
+  remains work in progress.
+
+![An assigned avatar in a published JNAIQ world, with grass, a cloudy sky and the Travel menu](docs/images/jnaiq-public-avatar-world.png)
+
+*Screenshot from an isolated public-build test: an imported avatar after travel
+to a published world. Walk/idle animation packs are not included.*
+
+### Try avatars and worlds
+
+1. Open **Builders** in JNAIQ for the optional editor download and local connection
+   setup. Save original designs there so you can edit them later.
+2. For 3D worlds, install [Node.js](https://nodejs.org/) and run
+   **INSTALL_3D_RUNTIME.bat** in your JNAIQ folder. It verifies about 641 MB of
+   optional downloads and installs only the admitted runtime assets.
+3. Export an avatar **GLB** or world **JSON** from the appropriate Builder, then
+   import it through JNAIQ's **Worlds** page. Assign an avatar or choose **Travel here**.
+4. To try VR, enable **Experimental VR** in Worlds, open a published world, and
+   use **Headset** with a compatible browser/headset setup.
+
+Builders remain a separately labeled curated preview. The Nexus uses its
+ordinary room view; published worlds use the 3D visitor. See the
+[detailed avatar and world workflow](#public-worlds-and-avatar-assignment).
 
 ## What is new in 0.12.1
 

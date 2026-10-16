@@ -2427,6 +2427,11 @@ def build_app(room_url: str = None, *, record_health: bool = False,
         except urllib.error.HTTPError as e:
             return JSONResponse(status_code=e.code, content=json.loads(e.read()))
 
+    from shell.builders_portal import install as install_builders_portal
+    install_builders_portal(app, ROOT)
+    from shell.spaces_portal import install as install_spaces_portal
+    install_spaces_portal(app, ROOT, room_url)
+
     return app
 
 

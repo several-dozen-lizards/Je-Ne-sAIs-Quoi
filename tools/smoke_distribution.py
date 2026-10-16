@@ -65,6 +65,10 @@ def main():
     assert "setInterval(refreshPublicCreativeCatalogs" not in shell
     assert "Yurt" not in shell and ">World<" not in shell
     assert 'data-top-page="personas"' in shell
+    assert 'data-top-page="builders"' in shell
+    assert 'data-top-page="spaces"' in shell
+    assert 'src="/spaces"' in shell
+    assert 'src="/builders"' in shell
     assert 'data-top-page="usage"' in shell
     assert 'id="page-usage"' in shell and 'src="/model-calls"' in shell
     assert 'data-top-page="settings"' in shell
@@ -77,8 +81,8 @@ def main():
     assert "The Nexus" in shell
     assert 'data-top-page="nexus"' in shell
     assert shell.index("<span>Household</span>") < shell.index("<span>Chat</span>") < shell.index("<span>Usage</span>") < shell.index("<span>Settings</span>") < shell.index("<span>About</span>")
-    assert shell.count('class="nav-icon"') == 5
-    assert "grid-template-columns:repeat(5,minmax(0,1fr))" in shell
+    assert shell.count('class="nav-icon"') == 7
+    assert "grid-template-columns:repeat(7,minmax(0,1fr))" in shell
     assert "@media(max-width:520px){.top-nav .nav-icon{display:none}" in shell
     assert 'stroke="currentColor"' in shell
     assert "function nexusIcon()" in shell and 'class="nexus-icon"' in shell

@@ -61,7 +61,7 @@ The updater replaces managed application files while preserving local keys, owne
 
 You can continue using your current model. To try another one, register its connection below, then add it to the existing persona's roster in [Select the model](#5-select-the-model-and-check-the-connection).
 
-If an older installation still uses `UPDATE_JNSQ` launchers, use its existing platform updater. The public migration brings forward the JNAIQ launchers and local identity files.
+For an older installation, use its existing platform updater. The public migration brings forward the JNAIQ launchers and local identity files.
 
 ## 3. Choose your model connection
 

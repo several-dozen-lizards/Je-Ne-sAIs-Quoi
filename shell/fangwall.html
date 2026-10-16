@@ -174,7 +174,7 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
 .look-editor label{display:grid;gap:5px;color:var(--dim);font-size:.78rem}.look-editor input{width:100%}
 .look-editor input[type=color]{height:38px;padding:3px}.look-editor .note{grid-column:1/-1}
 @media(max-width:760px){header{height:auto;min-height:104px;flex-wrap:wrap;padding:12px 16px;gap:7px 12px}
-  .top-nav{width:100%;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
+  .top-nav{width:100%;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
   .top-nav button{justify-content:center;padding:5px 4px;font-size:.76rem}
   .top-page{height:calc(100% - 104px)}#status{position:absolute;right:14px;top:14px}
   #updateNotice{top:114px}
@@ -199,6 +199,8 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
   <div class="brand">Je Ne S<span class="ai">ai</span>s Quoi</div>
   <nav class="top-nav"><button class="on" type="button" data-top-page="personas"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 10.5 12 3l8.5 7.5"/><path d="M5.5 9v11h13V9M9.5 20v-6h5v6"/></svg><span>Household</span></button>
     <button type="button" data-top-page="nexus"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5h16v11H9l-5 4z"/><path d="M8 10h8M8 13h5"/></svg><span>Chat</span></button>
+    <button type="button" data-top-page="builders"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5zM3 8v9l9 5 9-5V8M12 13v9"/></svg><span>Builders</span></button>
+    <button type="button" data-top-page="spaces"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></svg><span>Worlds</span></button>
     <button type="button" data-top-page="usage"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m13 2-8 12h6l-1 8 9-13h-6z"/></svg><span>Usage</span></button>
     <button type="button" data-top-page="settings"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21H9.6v-.1A1.7 1.7 0 0 0 8.5 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3V9.6h.1A1.7 1.7 0 0 0 4.6 8.5a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1A1.7 1.7 0 0 0 15.5 4.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.13.37.35.71.65.98.3.27.68.42 1.08.42H21v4h-.1a1.7 1.7 0 0 0-1.5.6z"/></svg><span>Settings</span></button>
     <button type="button" data-top-page="about"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 10.5v6M12 7.5h.01"/></svg><span>About</span></button></nav>
@@ -251,6 +253,8 @@ dialog::backdrop{background:#020806bb}.modal-head{display:flex;align-items:cente
     <main><div id="workspace" class="workspace"></div></main>
   </section>
 </div></section>
+<section class="top-page" id="page-builders"><iframe src="/builders" title="JNAIQ Builders"></iframe></section>
+<section class="top-page" id="page-spaces"><iframe id="spacesFrame" src="/spaces" title="JNAIQ Worlds and avatars" allow="pointer-lock; fullscreen; xr-spatial-tracking"></iframe></section>
 <section class="top-page" id="page-usage"><iframe src="/model-calls" title="JNAIQ model usage"></iframe></section>
 <section class="top-page" id="page-settings"><iframe src="/settings" title="JNAIQ settings"></iframe></section>
 <section class="top-page" id="page-about"><iframe src="/about" title="About Je Ne Sais Quoi"></iframe></section>
@@ -385,12 +389,14 @@ function showTopPage(page){
   document.querySelectorAll("[data-top-page]").forEach(button=>button.classList.toggle("on",button.dataset.topPage===page));
   document.querySelectorAll(".top-page").forEach(section=>section.classList.toggle("on",section.id===`page-${surface}`));
   localStorage.setItem("jnaiq.public.page",page);
+  document.getElementById("spacesFrame")?.contentWindow?.postMessage({type:"jnaiq-worlds-active",active:page==="spaces"},location.origin);
 }
 document.querySelectorAll("[data-top-page]").forEach(button=>button.onclick=()=>{
   if(button.dataset.topPage==="nexus")openNexus();
   else if(button.dataset.topPage==="personas")showHome();
   else showTopPage(button.dataset.topPage);
 });
+window.addEventListener("message",event=>{if(event.origin===location.origin&&event.source===document.getElementById("spacesFrame")?.contentWindow&&event.data?.type==="jnaiq-open-builders")showTopPage("builders")});
 function showHome(){showTopPage("personas");$("personaHome").hidden=false;$("panelScreen").classList.remove("on");}
 function openPanel(id){
   if(!(state.personas[id]||(id==="world"&&CFG.room_url)))return;
@@ -399,9 +405,9 @@ function openPanel(id){
 }
 function openNexus(){showTopPage("nexus");openPanel("world");}
 $("homeButton").onclick=showHome;
-const initialPage=["personas","nexus","usage","settings","about"].includes(localStorage.getItem("jnaiq.public.page"))?
+const initialPage=["personas","nexus","builders","spaces","usage","settings","about"].includes(localStorage.getItem("jnaiq.public.page"))?
   localStorage.getItem("jnaiq.public.page"):"personas";
-if(initialPage==="nexus")openNexus();else if(["usage","settings","about"].includes(initialPage))showTopPage(initialPage);else showHome();
+if(initialPage==="nexus")openNexus();else if(["builders","spaces","usage","settings","about"].includes(initialPage))showTopPage(initialPage);else showHome();
 
 async function request(url, options={}){
   const res=await fetch(url,options); let body={};

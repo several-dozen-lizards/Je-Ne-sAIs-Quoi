@@ -1,6 +1,6 @@
 {
   "format": 2,
-  "version": "0.12.2",
+  "version": "0.12.3",
   "files": 509,
   "contains_personal_data": false,
   "empty_local_roots": [
@@ -350,8 +350,8 @@
     "LICENSES/MAKEHUMAN_COMPONENTS.txt": "1324f4a1b5cf7bbfa8d710777997da3aaffe401df4843cb6995ce6ac93b4a6a9",
     "LICENSES/STARTER_SOURCE_MATCHES.json": "c3fd57a33ccb8e12e6c6e331c82269256339e4bc7ab01064da83fb057d1cb96e",
     "PUBLIC_3D_ASSETS.json": "02e24b0e04b5b7f4862b770bd262a19b64a5f7e78fae6f2d36328f9e31ac9f1b",
-    "PUBLIC_WORLDS_CANDIDATE.json": "10d8f84dbde03dc3906b0223937d964345a4fb7f225afb1b066c0a9875bf9d5b",
-    "README.md": "332ad1e80bc62a70577651370e2d30748a1b56a429104f1e99d91104aac2b51a",
+    "PUBLIC_WORLDS_CANDIDATE.json": "3b8875ae064f36785c9b2d1028f3341cc89a7a28abecf603f1afd932c330c063",
+    "README.md": "a033b3ba660c48fa45308d98ca3d5f3c4f6ac54d4efecd4dd170768ddcfb88cd",
     "requirements.txt": "f0397a54b6b333e9c1289ba05b3f6feee8df9d1be70c65c8975656c52d012d74",
     "room/__init__.py": "7095f6cbb0b61f7374669ec93cce972dd6d3c4a45d18cba7f0eb5ba85932f62d",
     "room/asset_static.py": "7cbdaac1c53fe0e0de53f253feec12aaa995d0f63237811f34224ee9c7909f6e",
@@ -502,7 +502,7 @@
     "STOP_ATELIER_GPU.bat": "f0b3a2f2bd1b4599dff24846437e79488326d31279b048036bbfe47149db8e72",
     "STOP_NEXUS.bat": "d8d299fe61a09ad63aa61a82e4adae6f6e26645c0a73fe4440fbab8805bbcd65",
     "STOP_NEXUS.command": "c53d630ce28f8b21b773a63041d34b421c26f21ac8626e8c2d220aa632b9d638",
-    "TESTING.md": "f532c46f1f9a0d3e6665c3c11f108de185d22aa32c9e1cf7d18f0b0149a059cd",
+    "TESTING.md": "bb8bbecc37bb92385dc9d8e293989bd84efd0641d17fc054f6148b30537d5309",
     "tools/bedrock_gateway.py": "4dd7eae8d43f5045ca39721a8884603265c10ce9f77fafb6dd9f2082697d1a40",
     "tools/install_atelier_gpu.ps1": "1a5bb568b6a6718bb4fdfc7c3a1f57d5f1240fa714796e7527f980a9704d2f8e",
     "tools/install_public_3d.py": "39177c50fe967b6cffcd0b744636650ffc5747ef412e91eba6e9102f6da3fa3a",
@@ -518,7 +518,7 @@
     "UPDATE_JNAIQ.bat": "8988299b866672f724e4be6c6920fc9b4c126b7c1ca9f003085a004cb3aaa107",
     "UPDATE_JNAIQ.command": "675b4ddc91ab5f07ebaaeb73a01096028f9ffa0e79d893c06abbd3be78287a80",
     "UPDATE_JNAIQ.ps1": "aafa8a6c4a81cfdabee6c2d601611dd781b709f9f29d6e53ddbd5dc61b3b2dcd",
-    "VERSION": "f482d06e4ee83158e42999dcf951d5909861dad7e03317deb2b1e2ddd5c46274"
+    "VERSION": "01a507eda916863d2c56c6d24b13985c877640445bb13e272692d67ccf33f057"
   },
   "optional_builders": {
     "mode": "separate_local_installation",

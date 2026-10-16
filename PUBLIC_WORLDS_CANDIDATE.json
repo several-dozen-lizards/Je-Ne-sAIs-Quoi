@@ -1,1 +1,18 @@
-{"status": "unpublished", "source_modules": ["core.avatar_identities", "core.collective_arcs", "core.household_physics", "core.life_afferents", "room.furniture_rest", "room.gardening", "room.public_worlds_runtime", "room.state", "room.teleporters", "room.workshop_navigation", "room.world_destinations", "shell.runtime_paths"]}
+{
+  "status": "public_release",
+  "source_modules": [
+    "core.avatar_identities",
+    "core.collective_arcs",
+    "core.household_physics",
+    "core.life_afferents",
+    "room.furniture_rest",
+    "room.gardening",
+    "room.public_worlds_runtime",
+    "room.state",
+    "room.teleporters",
+    "room.workshop_navigation",
+    "room.world_destinations",
+    "shell.runtime_paths"
+  ],
+  "version": "0.12.3"
+}

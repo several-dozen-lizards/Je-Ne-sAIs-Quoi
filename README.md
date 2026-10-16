@@ -1,6 +1,6 @@
-> **0.12.2 preview 2:** opt-in main-app test build. Optional 3D builders and
-> household 3D runtime are not included. Read [Testing notes](TESTING.md)
-> before installing; use a fresh folder.
+> **JNAIQ 0.12.3:** public release with avatar assignment and world travel.
+> Builders and verified 3D assets are optional downloads. VR remains experimental
+> and off by default. See [Getting started and testing notes](TESTING.md).
 
 <p align="center">
   <img src="assets/jnaiq/jnaiq-venetian-mask-space.png" alt="A Venetian mask floating in a field of stars above the words Je Ne Sais Quoi">
@@ -512,11 +512,11 @@ machine-specific state.
 
 Open **Builders** in JNAIQ to connect to your separately installed Windows editors. Start the installed Builders server, then connect from JNAIQ to open either editor. [Download the optional curated Builders preview](https://github.com/several-dozen-lizards/JNSQ-Builders/releases/tag/v0.2.0-preview.1). It includes the editor rendering runtimes, one finished avatar starter, six furniture objects and landscape materials. World Builder offers default-off experimental VR viewing; physical headset behavior is untested. Install into a new folder. The main JNAIQ download contains no 3D asset packs. Saved builder work stays in its separate installation; back up the entire folder. The Builders connection opens the standalone editors; it does not assign bodies or publish worlds to residents.
 
-## Public worlds and avatar assignment (preview 4)
+## Public worlds and avatar assignment
 
-Use a fresh folder for this manual prerelease. Keep your existing installation
-and saved work. Run INSTALL_JNAIQ.bat, then start JNAIQ normally. Stable main and
-the normal updater remain unchanged.
+For a new installation, extract into a fresh folder and run INSTALL_JNAIQ.bat.
+Existing public installations can use UPDATE_JNAIQ.bat after backing up their
+installation folder. The normal updater follows this public release on main.
 
 The optional Builders remain separate. In Avatar Creator, save your design and
 export its GLB. In JNAIQ's Worlds page, choose that GLB and Import avatar, select

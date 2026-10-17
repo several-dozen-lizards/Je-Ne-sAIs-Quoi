@@ -1,3 +1,4 @@
+import {proceduralScores} from './procedural-scores.mjs';
 import * as THREE from './vendor/three.module.js';
 import {avatarRig} from './avatar-rig.mjs';
 
@@ -177,4 +178,97 @@ export function solveLeg(hip,knee,foot,target,rootQ=new THREE.Quaternion(),bendD
     bone.quaternion.copy(bone.parent.getWorldQuaternion(q()).invert().multiply(desired));bone.updateWorldMatrix(false,true);
   }
   aim(hip,knee,desiredKnee);aim(knee,foot,target);
+}
+
+
+// Original analytic motion driver for the public build. Uses the same room
+// event/gait interface; changes joints only, never canonical location or mood.
+export function createProceduralGait(model,root,ground){
+  const {bones,slots}=avatarRig(model),q=()=>new THREE.Quaternion(),v=()=>new THREE.Vector3();
+  const axes={x:new THREE.Vector3(-1,0,0),y:new THREE.Vector3(0,1,0),z:new THREE.Vector3(0,0,-1)};
+  model.updateWorldMatrix(true,true);
+  const rootFrame=root.getWorldQuaternion(q()),rootInverse=rootFrame.clone().invert();
+  // Calibrate the authored starter's raised bind arms from measured joint
+  // directions. Unknown/nonhumanoid bodies keep their imported geometry.
+  for(const side of ['Left','Right']){
+    const upper=slots.get(side+'UpperArm'),lower=slots.get(side+'LowerArm');if(!upper||!lower)continue;
+    const a=upper.getWorldPosition(v()),b=lower.getWorldPosition(v()),center=model.getWorldPosition(v());
+    const sign=Math.sign(a.clone().sub(center).applyQuaternion(rootInverse).x)|| (side==='Left'?1:-1);
+    const down=new THREE.Vector3(sign*.13,-.99,-.025).normalize().applyQuaternion(rootFrame);
+    const desired=q().setFromUnitVectors(b.sub(a).normalize(),down).multiply(upper.getWorldQuaternion(q()));
+    upper.quaternion.copy(upper.parent.getWorldQuaternion(q()).invert().multiply(desired));model.updateWorldMatrix(true,true);
+  }
+  const sideSigns=new Map(['Left','Right'].flatMap(side=>{const b=slots.get(side+'UpperArm');return b?[[side,Math.sign(b.getWorldPosition(v()).sub(model.getWorldPosition(v())).applyQuaternion(rootInverse).x)||(side==='Left'?1:-1)]]:[];}));
+  const arms=['Left','Right'].flatMap(side=>{const upper=slots.get(side+'UpperArm'),lower=slots.get(side+'LowerArm'),hand=slots.get(side+'Hand');return upper&&lower&&hand?[{side,upper,lower,hand}]:[];});
+  const base=new Map(bones.map(b=>[b,b.quaternion.clone()]));
+  const frames=new Map([...slots].map(([role,b])=>[role,b.getWorldQuaternion(q()).premultiply(rootInverse)]));
+  const measured=new THREE.Box3().setFromObject(model).getSize(v()).y;
+  const height=Number.isFinite(measured)&&measured>0?measured:1.7;
+  const legs=[];
+  for(const side of ['Left','Right']){
+    const hip=slots.get(side+'UpperLeg'),knee=slots.get(side+'LowerLeg'),foot=slots.get(side+'Foot');
+    if(hip&&knee&&foot)legs.push({hip,knee,foot,side,length:hip.getWorldPosition(v()).distanceTo(knee.getWorldPosition(v()))+knee.getWorldPosition(v()).distanceTo(foot.getWorldPosition(v())),ankle:foot.getWorldPosition(v()).y-root.getWorldPosition(v()).y});
+  }
+  const legLength=legs.length?legs.reduce((s,l)=>s+l.length,0)/legs.length:height*.5;
+  const stride=Math.max(.1,legLength*1.35),swing=Math.asin(Math.min(.65,stride/(2*Math.max(.1,legLength))));
+  let phase=0,weight=0,previous=root.position.clone(),motion=null;
+  function rotate(role,axis,radians){const bone=slots.get(role),frame=frames.get(role);if(!bone||!frame)return;
+    if(axis==='z'&&/^(Left|Right)(UpperArm|LowerArm|Hand)$/.test(role)){const side=role.startsWith('Left')?'Left':'Right';radians*= (sideSigns.get(side)||1)/(side==='Left'?1:-1);}
+    bone.quaternion.multiply(frame.clone().invert().multiply(q().setFromAxisAngle(axes[axis],radians)).multiply(frame)).normalize();
+  }
+  return {mappedBones:slots.size,roles:[...slots.keys()],procedural:true,
+    setRestPose(){},
+    performMotion(source,elapsed=0){
+      if(!source?.procedural||elapsed>=source.duration)return false;
+      const score=proceduralScores[source.name];
+      if(!score||!Object.keys(score[1]).some(role=>slots.has(role)))return false;
+      motion={source,time:Math.max(0,elapsed)};return true;
+    },
+    update(moving,delta=0,{posture='standing'}={}){
+      delta=Math.max(0,Math.min(.1,Number(delta)||0));
+      const distance=Math.hypot(root.position.x-previous.x,root.position.z-previous.z);previous.copy(root.position);
+      if(moving)phase+=distance/stride*Math.PI*2;
+      const response=1-Math.exp(-delta/(stride/1.4*.22));weight+=((moving&&posture==='standing'?1:0)-weight)*response;
+      for(const [bone,rest] of base)bone.quaternion.copy(rest);
+      if(posture==='standing')for(const [side,sign] of [['Left',1],['Right',-1]]){
+        const wave=Math.sin(phase)*sign;
+        rotate(side+'UpperLeg','x',wave*swing*weight);
+        rotate(side+'LowerLeg','x',-Math.max(0,-wave)*swing*.85*weight);
+        rotate(side+'UpperArm','x',-wave*swing*.55*weight);
+      }
+      if(motion){
+        motion.time+=delta;const source=motion.source;
+        const compatible=source.posture==='sitting'?posture.startsWith('sitting'):posture==='standing';
+        if(moving||!compatible||motion.time>=source.duration)motion=null;
+        else{
+          const p=motion.time/source.duration,envelope=Math.sin(Math.PI*p)**2;
+          for(const [role,steps] of Object.entries(proceduralScores[source.name][1]))for(const [axis,degrees,cycles] of steps)
+            rotate(role,axis,THREE.MathUtils.degToRad(degrees)*envelope*(cycles?Math.sin(Math.PI*2*cycles*p):1));
+        }
+      }
+      // The original clap score includes a measured two-arm contact solve.
+      // Hand separation oscillates with the authored clap phase, scaled to body.
+      if(motion?.source.name==='seated_clap'&&arms.length===2){
+        model.updateWorldMatrix(true,true);
+        const p=motion.time/motion.source.duration,envelope=Math.sin(Math.PI*p)**2,scale=height/1.7;
+        const center=arms.reduce((sum,a)=>sum.add(a.upper.getWorldPosition(v())),v()).multiplyScalar(.5);
+        const frame=root.getWorldQuaternion(q()),spread=(.025+.10*(.5+.5*Math.cos(p*Math.PI*6)))*scale;
+        for(const a of arms){const sign=sideSigns.get(a.side)||1,current=a.hand.getWorldPosition(v()),handRotation=a.hand.getWorldQuaternion(q());
+          const target=center.clone().add(new THREE.Vector3(sign*spread,-.20*scale,-.32*scale).applyQuaternion(frame));
+          target.lerp(current,1-envelope);
+          solveLeg(a.upper,a.lower,a.hand,target,frame,new THREE.Vector3(sign*.6,-1,0).applyQuaternion(frame));
+          a.hand.quaternion.copy(a.hand.parent.getWorldQuaternion(q()).invert().multiply(handRotation));model.updateWorldMatrix(true,true);
+        }
+      }
+      model.userData.restActionActive=!!motion;model.userData.publicMotion=motion?.source.name||'';model.userData.publicMotionProgress=motion?motion.time/motion.source.duration:0;
+      model.userData.publicRigRoles=[...slots.keys()];model.updateWorldMatrix(true,true);
+      if(posture==='standing'&&weight>1e-5)for(const leg of legs){
+        const current=leg.foot.getWorldPosition(v()),floor=ground?.(current.x,current.z,root.position.y);
+        if(floor==null||current.y>=floor+leg.ankle)continue;
+        const target=current.clone();target.y=floor+leg.ankle;
+        solveLeg(leg.hip,leg.knee,leg.foot,target,root.getWorldQuaternion(q()));
+      }
+      return weight>1e-4||!!motion;
+    }
+  };
 }

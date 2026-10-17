@@ -1,0 +1,35 @@
+{
+  "format": 1,
+  "kind": "original_procedural_choreography",
+  "license": "Apache-2.0 (repository LICENSE)",
+  "source": "Original analytic joint scores and limb-calibrated stride created for JNAIQ on 2026-10-16. No mocap, animation clips, or third-party motion data used.",
+  "files": [
+    "assets/jnaiq/island-workshop/procedural-scores.mjs",
+    "assets/jnaiq/island-workshop/visitor-gait.mjs"
+  ],
+  "motions": [
+    "acknowledge",
+    "angry_gesture",
+    "annoyed_head_shake",
+    "cocky",
+    "dismiss",
+    "happy_gesture",
+    "hard_nod",
+    "long_nod",
+    "look_around",
+    "look_away",
+    "neck_stretch",
+    "no_head_shake",
+    "relieved_sigh",
+    "sarcastic_nod",
+    "seated_clap",
+    "seated_laugh",
+    "seated_point",
+    "seated_talk",
+    "talk_gesture",
+    "talk_gesture_alt",
+    "thoughtful_head_shake",
+    "yes_nod"
+  ],
+  "limits": "Compatible humanoid joints required. Names describe optional actions, not resident feelings."
+}

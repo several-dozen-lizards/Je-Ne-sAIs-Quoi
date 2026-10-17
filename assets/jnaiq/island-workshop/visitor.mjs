@@ -1,7 +1,8 @@
-import {choosePublicDestination} from './public-travel.mjs?public=4b';
+import {choosePublicDestination} from './public-travel.mjs?public=5';
 import * as THREE from 'three';
 import {GLTFLoader} from './vendor/GLTFLoader.js';
-import {createGait} from './visitor-gait.mjs';
+import {createGait,createProceduralGait} from './visitor-gait.mjs?poses=1';
+import {proceduralMotion} from './procedural-scores.mjs';
 import {installPoseControls} from './visitor-poses.mjs';
 import {createAvatarSurface} from './avatar-surface.mjs';
 import {alignAvatarFacing} from './avatar-facing.mjs';
@@ -55,11 +56,11 @@ export async function installVisitor({scene,camera,controls,canvas,world,restore
   const idleLibraryPromise=Promise.resolve(null);
   const surfacePromise=json(new URL('./avatar-surface.json',import.meta.url).href);
   const poseControls=installPoseControls({bar,canvas,member,snapshot:()=>snapshot,data:surfacePromise,refresh,status,
-    act:(action,object,payload)=>json('/api/act',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({member,action,object,payload})})});
+    act:(action,object,payload)=>act(action,{...payload,object})});
   const motionClips=new Map();
-  function motionClip(name){if(!motionClips.has(name))motionClips.set(name,json(new URL('./visitor-motions/'+encodeURIComponent(name)+'.json',import.meta.url).href).catch(error=>{motionClips.delete(name);throw error;}));return motionClips.get(name);}
+  async function motionClip(name){return proceduralMotion(name);}
   async function syncRest(entry){
-    if(!entry.gait)return;
+    if(!entry.gait||entry.gait.procedural)return;
     const posture=entry.rec.posture||'standing',key=posture==='lying'?'rest_lying':posture.startsWith('sitting')?'rest_seated':'';
     if(entry.restKey===key)return;entry.restKey=key;
     if(!key)return; // retain the source while its contribution fades out
@@ -95,7 +96,7 @@ export async function installVisitor({scene,camera,controls,canvas,world,restore
   let publicTravelling=false;
   async function chooseDestination(){if(document.pointerLockElement===canvas)document.exitPointerLock();await choosePublicDestination({member,json,status,onTravelState:value=>publicTravelling=value});}
   button('Travel',chooseDestination);
-  for(const control of bar.querySelectorAll('button'))if(['Garden','Poses'].includes(control.textContent))control.remove();
+  for(const control of bar.querySelectorAll('button'))if(['Garden'].includes(control.textContent))control.remove();
   const returnButton=document.createElement('span');bar.append(returnButton);
   const viewButton=button('First person · switch to orbit',()=>{walkInput.clear();firstPerson=!firstPerson;viewButton.textContent=firstPerson?'First person · switch to orbit':'Orbit · return to first person';controls.enabled=!firstPerson;focus();});
   button('Find me',focus);
@@ -162,10 +163,10 @@ export async function installVisitor({scene,camera,controls,canvas,world,restore
       root.remove(marker);root.add(gltf.scene);entry.model=gltf.scene;
       entry.eye=eyeAnchor(gltf.scene,root);
       gltf.scene.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
-      if(gltf.animations.length){entry.mixer=new THREE.AnimationMixer(gltf.scene);const walk=gltf.animations.find(a=>/walk/i.test(a.name));if(walk)entry.walk=entry.mixer.clipAction(walk).play();}
+      if(false&&gltf.animations.length){entry.mixer=new THREE.AnimationMixer(gltf.scene);const walk=gltf.animations.find(a=>/walk/i.test(a.name));if(walk)entry.walk=entry.mixer.clipAction(walk).play();}
       const [clip,idle,surface,idleLibrary]=await Promise.all([clipPromise,idlePromise,surfacePromise,idleLibraryPromise]);
       if(bodies.get(name)!==entry)return;
-      if(clip)entry.gait=createGait(gltf.scene,root,clip,ground,idle,{preserveShoulders:false,idleClips:[]});
+      entry.gait=createProceduralGait(gltf.scene,root,ground);
       entry.surface=createAvatarSurface(gltf.scene,root,surface,{ground});entry.surface.sync(entry.rec);entry.motionNames=surface.motions;
       syncRest(entry);
       for(const event of entry.pendingSurface||[])surfaceEvent(entry,event);entry.pendingSurface=[];
@@ -256,7 +257,7 @@ export async function installVisitor({scene,camera,controls,canvas,world,restore
       if(entry.walk){entry.walk.paused=!isMoving;entry.mixer.update(delta);}
       if((!entry.walk||!isMoving)&&entry.gait?.update(isMoving,delta,{posture:entry.rec.posture}))bodyChanged=true;
       if(entry.surface?.update(delta,{moving:isMoving}))bodyChanged=true;
-      if(name===member&&entry.model)entry.eye=eyeAnchor(entry.model,entry.root);
+      if(name===member&&entry.model){entry.eye=eyeAnchor(entry.model,entry.root);canvas.dataset.poseMotion=entry.model.userData.publicMotion||'';canvas.dataset.poseProgress=Number(entry.model.userData.publicMotionProgress||0).toFixed(2);canvas.dataset.rigJoints=String(entry.gait?.mappedBones||0);}
       // Invisible first-person anatomy still drives the camera, but casts no shadows.
       moving||=entry.root.visible&&bodyChanged;}
     const me=snapshot?.members[member];if(me){const p=pose(me);label.textContent=`${member} · elevation ${p.y.toFixed(2)} m`;const near=nearbyTeleporters(snapshot,p);returnButton.textContent=near.length?'E · '+snapshot.objects[near[0]].name+' — destinations':'';if(firstPerson){if(onHeadset()){xr.rig.position.copy(p);yaw=headEuler.setFromQuaternion(camera.getWorldQuaternion(headQuaternion)).y;}else{camera.position.copy(eyeFollower.update(eyePosition(p),delta));camera.rotation.set(pitch,yaw,0);}}if(moving||firstPerson)invalidate(moving);}

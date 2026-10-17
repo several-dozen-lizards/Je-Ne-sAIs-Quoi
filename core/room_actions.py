@@ -75,7 +75,7 @@ import re
 ACT_RE = re.compile(r"<act>(.*?)</act>", re.DOTALL)
 VERBS = {"move_to", "go", "walk", "look_at", "turn_toward", "look_around",
          "inspect",
-         "sit", "stand",
+         "sit", "stand", "rest", "lie_down", "reach", "poke", "release_reach",
          "gesture", "release_gesture", "body_motion",
          "light_on", "light_off",
          "contact", "read", "travel",

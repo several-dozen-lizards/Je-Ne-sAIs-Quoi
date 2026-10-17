@@ -1,6 +1,6 @@
-# JNAIQ 0.12.3 — getting started and testing notes
+# JNAIQ 0.12.4 — getting started and testing notes
 
-Download JNAIQ-0.12.3.zip from the release Assets, extract into a new folder,
+Download JNAIQ-0.12.4.zip from the release Assets, extract into a new folder,
 and run INSTALL_JNAIQ.bat on Windows. Use START_NEXUS.bat for later launches
 and STOP_NEXUS.bat to stop this installation. Follow the README for provider
 setup. Cloud providers require your credentials and may incur charges.
@@ -32,13 +32,14 @@ are imported as new entries and can then be assigned.
 
 VR is off by default. Enable Experimental VR in Worlds and use Headset in a
 published world. Physical-headset behavior is untested and likely clunky;
-this remains work in progress. Walk/idle animation packs were omitted because
-their redistribution terms could not be verified. The original Nexus uses its
+this remains work in progress. Original procedural walking and 22 expressive motions are included for compatible
+humanoid rigs. Unverified third-party animation packs remain excluded. The original Nexus uses its
 ordinary room view. macOS and model replies were not qualified for this cut.
 
 Smoke/privacy, optional installation and modified-file preservation, avatar
 assignment/restore, world updates, travel, restart persistence, stale-request
-rejection and updater rollback were checked on isolated copies. Browser avatar
-rendering and world-to-world travel passed on the same runtime code in preview 4.
+rejection and updater rollback were checked on isolated copies. The public pose integration is qualified with synthetic AI action outputs and
+actual exported starter-rig checks; this does not claim every provider will
+choose a pose or that every imported skeleton is compatible.
 Please report reproduction steps and sanitized errors; do not post credentials,
 private conversations, or your whole saved household folder.

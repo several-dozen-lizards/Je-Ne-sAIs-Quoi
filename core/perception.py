@@ -425,8 +425,18 @@ def render_room_block(snapshot: dict, scored_objs: list,
                         f"<act>board_post {o['id']} :: exact words you "
                         "independently choose to leave</act> (both are "
                         "optional; a post has no required type)")
+        lines.append("<act>sit</act> (sit on the ground) / <act>lie_down</act> (lie on the ground)")
+        for oid, obj in objs.items():
+            if (obj.get('rest_support') or {}).get('kind') == 'bed':
+                lines.append(f"<act>rest {oid} back|left|right|front|elbow_left|elbow_right|sit_up|sit_edge_left|sit_edge_right</act> (choose a supported shape; approach if needed)")
+            elif obj.get('capability') == 'sitting':
+                lines.append(f"<act>rest {oid}</act> (approach and sit)")
         if posture != "standing":
             lines.append("<act>stand</act> (stand up)")
+            if posture.startswith('sitting'):
+                lines.append("<act>body_motion seated_point|seated_clap|seated_laugh|seated_talk</act> (choose one movement; it plays once)")
+            if member_rec.get('support_pose', {}).get('variant') in ('elbow_left','elbow_right'):
+                lines.append("<act>reach</act> / <act>poke</act> / <act>release_reach</act> (choose a bounded free-arm movement)")
         else:
             lines.append("<act>gesture attentive|weary|guarded|open|"
                          "curious_tilt</act> (choose a bodily shape)")
@@ -434,7 +444,7 @@ def render_room_block(snapshot: dict, scored_objs: list,
                 "<act>body_motion acknowledge|angry_gesture|"
                 "annoyed_head_shake|cocky|dismiss|happy_gesture|hard_nod|"
                 "yes_nod|long_nod|look_away|relieved_sigh|sarcastic_nod|"
-                "no_head_shake|thoughtful_head_shake</act> "
+                "no_head_shake|thoughtful_head_shake|neck_stretch|look_around|talk_gesture|talk_gesture_alt</act> "
                 "(choose one expressive movement; it plays once)")
             if isinstance(member_rec, dict) and member_rec.get("gesture"):
                 lines.append("<act>release_gesture</act> "

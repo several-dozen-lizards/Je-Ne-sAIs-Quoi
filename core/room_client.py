@@ -241,6 +241,27 @@ class RoomClient:
         return self._req("/api/act", {"member": self.member,
                                       "action": "stand"})
 
+    def rest(self, target=''):
+        parts = str(target or '').split()
+        choices = ('seat','back','left','right','front','elbow_left','elbow_right','sit_up','sit_edge_left','sit_edge_right')
+        variant = parts.pop() if len(parts)>1 and parts[-1] in choices else ''
+        return self._req('/api/act', {'member': self.member, 'action':'rest', 'object':' '.join(parts), 'payload':{'variant':variant}})
+
+    def lie_down(self, target=''):
+        parts = str(target or '').split()
+        choices = ('back','left','right','front','elbow_left','elbow_right','sit_up','sit_edge_left','sit_edge_right')
+        variant = parts.pop() if parts and parts[-1] in choices else 'back'
+        return self._req('/api/act', {'member':self.member, 'action':'lie_down', 'object':' '.join(parts), 'payload':{'variant':variant}})
+
+    def reach(self, target=''):
+        return self.act('reach', target)
+
+    def poke(self, target=''):
+        return self.act('poke', target)
+
+    def release_reach(self):
+        return self.act('release_reach', '')
+
     def gesture(self, name: str):
         return self.act("gesture", name)
 

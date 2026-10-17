@@ -1429,6 +1429,15 @@ def build_app() -> FastAPI:
             # affordance-gated: chairs carry capability='sitting'
             return room.sit(req.member, req.object or None)
 
+        if req.action == "rest":
+            return room.rest(req.member, req.object or '', (req.payload or {}).get('variant', ''))
+
+        if req.action == "lie_down":
+            return room.lie_down(req.member, req.object or None, (req.payload or {}).get('variant', 'back'))
+
+        if req.action in {"reach", "poke", "release_reach"}:
+            return room.reach_arm(req.member, req.object or '', poke=req.action == 'poke', release=req.action == 'release_reach')
+
         if req.action == "stand":
             return room.stand(req.member)
 

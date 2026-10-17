@@ -9,6 +9,7 @@ export function installPoseControls({bar,canvas,member,snapshot,data,act,refresh
       document.getElementById('visitor-poses')?.remove();
       const dialog=document.createElement('dialog');dialog.id='visitor-poses';dialog.style.cssText='max-width:560px;max-height:75vh;overflow:auto';
       const title=document.createElement('h2');title.textContent='Pose · '+(snapshot()?.objects?.[selected||record.support_pose?.object]?.name||member);dialog.append(title);
+      const note=document.createElement('p');note.textContent='Procedural poses need a compatible humanoid skeleton. Unrigged/custom models may show only part of a pose.';dialog.append(note);
       const choices=document.createElement('div');choices.style.cssText='display:flex;gap:8px;flex-wrap:wrap';dialog.append(choices);
       function choice(label,action,object='',payload={}){
         const button=document.createElement('button');button.textContent=label;choices.append(button);

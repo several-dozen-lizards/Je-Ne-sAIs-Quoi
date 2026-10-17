@@ -19,7 +19,7 @@ import {columnPositions,columnGeometry} from './columns.mjs';
 import {buildingMaterial} from './building-materials.mjs';
 import {sculptGeometry} from './rock-sculpt.mjs?types=1';
 import {weatherStone} from './stone-surface.mjs?types=1';
-import {installVisitor} from './visitor.mjs?public=4b';
+import {installVisitor} from './visitor.mjs?public=5';
 import {ORBIT_AVATAR_CLEARANCE_M} from './visitor-camera.mjs';
 import {renderRecovery,graphicsRecoveryPanel} from './render-recovery.mjs';
 import {createVineLayer} from './vines.mjs';

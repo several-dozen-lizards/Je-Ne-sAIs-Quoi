@@ -1,4 +1,4 @@
-> **JNAIQ 0.12.3:** public release with avatar assignment and world travel.
+> **JNAIQ 0.12.4:** public release with avatar assignment and world travel.
 > Builders and verified 3D assets are optional downloads. VR remains experimental
 > and off by default. See [Getting started and testing notes](TESTING.md).
 
@@ -13,8 +13,8 @@ who they are, choose the model that carries them, and talk with one or several
 of them in a configurable chat workspace. Persona identity, memory, body state,
 and conversation history live on your own computer.
 
-**Try the public release:** [Download JNAIQ 0.12.3](https://github.com/several-dozen-lizards/Je-Ne-sAIs-Quoi/releases/tag/v0.12.3).
-On Windows, extract **JNAIQ-0.12.3.zip** into a fresh folder and run
+**Try the public release:** [Download JNAIQ 0.12.4](https://github.com/several-dozen-lizards/Je-Ne-sAIs-Quoi/releases/tag/v0.12.4).
+On Windows, extract **JNAIQ-0.12.4.zip** into a fresh folder and run
 **INSTALL_JNAIQ.bat**. Use **START_NEXUS.bat** for later launches.
 [Setup guide](docs/JNAIQ_0_12_1_USER_SETUP_GUIDE.md) · [Getting started and testing notes](TESTING.md)
 
@@ -23,7 +23,21 @@ computer; choosing a cloud model sends the conversation context to that provider
 using your own credentials. The public package starts with an empty household
 and the shared **Nexus** room, ready for your own personas.
 
-## What is new in 0.12.3
+## What is new in 0.12.4
+
+**AI-connected poses and original procedural motion:** compatible humanoid avatars
+now render the existing AI gesture/body-motion actions, transient body adjustments,
+and visible facial/gaze packets in published 3D worlds. The **Poses** menu uses
+the same canonical room actions. All 22 named motions and a displacement-driven
+walking cycle use original formulas, not downloaded mocap. Sitting, reclining,
+furniture support and free-arm actions share the existing room state. Names are
+optional action descriptions, never instructions about what a persona feels.
+Imported unrigged/custom bodies may support fewer joints or expressions; the
+curated exported human starter is the qualified body. No new model call is made
+just to animate a pose. See PUBLIC_MOTION_PROVENANCE.json for the original-motion
+source and Apache-2.0 license. VR remains off by default and headset-untested.
+
+### Also included from 0.12.3
 
 - **Avatars you can assign.** Import an Avatar Creator GLB in **Worlds**, apply it
   to a household member, and restore the previous assignment when needed.
@@ -46,7 +60,17 @@ and the shared **Nexus** room, ready for your own personas.
 ![An assigned avatar in a published JNAIQ world, with grass, a cloudy sky and the Travel menu](docs/images/jnaiq-public-avatar-world.png)
 
 *Screenshot from an isolated public-build test: an imported avatar after travel
-to a published world. Walk/idle animation packs are not included.*
+to a published world. Third-party mocap packs are not included; 0.12.4 adds original procedural motion.*
+
+### Poses and AI actions
+
+Open **Poses** in a published world's visitor for standing gestures, ground
+sitting/reclining and compatible one-shot motions. Nearby supported furniture
+adds its rest options. AI personas with **room_actions** enabled can choose
+these same actions through their ordinary room context; the renderer follows
+what they actually choose and their published body surface. No extra model
+request is made just to animate a pose. A persona need not perform a motion on
+every reply. Preserve original saved designs when importing revised avatars.
 
 ### Try avatars and worlds
 
@@ -586,5 +610,6 @@ and stale revisions reject replacement; previous saved Builder work is retained.
 
 VR is off by default. Enable Experimental VR in Worlds, open a published world,
 then use Headset. This is clunky experimental support, not a hardware-qualified
-VR release. Walking animations and unverified motion packs are omitted; assigned
+VR release. Original procedural walking and expressive motions are included for compatible
+humanoid rigs. Unverified third-party motion packs remain omitted. Assigned
 avatars retain their exported shape and materials.

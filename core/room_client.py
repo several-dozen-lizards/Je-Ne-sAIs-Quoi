@@ -65,7 +65,20 @@ class RoomClient:
         if not self.room_id:
             return {}
         r = self._req(f"/api/rooms/{self.room_id}?member={self.member}")
-        return r if "error" not in r else {}
+        if "error" not in r:
+            # the body is not in the room this client believes in:
+            # follow it (return_home, cockpit moves, restored state).
+            mems = r.get("members") if isinstance(r, dict) else None
+            if isinstance(mems, dict) and self.member not in mems:
+                if self.sync_location() != r.get("id"):
+                    r2 = self._req(
+                        f"/api/rooms/{self.room_id}?member={self.member}")
+                    if "error" not in r2:
+                        r = r2
+            self.last_snapshot = r
+            return r
+        return {}
+
 
     def local_weather(self) -> dict:
         """Read the host's coordinate-free local-weather status."""
@@ -320,3 +333,23 @@ class RoomClient:
     def acknowledge_vision_frame(self, revision: int) -> None:
         self.last_vision_revision = max(self.last_vision_revision,
                                         int(revision or 0))
+
+
+    def _rehome(self, room_id: str):
+        self.room_id = room_id
+        self.last_seq = 0
+        self.private_last_seq = 0
+        self.last_vision_revision = 0
+        self.last_snapshot = {}
+        self.__dict__.pop("_adj", None)
+
+    def sync_location(self) -> str:
+        """Ask the world where this body is and follow it. Returns the
+        room id (possibly unchanged)."""
+        w = self._req("/api/world")
+        where = w.get("where", {}) if isinstance(w, dict) else {}
+        here = where.get(self.member)
+        if isinstance(here, str) and here and here != self.room_id:
+            self._rehome(here)
+        return self.room_id
+

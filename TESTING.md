@@ -1,6 +1,6 @@
-# JNAIQ 0.12.4 — getting started and testing notes
+# JNAIQ 0.12.5 — getting started and testing notes
 
-Download JNAIQ-0.12.4.zip from the release Assets, extract into a new folder,
+Download JNAIQ-0.12.5.zip from the release Assets, extract into a new folder,
 and run INSTALL_JNAIQ.bat on Windows. Use START_NEXUS.bat for later launches
 and STOP_NEXUS.bat to stop this installation. Follow the README for provider
 setup. Cloud providers require your credentials and may incur charges.
@@ -34,12 +34,26 @@ VR is off by default. Enable Experimental VR in Worlds and use Headset in a
 published world. Physical-headset behavior is untested and likely clunky;
 this remains work in progress. Original procedural walking and 22 expressive motions are included for compatible
 humanoid rigs. Unverified third-party animation packs remain excluded. The original Nexus uses its
-ordinary room view. macOS and model replies were not qualified for this cut.
+ordinary room view. macOS remains unqualified. GPT-4.1 movement choice on request is verified below;
+other provider behavior is unqualified.
 
 Smoke/privacy, optional installation and modified-file preservation, avatar
 assignment/restore, world updates, travel, restart persistence, stale-request
-rejection and updater rollback were checked on isolated copies. The public pose integration is qualified with synthetic AI action outputs and
-actual exported starter-rig checks; this does not claim every provider will
+rejection and updater rollback were checked on isolated copies. The original pose integration was qualified with synthetic AI action outputs and
+actual exported starter-rig checks; the 0.12.5 real conversation check is below.
+This this does not claim every provider will
 choose a pose or that every imported skeleton is compatible.
 Please report reproduction steps and sanitized errors; do not post credentials,
 private conversations, or your whole saved household folder.
+
+
+## 0.12.5 fresh-install conversation check
+
+Fresh released installer and optional tools, a new synthetic persona, and real
+OpenAI GPT-4.1 were used in an isolated installation. Startup and canonical room
+recovery passed. On a request to demonstrate a movement of its own choosing,
+the AI selected talk_gesture; the host recorded it and the browser animated the
+28-joint curated avatar without renderer errors. An ordinary conversation turn
+selected no body action. No action tags or named pose were supplied by the tester.
+An earlier nonstreaming request timed out; successful checks used normal streaming.
+This does not qualify spontaneous pose frequency, every provider/rig, or VR hardware.

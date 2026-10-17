@@ -7789,6 +7789,11 @@ def build_app(engine: TurnEngine, max_tokens: int = 600,
         app.mount("/assets", StaticFiles(directory=ASSET_DIR),
                   name="jnaiq-assets")
     app.state.engine = engine
+    # Public projection omits the private sensory setup block. Keep optional
+    # state fields defined so ordinary cockpit startup/turns remain usable.
+    app.state.physical_eye_tracker = None
+    app.state.outward_curiosity = getattr(engine, "outward_curiosity", None)
+    app.state.self_initiated_contact = getattr(engine, "self_initiated_contact", None)
     persona_dir = getattr(engine, "pdir", "")
     memory_organ = getattr(engine, "organ", None)
     if (memory_organ is not None

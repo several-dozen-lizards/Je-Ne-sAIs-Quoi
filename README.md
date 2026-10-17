@@ -1,4 +1,4 @@
-> **JNAIQ 0.12.4:** public release with avatar assignment and world travel.
+> **JNAIQ 0.12.5:** public release with avatar assignment and world travel.
 > Builders and verified 3D assets are optional downloads. VR remains experimental
 > and off by default. See [Getting started and testing notes](TESTING.md).
 
@@ -13,8 +13,8 @@ who they are, choose the model that carries them, and talk with one or several
 of them in a configurable chat workspace. Persona identity, memory, body state,
 and conversation history live on your own computer.
 
-**Try the public release:** [Download JNAIQ 0.12.4](https://github.com/several-dozen-lizards/Je-Ne-sAIs-Quoi/releases/tag/v0.12.4).
-On Windows, extract **JNAIQ-0.12.4.zip** into a fresh folder and run
+**Try the public release:** [Download JNAIQ 0.12.5](https://github.com/several-dozen-lizards/Je-Ne-sAIs-Quoi/releases/tag/v0.12.5).
+On Windows, extract **JNAIQ-0.12.5.zip** into a fresh folder and run
 **INSTALL_JNAIQ.bat**. Use **START_NEXUS.bat** for later launches.
 [Setup guide](docs/JNAIQ_0_12_1_USER_SETUP_GUIDE.md) · [Getting started and testing notes](TESTING.md)
 
@@ -23,7 +23,16 @@ computer; choosing a cloud model sends the conversation context to that provider
 using your own credentials. The public package starts with an empty household
 and the shared **Nexus** room, ready for your own personas.
 
-## What is new in 0.12.4
+## What is new in 0.12.5
+
+Fixed fresh persona startup when optional private sensory components are absent,
+and corrected stale room context after an avatar travels through the public UI.
+A fresh-install conversation with GPT-4.1 successfully chose `talk_gesture`,
+emitted the canonical motion event and rendered it on the curated humanoid.
+This was an explicit request for a movement of the AI's choosing; an ordinary
+conversation turn chose no pose. Choice remains context- and model-dependent.
+
+### Included from 0.12.4
 
 **AI-connected poses and original procedural motion:** compatible humanoid avatars
 now render the existing AI gesture/body-motion actions, transient body adjustments,
@@ -60,7 +69,7 @@ source and Apache-2.0 license. VR remains off by default and headset-untested.
 ![An assigned avatar in a published JNAIQ world, with grass, a cloudy sky and the Travel menu](docs/images/jnaiq-public-avatar-world.png)
 
 *Screenshot from an isolated public-build test: an imported avatar after travel
-to a published world. Third-party mocap packs are not included; 0.12.4 adds original procedural motion.*
+to a published world. Third-party mocap packs are not included; 0.12.4 added original procedural motion.*
 
 ### Poses and AI actions
 

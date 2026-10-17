@@ -191,6 +191,19 @@ def _tier_phrase(sal: float) -> str:
     return "is present at the edge of awareness"
 
 
+def _posture_phrase(posture: str) -> str:
+    """Durable posture -> what a body looks like right now. Mirrors
+    room.state.Member.posture: standing | sitting | sitting_floor | lying."""
+    p = str(posture or "standing")
+    if p == "sitting_floor":
+        return "sitting on the ground"
+    if p == "sitting":
+        return "sitting"
+    if p == "lying":
+        return "lying on the ground"
+    return "standing"
+
+
 def _describe_event(e: dict, member: str = "") -> str:
     k, m, d = e.get("kind"), e.get("member"), e.get("data", {})
     if m == member:
@@ -317,8 +330,20 @@ def render_room_block(snapshot: dict, scored_objs: list,
             lines.append(
                 f"{speaker} spoke in the shared room. The utterance is "
                 "audible; direct address to you is not established.")
+    # Durable body state survives the recent-event window. Describe the
+    # canonical snapshot, never infer a feeling or a movement from speech.
+    own_rec = members.get(member)
+    if isinstance(own_rec, dict):
+        lines.append(f"You are {_posture_phrase(own_rec.get('posture'))}.")
+        if own_rec.get("gesture"):
+            lines.append(f"Your body is holding the {own_rec['gesture']} gesture.")
     if bystanders:
-        lines.append("Also here: " + ", ".join(bystanders) + ".")
+        described = []
+        for other in bystanders:
+            rec = members.get(other)
+            posture = rec.get("posture", "standing") if isinstance(rec, dict) else "standing"
+            described.append(other if posture == "standing" else f"{other} ({_posture_phrase(posture)})")
+        lines.append("Also here: " + ", ".join(described) + ".")
     kept = [o for o in scored_objs[:top_objects] if o["salience"] >= floor]
     if kept:
         lines.append("What attention finds, given your current state:")
@@ -364,6 +389,32 @@ def render_room_block(snapshot: dict, scored_objs: list,
     if can_act and me is not None:
         within = [o for o in objs.values()
                   if _dist(me, o["position_m"]) <= REACH_M]
+        lines.append("Available body actions from your current posture:")
+        lines.append("<act>sit</act> (sit on the ground) / <act>lie_down</act> (lie on the ground)")
+        for oid, obj in objs.items():
+            if (obj.get('rest_support') or {}).get('kind') == 'bed':
+                lines.append(f"<act>rest {oid} back|left|right|front|elbow_left|elbow_right|sit_up|sit_edge_left|sit_edge_right</act> (choose a supported shape; approach if needed)")
+            elif obj.get('capability') == 'sitting':
+                lines.append(f"<act>rest {oid}</act> (approach and sit)")
+        if posture != "standing":
+            lines.append("<act>stand</act> (stand up)")
+            if posture.startswith('sitting'):
+                lines.append("<act>body_motion seated_point|seated_clap|seated_laugh|seated_talk</act> (choose one movement; it plays once)")
+            if (member_rec.get('support_pose') or {}).get('variant') in ('elbow_left','elbow_right'):
+                lines.append("<act>reach</act> / <act>poke</act> / <act>release_reach</act> (choose a bounded free-arm movement)")
+        else:
+            lines.append("<act>gesture attentive|weary|guarded|open|"
+                         "curious_tilt</act> (choose a bodily shape)")
+            lines.append(
+                "<act>body_motion acknowledge|angry_gesture|"
+                "annoyed_head_shake|cocky|dismiss|happy_gesture|hard_nod|"
+                "yes_nod|long_nod|look_away|relieved_sigh|sarcastic_nod|"
+                "no_head_shake|thoughtful_head_shake|neck_stretch|look_around|talk_gesture|talk_gesture_alt</act> "
+                "(choose one expressive movement; it plays once)")
+            if isinstance(member_rec, dict) and member_rec.get("gesture"):
+                lines.append("<act>release_gesture</act> "
+                             "(let the held shape return to felt posture)")
+
         lines.append("From where you stand, right now:")
         # Reachable controls are the immediate motor field. Keep them ahead
         # of potentially long whole-room navigation menus so prompt budgeting
@@ -425,30 +476,6 @@ def render_room_block(snapshot: dict, scored_objs: list,
                         f"<act>board_post {o['id']} :: exact words you "
                         "independently choose to leave</act> (both are "
                         "optional; a post has no required type)")
-        lines.append("<act>sit</act> (sit on the ground) / <act>lie_down</act> (lie on the ground)")
-        for oid, obj in objs.items():
-            if (obj.get('rest_support') or {}).get('kind') == 'bed':
-                lines.append(f"<act>rest {oid} back|left|right|front|elbow_left|elbow_right|sit_up|sit_edge_left|sit_edge_right</act> (choose a supported shape; approach if needed)")
-            elif obj.get('capability') == 'sitting':
-                lines.append(f"<act>rest {oid}</act> (approach and sit)")
-        if posture != "standing":
-            lines.append("<act>stand</act> (stand up)")
-            if posture.startswith('sitting'):
-                lines.append("<act>body_motion seated_point|seated_clap|seated_laugh|seated_talk</act> (choose one movement; it plays once)")
-            if member_rec.get('support_pose', {}).get('variant') in ('elbow_left','elbow_right'):
-                lines.append("<act>reach</act> / <act>poke</act> / <act>release_reach</act> (choose a bounded free-arm movement)")
-        else:
-            lines.append("<act>gesture attentive|weary|guarded|open|"
-                         "curious_tilt</act> (choose a bodily shape)")
-            lines.append(
-                "<act>body_motion acknowledge|angry_gesture|"
-                "annoyed_head_shake|cocky|dismiss|happy_gesture|hard_nod|"
-                "yes_nod|long_nod|look_away|relieved_sigh|sarcastic_nod|"
-                "no_head_shake|thoughtful_head_shake|neck_stretch|look_around|talk_gesture|talk_gesture_alt</act> "
-                "(choose one expressive movement; it plays once)")
-            if isinstance(member_rec, dict) and member_rec.get("gesture"):
-                lines.append("<act>release_gesture</act> "
-                             "(let the held shape return to felt posture)")
         # bystanders (computed above, speaker excluded) — the say
         # reaches whoever you're speaking with plus anyone else here.
         if bystanders and can_say:

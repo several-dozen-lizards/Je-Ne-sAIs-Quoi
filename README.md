@@ -1,4 +1,4 @@
-> **JNAIQ 0.12.5:** public release with avatar assignment and world travel.
+> **JNAIQ 0.12.6:** public release with avatar assignment and world travel.
 > Builders and verified 3D assets are optional downloads. VR remains experimental
 > and off by default. See [Getting started and testing notes](TESTING.md).
 
@@ -13,8 +13,8 @@ who they are, choose the model that carries them, and talk with one or several
 of them in a configurable chat workspace. Persona identity, memory, body state,
 and conversation history live on your own computer.
 
-**Try the public release:** [Download JNAIQ 0.12.5](https://github.com/several-dozen-lizards/Je-Ne-sAIs-Quoi/releases/tag/v0.12.5).
-On Windows, extract **JNAIQ-0.12.5.zip** into a fresh folder and run
+**Try the public release:** [Download JNAIQ 0.12.6](https://github.com/several-dozen-lizards/Je-Ne-sAIs-Quoi/releases/tag/v0.12.6).
+On Windows, extract **JNAIQ-0.12.6.zip** into a fresh folder and run
 **INSTALL_JNAIQ.bat**. Use **START_NEXUS.bat** for later launches.
 [Setup guide](docs/JNAIQ_0_12_1_USER_SETUP_GUIDE.md) · [Getting started and testing notes](TESTING.md)
 
@@ -23,7 +23,16 @@ computer; choosing a cloud model sends the conversation context to that provider
 using your own credentials. The public package starts with an empty household
 and the shared **Nexus** room, ready for your own personas.
 
-## What is new in 0.12.5
+## What is new in 0.12.6
+
+**Body context stays connected:** current posture and held gestures remain visible
+in room context after old events expire. Basic body-action tags come before long
+scenery lists, ground sitting/lying help matches supported actions, and ordinary
+chat availability is explicit. Speaking without an action remains equally valid.
+These are context repairs, not automatic pose selection: GPT-4.1 chose no poses
+in the matched eight-turn ordinary-conversation samples before or after repair.
+
+### Included from 0.12.5
 
 Fixed fresh persona startup when optional private sensory components are absent,
 and corrected stale room context after an avatar travels through the public UI.
@@ -622,3 +631,17 @@ then use Headset. This is clunky experimental support, not a hardware-qualified
 VR release. Original procedural walking and expressive motions are included for compatible
 humanoid rigs. Unverified third-party motion packs remain omitted. Assigned
 avatars retain their exported shape and materials.
+
+
+## Ordinary conversational pose qualification
+
+Current posture and held gestures now remain in canonical room context even
+when old events expire. Basic body-action tags come before long scenery lists.
+Floor sitting/lying help matches supported actions, and ordinary-chat availability
+is explicit while speaking without any action stays equally valid.
+
+A fresh GPT-4.1 persona completed the same eight ordinary conversation inputs as
+the unchanged 0.12.5 baseline. Both samples selected zero body actions. These fixes
+repair context gaps; they do not establish spontaneous conversational posing.
+The earlier explicitly requested AI-selected motion remains verified. Other
+providers, broad rig compatibility and physical VR remain unqualified.

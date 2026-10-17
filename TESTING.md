@@ -1,6 +1,6 @@
-# JNAIQ 0.12.5 — getting started and testing notes
+# JNAIQ 0.12.6 — getting started and testing notes
 
-Download JNAIQ-0.12.5.zip from the release Assets, extract into a new folder,
+Download JNAIQ-0.12.6.zip from the release Assets, extract into a new folder,
 and run INSTALL_JNAIQ.bat on Windows. Use START_NEXUS.bat for later launches
 and STOP_NEXUS.bat to stop this installation. Follow the README for provider
 setup. Cloud providers require your credentials and may incur charges.
@@ -40,7 +40,7 @@ other provider behavior is unqualified.
 Smoke/privacy, optional installation and modified-file preservation, avatar
 assignment/restore, world updates, travel, restart persistence, stale-request
 rejection and updater rollback were checked on isolated copies. The original pose integration was qualified with synthetic AI action outputs and
-actual exported starter-rig checks; the 0.12.5 real conversation check is below.
+actual exported starter-rig checks; the 0.12.6 real conversation check is below.
 This this does not claim every provider will
 choose a pose or that every imported skeleton is compatible.
 Please report reproduction steps and sanitized errors; do not post credentials,
@@ -57,3 +57,17 @@ the AI selected talk_gesture; the host recorded it and the browser animated the
 selected no body action. No action tags or named pose were supplied by the tester.
 An earlier nonstreaming request timed out; successful checks used normal streaming.
 This does not qualify spontaneous pose frequency, every provider/rig, or VR hardware.
+
+
+## Ordinary conversational pose qualification
+
+Current posture and held gestures now remain in canonical room context even
+when old events expire. Basic body-action tags come before long scenery lists.
+Floor sitting/lying help matches supported actions, and ordinary-chat availability
+is explicit while speaking without any action stays equally valid.
+
+A fresh GPT-4.1 persona completed the same eight ordinary conversation inputs as
+the unchanged 0.12.5 baseline. Both samples selected zero body actions. These fixes
+repair context gaps; they do not establish spontaneous conversational posing.
+The earlier explicitly requested AI-selected motion remains verified. Other
+providers, broad rig compatibility and physical VR remain unqualified.
